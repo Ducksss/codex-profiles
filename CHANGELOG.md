@@ -7,6 +7,10 @@ and this project follows semantic versioning once tagged releases begin.
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.1.1 - 2026-04-25
+
 ### Fixed
 
 - Desktop app switching now waits for both the main Codex app process and the
