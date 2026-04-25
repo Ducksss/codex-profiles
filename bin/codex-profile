@@ -1,0 +1,252 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+PROGRAM="${0##*/}"
+CODEX_APP="${CODEX_APP:-/Applications/Codex.app}"
+CODEX_APP_BIN="${CODEX_APP_BIN:-$CODEX_APP/Contents/MacOS/Codex}"
+CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-$CODEX_APP/Contents/Resources/codex}"
+
+usage() {
+  cat <<EOF
+$PROGRAM - run Codex with isolated CODEX_HOME profiles
+
+Usage:
+  $PROGRAM app <profile> [workspace]
+  $PROGRAM cli <profile> [codex-args...]
+  $PROGRAM login <profile> [codex-login-args...]
+  $PROGRAM status [profile]
+  $PROGRAM path <profile>
+  $PROGRAM doctor
+
+Examples:
+  $PROGRAM login personal
+  $PROGRAM app personal ~/Dev/my-project
+  $PROGRAM cli personal exec "review this repo"
+  $PROGRAM status
+
+Profiles:
+  default, dev, main  -> ~/.codex
+  edu, education      -> ~/.codex-education
+  any other name      -> ~/.codex-<profile>
+
+Environment:
+  CODEX_APP       Override Codex.app path.
+  CODEX_APP_BIN   Override Codex Desktop binary path.
+  CODEX_CLI       Override Codex CLI binary path.
+EOF
+}
+
+die() {
+  printf 'Error: %s\n' "$*" >&2
+  exit 1
+}
+
+note() {
+  printf '%s\n' "$*"
+}
+
+validate_profile() {
+  local profile="$1"
+
+  if [[ ! "$profile" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+    die "Invalid profile '$profile'. Use letters, numbers, dots, dashes, or underscores."
+  fi
+}
+
+codex_home_for_profile() {
+  local profile="$1"
+
+  validate_profile "$profile"
+
+  case "$profile" in
+    default | dev | main)
+      printf '%s/.codex\n' "$HOME"
+      ;;
+    edu | education)
+      printf '%s/.codex-education\n' "$HOME"
+      ;;
+    *)
+      printf '%s/.codex-%s\n' "$HOME" "$profile"
+      ;;
+  esac
+}
+
+ensure_home() {
+  local codex_home="$1"
+
+  mkdir -p "$codex_home"
+  chmod 700 "$codex_home" 2> /dev/null || true
+}
+
+find_codex_cli() {
+  if [[ -n "${CODEX_CLI:-}" ]]; then
+    [[ -x "$CODEX_CLI" ]] || die "CODEX_CLI is set but not executable: $CODEX_CLI"
+    printf '%s\n' "$CODEX_CLI"
+    return 0
+  fi
+
+  if command -v codex > /dev/null 2>&1; then
+    command -v codex
+    return 0
+  fi
+
+  if [[ -x "$CODEX_BUNDLED_CLI" ]]; then
+    printf '%s\n' "$CODEX_BUNDLED_CLI"
+    return 0
+  fi
+
+  die "Codex CLI not found. Install Codex or set CODEX_CLI=/path/to/codex."
+}
+
+quit_codex_app() {
+  if ! pgrep -x Codex > /dev/null 2>&1; then
+    return 0
+  fi
+
+  note "Quitting existing Codex app..."
+  osascript -e 'tell application "Codex" to quit' > /dev/null 2>&1 || true
+
+  for _ in {1..30}; do
+    if ! pgrep -x Codex > /dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.5
+  done
+
+  die "Codex is still running. Quit it with Cmd+Q, then retry."
+}
+
+command_app() {
+  local profile="${1:-}"
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM app <profile> [workspace]"
+  shift || true
+
+  local workspace="${1:-$PWD}"
+  local codex_home
+
+  [[ -x "$CODEX_APP_BIN" ]] || die "Codex Desktop binary not found at $CODEX_APP_BIN"
+
+  codex_home="$(codex_home_for_profile "$profile")"
+  ensure_home "$codex_home"
+  quit_codex_app
+
+  local log_file="/tmp/codex-$profile.log"
+  note "Launching Codex Desktop with CODEX_HOME=$codex_home"
+  note "Log: $log_file"
+  nohup env CODEX_HOME="$codex_home" "$CODEX_APP_BIN" "$workspace" > "$log_file" 2>&1 &
+}
+
+command_cli() {
+  local profile="${1:-}"
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM cli <profile> [codex-args...]"
+  shift || true
+
+  local codex_home codex_cli
+  codex_home="$(codex_home_for_profile "$profile")"
+  ensure_home "$codex_home"
+  codex_cli="$(find_codex_cli)"
+
+  exec env CODEX_HOME="$codex_home" "$codex_cli" "$@"
+}
+
+command_login() {
+  local profile="${1:-}"
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM login <profile> [codex-login-args...]"
+  shift || true
+
+  local codex_home codex_cli
+  codex_home="$(codex_home_for_profile "$profile")"
+  ensure_home "$codex_home"
+  codex_cli="$(find_codex_cli)"
+
+  exec env CODEX_HOME="$codex_home" "$codex_cli" login "$@"
+}
+
+command_status_one() {
+  local profile="$1"
+  local codex_home codex_cli
+
+  codex_home="$(codex_home_for_profile "$profile")"
+  codex_cli="$(find_codex_cli)"
+
+  printf '%s (%s): ' "$profile" "$codex_home"
+  env CODEX_HOME="$codex_home" "$codex_cli" login status || true
+}
+
+command_status() {
+  if [[ -n "${1:-}" ]]; then
+    command_status_one "$1"
+    return 0
+  fi
+
+  command_status_one default
+
+  local dir profile
+  for dir in "$HOME"/.codex-*; do
+    [[ -d "$dir" ]] || continue
+    profile="${dir##*/.codex-}"
+    command_status_one "$profile"
+  done
+}
+
+command_path() {
+  local profile="${1:-}"
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM path <profile>"
+  codex_home_for_profile "$profile"
+}
+
+command_doctor() {
+  note "Codex profile doctor"
+  note ""
+
+  if [[ -x "$CODEX_APP_BIN" ]]; then
+    note "Desktop: $CODEX_APP_BIN"
+  else
+    note "Desktop: missing ($CODEX_APP_BIN)"
+  fi
+
+  if codex_cli="$(find_codex_cli 2> /dev/null)"; then
+    note "CLI: $codex_cli"
+    "$codex_cli" --version || true
+  else
+    note "CLI: missing"
+  fi
+
+  note ""
+  command_status
+}
+
+main() {
+  local command="${1:-help}"
+  shift || true
+
+  case "$command" in
+    app)
+      command_app "$@"
+      ;;
+    cli)
+      command_cli "$@"
+      ;;
+    login)
+      command_login "$@"
+      ;;
+    status)
+      command_status "$@"
+      ;;
+    path)
+      command_path "$@"
+      ;;
+    doctor)
+      command_doctor "$@"
+      ;;
+    help | -h | --help)
+      usage
+      ;;
+    *)
+      die "Unknown command '$command'. See '$PROGRAM help'."
+      ;;
+  esac
+}
+
+main "$@"
