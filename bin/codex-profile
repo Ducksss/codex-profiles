@@ -6,6 +6,8 @@ PROGRAM="${0##*/}"
 CODEX_APP="${CODEX_APP:-/Applications/Codex.app}"
 CODEX_APP_BIN="${CODEX_APP_BIN:-$CODEX_APP/Contents/MacOS/Codex}"
 CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-$CODEX_APP/Contents/Resources/codex}"
+CODEX_PROFILE_QUIT_ATTEMPTS="${CODEX_PROFILE_QUIT_ATTEMPTS:-30}"
+CODEX_PROFILE_QUIT_SLEEP="${CODEX_PROFILE_QUIT_SLEEP:-0.5}"
 
 usage() {
   cat <<EOF
@@ -75,8 +77,15 @@ codex_home_for_profile() {
 ensure_home() {
   local codex_home="$1"
 
-  mkdir -p "$codex_home"
-  chmod 700 "$codex_home" 2> /dev/null || true
+  mkdir -p "$codex_home" || die "Cannot create directory: $codex_home"
+  [[ -d "$codex_home" ]] || die "Not a directory: $codex_home"
+  chmod 700 "$codex_home" || die "Cannot set private permissions on: $codex_home"
+}
+
+codex_desktop_running() {
+  pgrep -x Codex > /dev/null 2>&1 && return 0
+  pgrep -f "$CODEX_BUNDLED_CLI app-server" > /dev/null 2>&1 && return 0
+  return 1
 }
 
 find_codex_cli() {
@@ -100,21 +109,23 @@ find_codex_cli() {
 }
 
 quit_codex_app() {
-  if ! pgrep -x Codex > /dev/null 2>&1; then
+  local attempt
+
+  if ! codex_desktop_running; then
     return 0
   fi
 
   note "Quitting existing Codex app..."
   osascript -e 'tell application "Codex" to quit' > /dev/null 2>&1 || true
 
-  for _ in {1..30}; do
-    if ! pgrep -x Codex > /dev/null 2>&1; then
+  for ((attempt = 0; attempt < CODEX_PROFILE_QUIT_ATTEMPTS; attempt++)); do
+    if ! codex_desktop_running; then
       return 0
     fi
-    sleep 0.5
+    sleep "$CODEX_PROFILE_QUIT_SLEEP"
   done
 
-  die "Codex is still running. Quit it with Cmd+Q, then retry."
+  die "Codex or its app-server is still running. Quit Codex with Cmd+Q, then retry."
 }
 
 command_app() {
@@ -171,29 +182,51 @@ command_login() {
 command_status_one() {
   local profile="$1"
   local codex_home codex_cli
+  local status_output status_code
 
   codex_home="$(codex_home_for_profile "$profile")"
-  ensure_home "$codex_home"
-  codex_cli="$(find_codex_cli)"
 
-  printf '%s (%s): ' "$profile" "$codex_home"
-  env CODEX_HOME="$codex_home" "$codex_cli" login status || true
-}
-
-command_status() {
-  if [[ -n "${1:-}" ]]; then
-    command_status_one "$1"
+  if [[ ! -d "$codex_home" ]]; then
+    printf '%s (%s): Not initialized\n' "$profile" "$codex_home"
     return 0
   fi
 
-  command_status_one default
+  codex_cli="$(find_codex_cli)"
+
+  printf '%s (%s): ' "$profile" "$codex_home"
+
+  set +e
+  status_output="$(env CODEX_HOME="$codex_home" "$codex_cli" login status 2>&1)"
+  status_code=$?
+  set -e
+
+  printf '%s\n' "$status_output"
+
+  if [[ "$status_code" -eq 0 || "$status_output" == "Not logged in" ]]; then
+    return 0
+  fi
+
+  return "$status_code"
+}
+
+command_status() {
+  local status_code=0
+
+  if [[ -n "${1:-}" ]]; then
+    command_status_one "$1"
+    return $?
+  fi
+
+  command_status_one default || status_code=$?
 
   local dir profile
   for dir in "$HOME"/.codex-*; do
     [[ -d "$dir" ]] || continue
     profile="${dir##*/.codex-}"
-    command_status_one "$profile"
+    command_status_one "$profile" || status_code=$?
   done
+
+  return "$status_code"
 }
 
 command_path() {

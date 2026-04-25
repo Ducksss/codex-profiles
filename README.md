@@ -94,6 +94,9 @@ codex-profile status
 codex-profile doctor
 ```
 
+`status` is read-only: it reports missing profiles as `Not initialized` instead
+of creating directories for typos.
+
 ## Profile Paths
 
 Built-in profile mappings:

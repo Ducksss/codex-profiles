@@ -7,7 +7,15 @@ and this project follows semantic versioning once tagged releases begin.
 
 ## Unreleased
 
-Nothing yet.
+### Fixed
+
+- Desktop app switching now waits for both the main Codex app process and the
+  bundled Codex app-server process to stop before launching a new profile.
+- Profile directory permission setup now fails loudly if private permissions
+  cannot be applied.
+- `status` no longer creates missing profile directories.
+- `status` now propagates unexpected Codex CLI failures while still treating
+  "Not logged in" as a normal status result.
 
 ## 0.1.0 - 2026-04-25
 
