@@ -11,6 +11,9 @@ Switch Codex accounts without swapping token files by hand.
 launches the Codex CLI or Codex Desktop app with a named profile so each account
 gets its own auth, config, sessions, plugins, logs, and local Codex state.
 
+This is for switching Codex accounts and local state, not just model or approval
+settings.
+
 ```sh
 codex-profile cli personal
 codex-profile cli work exec "review this repo"
@@ -34,6 +37,10 @@ doesn't: connector state, sessions, plugin caches, config, and logs remain share
 `codex-profiles` keeps the workflow simple while using the cleaner boundary:
 separate Codex homes.
 
+## Demo
+
+[![SaaS-style codex-profiles promo frame](media/codex-profiles-saas-promo-frame.png)](codex-profiles-saas-hyperframes/renders/codex-profiles-saas-promo.mp4)
+
 ## Features
 
 - Named profiles backed by separate `CODEX_HOME` directories.
@@ -41,7 +48,7 @@ separate Codex homes.
 - No token copying, parsing, printing, or storage logic.
 - Profile-local desktop logs with private permissions.
 - `doctor` and `status` commands for quick debugging.
-- Dependency-free Bash script.
+- No third-party runtime dependencies.
 - Tested on macOS and Ubuntu in GitHub Actions.
 
 ## Install
@@ -79,7 +86,7 @@ codex-profile cli work exec "run tests and summarize failures"
 codex-profile cli edu review
 ```
 
-Run Codex Desktop with a profile:
+On macOS, run Codex Desktop with a profile:
 
 ```sh
 codex-profile app personal
@@ -97,9 +104,9 @@ codex-profile doctor
 `status` is read-only: it reports missing profiles as `Not initialized` instead
 of creating directories for typos.
 
-## Profile Paths
+## Profile Home Paths
 
-Built-in profile mappings:
+Default `CODEX_HOME` path mappings:
 
 ```text
 default, dev, main  -> ~/.codex
@@ -123,24 +130,12 @@ codex-profile path personal
 
 ## Recommended Aliases
 
-Add these to your shell config if you want short commands:
+Add aliases to your shell config if you want shorter commands:
 
 ```sh
 alias codex-personal='codex-profile cli personal'
 alias codex-work='codex-profile cli work'
-alias codex-edu='codex-profile cli edu'
-
-alias codex-app-personal='codex-profile app personal'
 alias codex-app-work='codex-profile app work'
-alias codex-app-edu='codex-profile app edu'
-```
-
-Then use:
-
-```sh
-codex-personal
-codex-work exec "review this repo"
-codex-app-personal
 ```
 
 ## Commands
@@ -203,6 +198,14 @@ CODEX_CLI=/path/to/codex codex-profile cli personal
 ### Is this an official OpenAI project?
 
 No. This project is community-maintained and is not affiliated with OpenAI.
+
+### Is this the same as Codex's built-in config profiles?
+
+No. Codex config profiles switch settings inside one `CODEX_HOME`, such as
+model, approval policy, sandboxing, and hooks.
+
+`codex-profiles` switches `CODEX_HOME` itself, so each account can have separate
+auth, config, sessions, plugins, logs, caches, and local Codex state.
 
 ### Does it copy my tokens?
 
