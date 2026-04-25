@@ -131,10 +131,15 @@ command_app() {
   ensure_home "$codex_home"
   quit_codex_app
 
-  local log_file="/tmp/codex-$profile.log"
+  local log_dir="$codex_home/logs"
+  local log_file="$log_dir/desktop.log"
+  ensure_home "$log_dir"
+  (umask 077 && : > "$log_file")
+  chmod 600 "$log_file" 2> /dev/null || true
+
   note "Launching Codex Desktop with CODEX_HOME=$codex_home"
   note "Log: $log_file"
-  nohup env CODEX_HOME="$codex_home" "$CODEX_APP_BIN" "$workspace" > "$log_file" 2>&1 &
+  (umask 077 && nohup env CODEX_HOME="$codex_home" "$CODEX_APP_BIN" "$workspace" > "$log_file" 2>&1 &)
 }
 
 command_cli() {
@@ -168,6 +173,7 @@ command_status_one() {
   local codex_home codex_cli
 
   codex_home="$(codex_home_for_profile "$profile")"
+  ensure_home "$codex_home"
   codex_cli="$(find_codex_cli)"
 
   printf '%s (%s): ' "$profile" "$codex_home"
@@ -197,6 +203,8 @@ command_path() {
 }
 
 command_doctor() {
+  local codex_cli
+
   note "Codex profile doctor"
   note ""
 
@@ -211,6 +219,9 @@ command_doctor() {
     "$codex_cli" --version || true
   else
     note "CLI: missing"
+    note ""
+    note "Status: skipped"
+    return 0
   fi
 
   note ""

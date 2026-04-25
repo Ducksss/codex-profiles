@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shell:
+    name: Shell checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run smoke tests
+        run: make test
+
+      - name: Run ShellCheck
+        run: shellcheck bin/codex-profile test/codex-profile-test.sh
+
+  macos:
+    name: macOS smoke test
+    runs-on: macos-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Run smoke tests
+        run: make test
+
+      - name: Verify install target
+        run: |
+          make install PREFIX="$RUNNER_TEMP/codex-profile-install"
+          "$RUNNER_TEMP/codex-profile-install/bin/codex-profile" help >/dev/null

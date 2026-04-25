@@ -1,5 +1,8 @@
 # codex-profiles
 
+[![CI](https://github.com/Ducksss/codex-profiles/actions/workflows/ci.yml/badge.svg)](https://github.com/Ducksss/codex-profiles/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Run Codex with isolated account profiles.
 
 `codex-profiles` is a tiny Bash helper for people who use more than one Codex
