@@ -1,7 +1,7 @@
 PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
 
-.PHONY: install uninstall test
+.PHONY: install uninstall lint test
 
 install:
 	install -d "$(BINDIR)"
@@ -9,6 +9,9 @@ install:
 
 uninstall:
 	rm -f "$(BINDIR)/codex-profile"
+
+lint:
+	shellcheck bin/codex-profile test/codex-profile-test.sh
 
 test:
 	bash -n bin/codex-profile

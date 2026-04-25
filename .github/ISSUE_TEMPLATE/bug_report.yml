@@ -1,0 +1,75 @@
+name: Bug report
+description: Report a reproducible problem with codex-profiles.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Do not paste `auth.json`, tokens, OAuth codes, connector credentials, or private logs.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+      placeholder: codex-profile app personal launched the wrong profile...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction
+      description: Exact commands and steps to reproduce the issue.
+      placeholder: |
+        1. Run `codex-profile ...`
+        2. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: macOS 15.6, Ubuntu 24.04, etc.
+    validations:
+      required: true
+
+  - type: input
+    id: shell
+    attributes:
+      label: Shell
+      placeholder: bash 5.2, zsh 5.9, etc.
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Sanitized `codex-profile doctor` output
+      description: Remove account identifiers, paths, or anything private before posting.
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: I did not paste real tokens, auth files, OAuth codes, connector credentials, or private logs.
+          required: true
