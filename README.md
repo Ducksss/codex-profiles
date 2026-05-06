@@ -39,7 +39,9 @@ separate Codex homes.
 
 ## Demo
 
-[![SaaS-style codex-profiles promo frame](media/codex-profiles-saas-promo-frame.png)](codex-profiles-saas-hyperframes/renders/codex-profiles-saas-promo.mp4)
+![codex-profiles promo frame](media/codex-profiles-saas-promo-frame.png)
+
+[Watch the short reveal video](media/codex-profiles-apple-reveal.mp4)
 
 ## Features
 
