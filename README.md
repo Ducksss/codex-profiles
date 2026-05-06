@@ -1,6 +1,7 @@
 # codex-profiles
 
 [![CI](https://github.com/Ducksss/codex-profiles/actions/workflows/ci.yml/badge.svg)](https://github.com/Ducksss/codex-profiles/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/Ducksss/codex-profiles?sort=semver)](https://github.com/Ducksss/codex-profiles/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Shell: Bash](https://img.shields.io/badge/shell-bash-4EAA25.svg)](bin/codex-profile)
 [![Platform: macOS + Linux](https://img.shields.io/badge/platform-macOS%20%2B%20Linux-lightgrey.svg)](#platform-support)
@@ -54,6 +55,14 @@ separate Codex homes.
 - Tested on macOS and Ubuntu in GitHub Actions.
 
 ## Install
+
+With Homebrew:
+
+```sh
+brew install Ducksss/tap/codex-profile
+```
+
+From source:
 
 ```sh
 git clone https://github.com/Ducksss/codex-profiles.git
@@ -250,6 +259,9 @@ doctor output.
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for
 local setup, testing, and contribution guidelines.
+
+Questions, workflow ideas, and launch feedback are welcome in the
+[Codex profile workflows discussion](https://github.com/Ducksss/codex-profiles/discussions/1).
 
 ## License
 
