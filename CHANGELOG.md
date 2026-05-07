@@ -7,7 +7,20 @@ and this project follows semantic versioning once tagged releases begin.
 
 ## Unreleased
 
-Nothing yet.
+### Added
+
+- `list` command for read-only initialized profile discovery.
+- `version` and `--version` output.
+
+### Changed
+
+- All-profile `status` now skips unmanaged reserved-alias directories and
+  invalid `.codex-*` directory names during discovery.
+
+### Tests
+
+- Added coverage for CLI/login argument pass-through, invalid profile names,
+  list output, version output, and hardened status discovery.
 
 ## 0.1.1 - 2026-04-25
 

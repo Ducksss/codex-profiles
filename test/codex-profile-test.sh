@@ -47,6 +47,15 @@ assert_not_contains() {
   fi
 }
 
+assert_equals() {
+  local expected="$1"
+
+  if [[ "$output" != "$expected" ]]; then
+    printf '%s\n' "$output" >&2
+    fail "expected exact output: $expected"
+  fi
+}
+
 mode_of() {
   if stat -f '%Lp' "$1" > /dev/null 2>&1; then
     stat -f '%Lp' "$1"
@@ -74,6 +83,97 @@ fi
 printf '%s\n' "$*"
 FAKE_CODEX
   chmod 755 "$path"
+}
+
+test_version_prints_script_version() {
+  run_cmd "$SCRIPT" version
+
+  assert_status 0
+  assert_equals "codex-profile 0.1.2-dev"
+
+  run_cmd "$SCRIPT" --version
+
+  assert_status 0
+  assert_equals "codex-profile 0.1.2-dev"
+}
+
+test_cli_passes_profile_home_and_args() {
+  local tmp fake_codex
+  tmp="$(mktemp -d)"
+  fake_codex="$tmp/codex"
+  cat > "$fake_codex" <<'FAKE_CODEX'
+#!/usr/bin/env bash
+printf 'CODEX_HOME=%s\n' "$CODEX_HOME"
+printf 'ARGS=%s\n' "$*"
+FAKE_CODEX
+  chmod 755 "$fake_codex"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" cli personal exec "run tests"
+
+  assert_status 0
+  assert_contains "CODEX_HOME=$tmp/home/.codex-personal"
+  assert_contains "ARGS=exec run tests"
+  [[ -d "$tmp/home/.codex-personal" ]] || fail "cli did not initialize profile home"
+
+  rm -rf "$tmp"
+}
+
+test_login_passes_profile_home_and_login_args() {
+  local tmp fake_codex
+  tmp="$(mktemp -d)"
+  fake_codex="$tmp/codex"
+  cat > "$fake_codex" <<'FAKE_CODEX'
+#!/usr/bin/env bash
+printf 'CODEX_HOME=%s\n' "$CODEX_HOME"
+printf 'ARGS=%s\n' "$*"
+FAKE_CODEX
+  chmod 755 "$fake_codex"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" login work --device-code
+
+  assert_status 0
+  assert_contains "CODEX_HOME=$tmp/home/.codex-work"
+  assert_contains "ARGS=login --device-code"
+  [[ -d "$tmp/home/.codex-work" ]] || fail "login did not initialize profile home"
+
+  rm -rf "$tmp"
+}
+
+test_invalid_profile_names_are_rejected() {
+  local tmp
+  tmp="$(mktemp -d)"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" path ../bad
+
+  assert_status 1
+  assert_contains "Invalid profile '../bad'"
+
+  rm -rf "$tmp"
+}
+
+test_list_reports_initialized_managed_profiles_without_cli() {
+  local tmp
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/home/.codex" \
+    "$tmp/home/.codex-personal" \
+    "$tmp/home/.codex-work" \
+    "$tmp/home/.codex-dev" \
+    "$tmp/home/.codex-main" \
+    "$tmp/home/.codex-edu" \
+    "$tmp/home/.codex-.bad"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" list
+
+  assert_status 0
+  assert_contains "default"
+  assert_contains "personal"
+  assert_contains "work"
+  assert_not_contains "dev"
+  assert_not_contains "main"
+  assert_not_contains "edu"
+  assert_not_contains ".bad"
+
+  rm -rf "$tmp"
 }
 
 test_status_does_not_create_missing_profile_home() {
@@ -106,6 +206,31 @@ test_status_all_reports_missing_default_without_creating_it() {
   assert_contains "default ($tmp/home/.codex): Not initialized"
   assert_contains "personal ($tmp/home/.codex-personal): login status"
   [[ ! -e "$tmp/home/.codex" ]] || fail "status created the default profile home"
+
+  rm -rf "$tmp"
+}
+
+test_status_skips_unmanaged_and_invalid_discovered_dirs() {
+  local tmp fake_codex
+  tmp="$(mktemp -d)"
+  fake_codex="$tmp/codex"
+  write_fake_codex "$fake_codex"
+  mkdir -p "$tmp/home/.codex" \
+    "$tmp/home/.codex-personal" \
+    "$tmp/home/.codex-dev" \
+    "$tmp/home/.codex-main" \
+    "$tmp/home/.codex-edu" \
+    "$tmp/home/.codex-.bad"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" status
+
+  assert_status 0
+  assert_contains "default ($tmp/home/.codex): login status"
+  assert_contains "personal ($tmp/home/.codex-personal): login status"
+  assert_not_contains "dev ($tmp/home/.codex):"
+  assert_not_contains "main ($tmp/home/.codex):"
+  assert_not_contains "edu ($tmp/home/.codex-education):"
+  assert_not_contains ".bad"
 
   rm -rf "$tmp"
 }
@@ -225,8 +350,14 @@ test_doctor_skips_status_when_cli_missing() {
   rm -rf "$tmp"
 }
 
+test_version_prints_script_version
+test_cli_passes_profile_home_and_args
+test_login_passes_profile_home_and_login_args
+test_invalid_profile_names_are_rejected
+test_list_reports_initialized_managed_profiles_without_cli
 test_status_does_not_create_missing_profile_home
 test_status_all_reports_missing_default_without_creating_it
+test_status_skips_unmanaged_and_invalid_discovered_dirs
 test_status_treats_not_logged_in_as_normal_status
 test_status_propagates_unexpected_cli_failure
 test_app_logs_stay_under_profile_home

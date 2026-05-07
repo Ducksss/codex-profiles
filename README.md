@@ -50,7 +50,7 @@ separate Codex homes.
 - Works with both Codex CLI and Codex Desktop.
 - No token copying, parsing, printing, or storage logic.
 - Profile-local desktop logs with private permissions.
-- `doctor` and `status` commands for quick debugging.
+- `list`, `doctor`, and `status` commands for quick debugging.
 - No third-party runtime dependencies.
 - Tested on macOS and Ubuntu in GitHub Actions.
 
@@ -109,11 +109,15 @@ Check your setup:
 
 ```sh
 codex-profile status
+codex-profile list
 codex-profile doctor
 ```
 
 `status` is read-only: it reports missing profiles as `Not initialized` instead
 of creating directories for typos.
+
+`list` is also read-only: it prints initialized managed profiles without calling
+Codex.
 
 ## Profile Home Paths
 
@@ -157,7 +161,10 @@ codex-profile cli <profile> [codex-args...]
 codex-profile login <profile> [codex-login-args...]
 codex-profile status [profile]
 codex-profile path <profile>
+codex-profile list
 codex-profile doctor
+codex-profile version
+codex-profile --version
 ```
 
 ## Platform Support
@@ -252,8 +259,9 @@ make lint
 ```
 
 The test suite covers Bash syntax, profile path mapping, install smoke tests,
-fresh-profile status checks, private desktop log placement, and missing-CLI
-doctor output.
+CLI/login pass-through, list/version output, fresh-profile status checks,
+hardened status discovery, private desktop log placement, and missing-CLI doctor
+output.
 
 ## Contributing
 

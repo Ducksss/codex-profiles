@@ -3,6 +3,7 @@
 set -euo pipefail
 
 PROGRAM="${0##*/}"
+VERSION="0.1.2-dev"
 CODEX_APP="${CODEX_APP:-/Applications/Codex.app}"
 CODEX_APP_BIN="${CODEX_APP_BIN:-$CODEX_APP/Contents/MacOS/Codex}"
 CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-$CODEX_APP/Contents/Resources/codex}"
@@ -19,7 +20,9 @@ Usage:
   $PROGRAM login <profile> [codex-login-args...]
   $PROGRAM status [profile]
   $PROGRAM path <profile>
+  $PROGRAM list
   $PROGRAM doctor
+  $PROGRAM version
 
 Examples:
   $PROGRAM login personal
@@ -48,10 +51,16 @@ note() {
   printf '%s\n' "$*"
 }
 
+is_valid_profile_name() {
+  local profile="$1"
+
+  [[ "$profile" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]
+}
+
 validate_profile() {
   local profile="$1"
 
-  if [[ ! "$profile" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+  if ! is_valid_profile_name "$profile"; then
     die "Invalid profile '$profile'. Use letters, numbers, dots, dashes, or underscores."
   fi
 }
@@ -72,6 +81,32 @@ codex_home_for_profile() {
       printf '%s/.codex-%s\n' "$HOME" "$profile"
       ;;
   esac
+}
+
+discovered_profile_is_managed() {
+  local profile="$1"
+  local dir="$2"
+  local expected
+
+  is_valid_profile_name "$profile" || return 1
+  expected="$(codex_home_for_profile "$profile")"
+  [[ "$expected" == "$dir" ]]
+}
+
+discover_profiles() {
+  local include_default="${1:-yes}"
+  local dir profile
+
+  if [[ "$include_default" == "yes" && -d "$HOME/.codex" ]]; then
+    printf 'default\n'
+  fi
+
+  for dir in "$HOME"/.codex-*; do
+    [[ -d "$dir" ]] || continue
+    profile="${dir##*/.codex-}"
+    discovered_profile_is_managed "$profile" "$dir" || continue
+    printf '%s\n' "$profile"
+  done
 }
 
 ensure_home() {
@@ -219,20 +254,26 @@ command_status() {
 
   command_status_one default || status_code=$?
 
-  local dir profile
-  for dir in "$HOME"/.codex-*; do
-    [[ -d "$dir" ]] || continue
-    profile="${dir##*/.codex-}"
+  local profile
+  for profile in $(discover_profiles no); do
     command_status_one "$profile" || status_code=$?
   done
 
   return "$status_code"
 }
 
+command_list() {
+  discover_profiles yes
+}
+
 command_path() {
   local profile="${1:-}"
   [[ -n "$profile" ]] || die "Usage: $PROGRAM path <profile>"
   codex_home_for_profile "$profile"
+}
+
+command_version() {
+  printf 'codex-profile %s\n' "$VERSION"
 }
 
 command_doctor() {
@@ -281,8 +322,14 @@ main() {
     path)
       command_path "$@"
       ;;
+    list)
+      command_list
+      ;;
     doctor)
       command_doctor "$@"
+      ;;
+    version | --version)
+      command_version
       ;;
     help | -h | --help)
       usage
