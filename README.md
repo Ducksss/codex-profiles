@@ -6,14 +6,12 @@
 [![Shell: Bash](https://img.shields.io/badge/shell-bash-4EAA25.svg)](bin/codex-profile)
 [![Platform: macOS + Linux](https://img.shields.io/badge/platform-macOS%20%2B%20Linux-lightgrey.svg)](#platform-support)
 
-Switch Codex accounts without swapping token files by hand.
+Run Codex with separate accounts, settings, sessions, connectors, logs, and
+local state without copying token files around.
 
-`codex-profiles` is a tiny Bash wrapper around Codex's `CODEX_HOME` support. It
-launches the Codex CLI or Codex Desktop app with a named profile so each account
-gets its own auth, config, sessions, plugins, logs, and local Codex state.
-
-This is for switching Codex accounts and local state, not just model or approval
-settings.
+`codex-profiles` is a small Bash wrapper around Codex's `CODEX_HOME` support.
+Each profile maps to its own Codex home directory, then the wrapper launches the
+Codex CLI or Codex Desktop with that profile selected.
 
 ```sh
 codex-profile cli personal
@@ -21,10 +19,9 @@ codex-profile cli work exec "review this repo"
 codex-profile app edu
 ```
 
-## Why This Exists
+## Why It Exists
 
-Codex can read state from a custom `CODEX_HOME`, but typing the full command is
-annoying:
+Codex already supports custom state directories through `CODEX_HOME`:
 
 ```sh
 CODEX_HOME="$HOME/.codex-personal" codex
@@ -32,11 +29,11 @@ CODEX_HOME="$HOME/.codex-work" codex exec "review this repo"
 CODEX_HOME="$HOME/.codex-edu" /Applications/Codex.app/Contents/MacOS/Codex
 ```
 
-Many people end up copying `auth.json` files around instead. That works until it
-doesn't: connector state, sessions, plugin caches, config, and logs remain shared.
+That is the right boundary, but it is awkward to type and easy to forget.
+Copying `auth.json` is worse: it moves tokens while leaving sessions, config,
+connector state, plugins, caches, and logs shared.
 
-`codex-profiles` keeps the workflow simple while using the cleaner boundary:
-separate Codex homes.
+`codex-profile` gives the clean boundary a short command.
 
 ## Demo
 
@@ -44,21 +41,20 @@ separate Codex homes.
 
 [Watch the short reveal video](media/codex-profiles-apple-reveal.mp4)
 
-## Features
+## Highlights
 
-- Named profiles backed by separate `CODEX_HOME` directories.
-- Works with both Codex CLI and Codex Desktop.
-- No token copying, parsing, printing, or storage logic.
+- Isolated Codex homes per profile.
+- CLI and Codex Desktop launch support.
+- No token copying, parsing, printing, or migration.
+- Read-only `list`, `status`, and `doctor` commands for diagnostics.
+- JSON output for automation.
+- Profile lifecycle commands: `init` and confirmed `remove`.
 - Profile-local desktop logs with private permissions.
-- Read-only `list`, `status`, and `doctor` commands for quick debugging.
-- JSON output for `status` and `doctor`.
-- Explicit profile lifecycle commands: `init` and confirmed `remove`.
-- Desktop log inspection through `logs`.
 - Safe config cloning for known non-secret config files.
-- Shell completion generators for Bash, Zsh, and Fish.
-- Source-style self-upgrade command with a dry-run preview.
+- Bash, Zsh, and Fish completion generators.
+- Source-style self-upgrade with dry-run preview.
 - No third-party runtime dependencies.
-- Tested on macOS and Ubuntu in GitHub Actions.
+- Tested on macOS and Ubuntu.
 
 ## Install
 
@@ -76,51 +72,24 @@ cd codex-profiles
 make install
 ```
 
-`make install` copies `bin/codex-profile` to `~/.local/bin/codex-profile`.
-Make sure `~/.local/bin` is on your `PATH`.
+Source installs copy `bin/codex-profile` to
+`~/.local/bin/codex-profile`. Make sure `~/.local/bin` is on your `PATH`.
 
-Verify:
+Verify the install:
 
 ```sh
 codex-profile doctor
 ```
 
-## Upgrade
-
-For source-style installs, preview and install the newest code from the project
-repository:
-
-```sh
-codex-profile upgrade --dry-run
-codex-profile upgrade
-```
-
-By default, `upgrade` fetches `main` from
-`https://github.com/Ducksss/codex-profiles.git` into
-`~/.cache/codex-profile/source` and runs `make install` with
-`PREFIX=~/.local`. Use `--prefix <path>` for a different install prefix, or
-`--ref <git-ref>` to install a specific branch, tag, or commit SHA. It refuses
-to install a candidate that has no declared version or whose declared version is
-older than the running `codex-profile`.
-
-If you installed only through Homebrew and do not want a source-style
-`~/.local/bin/codex-profile` install, use Homebrew instead:
-
-```sh
-brew upgrade Ducksss/tap/codex-profile
-```
-
 ## Quick Start
 
-Log in to each account once:
+Create and log in to each profile once:
 
 ```sh
 codex-profile init personal
 codex-profile init work
-codex-profile init edu
 codex-profile login personal
 codex-profile login work
-codex-profile login edu
 ```
 
 Run Codex CLI with a profile:
@@ -128,50 +97,31 @@ Run Codex CLI with a profile:
 ```sh
 codex-profile cli personal
 codex-profile cli work exec "run tests and summarize failures"
-codex-profile cli edu review
 ```
 
-On macOS, run Codex Desktop with a profile:
+Run Codex Desktop with a profile on macOS:
 
 ```sh
-codex-profile app personal
-codex-profile app work ~/Dev/my-project
-codex-profile app edu
+codex-profile app personal ~/Dev/my-project
+codex-profile app work
 ```
 
-Check your setup:
+Check what exists and what is logged in:
 
 ```sh
-codex-profile status
 codex-profile list
+codex-profile status
 codex-profile doctor
 ```
 
-`status` is read-only: it reports missing profiles as `Not initialized` instead
-of creating directories for typos.
+## How Profiles Map To Disk
 
-`list` is also read-only: it prints initialized managed profiles without calling
-Codex.
-
-Machine-readable status is available for scripts:
-
-```sh
-codex-profile status --json
-codex-profile doctor --json
-```
-
-## Profile Home Paths
-
-Default `CODEX_HOME` path mappings:
+Only `default` is special:
 
 ```text
 default     -> ~/.codex
 <profile>   -> ~/.codex-<profile>
 ```
-
-Only `default` is special. Every other valid profile name maps directly to its
-own `.codex-<profile>` directory, so names like `dev`, `main`, `edu`, and
-`client-a` are regular isolated profiles.
 
 Examples:
 
@@ -183,13 +133,17 @@ main     -> ~/.codex-main
 edu      -> ~/.codex-edu
 ```
 
-You can inspect a profile path without launching Codex:
+Profile names must start with a letter or number, then may contain letters,
+numbers, dots, dashes, or underscores. You can inspect a path without launching
+Codex:
 
 ```sh
 codex-profile path personal
 ```
 
-## Profile Management
+## Common Workflows
+
+### Manage Profiles
 
 Create a profile home without launching Codex:
 
@@ -197,24 +151,44 @@ Create a profile home without launching Codex:
 codex-profile init client-a
 ```
 
-Remove a profile home after typing the profile name to confirm:
+Remove a profile home interactively:
 
 ```sh
 codex-profile remove client-a
 ```
 
-For non-interactive scripts, use `--yes`:
+Use `--yes` for scripts:
 
 ```sh
 codex-profile remove client-a --yes
 ```
 
-Use `default` explicitly if you intend to remove the default `~/.codex` profile
-home. Other valid names remove only their own `.codex-<profile>` directory.
+Use `default` explicitly if you intend to remove `~/.codex`. Every other valid
+name removes only its own `.codex-<profile>` directory.
 
-## Logs
+### Inspect Status
 
-Desktop logs are written inside the selected profile home:
+Human-readable output:
+
+```sh
+codex-profile status
+codex-profile status personal
+codex-profile doctor
+```
+
+Machine-readable output:
+
+```sh
+codex-profile status --json
+codex-profile doctor --json
+```
+
+`status` and `list` are read-only. They report missing profiles instead of
+creating directories for typos.
+
+### Read Desktop Logs
+
+Desktop logs live inside the selected profile home:
 
 ```sh
 codex-profile logs personal --path
@@ -222,7 +196,7 @@ codex-profile logs personal
 codex-profile logs personal --tail 100
 ```
 
-## Config Cloning
+### Clone Safe Config
 
 Copy known non-secret config files from one profile to another:
 
@@ -231,7 +205,7 @@ codex-profile clone-config personal work
 codex-profile clone-config personal work --force
 ```
 
-`clone-config` only considers these root-level files:
+Only these root-level files are considered:
 
 ```text
 config.toml
@@ -240,13 +214,50 @@ instructions.md
 custom-instructions.md
 ```
 
-It never copies `auth.json`, sessions, plugins, logs, caches, or directories.
-It also refuses to copy a config file that contains sensitive-looking key names
-such as `token`, `secret`, `password`, `credential`, or `api_key`.
+`clone-config` never copies `auth.json`, sessions, plugins, logs, caches, or
+directories. It also refuses files with sensitive-looking key names such as
+`token`, `secret`, `password`, `credential`, or `api_key`.
+
+### Upgrade Source Installs
+
+Preview the upgrade:
+
+```sh
+codex-profile upgrade --dry-run
+```
+
+Install from the default project repo and branch:
+
+```sh
+codex-profile upgrade
+```
+
+By default, `upgrade` fetches `main` from
+`https://github.com/Ducksss/codex-profiles.git` into
+`~/.cache/codex-profile/source`, then runs `make install` with
+`PREFIX=~/.local`.
+
+Use a different install prefix or source ref:
+
+```sh
+codex-profile upgrade --prefix /usr/local
+codex-profile upgrade --ref v0.1.3
+codex-profile upgrade --ref <commit-sha>
+```
+
+Upgrade refuses to install a candidate with no declared version, or a candidate
+whose declared version is older than the running `codex-profile`.
+
+If you installed with Homebrew and do not want a source-style
+`~/.local/bin/codex-profile`, use Homebrew instead:
+
+```sh
+brew upgrade Ducksss/tap/codex-profile
+```
 
 ## Shell Completions
 
-Generate completions for your shell:
+Generate completions for Bash, Zsh, or Fish:
 
 ```sh
 codex-profile completions bash
@@ -254,20 +265,21 @@ codex-profile completions zsh
 codex-profile completions fish
 ```
 
-Example Bash install:
+Bash example:
 
 ```sh
+mkdir -p ~/.local/share/bash-completion/completions
 codex-profile completions bash > ~/.local/share/bash-completion/completions/codex-profile
 ```
 
-Example Zsh setup:
+Zsh example:
 
 ```sh
 mkdir -p ~/.zfunc
 codex-profile completions zsh > ~/.zfunc/_codex-profile
 ```
 
-Add the completion directory to `fpath` in `~/.zshrc` before `compinit` runs:
+Add the directory to `fpath` in `~/.zshrc` before `compinit`:
 
 ```sh
 fpath=(~/.zfunc $fpath)
@@ -275,13 +287,9 @@ autoload -Uz compinit
 compinit
 ```
 
-Make sure the target directory is loaded by your shell completion system. For
-Zsh, that means the `codex-profile completions zsh` output at
-`~/.zfunc/_codex-profile` is in a directory listed in `fpath` before `compinit`.
+## Aliases
 
-## Recommended Aliases
-
-Add aliases to your shell config if you want shorter commands:
+Aliases are optional, but useful for accounts you use every day:
 
 ```sh
 alias codex-personal='codex-profile cli personal'
@@ -289,7 +297,7 @@ alias codex-work='codex-profile cli work'
 alias codex-app-work='codex-profile app work'
 ```
 
-## Commands
+## Command Reference
 
 ```text
 codex-profile app <profile> [workspace]
@@ -310,11 +318,32 @@ codex-profile version
 codex-profile --version
 ```
 
+## Environment Overrides
+
+```text
+CODEX_APP                      Override Codex.app path
+CODEX_APP_BIN                  Override Codex Desktop binary path
+CODEX_CLI                      Override Codex CLI binary path
+CODEX_PROFILE_UPGRADE_REPO     Override upgrade repository
+CODEX_PROFILE_UPGRADE_REF      Override upgrade git ref
+CODEX_PROFILE_UPGRADE_CACHE    Override upgrade cache checkout
+CODEX_PROFILE_UPGRADE_PREFIX   Override upgrade install prefix
+```
+
+Examples:
+
+```sh
+CODEX_CLI=/path/to/codex codex-profile cli personal
+CODEX_PROFILE_UPGRADE_REF=v0.1.3 codex-profile upgrade --dry-run
+```
+
 ## Platform Support
 
-CLI-oriented commands (`cli`, `login`, `init`, `remove`, `status`, `path`,
-`logs`, `clone-config`, `list`, `doctor`, `completions`, and `upgrade`) are
-Bash-based and tested on macOS and Ubuntu/Linux.
+CLI-oriented commands are Bash-based and tested on macOS and Ubuntu/Linux:
+
+```text
+cli login init remove status path logs clone-config list doctor completions upgrade
+```
 
 The `app` command is macOS-only because it launches `Codex.app` and uses macOS
 app-control tooling to quit the running desktop app before relaunching it with a
@@ -323,46 +352,31 @@ different `CODEX_HOME`.
 ## Desktop App Notes
 
 Codex Desktop should run one profile at a time. `codex-profile app <profile>`
-asks the running Codex app to quit, waits for it to close, and then launches the
-app with the selected `CODEX_HOME`.
+asks the running Codex app to quit, waits for it to close, then launches the app
+with the selected `CODEX_HOME`.
 
-For best results, launch Codex Desktop through this tool instead of Dock or
-Spotlight when you care which account is active.
+For predictable account switching, launch Codex Desktop through `codex-profile`
+instead of Dock or Spotlight.
 
 ## Security Model
 
-This tool does not copy, parse, print, or manage auth tokens. It only sets
-`CODEX_HOME` before running Codex.
+`codex-profile` does one security-sensitive thing: it sets `CODEX_HOME` before
+running Codex. It does not read, copy, print, parse, or migrate auth tokens.
 
-`clone-config` deliberately uses a small allowlist of root-level config files
-and refuses sensitive-looking files. It does not inspect, copy, or rewrite
-Codex auth files.
+`clone-config` uses a small allowlist and refuses sensitive-looking config
+files. It does not inspect or rewrite Codex auth files.
 
 `upgrade` fetches and installs code from the configured git repository. The
-default repository is this project, and `--dry-run` prints the source ref,
-cache path, and install prefix before anything changes. Do not point upgrade at
-a repository you do not trust.
+default repository is this project. `--dry-run` prints the source ref, cache
+path, and install prefix before anything changes. Do not point upgrade at a
+repository you do not trust.
 
-This is safer than swapping `auth.json` files because each profile gets its own
-Codex state directory. It is still not full OS-level isolation: external
-credentials such as SSH keys, GitHub CLI auth, browser cookies, npm, AWS, or
-Google Cloud credentials are still shared by your operating system user.
+Separate Codex homes are cleaner than swapping `auth.json`, but they are not
+full OS-level isolation. Your operating system user still shares SSH keys,
+GitHub CLI auth, browser cookies, cloud CLI credentials, npm state, and other
+external credentials.
 
 For strict work/personal separation, use separate OS users.
-
-## Environment Overrides
-
-```text
-CODEX_APP       Override Codex.app path
-CODEX_APP_BIN   Override Codex Desktop binary path
-CODEX_CLI       Override Codex CLI binary path
-```
-
-Example:
-
-```sh
-CODEX_CLI=/path/to/codex codex-profile cli personal
-```
 
 ## FAQ
 
@@ -401,11 +415,13 @@ state, and other non-Codex credentials.
 
 ## Development
 
+Run the test suite:
+
 ```sh
 make test
 ```
 
-Optional ShellCheck:
+Run ShellCheck:
 
 ```sh
 make lint
