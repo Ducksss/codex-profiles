@@ -95,16 +95,56 @@ FAKE_CODEX
   chmod 755 "$path"
 }
 
+write_fake_upgrade_repo() {
+  local repo="$1"
+  local version="$2"
+
+  mkdir -p "$repo/bin"
+
+  cat > "$repo/bin/codex-profile" <<FAKE_PROFILE
+#!/usr/bin/env bash
+VERSION="$version"
+if [[ "\${1:-}" == "version" || "\${1:-}" == "--version" ]]; then
+  printf 'codex-profile %s\n' "\$VERSION"
+  exit 0
+fi
+printf 'fake codex-profile %s\n' "\$VERSION"
+FAKE_PROFILE
+  chmod 755 "$repo/bin/codex-profile"
+
+  cat > "$repo/Makefile" <<'FAKE_MAKEFILE'
+PREFIX ?= $(HOME)/.local
+BINDIR ?= $(PREFIX)/bin
+
+.PHONY: install
+
+install:
+	install -d "$(BINDIR)"
+	install -m 755 bin/codex-profile "$(BINDIR)/codex-profile"
+FAKE_MAKEFILE
+}
+
+init_git_main_branch() {
+  local repo="$1"
+
+  if git -C "$repo" init -b main >/dev/null 2>&1; then
+    return 0
+  fi
+
+  git -C "$repo" init >/dev/null
+  git -C "$repo" checkout -b main >/dev/null 2>&1
+}
+
 test_version_prints_script_version() {
   run_cmd "$SCRIPT" version
 
   assert_status 0
-  assert_equals "codex-profile 0.1.2-dev"
+  assert_equals "codex-profile 0.1.3-dev"
 
   run_cmd "$SCRIPT" --version
 
   assert_status 0
-  assert_equals "codex-profile 0.1.2-dev"
+  assert_equals "codex-profile 0.1.3-dev"
 }
 
 test_cli_passes_profile_home_and_args() {
@@ -161,6 +201,33 @@ test_invalid_profile_names_are_rejected() {
   rm -rf "$tmp"
 }
 
+test_profile_path_mapping_only_special_cases_default() {
+  local tmp
+  tmp="$(mktemp -d)"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" path default
+
+  assert_status 0
+  assert_equals "$tmp/home/.codex"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" path dev
+
+  assert_status 0
+  assert_equals "$tmp/home/.codex-dev"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" path main
+
+  assert_status 0
+  assert_equals "$tmp/home/.codex-main"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" path edu
+
+  assert_status 0
+  assert_equals "$tmp/home/.codex-edu"
+
+  rm -rf "$tmp"
+}
+
 test_list_reports_initialized_managed_profiles_without_cli() {
   local tmp
   tmp="$(mktemp -d)"
@@ -178,9 +245,9 @@ test_list_reports_initialized_managed_profiles_without_cli() {
   assert_contains "default"
   assert_contains "personal"
   assert_contains "work"
-  assert_not_contains "dev"
-  assert_not_contains "main"
-  assert_not_contains "edu"
+  assert_contains "dev"
+  assert_contains "main"
+  assert_contains "edu"
   assert_not_contains ".bad"
 
   rm -rf "$tmp"
@@ -220,7 +287,7 @@ test_status_all_reports_missing_default_without_creating_it() {
   rm -rf "$tmp"
 }
 
-test_status_skips_unmanaged_and_invalid_discovered_dirs() {
+test_status_reports_arbitrary_discovered_profiles_and_skips_invalid_dirs() {
   local tmp fake_codex
   tmp="$(mktemp -d)"
   fake_codex="$tmp/codex"
@@ -237,9 +304,9 @@ test_status_skips_unmanaged_and_invalid_discovered_dirs() {
   assert_status 0
   assert_contains "default ($tmp/home/.codex): login status"
   assert_contains "personal ($tmp/home/.codex-personal): login status"
-  assert_not_contains "dev ($tmp/home/.codex-dev):"
-  assert_not_contains "main ($tmp/home/.codex-main):"
-  assert_not_contains "edu ($tmp/home/.codex-edu):"
+  assert_contains "dev ($tmp/home/.codex-dev): login status"
+  assert_contains "main ($tmp/home/.codex-main): login status"
+  assert_contains "edu ($tmp/home/.codex-edu): login status"
   assert_not_contains ".bad"
 
   rm -rf "$tmp"
@@ -411,16 +478,17 @@ test_remove_yes_deletes_profile_home() {
   rm -rf "$tmp"
 }
 
-test_remove_aliases_for_default_profile_are_rejected() {
+test_remove_yes_deletes_profiles_named_like_common_aliases() {
   local tmp
   tmp="$(mktemp -d)"
-  mkdir -p "$tmp/home/.codex"
+  mkdir -p "$tmp/home/.codex" "$tmp/home/.codex-dev"
 
   run_cmd env HOME="$tmp/home" "$SCRIPT" remove dev --yes
 
-  assert_status 1
-  assert_contains "Use 'default' to remove the default profile"
+  assert_status 0
+  assert_contains "Removed dev ($tmp/home/.codex-dev)"
   [[ -d "$tmp/home/.codex" ]] || fail "remove dev deleted default profile"
+  [[ ! -e "$tmp/home/.codex-dev" ]] || fail "remove dev did not delete the dev profile"
 
   rm -rf "$tmp"
 }
@@ -544,18 +612,180 @@ test_completions_generate_shell_scripts() {
   assert_status 0
   assert_contains "complete -F _codex_profile codex-profile"
   assert_contains "clone-config"
+  assert_contains "upgrade"
 
   run_cmd "$SCRIPT" completions zsh
 
   assert_status 0
   assert_contains "#compdef codex-profile"
   assert_contains "logs"
+  assert_contains "upgrade"
 
   run_cmd "$SCRIPT" completions fish
 
   assert_status 0
   assert_contains "complete -c codex-profile"
   assert_contains "remove"
+  assert_contains "upgrade"
+}
+
+test_upgrade_dry_run_reports_plan_without_mutating_files() {
+  local tmp repo cache prefix
+  tmp="$(mktemp -d)"
+  repo="$tmp/repo"
+  cache="$tmp/cache/source"
+  prefix="$tmp/prefix"
+  write_fake_upgrade_repo "$repo" "9.9.9"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --dry-run --prefix "$prefix"
+
+  assert_status 0
+  assert_contains "Upgrade plan"
+  assert_contains "Repository: $repo"
+  assert_contains "Ref: main"
+  assert_contains "Install prefix: $prefix"
+  [[ ! -e "$cache" ]] || fail "upgrade --dry-run created the cache checkout"
+  [[ ! -e "$prefix" ]] || fail "upgrade --dry-run created the install prefix"
+
+  rm -rf "$tmp"
+}
+
+test_upgrade_fetches_newest_ref_and_installs_to_prefix() {
+  local tmp repo cache prefix installed
+  tmp="$(mktemp -d)"
+  repo="$tmp/repo"
+  cache="$tmp/cache/source"
+  prefix="$tmp/prefix"
+  installed="$prefix/bin/codex-profile"
+  mkdir -p "$repo"
+  init_git_main_branch "$repo"
+  write_fake_upgrade_repo "$repo" "1.0.0"
+  git -C "$repo" add .
+  git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v1" >/dev/null
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+
+  assert_status 0
+  assert_contains "Installed codex-profile 1.0.0"
+  [[ -x "$installed" ]] || fail "upgrade did not install codex-profile"
+
+  write_fake_upgrade_repo "$repo" "1.0.1"
+  git -C "$repo" add .
+  git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v2" >/dev/null
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+
+  assert_status 0
+  assert_contains "Installed codex-profile 1.0.1"
+  run_cmd "$installed" version
+  assert_status 0
+  assert_equals "codex-profile 1.0.1"
+
+  rm -rf "$tmp"
+}
+
+test_upgrade_installs_commit_sha_ref_on_fresh_cache() {
+  local tmp repo cache prefix installed sha
+  tmp="$(mktemp -d)"
+  repo="$tmp/repo"
+  cache="$tmp/cache/source"
+  prefix="$tmp/prefix"
+  installed="$prefix/bin/codex-profile"
+  mkdir -p "$repo"
+  init_git_main_branch "$repo"
+  write_fake_upgrade_repo "$repo" "1.0.0"
+  git -C "$repo" add .
+  git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v1" >/dev/null
+  sha="$(git -C "$repo" rev-parse HEAD)"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix" --ref "$sha"
+
+  assert_status 0
+  assert_contains "Installed codex-profile 1.0.0"
+  run_cmd "$installed" version
+  assert_status 0
+  assert_equals "codex-profile 1.0.0"
+
+  rm -rf "$tmp"
+}
+
+test_upgrade_refuses_dirty_cached_checkout() {
+  local tmp repo cache prefix
+  tmp="$(mktemp -d)"
+  repo="$tmp/repo"
+  cache="$tmp/cache/source"
+  prefix="$tmp/prefix"
+  mkdir -p "$repo"
+  init_git_main_branch "$repo"
+  write_fake_upgrade_repo "$repo" "1.0.0"
+  git -C "$repo" add .
+  git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v1" >/dev/null
+  git clone "$repo" "$cache" >/dev/null 2>&1
+  printf 'local edit\n' >> "$cache/bin/codex-profile"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+
+  assert_status 1
+  assert_contains "Cached upgrade checkout has local changes"
+  [[ ! -e "$prefix/bin/codex-profile" ]] || fail "upgrade installed from a dirty cache"
+
+  rm -rf "$tmp"
+}
+
+test_upgrade_refuses_to_install_older_version() {
+  local tmp repo cache prefix
+  tmp="$(mktemp -d)"
+  repo="$tmp/repo"
+  cache="$tmp/cache/source"
+  prefix="$tmp/prefix"
+  mkdir -p "$repo"
+  init_git_main_branch "$repo"
+  write_fake_upgrade_repo "$repo" "0.1.1"
+  git -C "$repo" add .
+  git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "old" >/dev/null
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+
+  assert_status 1
+  assert_contains "Refusing to install older codex-profile 0.1.1"
+  [[ ! -e "$prefix/bin/codex-profile" ]] || fail "upgrade installed an older codex-profile"
+
+  rm -rf "$tmp"
+}
+
+test_upgrade_refuses_unversioned_candidate() {
+  local tmp repo cache prefix
+  tmp="$(mktemp -d)"
+  repo="$tmp/repo"
+  cache="$tmp/cache/source"
+  prefix="$tmp/prefix"
+  mkdir -p "$repo/bin"
+  init_git_main_branch "$repo"
+  cat > "$repo/bin/codex-profile" <<'FAKE_PROFILE'
+#!/usr/bin/env bash
+printf 'old unversioned codex-profile\n'
+FAKE_PROFILE
+  chmod 755 "$repo/bin/codex-profile"
+  cat > "$repo/Makefile" <<'FAKE_MAKEFILE'
+PREFIX ?= $(HOME)/.local
+BINDIR ?= $(PREFIX)/bin
+
+.PHONY: install
+
+install:
+	install -d "$(BINDIR)"
+	install -m 755 bin/codex-profile "$(BINDIR)/codex-profile"
+FAKE_MAKEFILE
+  git -C "$repo" add .
+  git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "unversioned" >/dev/null
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+
+  assert_status 1
+  assert_contains "Refusing to install candidate without a declared VERSION"
+  [[ ! -e "$prefix/bin/codex-profile" ]] || fail "upgrade installed an unversioned codex-profile"
+
+  rm -rf "$tmp"
 }
 
 test_clone_config_copies_safe_files_and_never_auth_files() {
@@ -667,10 +897,11 @@ test_version_prints_script_version
 test_cli_passes_profile_home_and_args
 test_login_passes_profile_home_and_login_args
 test_invalid_profile_names_are_rejected
+test_profile_path_mapping_only_special_cases_default
 test_list_reports_initialized_managed_profiles_without_cli
 test_status_does_not_create_missing_profile_home
 test_status_all_reports_missing_default_without_creating_it
-test_status_skips_unmanaged_and_invalid_discovered_dirs
+test_status_reports_arbitrary_discovered_profiles_and_skips_invalid_dirs
 test_status_treats_not_logged_in_as_normal_status
 test_status_propagates_unexpected_cli_failure
 test_app_logs_stay_under_profile_home
@@ -679,7 +910,7 @@ test_doctor_skips_status_when_cli_missing
 test_init_creates_private_profile_home_without_codex
 test_remove_aborts_when_confirmation_does_not_match
 test_remove_yes_deletes_profile_home
-test_remove_aliases_for_default_profile_are_rejected
+test_remove_yes_deletes_profiles_named_like_common_aliases
 test_logs_prints_path_and_contents
 test_logs_reports_missing_log_file
 test_status_json_reports_profiles_without_creating_missing_default
@@ -687,6 +918,12 @@ test_status_json_treats_not_logged_in_as_normal_status
 test_status_json_escapes_control_characters
 test_doctor_json_reports_missing_cli_and_skips_status
 test_completions_generate_shell_scripts
+test_upgrade_dry_run_reports_plan_without_mutating_files
+test_upgrade_fetches_newest_ref_and_installs_to_prefix
+test_upgrade_installs_commit_sha_ref_on_fresh_cache
+test_upgrade_refuses_dirty_cached_checkout
+test_upgrade_refuses_to_install_older_version
+test_upgrade_refuses_unversioned_candidate
 test_clone_config_copies_safe_files_and_never_auth_files
 test_clone_config_refuses_sensitive_looking_config
 test_clone_config_refuses_symlinked_config_files

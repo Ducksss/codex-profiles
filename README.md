@@ -29,7 +29,7 @@ annoying:
 ```sh
 CODEX_HOME="$HOME/.codex-personal" codex
 CODEX_HOME="$HOME/.codex-work" codex exec "review this repo"
-CODEX_HOME="$HOME/.codex-education" /Applications/Codex.app/Contents/MacOS/Codex
+CODEX_HOME="$HOME/.codex-edu" /Applications/Codex.app/Contents/MacOS/Codex
 ```
 
 Many people end up copying `auth.json` files around instead. That works until it
@@ -56,6 +56,7 @@ separate Codex homes.
 - Desktop log inspection through `logs`.
 - Safe config cloning for known non-secret config files.
 - Shell completion generators for Bash, Zsh, and Fish.
+- Source-style self-upgrade command with a dry-run preview.
 - No third-party runtime dependencies.
 - Tested on macOS and Ubuntu in GitHub Actions.
 
@@ -82,6 +83,31 @@ Verify:
 
 ```sh
 codex-profile doctor
+```
+
+## Upgrade
+
+For source-style installs, preview and install the newest code from the project
+repository:
+
+```sh
+codex-profile upgrade --dry-run
+codex-profile upgrade
+```
+
+By default, `upgrade` fetches `main` from
+`https://github.com/Ducksss/codex-profiles.git` into
+`~/.cache/codex-profile/source` and runs `make install` with
+`PREFIX=~/.local`. Use `--prefix <path>` for a different install prefix, or
+`--ref <git-ref>` to install a specific branch, tag, or commit SHA. It refuses
+to install a candidate that has no declared version or whose declared version is
+older than the running `codex-profile`.
+
+If you installed only through Homebrew and do not want a source-style
+`~/.local/bin/codex-profile` install, use Homebrew instead:
+
+```sh
+brew upgrade Ducksss/tap/codex-profile
 ```
 
 ## Quick Start
@@ -139,17 +165,22 @@ codex-profile doctor --json
 Default `CODEX_HOME` path mappings:
 
 ```text
-default, dev, main  -> ~/.codex
-edu, education      -> ~/.codex-education
-any other name      -> ~/.codex-<profile>
+default     -> ~/.codex
+<profile>   -> ~/.codex-<profile>
 ```
+
+Only `default` is special. Every other valid profile name maps directly to its
+own `.codex-<profile>` directory, so names like `dev`, `main`, `edu`, and
+`client-a` are regular isolated profiles.
 
 Examples:
 
 ```text
 personal -> ~/.codex-personal
 work     -> ~/.codex-work
-edu      -> ~/.codex-education
+dev      -> ~/.codex-dev
+main     -> ~/.codex-main
+edu      -> ~/.codex-edu
 ```
 
 You can inspect a profile path without launching Codex:
@@ -178,9 +209,8 @@ For non-interactive scripts, use `--yes`:
 codex-profile remove client-a --yes
 ```
 
-The `dev` and `main` aliases point at the default `~/.codex` home, so removal
-through those aliases is refused. Use `default` if you really intend to remove
-the default profile home.
+Use `default` explicitly if you intend to remove the default `~/.codex` profile
+home. Other valid names remove only their own `.codex-<profile>` directory.
 
 ## Logs
 
@@ -275,6 +305,7 @@ codex-profile clone-config <source-profile> <target-profile> [--force]
 codex-profile list
 codex-profile doctor [--json]
 codex-profile completions <bash|zsh|fish>
+codex-profile upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
 codex-profile version
 codex-profile --version
 ```
@@ -282,8 +313,8 @@ codex-profile --version
 ## Platform Support
 
 CLI-oriented commands (`cli`, `login`, `init`, `remove`, `status`, `path`,
-`logs`, `clone-config`, `list`, `doctor`, and `completions`) are Bash-based and
-tested on macOS and Ubuntu/Linux.
+`logs`, `clone-config`, `list`, `doctor`, `completions`, and `upgrade`) are
+Bash-based and tested on macOS and Ubuntu/Linux.
 
 The `app` command is macOS-only because it launches `Codex.app` and uses macOS
 app-control tooling to quit the running desktop app before relaunching it with a
@@ -306,6 +337,11 @@ This tool does not copy, parse, print, or manage auth tokens. It only sets
 `clone-config` deliberately uses a small allowlist of root-level config files
 and refuses sensitive-looking files. It does not inspect, copy, or rewrite
 Codex auth files.
+
+`upgrade` fetches and installs code from the configured git repository. The
+default repository is this project, and `--dry-run` prints the source ref,
+cache path, and install prefix before anything changes. Do not point upgrade at
+a repository you do not trust.
 
 This is safer than swapping `auth.json` files because each profile gets its own
 Codex state directory. It is still not full OS-level isolation: external
@@ -376,9 +412,9 @@ make lint
 ```
 
 The test suite covers Bash syntax, profile path mapping, install smoke tests,
-CLI/login pass-through, list/version output, fresh-profile status checks,
-hardened status discovery, private desktop log placement, and missing-CLI doctor
-output.
+CLI/login pass-through, list/version output, source upgrades, fresh-profile
+status checks, hardened status discovery, private desktop log placement, and
+missing-CLI doctor output.
 
 ## Contributing
 

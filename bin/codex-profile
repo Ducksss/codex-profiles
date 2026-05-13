@@ -3,12 +3,14 @@
 set -euo pipefail
 
 PROGRAM="${0##*/}"
-VERSION="0.1.2-dev"
+VERSION="0.1.3-dev"
 CODEX_APP="${CODEX_APP:-/Applications/Codex.app}"
 CODEX_APP_BIN="${CODEX_APP_BIN:-$CODEX_APP/Contents/MacOS/Codex}"
 CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-$CODEX_APP/Contents/Resources/codex}"
 CODEX_PROFILE_QUIT_ATTEMPTS="${CODEX_PROFILE_QUIT_ATTEMPTS:-30}"
 CODEX_PROFILE_QUIT_SLEEP="${CODEX_PROFILE_QUIT_SLEEP:-0.5}"
+CODEX_PROFILE_UPGRADE_REPO="${CODEX_PROFILE_UPGRADE_REPO:-https://github.com/Ducksss/codex-profiles.git}"
+CODEX_PROFILE_UPGRADE_REF="${CODEX_PROFILE_UPGRADE_REF:-main}"
 
 usage() {
   cat <<EOF
@@ -28,6 +30,7 @@ Usage:
   $PROGRAM list
   $PROGRAM doctor [--json]
   $PROGRAM completions <bash|zsh|fish>
+  $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
   $PROGRAM version
 
 Examples:
@@ -38,16 +41,20 @@ Examples:
   $PROGRAM status
   $PROGRAM logs personal --tail 50
   $PROGRAM clone-config personal work
+  $PROGRAM upgrade
 
 Profiles:
-  default, dev, main  -> ~/.codex
-  edu, education      -> ~/.codex-education
-  any other name      -> ~/.codex-<profile>
+  default         -> ~/.codex
+  any other name  -> ~/.codex-<profile>
 
 Environment:
   CODEX_APP       Override Codex.app path.
   CODEX_APP_BIN   Override Codex Desktop binary path.
   CODEX_CLI       Override Codex CLI binary path.
+  CODEX_PROFILE_UPGRADE_REPO    Override upgrade repository.
+  CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref.
+  CODEX_PROFILE_UPGRADE_CACHE   Override upgrade cache checkout.
+  CODEX_PROFILE_UPGRADE_PREFIX  Override upgrade install prefix.
 EOF
 }
 
@@ -79,17 +86,11 @@ codex_home_for_profile() {
 
   validate_profile "$profile"
 
-  case "$profile" in
-    default | dev | main)
-      printf '%s/.codex\n' "$HOME"
-      ;;
-    edu | education)
-      printf '%s/.codex-education\n' "$HOME"
-      ;;
-    *)
-      printf '%s/.codex-%s\n' "$HOME" "$profile"
-      ;;
-  esac
+  if [[ "$profile" == "default" ]]; then
+    printf '%s/.codex\n' "$HOME"
+  else
+    printf '%s/.codex-%s\n' "$HOME" "$profile"
+  fi
 }
 
 discovered_profile_is_managed() {
@@ -280,12 +281,6 @@ command_remove() {
     esac
     shift
   done
-
-  case "$profile" in
-    dev | main)
-      die "Use 'default' to remove the default profile; '$profile' is only an alias."
-      ;;
-  esac
 
   local codex_home confirmation
   codex_home="$(codex_home_for_profile "$profile")"
@@ -687,6 +682,179 @@ command_version() {
   printf 'codex-profile %s\n' "$VERSION"
 }
 
+upgrade_cache_dir() {
+  if [[ -n "${CODEX_PROFILE_UPGRADE_CACHE:-}" ]]; then
+    printf '%s\n' "$CODEX_PROFILE_UPGRADE_CACHE"
+  elif [[ -n "${XDG_CACHE_HOME:-}" ]]; then
+    printf '%s/codex-profile/source\n' "$XDG_CACHE_HOME"
+  else
+    printf '%s/.cache/codex-profile/source\n' "$HOME"
+  fi
+}
+
+upgrade_prefix() {
+  printf '%s\n' "${CODEX_PROFILE_UPGRADE_PREFIX:-$HOME/.local}"
+}
+
+upgrade_print_plan() {
+  local repo="$1"
+  local ref="$2"
+  local cache="$3"
+  local prefix="$4"
+
+  note "Upgrade plan"
+  note "Repository: $repo"
+  note "Ref: $ref"
+  note "Cache: $cache"
+  note "Install prefix: $prefix"
+}
+
+version_core() {
+  local value="$1"
+
+  value="${value#codex-profile }"
+  value="${value%%$'\n'*}"
+  value="${value%%-*}"
+  printf '%s\n' "$value"
+}
+
+version_is_older_than_current() {
+  local candidate="$1"
+  local current="$VERSION"
+  local candidate_core current_core
+  local candidate_parts current_parts candidate_part current_part index
+
+  candidate_core="$(version_core "$candidate")"
+  current_core="$(version_core "$current")"
+
+  IFS=. read -r -a candidate_parts <<< "$candidate_core"
+  IFS=. read -r -a current_parts <<< "$current_core"
+
+  for index in 0 1 2; do
+    candidate_part="${candidate_parts[$index]:-0}"
+    current_part="${current_parts[$index]:-0}"
+
+    [[ "$candidate_part" =~ ^[0-9]+$ ]] || return 1
+    [[ "$current_part" =~ ^[0-9]+$ ]] || return 1
+
+    if ((10#$candidate_part < 10#$current_part)); then
+      return 0
+    fi
+    if ((10#$candidate_part > 10#$current_part)); then
+      return 1
+    fi
+  done
+
+  return 1
+}
+
+script_declared_version_output() {
+  local script="$1"
+  local declared_version
+
+  declared_version="$(sed -n 's/^VERSION="\([^"]*\)".*/\1/p' "$script" | sed -n '1p')"
+  [[ -n "$declared_version" ]] || return 1
+  printf 'codex-profile %s\n' "$declared_version"
+}
+
+upgrade_checkout_ref() {
+  local cache="$1"
+  local ref="$2"
+
+  git -C "$cache" fetch --tags --prune origin
+  if git -C "$cache" show-ref --verify --quiet "refs/remotes/origin/$ref"; then
+    git -C "$cache" checkout --quiet -B "$ref" "origin/$ref"
+  else
+    git -C "$cache" checkout --quiet "$ref"
+  fi
+}
+
+command_upgrade() {
+  local dry_run=no
+  local prefix
+  local ref="$CODEX_PROFILE_UPGRADE_REF"
+  local repo="$CODEX_PROFILE_UPGRADE_REPO"
+  local cache
+  prefix="$(upgrade_prefix)"
+  cache="$(upgrade_cache_dir)"
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --dry-run | -n)
+        dry_run=yes
+        ;;
+      --prefix)
+        [[ -n "${2:-}" ]] || die "Usage: $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]"
+        prefix="$2"
+        shift
+        ;;
+      --ref)
+        [[ -n "${2:-}" ]] || die "Usage: $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]"
+        ref="$2"
+        shift
+        ;;
+      *)
+        die "Usage: $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]"
+        ;;
+    esac
+    shift
+  done
+
+  [[ -n "$repo" ]] || die "Upgrade repository cannot be empty."
+  [[ -n "$ref" ]] || die "Upgrade ref cannot be empty."
+  [[ -n "$cache" ]] || die "Upgrade cache cannot be empty."
+  [[ -n "$prefix" ]] || die "Upgrade prefix cannot be empty."
+  [[ "$repo" != -* ]] || die "Upgrade repository must not start with '-'."
+  [[ "$ref" != -* ]] || die "Upgrade ref must not start with '-'."
+
+  upgrade_print_plan "$repo" "$ref" "$cache" "$prefix"
+
+  if [[ "$dry_run" == "yes" ]]; then
+    return 0
+  fi
+
+  command -v git > /dev/null 2>&1 || die "git is required to upgrade codex-profile."
+  command -v make > /dev/null 2>&1 || die "make is required to upgrade codex-profile."
+
+  if [[ -e "$cache" && ! -d "$cache/.git" ]]; then
+    die "Upgrade cache exists but is not a git checkout: $cache"
+  fi
+
+  if [[ ! -d "$cache/.git" ]]; then
+    mkdir -p "$(dirname "$cache")" || die "Cannot create upgrade cache parent: $(dirname "$cache")"
+    git clone "$repo" "$cache"
+    upgrade_checkout_ref "$cache" "$ref"
+  else
+    local origin dirty
+    origin="$(git -C "$cache" remote get-url origin 2> /dev/null || true)"
+    [[ "$origin" == "$repo" ]] || die "Cached upgrade checkout origin differs from $repo: $origin"
+
+    dirty="$(git -C "$cache" status --porcelain)"
+    [[ -z "$dirty" ]] || die "Cached upgrade checkout has local changes: $cache"
+
+    upgrade_checkout_ref "$cache" "$ref"
+  fi
+
+  [[ -f "$cache/Makefile" ]] || die "Upgrade checkout is missing Makefile: $cache"
+  [[ -f "$cache/bin/codex-profile" ]] || die "Upgrade checkout is missing bin/codex-profile: $cache"
+
+  local candidate_version
+  candidate_version="$(script_declared_version_output "$cache/bin/codex-profile" || true)"
+  [[ -n "$candidate_version" ]] || die "Refusing to install candidate without a declared VERSION."
+  if [[ -n "$candidate_version" ]] && version_is_older_than_current "$candidate_version"; then
+    die "Refusing to install older $candidate_version over codex-profile $VERSION."
+  fi
+
+  make -C "$cache" install PREFIX="$prefix"
+
+  local installed version_output
+  installed="$prefix/bin/codex-profile"
+  [[ -x "$installed" ]] || die "Upgrade did not install executable: $installed"
+  version_output="$("$installed" version 2> /dev/null || "$installed" --version 2> /dev/null || true)"
+  [[ -n "$version_output" ]] || version_output="codex-profile version unknown"
+  note "Installed $version_output to $installed"
+}
+
 command_completions() {
   local shell="${1:-}"
   [[ -n "$shell" ]] || die "Usage: $PROGRAM completions <bash|zsh|fish>"
@@ -704,7 +872,7 @@ _codex_profile()
   command="${COMP_WORDS[1]}"
 
   if [[ "$COMP_CWORD" -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "app cli login init remove status path logs clone-config list doctor completions version help" -- "$cur") )
+    COMPREPLY=( $(compgen -W "app cli login init remove status path logs clone-config list doctor completions upgrade version help" -- "$cur") )
     return 0
   fi
 
@@ -712,13 +880,13 @@ _codex_profile()
     app|cli|login|init|remove|status|path|logs)
       if [[ "$COMP_CWORD" -eq 2 ]]; then
         profiles="$(codex-profile list 2>/dev/null)"
-        COMPREPLY=( $(compgen -W "default personal work edu $profiles" -- "$cur") )
+        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
       fi
       ;;
     clone-config)
       if [[ "$COMP_CWORD" -eq 2 || "$COMP_CWORD" -eq 3 ]]; then
         profiles="$(codex-profile list 2>/dev/null)"
-        COMPREPLY=( $(compgen -W "default personal work edu $profiles" -- "$cur") )
+        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
       fi
       ;;
     completions)
@@ -738,9 +906,9 @@ EOF
 _codex_profile() {
   local -a commands profiles shells
   commands=(
-    app cli login init remove status path logs clone-config list doctor completions version help
+    app cli login init remove status path logs clone-config list doctor completions upgrade version help
   )
-  profiles=(${(f)"$(codex-profile list 2>/dev/null)"} default personal work edu)
+  profiles=(${(f)"$(codex-profile list 2>/dev/null)"} default personal work)
   shells=(bash zsh fish)
 
   if (( CURRENT == 2 )); then
@@ -773,9 +941,9 @@ EOF
     fish)
       cat <<'EOF'
 complete -c codex-profile -f
-complete -c codex-profile -n '__fish_is_first_arg' -a 'app cli login init remove status path logs clone-config list doctor completions version help'
-complete -c codex-profile -n '__fish_seen_subcommand_from app cli login init remove status path logs' -a '(codex-profile list 2>/dev/null) default personal work edu'
-complete -c codex-profile -n '__fish_seen_subcommand_from clone-config' -a '(codex-profile list 2>/dev/null) default personal work edu'
+complete -c codex-profile -n '__fish_is_first_arg' -a 'app cli login init remove status path logs clone-config list doctor completions upgrade version help'
+complete -c codex-profile -n '__fish_seen_subcommand_from app cli login init remove status path logs' -a '(codex-profile list 2>/dev/null) default personal work'
+complete -c codex-profile -n '__fish_seen_subcommand_from clone-config' -a '(codex-profile list 2>/dev/null) default personal work'
 complete -c codex-profile -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish'
 EOF
       ;;
@@ -893,6 +1061,9 @@ main() {
       ;;
     completions)
       command_completions "$@"
+      ;;
+    upgrade)
+      command_upgrade "$@"
       ;;
     version | --version)
       command_version

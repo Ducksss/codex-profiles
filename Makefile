@@ -21,7 +21,7 @@ test:
 	tmp_home="$$(mktemp -d)"; \
 		HOME="$$tmp_home" bin/codex-profile path default | grep -E '/\.codex$$' >/dev/null; \
 		HOME="$$tmp_home" bin/codex-profile path personal | grep -E '/\.codex-personal$$' >/dev/null; \
-		HOME="$$tmp_home" bin/codex-profile path edu | grep -E '/\.codex-education$$' >/dev/null; \
+		HOME="$$tmp_home" bin/codex-profile path edu | grep -E '/\.codex-edu$$' >/dev/null; \
 		HOME="$$tmp_home" bin/codex-profile path education | grep -E '/\.codex-education$$' >/dev/null; \
 		rm -rf "$$tmp_home"
 	tmp_prefix="$$(mktemp -d)"; \

@@ -18,19 +18,27 @@ and this project follows semantic versioning once tagged releases begin.
 - `completions` command for Bash, Zsh, and Fish completion generation.
 - `list` command for read-only initialized profile discovery.
 - `version` and `--version` output.
+- `upgrade` command for source-style self-updates from the project git
+  repository, including `--dry-run`, `--prefix`, `--ref`, unversioned-candidate
+  refusal, older-version refusal, and branch, tag, or commit-SHA refs.
 
 ### Changed
 
-- All-profile `status` now skips unmanaged reserved-alias directories and
-  invalid `.codex-*` directory names during discovery.
+- Profile path mapping now treats only `default` as special. Every other valid
+  name, including `dev`, `main`, and `edu`, maps directly to
+  `.codex-<profile>`.
+- All-profile `status` now skips invalid `.codex-*` directory names during
+  discovery.
 - `doctor` now accepts options and can emit machine-readable output.
 
 ### Tests
 
 - Added coverage for CLI/login argument pass-through, invalid profile names,
-  list output, version output, hardened status discovery, JSON diagnostics,
-  profile lifecycle commands, log inspection, completion generation, and safe
-  config cloning.
+  direct profile-name path mapping, list output, version output, hardened
+  status discovery, JSON diagnostics, profile lifecycle commands, log
+  inspection, completion generation, source upgrades, dirty upgrade checkout
+  protection, commit-SHA refs, unversioned-candidate refusal, older-version
+  refusal, and safe config cloning.
 
 ## 0.1.1 - 2026-04-25
 
