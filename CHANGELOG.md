@@ -9,6 +9,13 @@ and this project follows semantic versioning once tagged releases begin.
 
 ### Added
 
+- `init` command for explicit profile home creation.
+- `remove` command with profile-name confirmation and `--yes` automation mode.
+- `logs` command for printing, tailing, or locating profile-local desktop logs.
+- `clone-config` command for copying known non-secret config files between
+  profiles without copying auth, sessions, plugins, logs, or caches.
+- `status --json` and `doctor --json` for script-friendly diagnostics.
+- `completions` command for Bash, Zsh, and Fish completion generation.
 - `list` command for read-only initialized profile discovery.
 - `version` and `--version` output.
 
@@ -16,11 +23,14 @@ and this project follows semantic versioning once tagged releases begin.
 
 - All-profile `status` now skips unmanaged reserved-alias directories and
   invalid `.codex-*` directory names during discovery.
+- `doctor` now accepts options and can emit machine-readable output.
 
 ### Tests
 
 - Added coverage for CLI/login argument pass-through, invalid profile names,
-  list output, version output, and hardened status discovery.
+  list output, version output, hardened status discovery, JSON diagnostics,
+  profile lifecycle commands, log inspection, completion generation, and safe
+  config cloning.
 
 ## 0.1.1 - 2026-04-25
 

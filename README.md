@@ -50,7 +50,12 @@ separate Codex homes.
 - Works with both Codex CLI and Codex Desktop.
 - No token copying, parsing, printing, or storage logic.
 - Profile-local desktop logs with private permissions.
-- `list`, `doctor`, and `status` commands for quick debugging.
+- Read-only `list`, `status`, and `doctor` commands for quick debugging.
+- JSON output for `status` and `doctor`.
+- Explicit profile lifecycle commands: `init` and confirmed `remove`.
+- Desktop log inspection through `logs`.
+- Safe config cloning for known non-secret config files.
+- Shell completion generators for Bash, Zsh, and Fish.
 - No third-party runtime dependencies.
 - Tested on macOS and Ubuntu in GitHub Actions.
 
@@ -84,6 +89,9 @@ codex-profile doctor
 Log in to each account once:
 
 ```sh
+codex-profile init personal
+codex-profile init work
+codex-profile init edu
 codex-profile login personal
 codex-profile login work
 codex-profile login edu
@@ -119,6 +127,13 @@ of creating directories for typos.
 `list` is also read-only: it prints initialized managed profiles without calling
 Codex.
 
+Machine-readable status is available for scripts:
+
+```sh
+codex-profile status --json
+codex-profile doctor --json
+```
+
 ## Profile Home Paths
 
 Default `CODEX_HOME` path mappings:
@@ -143,6 +158,97 @@ You can inspect a profile path without launching Codex:
 codex-profile path personal
 ```
 
+## Profile Management
+
+Create a profile home without launching Codex:
+
+```sh
+codex-profile init client-a
+```
+
+Remove a profile home after typing the profile name to confirm:
+
+```sh
+codex-profile remove client-a
+```
+
+For non-interactive scripts, use `--yes`:
+
+```sh
+codex-profile remove client-a --yes
+```
+
+The `dev` and `main` aliases point at the default `~/.codex` home, so removal
+through those aliases is refused. Use `default` if you really intend to remove
+the default profile home.
+
+## Logs
+
+Desktop logs are written inside the selected profile home:
+
+```sh
+codex-profile logs personal --path
+codex-profile logs personal
+codex-profile logs personal --tail 100
+```
+
+## Config Cloning
+
+Copy known non-secret config files from one profile to another:
+
+```sh
+codex-profile clone-config personal work
+codex-profile clone-config personal work --force
+```
+
+`clone-config` only considers these root-level files:
+
+```text
+config.toml
+AGENTS.md
+instructions.md
+custom-instructions.md
+```
+
+It never copies `auth.json`, sessions, plugins, logs, caches, or directories.
+It also refuses to copy a config file that contains sensitive-looking key names
+such as `token`, `secret`, `password`, `credential`, or `api_key`.
+
+## Shell Completions
+
+Generate completions for your shell:
+
+```sh
+codex-profile completions bash
+codex-profile completions zsh
+codex-profile completions fish
+```
+
+Example Bash install:
+
+```sh
+codex-profile completions bash > ~/.local/share/bash-completion/completions/codex-profile
+```
+
+Example Zsh setup:
+
+```sh
+mkdir -p ~/.zfunc
+codex-profile completions zsh > ~/.zfunc/_codex-profile
+```
+
+Add the completion directory to `fpath` in `~/.zshrc` before `compinit` runs:
+
+```sh
+fpath=(~/.zfunc $fpath)
+autoload -Uz compinit
+compinit
+```
+
+Make sure the target directory is loaded by your shell completion system. For
+Zsh, that means the `codex-profile completions zsh` output at
+`~/.zfunc/_codex-profile` is in a directory listed in `fpath` before `compinit`.
+
 ## Recommended Aliases
 
 Add aliases to your shell config if you want shorter commands:
@@ -159,18 +265,25 @@ alias codex-app-work='codex-profile app work'
 codex-profile app <profile> [workspace]
 codex-profile cli <profile> [codex-args...]
 codex-profile login <profile> [codex-login-args...]
+codex-profile init <profile>
+codex-profile remove <profile> [--yes]
 codex-profile status [profile]
+codex-profile status --json [profile]
 codex-profile path <profile>
+codex-profile logs <profile> [--path|--tail [lines]]
+codex-profile clone-config <source-profile> <target-profile> [--force]
 codex-profile list
-codex-profile doctor
+codex-profile doctor [--json]
+codex-profile completions <bash|zsh|fish>
 codex-profile version
 codex-profile --version
 ```
 
 ## Platform Support
 
-CLI-oriented commands (`cli`, `login`, `status`, `path`, and most of `doctor`)
-are Bash-based and tested on macOS and Ubuntu/Linux.
+CLI-oriented commands (`cli`, `login`, `init`, `remove`, `status`, `path`,
+`logs`, `clone-config`, `list`, `doctor`, and `completions`) are Bash-based and
+tested on macOS and Ubuntu/Linux.
 
 The `app` command is macOS-only because it launches `Codex.app` and uses macOS
 app-control tooling to quit the running desktop app before relaunching it with a
@@ -189,6 +302,10 @@ Spotlight when you care which account is active.
 
 This tool does not copy, parse, print, or manage auth tokens. It only sets
 `CODEX_HOME` before running Codex.
+
+`clone-config` deliberately uses a small allowlist of root-level config files
+and refuses sensitive-looking files. It does not inspect, copy, or rewrite
+Codex auth files.
 
 This is safer than swapping `auth.json` files because each profile gets its own
 Codex state directory. It is still not full OS-level isolation: external
