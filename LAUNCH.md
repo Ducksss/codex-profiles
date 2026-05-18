@@ -475,6 +475,174 @@ Terminals Are Sexy:
   audience than Codex and AI-agent lists.
 - Reference: <https://github.com/k4m4/terminals-are-sexy>
 
+Awesome Harness Engineering:
+
+- Status: PR opened on 2026-05-18.
+- Why: harness-engineering list focused on context, environment control,
+  state, resumability, and reliable agent operation. `codex-profiles` fits as
+  Codex-specific profile/state isolation for repeatable CLI and Desktop runs.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, `CODEX_HOME`, and Codex profile terms; no prior
+  submission found.
+- Resume path: temporary clone at `/tmp/awesome-harness-engineering`, branch
+  `pinzheng/add-codex-profiles-harness`, commit `a1fb549` adds
+  `codex-profiles` to `Runtimes, Harnesses & Reference Implementations`.
+- Validation: ran `git diff --check`.
+- PR target: <https://github.com/walkinglabs/awesome-harness-engineering>
+- PR: <https://github.com/walkinglabs/awesome-harness-engineering/pull/28>
+
+Awesome Vibe Coding by ai-for-developers:
+
+- Status: PR opened on 2026-05-18.
+- Why: active vibe-coding tool list with a `CLI Tools` section already listing
+  OpenAI Codex CLI and terminal coding-agent companions.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, `CODEX_HOME`, and Codex profile terms; no prior
+  submission found.
+- Note: README links a contribution guide, but `CONTRIBUTING.md` is absent/404;
+  followed the existing simple bullet format and placed the entry at the end of
+  the relevant category.
+- Resume path: temporary clone at `/tmp/ai-for-dev-awesome-vibe-coding-pr`,
+  branch `pinzheng/add-codex-profiles-ai-for-dev-vibe`, commit `19c0153`
+  adds `codex-profiles`.
+- Validation: ran `git diff --check`.
+- PR target: <https://github.com/ai-for-developers/awesome-vibe-coding>
+- PR: <https://github.com/ai-for-developers/awesome-vibe-coding/pull/64>
+
+Awesome Vibe Coding by filipecalegario:
+
+- Status: PR opened on 2026-05-18.
+- Why: high-reach vibe-coding list with a `Command Line Tools` section that
+  already includes OpenAI Codex CLI and adjacent terminal coding agents.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, `CODEX_HOME`, and Codex profile terms; no prior
+  submission found.
+- Resume path: temporary clone at `/tmp/filipe-awesome-vibe-coding`, branch
+  `pinzheng/add-codex-profiles-filipe-vibe`, commit `62ad2bb` adds
+  `codex-profiles` at the bottom of `Command Line Tools` per
+  `contributing.md`.
+- Validation: ran `git diff --check`.
+- PR target: <https://github.com/filipecalegario/awesome-vibe-coding>
+- PR: <https://github.com/filipecalegario/awesome-vibe-coding/pull/187>
+
+Awesome AI DevTools by jamesmurdza:
+
+- Status: PR opened on 2026-05-18.
+- Why: active AI developer-tools list with an `Agent Infrastructure >
+  Configuration & Context Management` section. `codex-profiles` fits as a
+  developer-focused Codex runtime-state/profile utility.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, `CODEX_HOME`, and Codex profile terms; no prior
+  submission found. An unrelated PR surfaced on broad terms only.
+- Resume path: temporary clone at `/tmp/awesome-ai-devtools`, branch
+  `pinzheng/add-codex-profiles-ai-devtools`, commit `00832a2` adds
+  `codex-profiles`.
+- Validation: ran `git diff --check`.
+- PR target: <https://github.com/jamesmurdza/awesome-ai-devtools>
+- PR: <https://github.com/jamesmurdza/awesome-ai-devtools/pull/554>
+
+Awesome Codex Workflows by shinpr:
+
+- Status: recommendation issue opened on 2026-05-18.
+- Why: Codex-first workflow and orchestration list where contribution guidance
+  prefers an issue before a PR for new repository suggestions. Fit is relevant
+  but borderline because `codex-profiles` is workflow infrastructure rather
+  than an orchestration model.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, `codex profiles`, and `CODEX_HOME`; no prior
+  submission found.
+- Suggested category: `Workflow Infrastructure & Design`.
+- Issue target: <https://github.com/shinpr/awesome-codex-workflows>
+- Issue: <https://github.com/shinpr/awesome-codex-workflows/issues/13>
+
+ComposioHQ Awesome Codex Skills:
+
+- Status: skipped on 2026-05-18.
+- Why: large and active Codex skill catalogue, but the contribution shape is a
+  real reusable skill with `SKILL.md`. A plain `codex-profiles` product link
+  would not satisfy the list's skill-centered scope.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`
+  and `Ducksss/codex-profiles`; no real prior submission found.
+- Deferred path: revisit only if creating an actual Codex skill wrapper around
+  profile/account switching is desired.
+- Reference: <https://github.com/ComposioHQ/awesome-codex-skills>
+
+VoltAgent Awesome Codex Subagents:
+
+- Status: skipped on 2026-05-18.
+- Why: catalogue is for Codex-native subagent definitions. `codex-profiles` is
+  a CLI/profile manager, not a subagent.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`
+  and `Ducksss/codex-profiles`; no prior submission found.
+- Reference: <https://github.com/VoltAgent/awesome-codex-subagents>
+
+Antigravity Awesome Skills:
+
+- Status: deferred on 2026-05-18.
+- Why: very active cross-agent skill library, but a valid submission would need
+  a source-only skill under `skills/<name>/SKILL.md`; that is a new agent skill
+  artifact rather than a direct curated-list entry for the existing project.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`
+  and `Ducksss/codex-profiles`; no real prior submission found.
+- Deferred path: create and validate a dedicated "Codex profile switching"
+  skill only if the project owner wants codex-profiles distributed as an
+  installable agent skill.
+- Reference: <https://github.com/sickn33/antigravity-awesome-skills>
+
+Sourcegraph Awesome Code AI:
+
+- Status: skipped on 2026-05-18.
+- Why: relevant AI coding tools list, but the repository is archived and the
+  README explicitly says submissions are closed.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, `CODEX_HOME`, and Codex profile terms; no prior
+  submission found.
+- Reference: <https://github.com/sourcegraph/awesome-code-ai>
+
+Kyrolabs Awesome Agents:
+
+- Status: deferred on 2026-05-18.
+- Why: active AI-agent list, but mostly catalogs agent frameworks and products.
+  `codex-profiles` is a narrow Codex profile manager rather than an agent, and
+  the repo's stated bar is higher for brand-new/low-traction projects.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, `CODEX_HOME`, and Codex profile terms; no prior
+  submission found.
+- Deferred path: revisit after `codex-profiles` has more traction or if the
+  list adds an explicit tooling/configuration category.
+- Reference: <https://github.com/kyrolabs/awesome-agents>
+
+E2B Awesome AI Agents:
+
+- Status: skipped on 2026-05-18.
+- Why: high-reach AI-agent list, but it is explicitly for AI assistants and
+  agents. Tool/framework additions belong in a separate E2B SDK/tool list, and
+  `codex-profiles` is not an autonomous agent.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`
+  and `Ducksss/codex-profiles`; no prior submission found. Broad Codex/profile
+  terms matched unrelated open PRs only.
+- Reference: <https://github.com/e2b-dev/awesome-ai-agents>
+
+Awesome LLM Skills by Prat011:
+
+- Status: deferred on 2026-05-18.
+- Why: skill-centric contribution process requires a documented and portable
+  skill folder plus README update. A direct product link would not fit.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`
+  and `Ducksss/codex-profiles`; no prior submission found.
+- Deferred path: revisit only if building an actual "Codex profile switching"
+  skill.
+- Reference: <https://github.com/Prat011/awesome-llm-skills>
+
+Awesome Gemini CLI:
+
+- Status: skipped on 2026-05-18.
+- Why: active Gemini CLI list, but `codex-profiles` is Codex-specific and does
+  not currently support Gemini CLI.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`
+  and `Ducksss/codex-profiles`; no prior submission found.
+- Reference: <https://github.com/Piebald-AI/awesome-gemini-cli>
+
 ## Metrics
 
 Track these for each channel:
