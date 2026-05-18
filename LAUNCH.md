@@ -151,6 +151,208 @@ right environment.
 6. Launch on Product Hunt after screenshots, demo video, README, and install
    path have all been click-tested.
 
+## Deferred Channels
+
+StackShare:
+
+- Status: deferred on 2026-05-14.
+- Why: StackShare requires sign-in before listing a tool. The GitHub OAuth flow
+  opened, but the Codex in-app browser became unreliable for visibility/state,
+  so the login could not be completed cleanly in-session.
+- Resume path: use Chrome or a stable browser, sign in with GitHub, approve only
+  the basic StackShare OAuth request for GitHub profile/email access, then use
+  `List a Tool`.
+- Listing angle: developer tool / AI coding agent utility for switching Codex
+  CLI and Desktop accounts with isolated `CODEX_HOME` profiles.
+- Listing URL: <https://stackshare.io/tools/new>
+
+OpenAlternative:
+
+- Status: deferred on 2026-05-14.
+- Why: submit flow requires sign-in before reaching the listing form.
+- Resume path: use a stable browser, sign in by email magic link, GitHub, or
+  Google, then continue from <https://openalternative.co/submit>.
+
+LibHunt:
+
+- Status: deferred on 2026-05-14.
+- Why: direct submit page stalled on Cloudflare verification in the Codex
+  in-app browser.
+- Resume path: open <https://www.libhunt.com/repo/submit> in a stable browser
+  and submit `https://github.com/Ducksss/codex-profiles`.
+
+SaaSHub:
+
+- Status: deferred on 2026-05-14.
+- Why: submit page also stalled on Cloudflare verification in the Codex in-app
+  browser.
+- Resume path: open <https://www.saashub.com/services/submit> in a stable
+  browser and start with the GitHub repository URL.
+
+Awesome Codex CLI:
+
+- Status: replacement PR opened on 2026-05-18.
+- Why: highly relevant curated list with an existing `Account & Auth` section.
+- Branch: `Ducksss:pinzheng/add-codex-profiles-roggeohta`.
+- Commit: `8510a07` adds `Ducksss/codex-profiles`.
+- PR target: <https://github.com/RoggeOhta/awesome-codex-cli>
+- PR: <https://github.com/RoggeOhta/awesome-codex-cli/pull/40>
+- Note: original PR <https://github.com/RoggeOhta/awesome-codex-cli/pull/33>
+  was closed and replaced after a fork-name collision with another
+  `awesome-codex-cli` repository.
+
+Awesome Codex CLI by milisp:
+
+- Status: merged on 2026-05-18.
+- Why: second Codex-specific curated list with an existing `Development Tools`
+  section that already includes config/account switching tools.
+- Resume path: temporary clone at `/tmp/milisp-awesome-codex-cli`, branch
+  `pinzheng/add-codex-profiles`, commit `cd7b62d` adds `codex-profiles`.
+- PR target: <https://github.com/milisp/awesome-codex-cli>
+- PR: <https://github.com/milisp/awesome-codex-cli/pull/30>
+
+Awesome CLI Apps:
+
+- Status: not eligible yet as of 2026-05-18.
+- Why: contribution rules require GitHub-hosted tools to be older than 90 days
+  and have more than 20 stars. `codex-profiles` currently has 1 star.
+- Resume path: revisit after the repo crosses the age/star threshold, then
+  submit to <https://github.com/agarrharr/awesome-cli-apps>.
+
+Awesome Codex Plugins:
+
+- Status: not a fit as of 2026-05-18.
+- Why: contribution rules require a real Codex plugin bundle under
+  `plugins/<owner>/<repo>/` with `.codex-plugin/plugin.json` and an icon.
+  `codex-profiles` is a standalone CLI helper, not a Codex plugin.
+- Reference: <https://github.com/hashgraph-online/awesome-codex-plugins>
+
+Awesome DevTools:
+
+- Status: PR opened on 2026-05-18.
+- Why: developer-tool list with `AI Coding Tools` and `CLIs & Terminal Tools`
+  sections; no visible age/star gate.
+- Resume path: temporary clone at `/tmp/awesome-devtools`, branch
+  `pinzheng/add-codex-profiles`, commit `c688e2a` adds `codex-profiles`.
+- PR target: <https://github.com/devtoolsd/awesome-devtools>
+- PR: <https://github.com/devtoolsd/awesome-devtools/pull/230>
+
+Awesome AI-Driven Development:
+
+- Status: PR opened on 2026-05-18.
+- Why: active AI-development list with existing Codex, Codex Desktop, and
+  Codex-adjacent CLI tools in `Terminal & CLI Agents`.
+- Resume path: temporary clone at `/tmp/awesome-AI-driven-development`, branch
+  `pinzheng/add-codex-profiles`, commit `19ed072` adds `codex-profiles`.
+- PR target: <https://github.com/eltociear/awesome-AI-driven-development>
+- PR: <https://github.com/eltociear/awesome-AI-driven-development/pull/52>
+
+Awesome Vibe Coding by no-fluff:
+
+- Status: PR candidate prepared locally on 2026-05-18.
+- Why: targeted list for agentic/vibe-coding workflows with an `Other tools`
+  section for companion utilities around coding agents.
+- Caveat: contribution notes ask users to open an issue first. Use the local
+  candidate as source material, or open a PR if the maintainer accepts direct
+  additions.
+- Resume path: temporary clone at `/tmp/awesome-vibe-coding`, branch
+  `pinzheng/add-codex-profiles`, commit `8c138eb` adds `codex-profiles`.
+- PR or issue target: <https://github.com/no-fluff/awesome-vibe-coding>
+
+Awesome AI Coding Tools:
+
+- Status: PR opened on 2026-05-18.
+- Why: high-reach AI coding tools list with existing Codex CLI and
+  Codex-adjacent developer productivity tools.
+- Caveat: contribution rules prefer tools that are AI-powered or AI-enhanced.
+  This is a borderline but defensible entry because `codex-profiles` is a
+  Codex workflow helper rather than a standalone AI model/tool.
+- Resume path: temporary clone at `/tmp/awesome-ai-coding-tools`, branch
+  `pinzheng/add-codex-profiles`, commit `e7634ee` adds `codex-profiles`.
+- PR target: <https://github.com/ai-for-developers/awesome-ai-coding-tools>
+- PR: <https://github.com/ai-for-developers/awesome-ai-coding-tools/pull/330>
+
+AI IDEs & Coding Assistants:
+
+- Status: PR opened on 2026-05-18.
+- Why: small but current manually curated AI tools directory with a
+  `Developer Productivity & Workflow` section.
+- Resume path: temporary clone at `/tmp/awesome-ai-tools`, branch
+  `pinzheng/add-codex-profiles`, commit `08da146` adds `codex-profiles`.
+- PR target: <https://github.com/QAInsights/awesome-ai-tools>
+- PR: <https://github.com/QAInsights/awesome-ai-tools/pull/50>
+
+Awesome Dev Tools by t18n:
+
+- Status: PR candidate prepared locally on 2026-05-18.
+- Why: general developer-tool list accepting useful developer utilities; lower
+  priority than Codex/AI-agent-specific channels, but still relevant.
+- Resume path: temporary clone at `/tmp/t18n-awesome-dev-tools`, branch
+  `pinzheng/add-codex-profiles`, commit `e3bb632` adds `codex-profiles`.
+- PR target: <https://github.com/t18n/awesome-dev-tools>
+
+Awesome Terminals AI:
+
+- Status: PR opened on 2026-05-18.
+- Why: AI terminal workflow catalogue with a `Shell Enhancements` section;
+  `codex-profiles` is a shell-level helper for Codex account/profile
+  separation.
+- Resume path: temporary clone at `/tmp/awesome-terminals-ai`, branch
+  `pinzheng/add-codex-profiles`, commit `b64abeb` adds `codex-profiles`.
+- PR target: <https://github.com/BNLNPPS/awesome-terminals-ai>
+- PR: <https://github.com/BNLNPPS/awesome-terminals-ai/pull/8>
+
+Awesome Vibe Coding by Taskade:
+
+- Status: PR opened on 2026-05-18.
+- Why: active vibe-coding list with `CLI & Terminal Tools` and
+  `Specialized CLI Tools` tables.
+- Resume path: temporary clone at `/tmp/taskade-awesome-vibe-coding`, branch
+  `pinzheng/add-codex-profiles`, commit `2804db2` adds `codex-profiles`.
+- PR target: <https://github.com/taskade/awesome-vibe-coding>
+- PR: <https://github.com/taskade/awesome-vibe-coding/pull/22>
+
+Awesome Vibe Coding by bluegalaxy111:
+
+- Status: PR opened on 2026-05-18.
+- Why: terminal-agent-focused vibe-coding handbook with Codex already listed
+  in `AI Coding Agents > Terminal / CLI`.
+- Resume path: temporary clone at `/tmp/bluegalaxy-awesome-vibe-coding`,
+  branch `pinzheng/add-codex-profiles`, commit `24b3077` adds
+  `codex-profiles`.
+- PR target: <https://github.com/bluegalaxy111/awesome-vibe-coding>
+- PR: <https://github.com/bluegalaxy111/awesome-vibe-coding/pull/8>
+
+Awesome CLI Apps in a CSV:
+
+- Status: PR opened on 2026-05-18.
+- Why: high-reach CLI catalogue with an explicit `data/apps.csv` PR path and
+  an existing `ai` category for terminal AI tools.
+- Resume path: temporary clone at `/tmp/awesome-cli-apps-in-a-csv`, branch
+  `pinzheng/add-codex-profiles`, commit `e359888` adds `codex-profiles`.
+- Validation: parsed `data/apps.csv` with Ruby CSV.
+- PR target: <https://github.com/toolleeo/awesome-cli-apps-in-a-csv>
+- PR: <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267>
+
+Awesome OpenAI Codex:
+
+- Status: PR opened on 2026-05-18.
+- Why: Codex-specific list with a `Tools & Integrations` section and explicit
+  contribution rules for direct Codex ecosystem tools.
+- Resume path: temporary clone at `/tmp/awesome-openai-codex`, branch
+  `pinzheng/add-codex-profiles`, commit `15322cb` adds `codex-profiles`.
+- PR target: <https://github.com/vaderyang/awesome-openai-codex>
+- PR: <https://github.com/vaderyang/awesome-openai-codex/pull/2>
+
+Everything AI Coding:
+
+- Status: deferred on 2026-05-18.
+- Why: relevant structured AI-coding catalogue, but full and sparse clone
+  attempts were unreliable in-session (`early EOF` / long sparse checkout).
+- Resume path: revisit <https://github.com/zgsm-ai/everything-ai-coding>,
+  inspect `catalog/schema.json`, and add a schema-valid entry under `catalog/`
+  if the repository can be cloned cleanly.
+
 ## Metrics
 
 Track these for each channel:
