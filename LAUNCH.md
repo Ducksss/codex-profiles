@@ -344,14 +344,136 @@ Awesome OpenAI Codex:
 - PR target: <https://github.com/vaderyang/awesome-openai-codex>
 - PR: <https://github.com/vaderyang/awesome-openai-codex/pull/2>
 
+Awesome Codex Plugins by darknorth-123:
+
+- Status: PR opened on 2026-05-18.
+- Why: Codex ecosystem list that explicitly accepts plugins, MCP servers,
+  workflows, integrations, and developer tools for OpenAI Codex.
+- Resume path: temporary clone at `/tmp/darknorth-awesome-codex-plugins`,
+  branch `pinzheng/add-codex-profiles`, commit `4985656` adds
+  `codex-profiles` to `Developer Tools`.
+- PR target: <https://github.com/darknorth-123/Awesome-Codex-Plugins>
+- PR: <https://github.com/darknorth-123/Awesome-Codex-Plugins/pull/2>
+
+Awesome OpenAI Codex CLI by taahro:
+
+- Status: PR opened on 2026-05-18.
+- Why: Codex CLI resource list with a `New Features & Integrations` section.
+- Resume path: temporary clone at `/tmp/taahro-awesome-openai-codex-cli`,
+  branch `pinzheng/add-codex-profiles`, commit `c919693` adds
+  `codex-profiles`.
+- PR target: <https://github.com/taahro/awesome-openai-codex-cli>
+- PR: <https://github.com/taahro/awesome-openai-codex-cli/pull/3>
+
+Awesome Agentic Coding by tranhoangpich:
+
+- Status: PR opened on 2026-05-18.
+- Why: open-source agentic-coding list already containing Codex and adjacent
+  account/session workflow tools.
+- Resume path: temporary clone at `/tmp/awesome-agentic-coding-tranhoangpich`,
+  branch `pinzheng/add-codex-profiles`, commit `8838169` adds
+  `codex-profiles`.
+- PR target: <https://github.com/tranhoangpich/awesome-agentic-coding>
+- PR: <https://github.com/tranhoangpich/awesome-agentic-coding/pull/3>
+
+Awesome AI Coding Agent Tools:
+
+- Status: PR opened on 2026-05-18.
+- Why: AI coding-agent ecosystem catalogue; `codex-profiles` fits as focused
+  Codex CLI/Desktop tooling around profile and account isolation.
+- Resume path: temporary clone at `/tmp/awesome-ai-coding-agent-tools`, branch
+  `pinzheng/add-codex-profiles`, commit `c031ecd` adds a `Codex CLI &
+  Desktop Tooling` subsection.
+- Validation: ran `npx --yes markdownlint-cli README.md`.
+- PR target: <https://github.com/namphuongtran/awesome-ai-coding-agent-tools>
+- PR: <https://github.com/namphuongtran/awesome-ai-coding-agent-tools/pull/4>
+
+Awesome CLI Coding Agents:
+
+- Status: PR opened on 2026-05-18.
+- Why: terminal-native coding-agent list with an `Agent infrastructure` section
+  for tools that extend or support CLI coding agents.
+- Resume path: temporary clone at `/tmp/awesome-cli-coding-agents`, branch
+  `pinzheng/add-codex-profiles`, commit `7c2b638` adds `codex-profiles`.
+- PR target: <https://github.com/bradAGI/awesome-cli-coding-agents>
+- PR: <https://github.com/bradAGI/awesome-cli-coding-agents/pull/90>
+
+Awesome AI Dev Tools:
+
+- Status: PR opened on 2026-05-18.
+- Why: broad AI developer-tools list that already includes OpenAI Codex and
+  Codex CLI; `codex-profiles` is a Codex workflow utility rather than a
+  generic promo entry.
+- Resume path: temporary clone at `/tmp/pierrunoyt-awesome-ai-dev-tools`,
+  branch `pinzheng/add-codex-profiles`, commit `135b228` adds
+  `codex-profiles`.
+- PR target: <https://github.com/PierrunoYT/awesome-ai-dev-tools>
+- PR: <https://github.com/PierrunoYT/awesome-ai-dev-tools/pull/26>
+
+Awesome AI Coding Assistants Playbook:
+
+- Status: PR opened on 2026-05-18.
+- Why: assistant configuration/resource playbook; `codex-profiles` manages
+  Codex CLI/Desktop configuration boundaries through isolated `CODEX_HOME`
+  profiles.
+- Resume path: temporary clone at
+  `/tmp/codandotv-awesome-ai-coding-assistants-playbook`, branch
+  `pinzheng/add-codex-profiles`, commit `d3ab9f3` adds English and Portuguese
+  entries.
+- Validation: ran `git diff --check`; default `markdownlint-cli` reports
+  pre-existing repository-wide README issues unrelated to this entry.
+- PR target: <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook>
+- PR: <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8>
+
+Awesome AI Coding by dalisoft:
+
+- Status: PR opened on 2026-05-18.
+- Why: AI coding catalogue that already lists Codex; `codex-profiles` fits the
+  `Resources` section as a companion utility, not the AI-agent CLI table.
+- Resume path: temporary clone at `/tmp/dalisoft-awesome-ai-coding`, branch
+  `pinzheng/add-codex-profiles`, commit `4b194bd` adds `codex-profiles`.
+- PR target: <https://github.com/dalisoft/awesome-ai-coding>
+- PR: <https://github.com/dalisoft/awesome-ai-coding/pull/64>
+
+Awesome AI Coding by wsxiaoys:
+
+- Status: PR opened on 2026-05-18.
+- Why: high-reach AI-coding list whose `Projects` section includes open-source
+  AI coding CLIs, editor tools, and workflow utilities.
+- Resume path: temporary clone at `/tmp/wsxiaoys-awesome-ai-coding`, branch
+  `pinzheng/add-codex-profiles`, commit `8a781d3` adds `codex-profiles`.
+- PR target: <https://github.com/wsxiaoys/awesome-ai-coding>
+- PR: <https://github.com/wsxiaoys/awesome-ai-coding/pull/103>
+
 Everything AI Coding:
 
+- Status: skipped on 2026-05-18.
+- Why: relevant AI-coding catalogue, but manual curated submissions are
+  structured around MCP servers, skills, rules, and prompts. Adding
+  `codex-profiles` as a Bash CLI helper would misclassify the project.
+- Reference: <https://github.com/zgsm-ai/everything-ai-coding>
+
+Awesome Coding Agents by wshobson:
+
+- Status: skipped on 2026-05-18.
+- Why: `wshobson/awesome-coding-agents` could not be resolved through GitHub,
+  and no matching public repository was found under that owner.
+
+Awesome Shell:
+
 - Status: deferred on 2026-05-18.
-- Why: relevant structured AI-coding catalogue, but full and sparse clone
-  attempts were unreliable in-session (`early EOF` / long sparse checkout).
-- Resume path: revisit <https://github.com/zgsm-ai/everything-ai-coding>,
-  inspect `catalog/schema.json`, and add a schema-valid entry under `catalog/`
-  if the repository can be cloned cleanly.
+- Why: `codex-profiles` is Bash shell software, but the list is broad and has
+  older open PRs. Keep it as a lower-priority target after Codex/AI-agent
+  directories respond.
+- Candidate target: <https://github.com/uhub/awesome-shell>
+
+Terminals Are Sexy:
+
+- Status: skipped on 2026-05-18.
+- Why: broad terminal resource list with an endorsement gate and many stale
+  additions; `codex-profiles` is CLI-adjacent but less high-signal for that
+  audience than Codex and AI-agent lists.
+- Reference: <https://github.com/k4m4/terminals-are-sexy>
 
 ## Metrics
 
