@@ -643,6 +643,54 @@ Awesome Gemini CLI:
   and `Ducksss/codex-profiles`; no prior submission found.
 - Reference: <https://github.com/Piebald-AI/awesome-gemini-cli>
 
+## Monthly Reconciliation
+
+2026-05-18 automation pass:
+
+- Status: reconciliation-only pass; no new PRs, issues, listing requests, or
+  maintainer requests were opened.
+- Branch checked: `pinzheng/update-launch-pr-log`.
+- Why no new outreach: 23 recorded distribution PRs are still open, exceeding
+  the monthly gate of 15 open submitted PRs.
+- Validation: ran `git fetch --all --prune`; checked every recorded GitHub PR
+  and issue URL with GitHub CLI; ran `git diff --check`.
+- Open PRs confirmed:
+  <https://github.com/BNLNPPS/awesome-terminals-ai/pull/8>,
+  <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8>,
+  <https://github.com/PierrunoYT/awesome-ai-dev-tools/pull/26>,
+  <https://github.com/QAInsights/awesome-ai-tools/pull/50>,
+  <https://github.com/RoggeOhta/awesome-codex-cli/pull/40>,
+  <https://github.com/ai-for-developers/awesome-ai-coding-tools/pull/330>,
+  <https://github.com/ai-for-developers/awesome-vibe-coding/pull/64>,
+  <https://github.com/bluegalaxy111/awesome-vibe-coding/pull/8>,
+  <https://github.com/bradAGI/awesome-cli-coding-agents/pull/90>,
+  <https://github.com/dalisoft/awesome-ai-coding/pull/64>,
+  <https://github.com/darknorth-123/Awesome-Codex-Plugins/pull/2>,
+  <https://github.com/devtoolsd/awesome-devtools/pull/230>,
+  <https://github.com/eltociear/awesome-AI-driven-development/pull/52>,
+  <https://github.com/filipecalegario/awesome-vibe-coding/pull/187>,
+  <https://github.com/jamesmurdza/awesome-ai-devtools/pull/554>,
+  <https://github.com/namphuongtran/awesome-ai-coding-agent-tools/pull/4>,
+  <https://github.com/taahro/awesome-openai-codex-cli/pull/3>,
+  <https://github.com/taskade/awesome-vibe-coding/pull/22>,
+  <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267>,
+  <https://github.com/tranhoangpich/awesome-agentic-coding/pull/3>,
+  <https://github.com/vaderyang/awesome-openai-codex/pull/2>,
+  <https://github.com/walkinglabs/awesome-harness-engineering/pull/28>,
+  and <https://github.com/wsxiaoys/awesome-ai-coding/pull/103>.
+- Open issue confirmed:
+  <https://github.com/shinpr/awesome-codex-workflows/issues/13>.
+- Merged PR confirmed:
+  <https://github.com/milisp/awesome-codex-cli/pull/30>.
+- Closed superseded PR confirmed:
+  <https://github.com/RoggeOhta/awesome-codex-cli/pull/33>.
+- Follow-up note: <https://github.com/QAInsights/awesome-ai-tools/pull/50>
+  has a Vercel deployment authorization bot comment only; no maintainer action
+  or reply is needed from `codex-profiles`.
+- Deferred channels retained without action: StackShare, OpenAlternative,
+  LibHunt, SaaSHub, Awesome Shell, Antigravity Awesome Skills, Kyrolabs
+  Awesome Agents, and Awesome LLM Skills by Prat011.
+
 ## Metrics
 
 Track these for each channel:
