@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Ducksss/codex-profiles/actions/workflows/ci.yml/badge.svg)](https://github.com/Ducksss/codex-profiles/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/Ducksss/codex-profiles?sort=semver)](https://github.com/Ducksss/codex-profiles/releases)
+[![npm](https://img.shields.io/npm/v/codex-profile.svg)](https://www.npmjs.com/package/codex-profile)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Shell: Bash](https://img.shields.io/badge/shell-bash-4EAA25.svg)](bin/codex-profile)
 [![Platform: macOS + Linux](https://img.shields.io/badge/platform-macOS%20%2B%20Linux-lightgrey.svg)](#platform-support)
@@ -76,16 +77,26 @@ where local Codex state should not bleed between contexts.
 
 ## Install
 
-With npm from this GitHub repo:
+With npm:
 
 ```sh
-npm install -g github:Ducksss/codex-profiles
+npm install -g codex-profile
 ```
+
+The npm package is `codex-profile` (singular). It installs both the
+`codex-profile` and `codex-profiles` commands. Use the singular package name;
+the plural `codex-profiles` package on npm is a different project.
 
 With Homebrew:
 
 ```sh
 brew install Ducksss/tap/codex-profile
+```
+
+With npm directly from this GitHub repo:
+
+```sh
+npm install -g github:Ducksss/codex-profiles
 ```
 
 From source:
@@ -103,13 +114,6 @@ Verify the install:
 
 ```sh
 codex-profile doctor
-```
-
-The package is also prepared for the public npm registry as `codex-profile`.
-After the registry package is published, npm users can install it with:
-
-```sh
-npm install -g codex-profile
 ```
 
 ## Quick Start
