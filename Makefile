@@ -1,7 +1,7 @@
 PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
 
-.PHONY: install uninstall lint test
+.PHONY: install uninstall lint test npm-package-test
 
 install:
 	install -d "$(BINDIR)"
@@ -29,3 +29,18 @@ test:
 		test -x "$$tmp_prefix/bin/codex-profile"; \
 		"$$tmp_prefix/bin/codex-profile" help >/dev/null; \
 		rm -rf "$$tmp_prefix"
+	$(MAKE) npm-package-test
+
+npm-package-test:
+	@if command -v npm >/dev/null 2>&1; then \
+		tmp_prefix="$$(mktemp -d)"; \
+		npm pack --dry-run --silent >/dev/null; \
+		npm install -g --prefix "$$tmp_prefix" --cache "$$tmp_prefix/npm-cache" . >/dev/null; \
+		test -x "$$tmp_prefix/bin/codex-profile"; \
+		test -x "$$tmp_prefix/bin/codex-profiles"; \
+		"$$tmp_prefix/bin/codex-profile" help >/dev/null; \
+		"$$tmp_prefix/bin/codex-profiles" version | grep -E '^codex-profile ' >/dev/null; \
+		rm -rf "$$tmp_prefix"; \
+	else \
+		printf '%s\n' 'npm not found; skipping npm package smoke test.'; \
+	fi

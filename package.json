@@ -1,0 +1,51 @@
+{
+  "name": "codex-profile",
+  "version": "0.2.0",
+  "description": "Switch Codex CLI and Desktop accounts with isolated CODEX_HOME profiles.",
+  "license": "MIT",
+  "homepage": "https://github.com/Ducksss/codex-profiles#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ducksss/codex-profiles.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ducksss/codex-profiles/issues"
+  },
+  "keywords": [
+    "ai-tools",
+    "automation",
+    "chatgpt",
+    "codex",
+    "codex-cli",
+    "codex-desktop",
+    "codex-home",
+    "codex-profiles",
+    "developer-tools",
+    "openai",
+    "openai-codex",
+    "productivity",
+    "vibe-coding"
+  ],
+  "bin": {
+    "codex-profile": "bin/codex-profile",
+    "codex-profiles": "bin/codex-profile"
+  },
+  "files": [
+    "bin/codex-profile",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md",
+    "SECURITY.md"
+  ],
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "scripts": {
+    "pack:check": "npm pack --dry-run --silent",
+    "test": "make test"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

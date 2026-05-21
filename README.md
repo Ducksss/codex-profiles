@@ -6,12 +6,13 @@
 [![Shell: Bash](https://img.shields.io/badge/shell-bash-4EAA25.svg)](bin/codex-profile)
 [![Platform: macOS + Linux](https://img.shields.io/badge/platform-macOS%20%2B%20Linux-lightgrey.svg)](#platform-support)
 
-Run Codex with separate accounts, settings, sessions, connectors, logs, and
-local state without copying token files around.
+Switch Codex CLI and Desktop accounts with isolated `CODEX_HOME` profiles
+instead of copying `auth.json` token files around.
 
 `codex-profiles` is a small Bash wrapper around Codex's `CODEX_HOME` support.
-Each profile maps to its own Codex home directory, then the wrapper launches the
-Codex CLI or Codex Desktop with that profile selected.
+Each profile gets its own Codex home directory, so auth, settings, sessions,
+connectors, plugins, caches, logs, and local state stay separated while the
+wrapper launches Codex CLI or Codex Desktop with the selected profile.
 
 ```sh
 codex-profile cli personal
@@ -34,6 +35,23 @@ Copying `auth.json` is worse: it moves tokens while leaving sessions, config,
 connector state, plugins, caches, and logs shared.
 
 `codex-profile` gives the clean boundary a short command.
+
+## Why Not Swap Auth Files?
+
+Auth-file switchers only move `auth.json`. That can change who Codex logs in as,
+but it still leaves unrelated account state in the same `CODEX_HOME`: sessions,
+config, plugins, connector and app caches, logs, and other local files.
+
+`codex-profile` switches the whole Codex home instead. The boundary is the same
+one Codex already supports, just named and wrapped in a CLI:
+
+```text
+auth.json switcher      -> one shared CODEX_HOME with swapped tokens
+codex-profile <profile> -> one CODEX_HOME per profile
+```
+
+That makes it a better fit for work, personal, education, and client accounts
+where local Codex state should not bleed between contexts.
 
 ## Demo
 
@@ -58,6 +76,12 @@ connector state, plugins, caches, and logs shared.
 
 ## Install
 
+With npm from this GitHub repo:
+
+```sh
+npm install -g github:Ducksss/codex-profiles
+```
+
 With Homebrew:
 
 ```sh
@@ -79,6 +103,13 @@ Verify the install:
 
 ```sh
 codex-profile doctor
+```
+
+The package is also prepared for the public npm registry as `codex-profile`.
+After the registry package is published, npm users can install it with:
+
+```sh
+npm install -g codex-profile
 ```
 
 ## Quick Start
@@ -428,9 +459,9 @@ make lint
 ```
 
 The test suite covers Bash syntax, profile path mapping, install smoke tests,
-CLI/login pass-through, list/version output, source upgrades, fresh-profile
-status checks, hardened status discovery, private desktop log placement, and
-missing-CLI doctor output.
+CLI/login pass-through, list/version output, npm package installation, source
+upgrades, fresh-profile status checks, hardened status discovery, private
+desktop log placement, and missing-CLI doctor output.
 
 ## Contributing
 
