@@ -3,7 +3,7 @@
 ## Supported Versions
 
 `codex-profiles` is a small script project. Security fixes are made on `main`
-until versioned releases are introduced.
+and included in the next tagged release.
 
 ## Reporting a Vulnerability
 

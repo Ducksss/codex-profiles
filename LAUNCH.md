@@ -31,10 +31,15 @@ Avoid positioning it as:
 - GitHub Discussions are enabled for questions and workflow feedback.
 - Public feedback thread:
   <https://github.com/Ducksss/codex-profiles/discussions/1>
-- Repo topics include `bash`, `cli`, `codex`, `codex-cli`, `codex-desktop`,
-  `codex-home`, `developer-tools`, `linux`, `macos`, `openai`, and
-  `openai-codex`.
+- Repo topics include `ai-tools`, `automation`, `bash`, `chatgpt`, `cli`,
+  `codex`, `codex-cli`, `codex-desktop`, `codex-home`, `codex-profiles`,
+  `developer-tools`, `linux`, `macos`, `openai`, `openai-codex`,
+  `productivity`, `shell-script`, and `vibe-coding`.
 - Install paths:
+
+```sh
+npm install -g github:Ducksss/codex-profiles
+```
 
 ```sh
 brew install Ducksss/tap/codex-profile
@@ -51,6 +56,14 @@ Quick verification:
 ```sh
 codex-profile doctor
 codex-profile path personal
+```
+
+Npm registry launch:
+
+```sh
+npm publish --access public
+npm install -g codex-profile
+codex-profile doctor
 ```
 
 ## Channel Copy
@@ -70,6 +83,7 @@ CODEX_HOME, so this small Bash wrapper gives each profile its own auth, config,
 sessions, plugins, logs, and local state.
 
 Install:
+npm install -g github:Ducksss/codex-profiles
 brew install Ducksss/tap/codex-profile
 
 Examples:
@@ -90,6 +104,7 @@ codex-profiles.
 Instead of copying auth.json around, it launches Codex CLI or Codex Desktop with
 a named CODEX_HOME:
 
+npm install -g github:Ducksss/codex-profiles
 brew install Ducksss/tap/codex-profile
 codex-profile login work
 codex-profile cli work exec "review this repo"
@@ -115,6 +130,7 @@ accounts with isolated CODEX_HOME directories.
 No token copying. Separate auth, config, sessions, plugins, logs, and local
 Codex state.
 
+npm install -g github:Ducksss/codex-profiles
 brew install Ducksss/tap/codex-profile
 https://github.com/Ducksss/codex-profiles
 ```
