@@ -249,7 +249,7 @@ Awesome AI-Driven Development:
 
 Awesome Vibe Coding by no-fluff:
 
-- Status: PR candidate prepared locally on 2026-05-18.
+- Status: issue opened on 2026-05-22.
 - Why: targeted list for agentic/vibe-coding workflows with an `Other tools`
   section for companion utilities around coding agents.
 - Caveat: contribution notes ask users to open an issue first. Use the local
@@ -257,7 +257,8 @@ Awesome Vibe Coding by no-fluff:
   additions.
 - Resume path: temporary clone at `/tmp/awesome-vibe-coding`, branch
   `pinzheng/add-codex-profiles`, commit `8c138eb` adds `codex-profiles`.
-- PR or issue target: <https://github.com/no-fluff/awesome-vibe-coding>
+- Issue target: <https://github.com/no-fluff/awesome-vibe-coding>
+- Issue: <https://github.com/no-fluff/awesome-vibe-coding/issues/115>
 
 Awesome AI Coding Tools:
 
@@ -290,11 +291,12 @@ AI IDEs & Coding Assistants:
 
 Awesome Dev Tools by t18n:
 
-- Status: PR candidate prepared locally on 2026-05-18.
+- Status: not eligible on 2026-05-22.
 - Why: general developer-tool list accepting useful developer utilities; lower
   priority than Codex/AI-agent-specific channels, but still relevant.
 - Resume path: temporary clone at `/tmp/t18n-awesome-dev-tools`, branch
   `pinzheng/add-codex-profiles`, commit `e3bb632` adds `codex-profiles`.
+- Follow-up: repository is now archived, so no PR was opened.
 - PR target: <https://github.com/t18n/awesome-dev-tools>
 
 Awesome Terminals AI:
@@ -689,7 +691,7 @@ Awesome Vibe Coding Tools by jiji262:
 
 Awesome Vibe Coding by 0xWelt:
 
-- Status: deferred on 2026-05-21.
+- Status: PR opened on 2026-05-22.
 - Why: active curated vibe-coding list with a detailed `CLI Tools` area that
   already includes OpenAI Codex and a later `Supporting Tools` section.
   `codex-profiles` could fit as a companion utility near Codex CLI or as
@@ -698,18 +700,21 @@ Awesome Vibe Coding by 0xWelt:
   `Ducksss/codex-profiles`, and `CODEX_HOME`; no prior submission found.
 - Contribution notes: no separate contribution guide found during this pass;
   direct PR rules are not explicit from the inspected README.
-- Suggested section: likely `CLI Tools` near `OpenAI Codex`; if maintainers
-  prefer stricter agent-only entries, open an issue first or place under
-  `Supporting Tools`.
+- Section: `CLI Tools` near `OpenAI Codex`.
+- Resume path: temporary clone at `/tmp/0xwelt-awesome-vibe-coding`, branch
+  `pinzheng/add-codex-profiles`, commit `55fb7c0` adds `codex-profiles`.
 - Validation: reviewed repository metadata, README structure, and duplicate
-  history with GitHub CLI.
-- Deferred path: revisit after higher-priority open PRs settle; prefer an
-  issue first if contribution expectations remain ambiguous.
+  history with GitHub CLI; ran `git diff --check`. `npx --yes
+  markdownlint-cli README.md` reports pre-existing repository-wide README style
+  issues, recorded as non-blocking. PR checks: no checks reported; GitHub merge
+  state was `UNSTABLE` immediately after opening.
+- PR target: <https://github.com/0xWelt/Awesome-Vibe-Coding>
+- PR: <https://github.com/0xWelt/Awesome-Vibe-Coding/pull/176>
 - Reference: <https://github.com/0xWelt/Awesome-Vibe-Coding>
 
 Awesome Vibe Coding Resources by acvnace:
 
-- Status: deferred on 2026-05-21.
+- Status: PR opened on 2026-05-22.
 - Why: active resource list with `Command Line Tools` entries for Codex-adjacent
   utilities such as Agent FM, MUSE, SwarmClaw, SwarmVault, and agenttrace.
   `codex-profiles` may fit as a command-line workflow utility for Codex users,
@@ -717,16 +722,21 @@ Awesome Vibe Coding Resources by acvnace:
   README.
 - Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
   `Ducksss/codex-profiles`, and `CODEX_HOME`; no prior submission found.
-- Suggested section: `Command Line Tools`.
+- Section: `Command Line Tools`.
+- Resume path: temporary clone at
+  `/tmp/acvnace-awesome-vibe-coding-resources`, branch
+  `pinzheng/add-codex-profiles`, commit `d332134` adds `codex-profiles`.
 - Validation: reviewed repository metadata, README sections, and duplicate
-  history with GitHub CLI.
-- Deferred path: revisit after stronger Codex/CLI targets respond; prefer an
-  issue first if direct PR expectations remain unclear.
+  history with GitHub CLI; ran `git diff --check`. `npx --yes
+  markdownlint-cli README.md` reports pre-existing repository-wide README style
+  issues, recorded as non-blocking. PR checks: no checks reported.
+- PR target: <https://github.com/acvnace/awesome-vibe-coding-resources>
+- PR: <https://github.com/acvnace/awesome-vibe-coding-resources/pull/20>
 - Reference: <https://github.com/acvnace/awesome-vibe-coding-resources>
 
 Awesome OpenAI Codex by KarelDO:
 
-- Status: deferred on 2026-05-21.
+- Status: PR opened on 2026-05-22.
 - Why: Codex-specific product/demo/tool list with a `Products & tools` section
   and README text inviting PRs for relevant links. However, the repository
   appears stale, with the latest push observed from 2023, and its positioning
@@ -734,11 +744,15 @@ Awesome OpenAI Codex by KarelDO:
   workflows.
 - Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
   `Ducksss/codex-profiles`, and `CODEX_HOME`; no prior submission found.
-- Suggested section: `Products & tools`.
+- Section: `Products & tools`.
+- Resume path: temporary clone at `/tmp/kareldo-awesome-codex`, branch
+  `pinzheng/add-codex-profiles`, commit `781f881` adds `codex-profiles`.
 - Validation: reviewed repository metadata, README scope, and duplicate history
-  with GitHub CLI.
-- Deferred path: low-priority fallback only; revisit if maintainer activity
-  resumes or after the current open PR queue drops materially.
+  with GitHub CLI; ran `git diff --check`. `npx --yes markdownlint-cli
+  README.md` reports pre-existing repository-wide README style issues, recorded
+  as non-blocking. PR checks: no checks reported.
+- PR target: <https://github.com/KarelDO/awesome-codex>
+- PR: <https://github.com/KarelDO/awesome-codex/pull/15>
 - Reference: <https://github.com/KarelDO/awesome-codex>
 
 Awesome Codex Automations:
@@ -783,6 +797,74 @@ Awesome Vibe Coding CLI by vanna-ai:
   duplicate history with GitHub CLI.
 - Reference: <https://github.com/vanna-ai/Awesome-Vibe-Coding-CLI>
 
+Awesome Vibe Coding Tools by furudo-erika:
+
+- Status: PR opened on 2026-05-22.
+- Why: vibe-coding tools list with a `Terminal & Command Line` section and
+  contribution guidance for direct PRs. `codex-profiles` fits as a
+  command-line Codex workflow helper for users separating Codex account and
+  local state across contexts.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, and `CODEX_HOME`; no prior submission found.
+- Resume path: temporary clone at `/tmp/furudo-awesome-vibe-coding-tools`,
+  branch `pinzheng/add-codex-profiles`, commit `366d1f4` adds
+  `codex-profiles`.
+- Validation: reviewed repository metadata, README scope, contribution notes,
+  and duplicate history with GitHub CLI; ran `git diff --check`. `npx --yes
+  markdownlint-cli README.md` reports pre-existing repository-wide README style
+  issues, recorded as non-blocking.
+- PR target: <https://github.com/furudo-erika/awesome-vibe-coding-tools>
+- PR: <https://github.com/furudo-erika/awesome-vibe-coding-tools/pull/4>
+
+Awesome Vibe Coding by techiediaries:
+
+- Status: not a fit on 2026-05-22.
+- Why: list focuses on AI coding assistants, AI IDEs, prompt-driven code
+  generation tools, and UI generation products. `codex-profiles` is a Codex
+  state/profile utility rather than an AI coding assistant or generator.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, and `CODEX_HOME`; no prior submission found.
+- Validation: reviewed repository metadata, README scope, and duplicate history
+  with GitHub CLI.
+- Reference: <https://github.com/techiediaries/awesome-vibe-coding>
+
+Awesome AI Coding Agents by brandonhimpfen:
+
+- Status: not a fit on 2026-05-22.
+- Why: contribution guidance emphasizes long-term relevance and strict taxonomy
+  fit for AI coding agents, platforms, and agent infrastructure.
+  `codex-profiles` is useful Codex workflow tooling but not itself an agent,
+  agent framework, benchmark, or infrastructure platform in that taxonomy.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, and `CODEX_HOME`; no prior submission found.
+- Validation: reviewed repository metadata, README sections, contribution
+  guide, and duplicate history with GitHub CLI.
+- Reference: <https://github.com/brandonhimpfen/awesome-ai-coding-agents>
+
+Awesome AI Coding Agents by vinkius-labs:
+
+- Status: not a fit on 2026-05-22.
+- Why: table-based catalogue is for IDE-based, terminal-based, autonomous,
+  multi-agent, code-review, and specialized AI coding agents. `codex-profiles`
+  supports Codex account/profile switching but is not a coding agent.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, and `CODEX_HOME`; no prior submission found.
+- Validation: reviewed repository metadata, README sections, and duplicate
+  history with GitHub CLI.
+- Reference: <https://github.com/vinkius-labs/awesome-ai-coding-agents>
+
+Awesome AI Coding Agents by BrethofAI:
+
+- Status: not a fit on 2026-05-22.
+- Why: repository is an opinionated comparison/review page for coding
+  assistants. `codex-profiles` is not a coding assistant and would not fit the
+  review table or tool-profile format.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, and `CODEX_HOME`; no prior submission found.
+- Validation: reviewed repository metadata, README sections, and duplicate
+  history with GitHub CLI.
+- Reference: <https://github.com/BrethofAI/awesome-ai-coding-agents>
+
 ## Monthly Reconciliation
 
 2026-05-21 automation pass:
@@ -794,6 +876,14 @@ Awesome Vibe Coding CLI by vanna-ai:
 - Outreach addendum: after user requested outreach, opened one high-signal PR
   to <https://github.com/jiji262/awesome-vibe-coding-tools/pull/22>; no other
   new submissions were opened because the open-PR gate remains above 15.
+- Mass outreach addendum on 2026-05-22: after explicit user request to do mass
+  outreach, opened four additional PRs and one issue:
+  <https://github.com/0xWelt/Awesome-Vibe-Coding/pull/176>,
+  <https://github.com/acvnace/awesome-vibe-coding-resources/pull/20>,
+  <https://github.com/KarelDO/awesome-codex/pull/15>,
+  <https://github.com/furudo-erika/awesome-vibe-coding-tools/pull/4>, and
+  <https://github.com/no-fluff/awesome-vibe-coding/issues/115>. Also logged
+  five skipped or ineligible targets from the discovery sweep.
 - Branch checked: `pinzheng/update-launch-pr-log`.
 - Outreach limit: 20 recorded distribution PRs are still open, exceeding the
   monthly gate of 15 open submitted PRs; this pass used the allowed single new
