@@ -663,7 +663,7 @@ Awesome Gemini CLI:
 
 Awesome Vibe Coding Tools by jiji262:
 
-- Status: deferred on 2026-05-21.
+- Status: PR opened on 2026-05-21.
 - Why: focused vibe-coding tools catalogue with `Terminal-Based AI Agents` and
   `CLI Workflow Systems & Agent Enhancers` sections. It already lists Codex CLI
   and Codex-adjacent workflow enhancers such as `oh-my-codex`, so
@@ -674,11 +674,17 @@ Awesome Vibe Coding Tools by jiji262:
 - Contribution notes: README invites direct PRs, asks for an official URL,
   concise description, appropriate category, and AI coding/development
   relevance.
-- Suggested section: `CLI Workflow Systems & Agent Enhancers`.
+- Section: `CLI Workflow Systems & Agent Enhancers`.
+- Resume path: temporary clone at `/tmp/jiji-awesome-vibe-coding-tools`,
+  branch `pinzheng/add-codex-profiles`, commit `e1e637d` adds
+  `codex-profiles`.
 - Validation: reviewed repository metadata, README sections, contribution
-  notes, and duplicate history with GitHub CLI.
-- Deferred path: submit after the open-PR gate drops below 15, or use as the
-  one high-signal new PR in a later monthly pass if still current.
+  notes, and duplicate history with GitHub CLI; ran `git diff --check`.
+  `npx --yes markdownlint-cli README.md` reports existing repository-wide
+  README style issues in the target project, so it was recorded but not treated
+  as a blocker.
+- PR target: <https://github.com/jiji262/awesome-vibe-coding-tools>
+- PR: <https://github.com/jiji262/awesome-vibe-coding-tools/pull/22>
 - Reference: <https://github.com/jiji262/awesome-vibe-coding-tools>
 
 Awesome Vibe Coding by 0xWelt:
@@ -785,9 +791,13 @@ Awesome Vibe Coding CLI by vanna-ai:
   maintainer requests were opened.
 - Ledger-first addendum: after user follow-up, added seven additional
   candidates/skips to the ledger without submitting them.
+- Outreach addendum: after user requested outreach, opened one high-signal PR
+  to <https://github.com/jiji262/awesome-vibe-coding-tools/pull/22>; no other
+  new submissions were opened because the open-PR gate remains above 15.
 - Branch checked: `pinzheng/update-launch-pr-log`.
-- Why no new outreach: 20 recorded distribution PRs are still open, exceeding
-  the monthly gate of 15 open submitted PRs.
+- Outreach limit: 20 recorded distribution PRs are still open, exceeding the
+  monthly gate of 15 open submitted PRs; this pass used the allowed single new
+  high-signal outreach item and stopped there.
 - Validation: ran `git fetch --all --prune`; checked every recorded GitHub PR
   and issue URL with GitHub CLI; inspected maintainer comments on closed
   submissions; verified accepted entries in upstream READMEs where PRs were
