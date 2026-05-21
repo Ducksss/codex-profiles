@@ -274,13 +274,19 @@ Awesome AI Coding Tools:
 
 AI IDEs & Coding Assistants:
 
-- Status: PR opened on 2026-05-18.
+- Status: merged on 2026-05-19.
 - Why: small but current manually curated AI tools directory with a
   `Developer Productivity & Workflow` section.
 - Resume path: temporary clone at `/tmp/awesome-ai-tools`, branch
   `pinzheng/add-codex-profiles`, commit `08da146` adds `codex-profiles`.
+- Follow-up: maintainer requested tracker submission instead of the direct PR,
+  then generated and merged a directory PR from issue #53.
+- Issue: <https://github.com/QAInsights/awesome-ai-tools/issues/53>
+- Maintainer PR: <https://github.com/QAInsights/awesome-ai-tools/pull/54>
+- Merge commit: `32bc2b44e370a718134fd1d7a3910bcd9cd9cbb1`.
+- Validation: verified the upstream README lists `codex-profiles`.
 - PR target: <https://github.com/QAInsights/awesome-ai-tools>
-- PR: <https://github.com/QAInsights/awesome-ai-tools/pull/50>
+- Original PR: <https://github.com/QAInsights/awesome-ai-tools/pull/50>
 
 Awesome Dev Tools by t18n:
 
@@ -378,13 +384,15 @@ Awesome Agentic Coding by tranhoangpich:
 
 Awesome AI Coding Agent Tools:
 
-- Status: PR opened on 2026-05-18.
+- Status: merged on 2026-05-20.
 - Why: AI coding-agent ecosystem catalogue; `codex-profiles` fits as focused
   Codex CLI/Desktop tooling around profile and account isolation.
 - Resume path: temporary clone at `/tmp/awesome-ai-coding-agent-tools`, branch
   `pinzheng/add-codex-profiles`, commit `c031ecd` adds a `Codex CLI &
   Desktop Tooling` subsection.
-- Validation: ran `npx --yes markdownlint-cli README.md`.
+- Merge commit: `198d9f0322674ece7a56ee0741a0a999d8b79f5a`.
+- Validation: ran `npx --yes markdownlint-cli README.md`; later verified the
+  PR merged through GitHub CLI.
 - PR target: <https://github.com/namphuongtran/awesome-ai-coding-agent-tools>
 - PR: <https://github.com/namphuongtran/awesome-ai-coding-agent-tools/pull/4>
 
@@ -427,13 +435,18 @@ Awesome AI Coding Assistants Playbook:
 
 Awesome AI Coding by dalisoft:
 
-- Status: PR opened on 2026-05-18.
+- Status: merged on 2026-05-20.
 - Why: AI coding catalogue that already lists Codex; `codex-profiles` fits the
   `Resources` section as a companion utility, not the AI-agent CLI table.
 - Resume path: temporary clone at `/tmp/dalisoft-awesome-ai-coding`, branch
   `pinzheng/add-codex-profiles`, commit `4b194bd` adds `codex-profiles`.
+- Follow-up: maintainer closed the original PR but said the tool would be
+  added when a new category landed; it was then included in maintainer PR #65.
+- Maintainer PR: <https://github.com/dalisoft/awesome-ai-coding/pull/65>
+- Merge commit: `672e7123baf3cb0a84fed612f7f63e0310199e1f`.
+- Validation: verified the upstream README lists `codex-profiles`.
 - PR target: <https://github.com/dalisoft/awesome-ai-coding>
-- PR: <https://github.com/dalisoft/awesome-ai-coding/pull/64>
+- Original PR: <https://github.com/dalisoft/awesome-ai-coding/pull/64>
 
 Awesome AI Coding by wsxiaoys:
 
@@ -543,7 +556,7 @@ Awesome AI DevTools by jamesmurdza:
 
 Awesome Codex Workflows by shinpr:
 
-- Status: recommendation issue opened on 2026-05-18.
+- Status: closed on 2026-05-19.
 - Why: Codex-first workflow and orchestration list where contribution guidance
   prefers an issue before a PR for new repository suggestions. Fit is relevant
   but borderline because `codex-profiles` is workflow infrastructure rather
@@ -552,6 +565,11 @@ Awesome Codex Workflows by shinpr:
   `Ducksss/codex-profiles`, `codex profiles`, and `CODEX_HOME`; no prior
   submission found.
 - Suggested category: `Workflow Infrastructure & Design`.
+- Follow-up: maintainer passed because the list focuses on orchestration,
+  planning, review, handoff, runtime containment, and adjacent workflow
+  machinery; `codex-profiles` sits one layer below that as a focused profile
+  isolation utility. Acknowledged the scope boundary and left no replacement
+  action unless the list later adds lower-level Codex environment utilities.
 - Issue target: <https://github.com/shinpr/awesome-codex-workflows>
 - Issue: <https://github.com/shinpr/awesome-codex-workflows/issues/13>
 
@@ -644,6 +662,53 @@ Awesome Gemini CLI:
 - Reference: <https://github.com/Piebald-AI/awesome-gemini-cli>
 
 ## Monthly Reconciliation
+
+2026-05-21 automation pass:
+
+- Status: reconciliation-only pass; no new PRs, issues, listing requests, or
+  maintainer requests were opened.
+- Branch checked: `pinzheng/update-launch-pr-log`.
+- Why no new outreach: 20 recorded distribution PRs are still open, exceeding
+  the monthly gate of 15 open submitted PRs.
+- Validation: ran `git fetch --all --prune`; checked every recorded GitHub PR
+  and issue URL with GitHub CLI; inspected maintainer comments on closed
+  submissions; verified accepted entries in upstream READMEs where PRs were
+  closed but maintainer-side listings landed; ran `git diff --check`.
+- Open PRs confirmed:
+  <https://github.com/BNLNPPS/awesome-terminals-ai/pull/8>,
+  <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8>,
+  <https://github.com/PierrunoYT/awesome-ai-dev-tools/pull/26>,
+  <https://github.com/RoggeOhta/awesome-codex-cli/pull/40>,
+  <https://github.com/ai-for-developers/awesome-ai-coding-tools/pull/330>,
+  <https://github.com/ai-for-developers/awesome-vibe-coding/pull/64>,
+  <https://github.com/bluegalaxy111/awesome-vibe-coding/pull/8>,
+  <https://github.com/bradAGI/awesome-cli-coding-agents/pull/90>,
+  <https://github.com/darknorth-123/Awesome-Codex-Plugins/pull/2>,
+  <https://github.com/devtoolsd/awesome-devtools/pull/230>,
+  <https://github.com/eltociear/awesome-AI-driven-development/pull/52>,
+  <https://github.com/filipecalegario/awesome-vibe-coding/pull/187>,
+  <https://github.com/jamesmurdza/awesome-ai-devtools/pull/554>,
+  <https://github.com/taahro/awesome-openai-codex-cli/pull/3>,
+  <https://github.com/taskade/awesome-vibe-coding/pull/22>,
+  <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267>,
+  <https://github.com/tranhoangpich/awesome-agentic-coding/pull/3>,
+  <https://github.com/vaderyang/awesome-openai-codex/pull/2>,
+  <https://github.com/walkinglabs/awesome-harness-engineering/pull/28>,
+  and <https://github.com/wsxiaoys/awesome-ai-coding/pull/103>.
+- Newly accepted or merged since the prior ledger update:
+  <https://github.com/QAInsights/awesome-ai-tools/pull/54>,
+  <https://github.com/namphuongtran/awesome-ai-coding-agent-tools/pull/4>,
+  and <https://github.com/dalisoft/awesome-ai-coding/pull/65>.
+- Closed or superseded submissions reconciled:
+  <https://github.com/QAInsights/awesome-ai-tools/pull/50> was closed after
+  the maintainer requested issue-tracker submission;
+  <https://github.com/dalisoft/awesome-ai-coding/pull/64> was closed after the
+  maintainer added the tool through PR #65; and
+  <https://github.com/shinpr/awesome-codex-workflows/issues/13> was closed as
+  out of current list scope.
+- Deferred channels retained without action: StackShare, OpenAlternative,
+  LibHunt, SaaSHub, Awesome Shell, Antigravity Awesome Skills, Kyrolabs
+  Awesome Agents, and Awesome LLM Skills by Prat011.
 
 2026-05-18 automation pass:
 
