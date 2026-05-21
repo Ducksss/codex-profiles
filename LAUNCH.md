@@ -28,6 +28,7 @@ Avoid positioning it as:
 ## Launch Readiness
 
 - GitHub releases are published for tagged versions.
+- The npm registry package is published as `codex-profile`.
 - GitHub Discussions are enabled for questions and workflow feedback.
 - Public feedback thread:
   <https://github.com/Ducksss/codex-profiles/discussions/1>
@@ -38,7 +39,7 @@ Avoid positioning it as:
 - Install paths:
 
 ```sh
-npm install -g github:Ducksss/codex-profiles
+npm install -g codex-profile
 ```
 
 ```sh
@@ -51,6 +52,10 @@ cd codex-profiles
 make install
 ```
 
+The npm package is singular: `codex-profile`. It installs both
+`codex-profile` and `codex-profiles` commands. Do not point users at the
+plural npm package name because that package belongs to another project.
+
 Quick verification:
 
 ```sh
@@ -58,10 +63,9 @@ codex-profile doctor
 codex-profile path personal
 ```
 
-Npm registry launch:
+Npm registry verification:
 
 ```sh
-npm publish --access public
 npm install -g codex-profile
 codex-profile doctor
 ```
@@ -83,7 +87,7 @@ CODEX_HOME, so this small Bash wrapper gives each profile its own auth, config,
 sessions, plugins, logs, and local state.
 
 Install:
-npm install -g github:Ducksss/codex-profiles
+npm install -g codex-profile
 brew install Ducksss/tap/codex-profile
 
 Examples:
@@ -104,7 +108,7 @@ codex-profiles.
 Instead of copying auth.json around, it launches Codex CLI or Codex Desktop with
 a named CODEX_HOME:
 
-npm install -g github:Ducksss/codex-profiles
+npm install -g codex-profile
 brew install Ducksss/tap/codex-profile
 codex-profile login work
 codex-profile cli work exec "review this repo"
@@ -130,7 +134,7 @@ accounts with isolated CODEX_HOME directories.
 No token copying. Separate auth, config, sessions, plugins, logs, and local
 Codex state.
 
-npm install -g github:Ducksss/codex-profiles
+npm install -g codex-profile
 brew install Ducksss/tap/codex-profile
 https://github.com/Ducksss/codex-profiles
 ```
@@ -156,12 +160,12 @@ right environment.
 ## Launch Order
 
 1. Share in OpenAI/Codex developer spaces and collect practical feedback.
-2. Post `Show HN` after confirming the Homebrew install works from the public
-   tap.
+2. Post `Show HN` after confirming the npm registry install and Homebrew tap
+   install both work.
 3. Publish the DEV/Hashnode technical write-up and link back to the HN thread
    only as context, not as vote solicitation.
 4. Repost the short demo clip on X, Bluesky, Mastodon, and LinkedIn with the
-   Homebrew command and GitHub link.
+   npm or Homebrew command and GitHub link.
 5. Submit to relevant curated lists or tool directories only where the tool
    clearly fits.
 6. Launch on Product Hunt after screenshots, demo video, README, and install

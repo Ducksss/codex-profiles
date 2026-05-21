@@ -9,8 +9,8 @@ and this project follows semantic versioning for tagged releases.
 
 ### Added
 
-- npm package metadata for installing from GitHub and publishing the
-  `codex-profile` package to the public npm registry.
+- npm package metadata and public install documentation for the published
+  `codex-profile` package.
 
 ### Tests
 
