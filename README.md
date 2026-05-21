@@ -241,7 +241,7 @@ Use a different install prefix or source ref:
 
 ```sh
 codex-profile upgrade --prefix /usr/local
-codex-profile upgrade --ref v0.1.3
+codex-profile upgrade --ref v0.2.0
 codex-profile upgrade --ref <commit-sha>
 ```
 
@@ -334,7 +334,7 @@ Examples:
 
 ```sh
 CODEX_CLI=/path/to/codex codex-profile cli personal
-CODEX_PROFILE_UPGRADE_REF=v0.1.3 codex-profile upgrade --dry-run
+CODEX_PROFILE_UPGRADE_REF=v0.2.0 codex-profile upgrade --dry-run
 ```
 
 ## Platform Support
