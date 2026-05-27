@@ -1011,14 +1011,16 @@ Awesome AI Coding Agents by BrethofAI:
 
 2026-05-27 scheduled release backlog addendum:
 
-- Status: deferred scheduled backlog; no PRs, issues, listing requests, or
-  maintainer requests were opened for these 50 repositories.
+- Status: scheduled backlog with a same-day outreach wave. The user later
+  asked to reach out to 10 more targets on 2026-05-27, so rows 1-10 and row 13
+  were actioned immediately; the remaining candidates stay scheduled.
 - Scope: additional repositories not already recorded elsewhere in this ledger
   at addendum time, intended for slow scheduled release after the current open
   PR queue cools down or when the user explicitly requests another volume pass.
-- Suggested cadence: one wave per week, five repositories per wave, starting
-  2026-06-03. Keep each wave below the spam threshold by checking fit and
-  contribution rules immediately before outreach.
+- Suggested cadence for the remaining candidates: one wave per week, five
+  repositories per wave, starting with the next untouched row. Keep each wave
+  below the spam threshold by checking fit and contribution rules immediately
+  before outreach.
 - Validation: used live GitHub/web search plus GitHub CLI repository metadata,
   excluded archived repositories, and excluded every GitHub repository URL
   already present in `LAUNCH.md`. Before any outreach, re-check each target's
@@ -1031,19 +1033,19 @@ Awesome AI Coding Agents by BrethofAI:
 
 | # | Wave | Repository | Status | Why it may fit | Suggested outreach |
 | - | - | - | - | - | - |
-| 1 | 2026-06-03 | <https://github.com/ComposioHQ/awesome-agent-clis> | scheduled candidate | Curates CLIs that humans and AI agents can use; `codex-profiles` is an agent-friendly CLI with deterministic profile/status commands. | Direct PR with a CLI skill folder if required by repo style; otherwise concise CLI entry. |
-| 2 | 2026-06-03 | <https://github.com/Ariestar/awesome-agent-cli> | scheduled candidate | Agent-ready CLI list with categories, risks, effects, and guardrails; profile switching and isolated `CODEX_HOME` state fit the guardrail angle. | Direct PR if README table accepts agent-ready utilities; include safe-use notes. |
-| 3 | 2026-06-03 | <https://github.com/shuyhere/awesome-agent-cli> | scheduled candidate | CLI tools for AI agents across productivity, research, project management, and dev tools; `codex-profiles` belongs as a developer workflow CLI. | Direct PR if dev-tools category exists; otherwise issue first. |
-| 4 | 2026-06-03 | <https://github.com/agentablesh/awesome-agent-cli> | scheduled candidate | Cross-platform CLI tools suitable for AI agent workflows; isolated Codex profile switching is a workflow-support utility. | Direct PR with scriptability/JSON-output emphasis. |
-| 5 | 2026-06-03 | <https://github.com/Baccivorous-shadiness115/awesome-agent-cli> | scheduled candidate | Agent CLI list with structured-output and dev-tool categories; `codex-profiles` can be positioned as a Codex account/profile management CLI. | Issue first because repository quality should be rechecked before editing. |
-| 6 | 2026-06-10 | <https://github.com/shawnesquivel/awesome-agent-clis> | scheduled candidate | Small agent-CLI list; possible fit if it accepts companion utilities that help agents operate local tools safely. | Issue first due sparse metadata. |
-| 7 | 2026-06-10 | <https://github.com/agenmod/awesome-agent-cli> | scheduled candidate | Agent-CLI catalogue; possible fit as a small shell utility for Codex profile isolation. | Issue first and skip if README is only a mirror or stub. |
-| 8 | 2026-06-10 | <https://github.com/noahfraiture/awesome-codex-plugins> | scheduled candidate | Codex plugin/resource list; `codex-profiles` can fit as Codex ecosystem tooling even if not a plugin. | Direct PR only if non-plugin tools are accepted; otherwise issue first. |
-| 9 | 2026-06-10 | <https://github.com/LeorickCoder/awesome-codex-skills> | scheduled candidate | Codex skill catalogue; the existing `codex-profile-switching` skill artifact can be adapted if the repo accepts practical Codex workflow skills. | Direct PR with validated `SKILL.md`. |
-| 10 | 2026-06-10 | <https://github.com/anup4khandelwal/awesome-codex-skills> | scheduled candidate | Codex skills list; profile switching is a repeatable Codex setup/troubleshooting workflow. | Direct PR with validated `SKILL.md` after checking folder format. |
+| 1 | 2026-06-03 | <https://github.com/ComposioHQ/awesome-agent-clis> | PR opened 2026-05-27 | Curates CLIs that humans and AI agents can use; `codex-profiles` fits as an agent-friendly Codex profile CLI with `status --json`, `doctor --json`, and a bundled skill. | PR: <https://github.com/ComposioHQ/awesome-agent-clis/pull/12>. |
+| 2 | 2026-06-03 | <https://github.com/Ariestar/awesome-agent-cli> | PR opened 2026-05-27 | Agent-ready CLI YAML registry with risks, effects, and guardrails; `codex-profiles` fits the guardrail angle through isolated `CODEX_HOME` state. | PR: <https://github.com/Ariestar/awesome-agent-cli/pull/2>. |
+| 3 | 2026-06-03 | <https://github.com/shuyhere/awesome-agent-cli> | PR opened 2026-05-27 | CLI tools for AI agents across productivity, research, project management, and dev tools; `codex-profiles` fits as a developer workflow CLI. | PR: <https://github.com/shuyhere/awesome-agent-cli/pull/3>. |
+| 4 | 2026-06-03 | <https://github.com/agentablesh/awesome-agent-cli> | PR opened 2026-05-27 | Cross-platform CLI tools suitable for AI agent workflows; isolated Codex profile switching is a workflow-support utility. | PR: <https://github.com/agentablesh/awesome-agent-cli/pull/2>. |
+| 5 | 2026-06-03 | <https://github.com/Baccivorous-shadiness115/awesome-agent-cli> | not a fit on 2026-05-27 | Agent CLI wording is relevant, but the README is primarily a Windows raw-ZIP download page and issues are disabled. | No outreach opened; skipped as below the channel-quality bar. |
+| 6 | 2026-06-10 | <https://github.com/shawnesquivel/awesome-agent-clis> | PR opened 2026-05-27 | Small agent-CLI list with a Coding & Development section; `codex-profiles` fits as a Codex companion utility. | PR: <https://github.com/shawnesquivel/awesome-agent-clis/pull/6>. |
+| 7 | 2026-06-10 | <https://github.com/agenmod/awesome-agent-cli> | PR opened 2026-05-27 | AI-native CLI catalogue with scored JSON source data; `codex-profiles` met the structured-output and non-interactive-inspection criteria. | PR: <https://github.com/agenmod/awesome-agent-cli/pull/2>. |
+| 8 | 2026-06-10 | <https://github.com/noahfraiture/awesome-codex-plugins> | PR opened 2026-05-27 | Codex plugin/resource list; `codex-profiles` fits as Codex ecosystem tooling even if not a plugin. | PR: <https://github.com/noahfraiture/awesome-codex-plugins/pull/2>. |
+| 9 | 2026-06-10 | <https://github.com/LeorickCoder/awesome-codex-skills> | PR opened 2026-05-27 | Codex skill catalogue; added a validated `codex-profile-switching` skill artifact. | PR: <https://github.com/LeorickCoder/awesome-codex-skills/pull/2>. |
+| 10 | 2026-06-10 | <https://github.com/anup4khandelwal/awesome-codex-skills> | issue opened 2026-05-27 | Codex skills list; profile switching is a repeatable Codex setup/troubleshooting workflow, but the repo requires a heavier full skill package. | Issue first: <https://github.com/anup4khandelwal/awesome-codex-skills/issues/5>. |
 | 11 | 2026-06-17 | <https://github.com/joe-qai/awesome-codex-skills-cn> | scheduled candidate | Chinese Codex skills/resource list; possible localized variant of the `codex-profile-switching` skill. | Issue first unless bilingual contribution pattern is clear. |
 | 12 | 2026-06-17 | <https://github.com/kailiu42/awesome-coding-agents> | scheduled candidate | Coding-agent list that explicitly includes supplementary tools; `codex-profiles` may fit as Codex support tooling. | Direct PR if a supplementary-tools section exists; otherwise issue first. |
-| 13 | 2026-06-17 | <https://github.com/tatn/awesome-ai-coding-cli> | scheduled candidate | AI coding CLI catalogue; `codex-profiles` is directly CLI-facing and Codex-specific. | Direct PR after checking table schema/star-history format. |
+| 13 | 2026-06-17 | <https://github.com/tatn/awesome-ai-coding-cli> | issue opened 2026-05-27 | AI coding CLI catalogue; `codex-profiles` is Codex-specific companion tooling but not itself an AI coding agent. | Issue first: <https://github.com/tatn/awesome-ai-coding-cli/issues/1>. |
 | 14 | 2026-06-17 | <https://github.com/XD3an/awesome-ai-coding-all-in-one> | scheduled candidate | AI coding tools/configurations/resources list; profile isolation fits as Codex configuration tooling. | Issue first because it may sync from upstream sources. |
 | 15 | 2026-06-17 | <https://github.com/AnswerZhao/ai-coding-playbook> | scheduled candidate | AI coding frameworks, workflows, patterns, and tools; `codex-profiles` can be positioned as a Codex workflow setup utility. | Issue first; direct PR only if external tools are listed. |
 | 16 | 2026-06-24 | <https://github.com/KnoSkillz/awesome-ai-coding-tools> | scheduled candidate | AI coding tools list with reviews; possible fit if terminal/Codex helper utilities are accepted. | Issue first to avoid unsolicited review-format edits. |
@@ -1081,6 +1083,108 @@ Awesome AI Coding Agents by BrethofAI:
 | 48 | 2026-08-05 | <https://github.com/spinov001-art/awesome-developer-tools-2026> | scheduled candidate | 2026 developer tools list with AI, DevOps, and CLI utilities; possible fit as Codex CLI helper. | Issue first due low metadata. |
 | 49 | 2026-08-05 | <https://github.com/spinov001-art/awesome-developer-tools-2025> | scheduled candidate | Developer tools list with CLI utilities, AI tools, and automation; possible fit as Codex workflow automation CLI. | Issue first due low metadata. |
 | 50 | 2026-08-05 | <https://github.com/Dev-Amjad/awesome-dev-tools> | scheduled candidate | Developer tools/resources list; possible fit as a small command-line productivity tool for Codex users. | Issue first; skip if list is inactive or too generic. |
+
+2026-05-27 same-day outreach wave from scheduled backlog:
+
+- Contact count: opened 8 PRs and 2 issues. Skipped one low-quality raw-ZIP
+  target before contact, so the wave still produced 10 external outreach
+  touches without forcing a bad-fit submission.
+- Duplicate check: before contacting each selected target, searched open and
+  closed PRs/issues for `codex-profiles`, `Ducksss/codex-profiles`, and
+  `CODEX_HOME`; no duplicate submissions were found.
+- <https://github.com/ComposioHQ/awesome-agent-clis>
+  - Status: PR opened, <https://github.com/ComposioHQ/awesome-agent-clis/pull/12>.
+  - Submission source: fork
+    <https://github.com/Ducksss/awesome-agent-clis-codex-profiles>, branch
+    `pinzheng/add-codex-profiles`, commit
+    `1c8bfa570e358b0d3b1387e52d1429862bc41e4f`.
+  - Validation: added `codex-profile/SKILL.md` plus a README entry; ran
+    `quick_validate.py codex-profile`, `markdownlint-cli`, and
+    `git diff --check`. Fresh PR check: open, merge state `BLOCKED`; Socket
+    Security project and pull-request checks passed.
+- <https://github.com/Ariestar/awesome-agent-cli>
+  - Status: PR opened, <https://github.com/Ariestar/awesome-agent-cli/pull/2>.
+  - Submission source: fork
+    <https://github.com/Ducksss/awesome-agent-cli-ariestar-codex-profiles>,
+    branch `pinzheng/add-codex-profiles`, commit
+    `f607b68f3081fa72ebc15bf607cc5ea72d4cb95f`.
+  - Validation: added `data/tools/codex-profile.yaml`; ran
+    `python3 scripts/generate_readme.py` and `git diff --check`. Fresh PR
+    check: open, merge state `UNSTABLE`; no configured checks reported.
+- <https://github.com/shuyhere/awesome-agent-cli>
+  - Status: PR opened, <https://github.com/shuyhere/awesome-agent-cli/pull/3>.
+  - Submission source: fork
+    <https://github.com/Ducksss/awesome-agent-cli-shuyhere-codex-profiles>,
+    branch `pinzheng/add-codex-profiles`, commit
+    `26de4fd03942c205f5842ca8cfb8b37f567569a4`.
+  - Validation: added a README row under Developer Tools and ran
+    `git diff --check`. Fresh PR check: open, merge state `CLEAN`; no
+    configured checks reported.
+- <https://github.com/agentablesh/awesome-agent-cli>
+  - Status: PR opened, <https://github.com/agentablesh/awesome-agent-cli/pull/2>.
+  - Submission source: fork
+    <https://github.com/Ducksss/awesome-agent-cli-agentablesh-codex-profiles>,
+    branch `pinzheng/add-codex-profiles`, commit
+    `f560e21ca5006981af5780253230867b928327ec`.
+  - Validation: added a README row under Platform & Workspace and ran
+    `git diff --check`. Fresh PR check: open, merge state `CLEAN`; no
+    configured checks reported.
+- <https://github.com/Baccivorous-shadiness115/awesome-agent-cli>
+  - Status: skipped as not a fit on 2026-05-27.
+  - Why skipped: README is primarily a Windows raw-ZIP download page and
+    issues are disabled, so there was no credible maintainer-contact path.
+- <https://github.com/shawnesquivel/awesome-agent-clis>
+  - Status: PR opened, <https://github.com/shawnesquivel/awesome-agent-clis/pull/6>.
+  - Submission source: fork
+    <https://github.com/Ducksss/awesome-agent-clis-shawnesquivel-codex-profiles>,
+    branch `pinzheng/add-codex-profiles`, commit
+    `8b1a934b2bb16e69bf629c6bb939fd326cfaf463`.
+  - Validation: added a README row under Coding & Development and ran
+    `git diff --check`. Fresh PR check: open, merge state `CLEAN`; no
+    configured checks reported.
+- <https://github.com/agenmod/awesome-agent-cli>
+  - Status: PR opened, <https://github.com/agenmod/awesome-agent-cli/pull/2>.
+  - Submission source: fork
+    <https://github.com/Ducksss/awesome-agent-cli-agenmod-codex-profiles>,
+    branch `pinzheng/add-codex-profiles`, commit
+    `ad9d98d8f017450ef5d53d788706cd4eb48bc6f5`.
+  - Validation: added a structured `codex-profile` object to
+    `cli-data/tools.json`; ran `jq empty cli-data/tools.json`,
+    `node scripts/generate-readme.mjs`, and `git diff --check`. Fresh PR
+    check: open, merge state `CLEAN`; no configured checks reported.
+- <https://github.com/noahfraiture/awesome-codex-plugins>
+  - Status: PR opened, <https://github.com/noahfraiture/awesome-codex-plugins/pull/2>.
+  - Submission source: fork
+    <https://github.com/Ducksss/awesome-codex-plugins-noah-codex-profiles>,
+    branch `pinzheng/add-codex-profiles`, commit
+    `0562010a77bd7ecbb733ad9aeee7246b3b92123c`.
+  - Validation: added a concise README table row and ran `git diff --check`.
+    Fresh PR check: open, merge state `CLEAN`; no configured checks reported.
+- <https://github.com/LeorickCoder/awesome-codex-skills>
+  - Status: PR opened, <https://github.com/LeorickCoder/awesome-codex-skills/pull/2>.
+  - Submission source: fork
+    <https://github.com/Ducksss/awesome-codex-skills-leorick-codex-profiles>,
+    branch `pinzheng/add-codex-profiles`, commit
+    `5470fd33260be287d509d62be693cac3edf0eb75`.
+  - Validation: added a validated `codex-profile-switching/SKILL.md` and
+    README skill-map row; ran `quick_validate.py codex-profile-switching`,
+    `markdownlint-cli`, `python3 scripts/validate_repo.py`, and
+    `git diff --check`. Fresh PR check: open, merge state `UNSTABLE`; no
+    configured checks reported.
+- <https://github.com/anup4khandelwal/awesome-codex-skills>
+  - Status: issue opened,
+    <https://github.com/anup4khandelwal/awesome-codex-skills/issues/5>.
+  - Why issue first: the repository is a good Codex-skills fit, but its full
+    package format is heavier than a quick direct skill PR; opened a proposal
+    first with the exact `codex-profile-switching` angle.
+  - Fresh issue check: open.
+- <https://github.com/tatn/awesome-ai-coding-cli>
+  - Status: issue opened,
+    <https://github.com/tatn/awesome-ai-coding-cli/issues/1>.
+  - Why issue first: the repository is an AI coding CLI catalogue, while
+    `codex-profiles` is a companion CLI for Codex account/profile isolation
+    rather than a coding agent; asked the maintainer before editing the list.
+  - Fresh issue check: open.
 
 2026-05-27 candidate checks:
 
@@ -1173,38 +1277,57 @@ Awesome AI Coding Agents by BrethofAI:
 
 2026-05-27 automation pass:
 
-- Status: reconciliation plus four new outreach PRs.
+- Status: reconciliation plus 12 new outreach PRs and 2 issue-first contacts.
 - Branch checked: `pinzheng/outreach-2026-05-27`.
 - Clean worktree note: the primary checkout had unrelated untracked
   `exports/` and `outputs/` directories, so this run used a separate clean
   worktree at `/Users/chaipinzheng/Dev/codex-profiles-outreach-2026-05-27`.
-- Outreach limit: 22 recorded distribution PRs were still open before the new
-  submission, exceeding the monthly gate of 15. This pass first opened one
-  stronger fit from the backlog. After the user's explicit "more outreach"
-  request, it opened three additional submissions that had a valid contribution
-  shape: two real skill artifacts plus one broad shell-tool listing. 26
-  distribution PRs are open after the expanded pass.
+- Outreach limit: 22 recorded distribution PRs were still open before the
+  first new submission, exceeding the monthly gate of 15. This pass first
+  opened one stronger fit from the backlog. After the user's explicit follow-up
+  requests for more outreach, it opened three additional valid submissions,
+  then a same-day 10-contact wave from the scheduled backlog. 34 distribution
+  PRs and 3 distribution issues are open after the expanded pass.
 - New PRs opened:
   <https://github.com/launchapp-dev/awesome-ai-coding-tools/pull/8>,
   <https://github.com/Prat011/awesome-llm-skills/pull/132>,
-  <https://github.com/ComposioHQ/awesome-codex-skills/pull/86>, and
-  <https://github.com/uhub/awesome-shell/pull/14>.
+  <https://github.com/ComposioHQ/awesome-codex-skills/pull/86>,
+  <https://github.com/uhub/awesome-shell/pull/14>,
+  <https://github.com/ComposioHQ/awesome-agent-clis/pull/12>,
+  <https://github.com/Ariestar/awesome-agent-cli/pull/2>,
+  <https://github.com/shuyhere/awesome-agent-cli/pull/3>,
+  <https://github.com/agentablesh/awesome-agent-cli/pull/2>,
+  <https://github.com/shawnesquivel/awesome-agent-clis/pull/6>,
+  <https://github.com/agenmod/awesome-agent-cli/pull/2>,
+  <https://github.com/noahfraiture/awesome-codex-plugins/pull/2>, and
+  <https://github.com/LeorickCoder/awesome-codex-skills/pull/2>.
+- New issues opened:
+  <https://github.com/anup4khandelwal/awesome-codex-skills/issues/5> and
+  <https://github.com/tatn/awesome-ai-coding-cli/issues/1>.
 - Scheduled backlog addendum: after the user requested a slow-release queue,
   added 50 additional GitHub repository candidates, deduped against every
   GitHub URL already recorded in this ledger, and grouped them into ten weekly
-  five-repository waves from 2026-06-03 through 2026-08-05. No submissions
-  were opened for these backlog candidates.
+  five-repository waves from 2026-06-03 through 2026-08-05. The first
+  same-day wave actioned rows 1-10 plus row 13; the remaining candidates stay
+  scheduled for slower release.
 - Open issue confirmed:
-  <https://github.com/no-fluff/awesome-vibe-coding/issues/115>.
+  <https://github.com/anup4khandelwal/awesome-codex-skills/issues/5>,
+  <https://github.com/no-fluff/awesome-vibe-coding/issues/115>, and
+  <https://github.com/tatn/awesome-ai-coding-cli/issues/1>.
 - Open PRs confirmed:
   <https://github.com/0xWelt/Awesome-Vibe-Coding/pull/176>,
+  <https://github.com/Ariestar/awesome-agent-cli/pull/2>,
   <https://github.com/BNLNPPS/awesome-terminals-ai/pull/8>,
   <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8>,
+  <https://github.com/ComposioHQ/awesome-agent-clis/pull/12>,
   <https://github.com/ComposioHQ/awesome-codex-skills/pull/86>,
   <https://github.com/KarelDO/awesome-codex/pull/15>,
+  <https://github.com/LeorickCoder/awesome-codex-skills/pull/2>,
   <https://github.com/PierrunoYT/awesome-ai-dev-tools/pull/26>,
   <https://github.com/Prat011/awesome-llm-skills/pull/132>,
   <https://github.com/RoggeOhta/awesome-codex-cli/pull/40>,
+  <https://github.com/agenmod/awesome-agent-cli/pull/2>,
+  <https://github.com/agentablesh/awesome-agent-cli/pull/2>,
   <https://github.com/ai-for-developers/awesome-ai-coding-tools/pull/330>,
   <https://github.com/ai-for-developers/awesome-vibe-coding/pull/64>,
   <https://github.com/bluegalaxy111/awesome-vibe-coding/pull/8>,
@@ -1216,6 +1339,9 @@ Awesome AI Coding Agents by BrethofAI:
   <https://github.com/jamesmurdza/awesome-ai-devtools/pull/554>,
   <https://github.com/jiji262/awesome-vibe-coding-tools/pull/22>,
   <https://github.com/launchapp-dev/awesome-ai-coding-tools/pull/8>,
+  <https://github.com/noahfraiture/awesome-codex-plugins/pull/2>,
+  <https://github.com/shawnesquivel/awesome-agent-clis/pull/6>,
+  <https://github.com/shuyhere/awesome-agent-cli/pull/3>,
   <https://github.com/taahro/awesome-openai-codex-cli/pull/3>,
   <https://github.com/taskade/awesome-vibe-coding/pull/22>,
   <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267>,
@@ -1237,7 +1363,9 @@ Awesome AI Coding Agents by BrethofAI:
   `tysoncung/awesome-vibe-coding`, `yeaight7/awesome-ai-devtools`,
   `ColinEberhardt/awesome-ai-developer-tools`, and
   `wdzhwsh4067/awesome-coding-agents`; skipped `alebcay/awesome-shell` because
-  its 50-star eligibility gate is not yet met.
+  its 50-star eligibility gate is not yet met; skipped
+  `Baccivorous-shadiness115/awesome-agent-cli` because the README is a raw-ZIP
+  download page and issues are disabled.
 - Validation: ran `git fetch --all --prune`; checked recorded GitHub PR and
   issue URLs with GitHub CLI; inspected open PR comment/review counts for
   actionable maintainer feedback; verified accepted entries in upstream
@@ -1246,12 +1374,15 @@ Awesome AI Coding Agents by BrethofAI:
   `codex-profile-switching` skills for the Prat011 and ComposioHQ catalogues
   with `quick_validate.py`, `markdownlint-cli`, and `git diff --check`; ran
   `git diff --check` in the Awesome Shell target fork and this repository.
-  For the scheduled backlog addendum, used live web/GitHub search plus GitHub
-  CLI repository metadata, excluded archived repositories, and excluded
-  repositories already present in `LAUNCH.md`. Target repository-wide
-  `markdownlint-cli` reports pre-existing README style issues. GitHub security
-  checks for the two skill-catalog PRs passed at final verification time; the
-  Awesome Shell PR reported no configured checks.
+  For the scheduled backlog addendum and same-day outreach wave, used live
+  web/GitHub search plus GitHub CLI repository metadata, excluded archived
+  repositories, excluded repositories already present in `LAUNCH.md`, checked
+  duplicate PR/issue history, validated repo-specific formats, and refreshed
+  the eight new PR states plus two new issue states with GitHub CLI. Target
+  repository-wide `markdownlint-cli` reports pre-existing README style issues.
+  GitHub security checks for the two earlier skill-catalog PRs and the new
+  ComposioHQ agent-CLI PR passed at final verification time; most new PRs
+  reported no configured checks.
 - Deferred channels retained without action: StackShare, OpenAlternative,
   LibHunt, SaaSHub, Antigravity Awesome Skills, and Kyrolabs Awesome Agents.
 
