@@ -643,8 +643,8 @@ ComposioHQ Awesome Codex Skills:
   `quick_validate.py codex-profile-switching`, ran `markdownlint-cli` against
   `codex-profile-switching/SKILL.md`, and ran `git diff --check`.
   Repository-wide `markdownlint-cli` reports pre-existing README style issues.
-  GitHub reported `Socket Security: Project Report` pending at verification
-  time.
+  GitHub reported `Socket Security: Project Report` and
+  `Socket Security: Pull Request Alerts` passing at final verification time.
 - Reference: <https://github.com/ComposioHQ/awesome-codex-skills>
 - PR: <https://github.com/ComposioHQ/awesome-codex-skills/pull/86>
 
@@ -723,7 +723,8 @@ Awesome LLM Skills by Prat011:
   `quick_validate.py codex-profile-switching`, ran `markdownlint-cli` against
   `codex-profile-switching/SKILL.md`, and ran `git diff --check`.
   Repository-wide `markdownlint-cli` reports pre-existing README style issues.
-  GitHub reported `GitGuardian Security Checks` pending at verification time.
+  GitHub reported `GitGuardian Security Checks` passing at final verification
+  time.
 - Reference: <https://github.com/Prat011/awesome-llm-skills>
 - PR: <https://github.com/Prat011/awesome-llm-skills/pull/132>
 
@@ -1168,8 +1169,8 @@ Awesome AI Coding Agents by BrethofAI:
   with `quick_validate.py`, `markdownlint-cli`, and `git diff --check`; ran
   `git diff --check` in the Awesome Shell target fork and this repository.
   Target repository-wide `markdownlint-cli` reports pre-existing README style
-  issues. GitHub security checks for the two skill-catalog PRs were pending at
-  verification time.
+  issues. GitHub security checks for the two skill-catalog PRs passed at final
+  verification time; the Awesome Shell PR reported no configured checks.
 - Deferred channels retained without action: StackShare, OpenAlternative,
   LibHunt, SaaSHub, Antigravity Awesome Skills, and Kyrolabs Awesome Agents.
 
