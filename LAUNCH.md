@@ -293,6 +293,30 @@ Awesome AI Coding Tools:
 - PR target: <https://github.com/ai-for-developers/awesome-ai-coding-tools>
 - PR: <https://github.com/ai-for-developers/awesome-ai-coding-tools/pull/330>
 
+Awesome AI Coding Tools by LaunchApp:
+
+- Status: PR opened on 2026-05-27.
+- Why: current AI coding tools list with explicit `CLI & Terminal Coding
+  Tools` coverage for lower-level terminal utilities that pair with coding
+  agents or run solo. `codex-profiles` fits as a focused Codex CLI/Desktop
+  account and profile-state utility.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, and `CODEX_HOME`; no prior submission found. A
+  separate open PR for "Everything OpenAI Codex" was unrelated.
+- Section: `CLI & Terminal Coding Tools`.
+- Submission source: branch `pinzheng/add-codex-profiles` on fork
+  <https://github.com/Ducksss/awesome-ai-coding-tools-launchapp>, commit
+  `2d061b54cbfe40202c38186f3b6cc9e046f8c324` adds `codex-profiles`.
+- Validation: reviewed repository metadata, README scope, and
+  `contributing.md`; kept the maintainer-featured `Animus` entry first and
+  sorted the remaining CLI tools alphabetically; ran `git diff --check`.
+  `npx --yes markdownlint-cli README.md` reports pre-existing repository-wide
+  README line-length issues, recorded as non-blocking. PR checks: no checks
+  reported. GitHub merge state was `CLEAN` after opening.
+- PR target: <https://github.com/launchapp-dev/awesome-ai-coding-tools>
+- PR: <https://github.com/launchapp-dev/awesome-ai-coding-tools/pull/8>
+- Reference: <https://github.com/launchapp-dev/awesome-ai-coding-tools>
+
 AI IDEs & Coding Assistants:
 
 - Status: merged on 2026-05-19.
@@ -373,11 +397,13 @@ Awesome OpenAI Codex:
 
 Awesome Codex Plugins by darknorth-123:
 
-- Status: PR opened on 2026-05-18.
+- Status: merged on 2026-05-26.
 - Why: Codex ecosystem list that explicitly accepts plugins, MCP servers,
   workflows, integrations, and developer tools for OpenAI Codex.
 - Submission source: branch `pinzheng/add-codex-profiles`, commit `4985656` adds
   `codex-profiles` to `Developer Tools`.
+- Merge commit: `d279cc3041eca41c14cc3ff167e213066df87d69`.
+- Validation: verified the upstream README lists `codex-profiles`.
 - PR target: <https://github.com/darknorth-123/Awesome-Codex-Plugins>
 - PR: <https://github.com/darknorth-123/Awesome-Codex-Plugins/pull/2>
 
@@ -726,7 +752,7 @@ Awesome Vibe Coding by 0xWelt:
 
 Awesome Vibe Coding Resources by acvnace:
 
-- Status: PR opened on 2026-05-22.
+- Status: merged on 2026-05-22.
 - Why: active resource list with `Command Line Tools` entries for Codex-adjacent
   utilities such as Agent FM, MUSE, SwarmClaw, SwarmVault, and agenttrace.
   `codex-profiles` may fit as a command-line workflow utility for Codex users,
@@ -740,7 +766,9 @@ Awesome Vibe Coding Resources by acvnace:
 - Validation: reviewed repository metadata, README sections, and duplicate
   history with GitHub CLI; ran `git diff --check`. `npx --yes
   markdownlint-cli README.md` reports pre-existing repository-wide README style
-  issues, recorded as non-blocking. PR checks: no checks reported.
+  issues, recorded as non-blocking. PR checks: no checks reported. Later
+  verified the upstream README lists `codex-profiles`.
+- Merge commit: `e9649ed58c9e799bd5a0b12c0a6d592b87d2f0e2`.
 - PR target: <https://github.com/acvnace/awesome-vibe-coding-resources>
 - PR: <https://github.com/acvnace/awesome-vibe-coding-resources/pull/20>
 - Reference: <https://github.com/acvnace/awesome-vibe-coding-resources>
@@ -946,7 +974,120 @@ Awesome AI Coding Agents by BrethofAI:
 | 49 | <https://github.com/rubylikeya/awesome-vibe-coding> | deferred candidate | Vibe Coding cases, tools, and best practices directory; possible fit as tool entry. | Issue first. |
 | 50 | <https://github.com/di-su/awesome-vibe-coding> | deferred candidate | Vibe-coding resources, AI coding tools, and remote developer jobs list; possible tool fit. | Issue first. |
 
+2026-05-27 candidate checks:
+
+- <https://github.com/launchapp-dev/awesome-ai-coding-tools>
+  - Status: PR opened; see "Awesome AI Coding Tools by LaunchApp" above.
+  - Validation: reviewed repository metadata, README, contribution rules,
+    duplicate PR/issue history, and PR checks.
+- <https://github.com/colicveinmedicine640/awesome-codex-cli>
+  - Status: not a fit on 2026-05-27.
+  - Why skipped: despite Codex CLI wording, the README is primarily a
+    "download for Windows" wrapper around a raw ZIP asset rather than a normal
+    curated awesome-list contribution target.
+  - Validation: reviewed repository metadata and README; skipped before a
+    duplicate PR/issue check because the channel quality was below the outreach
+    bar.
+- <https://github.com/commonplace-middledistance109/awesome-codex-cli>
+  - Status: not a fit on 2026-05-27.
+  - Why skipped: similar to the prior candidate, the README points users at a
+    raw ZIP download flow and does not expose a credible curated-list structure
+    for a `codex-profiles` entry.
+  - Validation: reviewed repository metadata and README; skipped before a
+    duplicate PR/issue check because the channel quality was below the outreach
+    bar.
+- <https://github.com/AlexZander-666/awesome-codex-agents>
+  - Status: not a fit on 2026-05-27.
+  - Why skipped: repository is an installable Codex subagent collection, not a
+    tool directory. `codex-profiles` is a profile/account utility and would not
+    be a valid agent entry.
+  - Validation: reviewed repository metadata and README.
+- <https://github.com/Caldalis/awesome-coding-agents>
+  - Status: not a fit on 2026-05-27.
+  - Why skipped: repository is a source-level documentation project about
+    coding-agent runtime architecture, not a product/tool catalogue.
+  - Validation: reviewed repository metadata and README.
+- <https://github.com/furudo-erika/awesome-ai-coding-tools>
+  - Status: deferred on 2026-05-27.
+  - Why deferred: possible AI-coding-tools fit, but the repo had lower current
+    signal than LaunchApp's list, and this pass was constrained by the
+    existing open-PR gate.
+  - Validation: reviewed repository metadata; no PR or issue opened.
+- <https://github.com/yubing744/awesome-agentic-coding-cli>
+  - Status: deferred on 2026-05-27.
+  - Why deferred: terminal-first agentic coding CLI list is thematically
+    relevant, but issues are disabled and `codex-profiles` is a companion
+    utility rather than a coding agent CLI. Revisit only if opening another
+    direct PR is warranted.
+  - Validation: reviewed repository metadata and README; no PR opened.
+- <https://github.com/tusharjadhav124/awesome-vibe-coding-tools>
+  - Status: not a fit on 2026-05-27.
+  - Why skipped: README is a generic download/install page centered on a raw
+    ZIP asset, not a credible curated developer-tool list.
+  - Validation: reviewed repository metadata and README.
+
 ## Monthly Reconciliation
+
+2026-05-27 automation pass:
+
+- Status: reconciliation plus one new outreach PR.
+- Branch checked: `pinzheng/outreach-2026-05-27`.
+- Clean worktree note: the primary checkout had unrelated untracked
+  `exports/` and `outputs/` directories, so this run used a separate clean
+  worktree at `/Users/chaipinzheng/Dev/codex-profiles-outreach-2026-05-27`.
+- Outreach limit: 22 recorded distribution PRs were still open before the new
+  submission, exceeding the monthly gate of 15. This pass opened one stronger
+  fit from the backlog and stopped; 23 distribution PRs are open after the
+  LaunchApp PR.
+- New PR opened:
+  <https://github.com/launchapp-dev/awesome-ai-coding-tools/pull/8>.
+- Open issue confirmed:
+  <https://github.com/no-fluff/awesome-vibe-coding/issues/115>.
+- Open PRs confirmed:
+  <https://github.com/0xWelt/Awesome-Vibe-Coding/pull/176>,
+  <https://github.com/BNLNPPS/awesome-terminals-ai/pull/8>,
+  <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8>,
+  <https://github.com/KarelDO/awesome-codex/pull/15>,
+  <https://github.com/PierrunoYT/awesome-ai-dev-tools/pull/26>,
+  <https://github.com/RoggeOhta/awesome-codex-cli/pull/40>,
+  <https://github.com/ai-for-developers/awesome-ai-coding-tools/pull/330>,
+  <https://github.com/ai-for-developers/awesome-vibe-coding/pull/64>,
+  <https://github.com/bluegalaxy111/awesome-vibe-coding/pull/8>,
+  <https://github.com/bradAGI/awesome-cli-coding-agents/pull/90>,
+  <https://github.com/devtoolsd/awesome-devtools/pull/230>,
+  <https://github.com/eltociear/awesome-AI-driven-development/pull/52>,
+  <https://github.com/filipecalegario/awesome-vibe-coding/pull/187>,
+  <https://github.com/furudo-erika/awesome-vibe-coding-tools/pull/4>,
+  <https://github.com/jamesmurdza/awesome-ai-devtools/pull/554>,
+  <https://github.com/jiji262/awesome-vibe-coding-tools/pull/22>,
+  <https://github.com/launchapp-dev/awesome-ai-coding-tools/pull/8>,
+  <https://github.com/taahro/awesome-openai-codex-cli/pull/3>,
+  <https://github.com/taskade/awesome-vibe-coding/pull/22>,
+  <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267>,
+  <https://github.com/vaderyang/awesome-openai-codex/pull/2>,
+  <https://github.com/walkinglabs/awesome-harness-engineering/pull/28>,
+  and <https://github.com/wsxiaoys/awesome-ai-coding/pull/103>.
+- Newly merged since the prior ledger update:
+  <https://github.com/acvnace/awesome-vibe-coding-resources/pull/20> and
+  <https://github.com/darknorth-123/Awesome-Codex-Plugins/pull/2>.
+- Candidates skipped or deferred: LaunchApp accepted for PR; skipped
+  `colicveinmedicine640/awesome-codex-cli`,
+  `commonplace-middledistance109/awesome-codex-cli`,
+  `AlexZander-666/awesome-codex-agents`,
+  `Caldalis/awesome-coding-agents`, and
+  `tusharjadhav124/awesome-vibe-coding-tools`; deferred
+  `furudo-erika/awesome-ai-coding-tools` and
+  `yubing744/awesome-agentic-coding-cli`.
+- Validation: ran `git fetch --all --prune`; checked recorded GitHub PR and
+  issue URLs with GitHub CLI; inspected open PR comment/review counts for
+  actionable maintainer feedback; verified accepted entries in upstream
+  READMEs for the two newly merged PRs; reviewed target README/contribution
+  rules and duplicate history for the new LaunchApp PR; ran `git diff --check`
+  in both the target fork and this repository. Target `markdownlint-cli`
+  reports pre-existing README line-length issues.
+- Deferred channels retained without action: StackShare, OpenAlternative,
+  LibHunt, SaaSHub, Awesome Shell, Antigravity Awesome Skills, Kyrolabs
+  Awesome Agents, and Awesome LLM Skills by Prat011.
 
 2026-05-21 automation pass:
 
