@@ -516,11 +516,22 @@ Awesome Coding Agents by wshobson:
 
 Awesome Shell:
 
-- Status: deferred on 2026-05-18.
-- Why: `codex-profiles` is Bash shell software, but the list is broad and has
-  older open PRs. Keep it as a lower-priority target after Codex/AI-agent
-  directories respond.
-- Candidate target: <https://github.com/uhub/awesome-shell>
+- Status: PR opened on 2026-05-27.
+- Why: `codex-profiles` is Bash shell software and the repository accepts
+  broad shell tooling entries. This is lower-signal than Codex-specific
+  directories, but the user's explicit 2026-05-27 request was to do more
+  outreach, and the entry is concise, truthful, and on-topic.
+- Duplicate check: searched open and closed PRs/issues for `codex-profiles`,
+  `Ducksss/codex-profiles`, `CODEX_HOME`, and Codex profile terms; no prior
+  submission found.
+- Submission source: fork `Ducksss/awesome-shell-uhub`, branch
+  `pinzheng/add-codex-profiles`, commit
+  `c82043bde2de628d566574749250df3b929457c3` adds one README entry.
+- Validation: reviewed repository metadata and README structure; ran
+  `git diff --check`. Repository-wide `markdownlint-cli` reports pre-existing
+  README style issues, so it was recorded but not treated as a blocker.
+- PR target: <https://github.com/uhub/awesome-shell>
+- PR: <https://github.com/uhub/awesome-shell/pull/14>
 
 Terminals Are Sexy:
 
@@ -616,15 +627,26 @@ Awesome Codex Workflows by shinpr:
 
 ComposioHQ Awesome Codex Skills:
 
-- Status: skipped on 2026-05-18.
-- Why: large and active Codex skill catalogue, but the contribution shape is a
-  real reusable skill with `SKILL.md`. A plain `codex-profiles` product link
-  would not satisfy the list's skill-centered scope.
+- Status: PR opened on 2026-05-27.
+- Why: large and active Codex skill catalogue. The earlier direct product-link
+  path was not valid for this repository, so this pass created a real reusable
+  `codex-profile-switching` skill with `SKILL.md` instead of submitting a plain
+  link.
 - Duplicate check: searched open and closed PRs/issues for `codex-profiles`
-  and `Ducksss/codex-profiles`; no real prior submission found.
-- Deferred path: revisit only if creating an actual Codex skill wrapper around
-  profile/account switching is desired.
+  and `Ducksss/codex-profiles`; no real prior submission found. The existing
+  PR queue did not contain a Codex profile switching skill.
+- Submission source: fork `Ducksss/awesome-codex-skills-codex-profiles`,
+  branch `pinzheng/add-codex-profile-switching`, commit
+  `de1bb23f499827bff57fda1deda2b1753f754baa` adds
+  `codex-profile-switching/SKILL.md` and the README entry.
+- Validation: ran the system skill validator
+  `quick_validate.py codex-profile-switching`, ran `markdownlint-cli` against
+  `codex-profile-switching/SKILL.md`, and ran `git diff --check`.
+  Repository-wide `markdownlint-cli` reports pre-existing README style issues.
+  GitHub reported `Socket Security: Project Report` pending at verification
+  time.
 - Reference: <https://github.com/ComposioHQ/awesome-codex-skills>
+- PR: <https://github.com/ComposioHQ/awesome-codex-skills/pull/86>
 
 VoltAgent Awesome Codex Subagents:
 
@@ -684,14 +706,26 @@ E2B Awesome AI Agents:
 
 Awesome LLM Skills by Prat011:
 
-- Status: deferred on 2026-05-18.
+- Status: PR opened on 2026-05-27.
 - Why: skill-centric contribution process requires a documented and portable
-  skill folder plus README update. A direct product link would not fit.
+  skill folder plus README update. The earlier direct product-link path was not
+  valid, so this pass created a real `codex-profile-switching` skill that
+  teaches safe Codex CLI/Desktop profile management with isolated `CODEX_HOME`
+  directories.
 - Duplicate check: searched open and closed PRs/issues for `codex-profiles`
-  and `Ducksss/codex-profiles`; no prior submission found.
-- Deferred path: revisit only if building an actual "Codex profile switching"
-  skill.
+  and `Ducksss/codex-profiles`; no prior submission found. The existing PR
+  queue did not contain a Codex profile switching skill.
+- Submission source: fork `Ducksss/awesome-llm-skills-codex-profiles`, branch
+  `pinzheng/add-codex-profile-switching`, commit
+  `3291f6e62385fc9f983525ef598426e2125132ac` adds
+  `codex-profile-switching/SKILL.md` and the README entry.
+- Validation: ran the system skill validator
+  `quick_validate.py codex-profile-switching`, ran `markdownlint-cli` against
+  `codex-profile-switching/SKILL.md`, and ran `git diff --check`.
+  Repository-wide `markdownlint-cli` reports pre-existing README style issues.
+  GitHub reported `GitGuardian Security Checks` pending at verification time.
 - Reference: <https://github.com/Prat011/awesome-llm-skills>
+- PR: <https://github.com/Prat011/awesome-llm-skills/pull/132>
 
 Awesome Gemini CLI:
 
@@ -1025,30 +1059,72 @@ Awesome AI Coding Agents by BrethofAI:
   - Why skipped: README is a generic download/install page centered on a raw
     ZIP asset, not a credible curated developer-tool list.
   - Validation: reviewed repository metadata and README.
+- <https://github.com/runaicode/awesome-ai-coding-tools>
+  - Status: not a fit on 2026-05-27.
+  - Why skipped: repository focuses on AI-powered coding assistants and
+    AI-assisted developer tools. `codex-profiles` is useful for Codex users,
+    but it is not itself AI-powered or a coding assistant.
+  - Validation: reviewed repository metadata and README; no PR opened.
+- <https://github.com/tysoncung/awesome-vibe-coding>
+  - Status: not a fit on 2026-05-27.
+  - Why skipped: repository focuses on AI-assisted coding products and
+    resources. `codex-profiles` is profile isolation infrastructure rather than
+    an AI-assisted coding product.
+  - Validation: reviewed repository metadata and README; no PR opened.
+- <https://github.com/yeaight7/awesome-ai-devtools>
+  - Status: not a fit on 2026-05-27.
+  - Why skipped: repository generates its directory from structured tool data
+    and focuses on AI-powered devtools. Adding `codex-profiles` would be a
+    taxonomy mismatch.
+  - Validation: reviewed repository structure and README; no PR opened.
+- <https://github.com/ColinEberhardt/awesome-ai-developer-tools>
+  - Status: not a fit on 2026-05-27.
+  - Why skipped: mature AI-developer-tools list with a higher bar and existing
+    Codex-related submissions; `codex-profiles` is a lower-level profile
+    utility, not an AI developer tool by itself.
+  - Validation: reviewed README scope and open PR queue; no PR opened.
+- <https://github.com/wdzhwsh4067/awesome-coding-agents>
+  - Status: not a fit on 2026-05-27.
+  - Why skipped: contribution scope is coding-agent systems, papers, and
+    documentation. `codex-profiles` is a companion profile/account utility
+    rather than a coding agent.
+  - Validation: reviewed contribution rules and README taxonomy; no PR opened.
+- <https://github.com/alebcay/awesome-shell>
+  - Status: not eligible on 2026-05-27.
+  - Why skipped: contribution rules require shell tools to have at least 50
+    GitHub stars. `Ducksss/codex-profiles` had 16 stars at review time.
+  - Validation: reviewed contribution rules and repository stats; no PR opened.
 
 ## Monthly Reconciliation
 
 2026-05-27 automation pass:
 
-- Status: reconciliation plus one new outreach PR.
+- Status: reconciliation plus four new outreach PRs.
 - Branch checked: `pinzheng/outreach-2026-05-27`.
 - Clean worktree note: the primary checkout had unrelated untracked
   `exports/` and `outputs/` directories, so this run used a separate clean
   worktree at `/Users/chaipinzheng/Dev/codex-profiles-outreach-2026-05-27`.
 - Outreach limit: 22 recorded distribution PRs were still open before the new
-  submission, exceeding the monthly gate of 15. This pass opened one stronger
-  fit from the backlog and stopped; 23 distribution PRs are open after the
-  LaunchApp PR.
-- New PR opened:
-  <https://github.com/launchapp-dev/awesome-ai-coding-tools/pull/8>.
+  submission, exceeding the monthly gate of 15. This pass first opened one
+  stronger fit from the backlog. After the user's explicit "more outreach"
+  request, it opened three additional submissions that had a valid contribution
+  shape: two real skill artifacts plus one broad shell-tool listing. 26
+  distribution PRs are open after the expanded pass.
+- New PRs opened:
+  <https://github.com/launchapp-dev/awesome-ai-coding-tools/pull/8>,
+  <https://github.com/Prat011/awesome-llm-skills/pull/132>,
+  <https://github.com/ComposioHQ/awesome-codex-skills/pull/86>, and
+  <https://github.com/uhub/awesome-shell/pull/14>.
 - Open issue confirmed:
   <https://github.com/no-fluff/awesome-vibe-coding/issues/115>.
 - Open PRs confirmed:
   <https://github.com/0xWelt/Awesome-Vibe-Coding/pull/176>,
   <https://github.com/BNLNPPS/awesome-terminals-ai/pull/8>,
   <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8>,
+  <https://github.com/ComposioHQ/awesome-codex-skills/pull/86>,
   <https://github.com/KarelDO/awesome-codex/pull/15>,
   <https://github.com/PierrunoYT/awesome-ai-dev-tools/pull/26>,
+  <https://github.com/Prat011/awesome-llm-skills/pull/132>,
   <https://github.com/RoggeOhta/awesome-codex-cli/pull/40>,
   <https://github.com/ai-for-developers/awesome-ai-coding-tools/pull/330>,
   <https://github.com/ai-for-developers/awesome-vibe-coding/pull/64>,
@@ -1064,6 +1140,7 @@ Awesome AI Coding Agents by BrethofAI:
   <https://github.com/taahro/awesome-openai-codex-cli/pull/3>,
   <https://github.com/taskade/awesome-vibe-coding/pull/22>,
   <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267>,
+  <https://github.com/uhub/awesome-shell/pull/14>,
   <https://github.com/vaderyang/awesome-openai-codex/pull/2>,
   <https://github.com/walkinglabs/awesome-harness-engineering/pull/28>,
   and <https://github.com/wsxiaoys/awesome-ai-coding/pull/103>.
@@ -1077,17 +1154,24 @@ Awesome AI Coding Agents by BrethofAI:
   `Caldalis/awesome-coding-agents`, and
   `tusharjadhav124/awesome-vibe-coding-tools`; deferred
   `furudo-erika/awesome-ai-coding-tools` and
-  `yubing744/awesome-agentic-coding-cli`.
+  `yubing744/awesome-agentic-coding-cli`; skipped `runaicode/awesome-ai-coding-tools`,
+  `tysoncung/awesome-vibe-coding`, `yeaight7/awesome-ai-devtools`,
+  `ColinEberhardt/awesome-ai-developer-tools`, and
+  `wdzhwsh4067/awesome-coding-agents`; skipped `alebcay/awesome-shell` because
+  its 50-star eligibility gate is not yet met.
 - Validation: ran `git fetch --all --prune`; checked recorded GitHub PR and
   issue URLs with GitHub CLI; inspected open PR comment/review counts for
   actionable maintainer feedback; verified accepted entries in upstream
   READMEs for the two newly merged PRs; reviewed target README/contribution
-  rules and duplicate history for the new LaunchApp PR; ran `git diff --check`
-  in both the target fork and this repository. Target `markdownlint-cli`
-  reports pre-existing README line-length issues.
+  rules and duplicate history for the new LaunchApp PR; built and validated
+  `codex-profile-switching` skills for the Prat011 and ComposioHQ catalogues
+  with `quick_validate.py`, `markdownlint-cli`, and `git diff --check`; ran
+  `git diff --check` in the Awesome Shell target fork and this repository.
+  Target repository-wide `markdownlint-cli` reports pre-existing README style
+  issues. GitHub security checks for the two skill-catalog PRs were pending at
+  verification time.
 - Deferred channels retained without action: StackShare, OpenAlternative,
-  LibHunt, SaaSHub, Awesome Shell, Antigravity Awesome Skills, Kyrolabs
-  Awesome Agents, and Awesome LLM Skills by Prat011.
+  LibHunt, SaaSHub, Antigravity Awesome Skills, and Kyrolabs Awesome Agents.
 
 2026-05-21 automation pass:
 
