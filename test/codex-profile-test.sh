@@ -414,6 +414,145 @@ FAKE_PGREP
   rm -rf "$tmp"
 }
 
+write_fake_codex_app_bundle() {
+  local app="$1"
+  local message="$2"
+
+  mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+  cat > "$app/Contents/Info.plist" <<'FAKE_PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDisplayName</key>
+  <string>Codex</string>
+  <key>CFBundleExecutable</key>
+  <string>Codex</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.openai.codex</string>
+  <key>CFBundleName</key>
+  <string>Codex</string>
+</dict>
+</plist>
+FAKE_PLIST
+
+  cat > "$app/Contents/MacOS/Codex" <<FAKE_CODEX_APP
+#!/usr/bin/env bash
+printf 'MESSAGE=%s\n' "$message"
+printf 'CODEX_HOME=%s\n' "\$CODEX_HOME"
+printf 'ARGS=%s\n' "\$*"
+FAKE_CODEX_APP
+  chmod 755 "$app/Contents/MacOS/Codex"
+}
+
+write_fake_macos_bundle_tools() {
+  local fake_bin="$1"
+
+  mkdir -p "$fake_bin"
+  cat > "$fake_bin/plutil" <<'FAKE_PLUTIL'
+#!/usr/bin/env bash
+printf 'plutil %s\n' "$*" >> "${FAKE_TOOL_LOG:?}"
+exit 0
+FAKE_PLUTIL
+  chmod 755 "$fake_bin/plutil"
+
+  cat > "$fake_bin/codesign" <<'FAKE_CODESIGN'
+#!/usr/bin/env bash
+printf 'codesign %s\n' "$*" >> "${FAKE_TOOL_LOG:?}"
+exit 0
+FAKE_CODESIGN
+  chmod 755 "$fake_bin/codesign"
+
+  cat > "$fake_bin/osascript" <<'FAKE_OSASCRIPT'
+#!/usr/bin/env bash
+printf 'osascript should not be called\n' >&2
+exit 99
+FAKE_OSASCRIPT
+  chmod 755 "$fake_bin/osascript"
+
+  cat > "$fake_bin/pgrep" <<'FAKE_PGREP'
+#!/usr/bin/env bash
+printf 'pgrep should not be called\n' >&2
+exit 99
+FAKE_PGREP
+  chmod 755 "$fake_bin/pgrep"
+}
+
+test_app_instance_launches_parallel_profile_without_quitting_existing_app() {
+  local tmp fake_app fake_bin tool_log instance_root instance_app log_file user_data_dir
+  tmp="$(mktemp -d)"
+  fake_app="$tmp/Codex.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  instance_root="$tmp/instances"
+  instance_app="$instance_root/personal/Codex personal.app"
+  log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
+  user_data_dir="$tmp/home/.codex-personal/electron-user-data"
+  write_fake_codex_app_bundle "$fake_app" "parallel launch"
+  write_fake_macos_bundle_tools "$fake_bin"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance personal "$tmp/workspace"
+
+  assert_status 0
+  assert_contains "Launching experimental Codex Desktop instance for personal"
+  assert_contains "App bundle: $instance_app"
+  assert_contains "Electron user data: $user_data_dir"
+  assert_contains "Log: $log_file"
+  [[ -x "$instance_app/Contents/MacOS/Codex" ]] || fail "app-instance did not create executable app clone"
+  [[ -d "$user_data_dir" ]] || fail "app-instance did not create isolated Electron user data directory"
+  [[ "$(mode_of "$tmp/home/.codex-personal")" == "700" ]] || fail "profile home is not private"
+  [[ "$(mode_of "$user_data_dir")" == "700" ]] || fail "Electron user data directory is not private"
+
+  for _ in {1..20}; do
+    [[ -f "$log_file" ]] && grep -q "parallel launch" "$log_file" && break
+    sleep 0.1
+  done
+
+  [[ -f "$log_file" ]] || fail "desktop instance log was not created"
+  assert_not_contains "osascript should not be called"
+  assert_not_contains "pgrep should not be called"
+  grep -q "MESSAGE=parallel launch" "$log_file" || fail "app-instance did not launch cloned Codex app"
+  grep -q "CODEX_HOME=$tmp/home/.codex-personal" "$log_file" || fail "app-instance did not pass profile CODEX_HOME"
+  grep -q "ARGS=--user-data-dir=$user_data_dir $tmp/workspace" "$log_file" || fail "app-instance did not pass isolated user-data dir before workspace"
+  grep -q "CFBundleIdentifier" "$tool_log" || fail "app-instance did not patch bundle identifier"
+  grep -q "CFBundleDisplayName" "$tool_log" || fail "app-instance did not patch display name"
+  grep -q "codesign --force --deep --sign -" "$tool_log" || fail "app-instance did not re-sign patched bundle"
+
+  rm -rf "$tmp"
+}
+
+test_app_instance_rebuild_replaces_existing_profile_app_clone() {
+  local tmp fake_app fake_bin tool_log instance_root instance_app stale_file log_file
+  tmp="$(mktemp -d)"
+  fake_app="$tmp/Codex.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  instance_root="$tmp/instances"
+  instance_app="$instance_root/work/Codex work.app"
+  stale_file="$instance_app/stale"
+  log_file="$tmp/home/.codex-work/logs/desktop-instance.log"
+  write_fake_codex_app_bundle "$fake_app" "rebuilt launch"
+  write_fake_macos_bundle_tools "$fake_bin"
+  mkdir -p "$instance_app"
+  printf 'stale\n' > "$stale_file"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance work --rebuild "$tmp/workspace"
+
+  assert_status 0
+  assert_contains "Rebuilding app instance for work"
+  [[ ! -e "$stale_file" ]] || fail "app-instance --rebuild did not remove stale app clone"
+  [[ -x "$instance_app/Contents/MacOS/Codex" ]] || fail "app-instance --rebuild did not recreate app clone"
+
+  for _ in {1..20}; do
+    [[ -f "$log_file" ]] && grep -q "rebuilt launch" "$log_file" && break
+    sleep 0.1
+  done
+
+  grep -q "MESSAGE=rebuilt launch" "$log_file" || fail "rebuilt app instance did not launch"
+
+  rm -rf "$tmp"
+}
+
 test_doctor_skips_status_when_cli_missing() {
   local tmp
   tmp="$(mktemp -d)"
@@ -514,6 +653,26 @@ test_logs_prints_path_and_contents() {
   rm -rf "$tmp"
 }
 
+test_logs_prints_instance_path_and_contents() {
+  local tmp log_file
+  tmp="$(mktemp -d)"
+  log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
+  mkdir -p "${log_file%/*}"
+  printf 'instance first\ninstance second\n' > "$log_file"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" logs personal --instance --path
+
+  assert_status 0
+  assert_equals "$log_file"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" logs personal --instance --tail 1
+
+  assert_status 0
+  assert_equals "instance second"
+
+  rm -rf "$tmp"
+}
+
 test_logs_reports_missing_log_file() {
   local tmp
   tmp="$(mktemp -d)"
@@ -607,12 +766,18 @@ test_doctor_json_reports_missing_cli_and_skips_status() {
 }
 
 test_completions_generate_shell_scripts() {
+  run_cmd "$SCRIPT" help
+
+  assert_status 0
+  assert_contains "app-instance"
+
   run_cmd "$SCRIPT" completions bash
 
   assert_status 0
   assert_contains "complete -F _codex_profile codex-profile"
   assert_contains "clone-config"
   assert_contains "upgrade"
+  assert_contains "app-instance"
 
   run_cmd "$SCRIPT" completions zsh
 
@@ -620,6 +785,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "#compdef codex-profile"
   assert_contains "logs"
   assert_contains "upgrade"
+  assert_contains "app-instance"
 
   run_cmd "$SCRIPT" completions fish
 
@@ -627,6 +793,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "complete -c codex-profile"
   assert_contains "remove"
   assert_contains "upgrade"
+  assert_contains "app-instance"
 }
 
 test_upgrade_dry_run_reports_plan_without_mutating_files() {
@@ -906,12 +1073,15 @@ test_status_treats_not_logged_in_as_normal_status
 test_status_propagates_unexpected_cli_failure
 test_app_logs_stay_under_profile_home
 test_app_refuses_to_launch_when_app_server_is_still_running
+test_app_instance_launches_parallel_profile_without_quitting_existing_app
+test_app_instance_rebuild_replaces_existing_profile_app_clone
 test_doctor_skips_status_when_cli_missing
 test_init_creates_private_profile_home_without_codex
 test_remove_aborts_when_confirmation_does_not_match
 test_remove_yes_deletes_profile_home
 test_remove_yes_deletes_profiles_named_like_common_aliases
 test_logs_prints_path_and_contents
+test_logs_prints_instance_path_and_contents
 test_logs_reports_missing_log_file
 test_status_json_reports_profiles_without_creating_missing_default
 test_status_json_treats_not_logged_in_as_normal_status

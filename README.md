@@ -64,6 +64,7 @@ where local Codex state should not bleed between contexts.
 
 - Isolated Codex homes per profile.
 - CLI and Codex Desktop launch support.
+- Experimental parallel Codex Desktop app instances for power users.
 - No token copying, parsing, printing, or migration.
 - Read-only `list`, `status`, and `doctor` commands for diagnostics.
 - JSON output for automation.
@@ -139,6 +140,14 @@ Run Codex Desktop with a profile on macOS:
 ```sh
 codex-profile app personal ~/Dev/my-project
 codex-profile app work
+```
+
+Run an experimental parallel Codex Desktop instance with its own app clone and
+Electron user data directory:
+
+```sh
+codex-profile app-instance personal ~/Dev/project-a
+codex-profile app-instance work --rebuild ~/Dev/project-b
 ```
 
 Check what exists and what is logged in:
@@ -336,6 +345,7 @@ alias codex-app-work='codex-profile app work'
 
 ```text
 codex-profile app <profile> [workspace]
+codex-profile app-instance <profile> [--rebuild] [workspace]
 codex-profile cli <profile> [codex-args...]
 codex-profile login <profile> [codex-login-args...]
 codex-profile init <profile>
@@ -343,7 +353,7 @@ codex-profile remove <profile> [--yes]
 codex-profile status [profile]
 codex-profile status --json [profile]
 codex-profile path <profile>
-codex-profile logs <profile> [--path|--tail [lines]]
+codex-profile logs <profile> [--instance] [--path|--tail [lines]]
 codex-profile clone-config <source-profile> <target-profile> [--force]
 codex-profile list
 codex-profile doctor [--json]
@@ -359,6 +369,7 @@ codex-profile --version
 CODEX_APP                      Override Codex.app path
 CODEX_APP_BIN                  Override Codex Desktop binary path
 CODEX_CLI                      Override Codex CLI binary path
+CODEX_PROFILE_APP_INSTANCE_ROOT Override experimental app-instance clone root
 CODEX_PROFILE_UPGRADE_REPO     Override upgrade repository
 CODEX_PROFILE_UPGRADE_REF      Override upgrade git ref
 CODEX_PROFILE_UPGRADE_CACHE    Override upgrade cache checkout
@@ -384,6 +395,12 @@ The `app` command is macOS-only because it launches `Codex.app` and uses macOS
 app-control tooling to quit the running desktop app before relaunching it with a
 different `CODEX_HOME`.
 
+The experimental `app-instance` command is also macOS-oriented. It creates a
+profile-specific copy of `Codex.app`, patches its bundle name and identifier
+when macOS tooling is available, re-signs the clone, and launches it without
+quitting other Codex windows. Use `--rebuild` after Codex Desktop updates or if
+an instance clone looks stale.
+
 ## Desktop App Notes
 
 Codex Desktop should run one profile at a time. `codex-profile app <profile>`
@@ -392,6 +409,24 @@ with the selected `CODEX_HOME`.
 
 For predictable account switching, launch Codex Desktop through `codex-profile`
 instead of Dock or Spotlight.
+
+### Experimental Parallel Instances
+
+`codex-profile app-instance <profile>` is an opt-in escape hatch for users who
+need two Codex Desktop profiles open at once. It keeps the normal `app` command
+conservative and instead launches a profile-specific app clone with:
+
+- `CODEX_HOME` set to the selected profile home.
+- Electron `--user-data-dir` set to `<profile-home>/electron-user-data`.
+- Desktop logs written to `<profile-home>/logs/desktop-instance.log`.
+- Instance logs available through `codex-profile logs <profile> --instance`.
+- App clones stored under
+  `~/Library/Application Support/codex-profile/app-instances` by default.
+
+This is still not full OS-level isolation. The two instances share your macOS
+user account, shell credentials, browser state, SSH keys, GitHub CLI auth, cloud
+CLI auth, and any other credentials outside `CODEX_HOME` and the Electron user
+data directory.
 
 ## Security Model
 
@@ -440,8 +475,11 @@ are a cleaner boundary.
 
 ### Can I run two desktop profiles at once?
 
-Not safely. Codex Desktop is treated as one active profile at a time. The `app`
-command quits the current Codex app before launching the selected profile.
+The default `app` command intentionally treats Codex Desktop as one active
+profile at a time. For an opt-in experimental path, use
+`codex-profile app-instance <profile>`. It launches a profile-specific app clone
+with separate `CODEX_HOME` and Electron user data, but it does not isolate
+external OS-level credentials.
 
 ### Does this isolate external tools too?
 

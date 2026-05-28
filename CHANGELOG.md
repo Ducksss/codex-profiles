@@ -11,10 +11,16 @@ and this project follows semantic versioning for tagged releases.
 
 - npm package metadata and public install documentation for the published
   `codex-profile` package.
+- Experimental `app-instance` command for launching profile-specific Codex
+  Desktop app clones with isolated `CODEX_HOME`, Electron user data, and
+  profile-local instance logs.
+- `logs <profile> --instance` for reading experimental app-instance logs.
 
 ### Tests
 
 - Added npm package installation coverage.
+- Added coverage for app-instance launch isolation, app clone rebuilds, and
+  completion/help output.
 
 ## 0.2.0 - 2026-05-21
 
