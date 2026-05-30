@@ -396,10 +396,10 @@ app-control tooling to quit the running desktop app before relaunching it with a
 different `CODEX_HOME`.
 
 The experimental `app-instance` command is also macOS-oriented. It creates a
-profile-specific copy of `Codex.app`, patches its bundle name and identifier
-when macOS tooling is available, re-signs the clone, and launches it without
-quitting other Codex windows. Use `--rebuild` after Codex Desktop updates or if
-an instance clone looks stale.
+profile-specific copy of `Codex.app`, patches its display name and bundle
+identifier when macOS tooling is available, re-signs the clone, and launches it
+without quitting other Codex windows. Use `--rebuild` after Codex Desktop
+updates or if an instance clone looks stale.
 
 ## Desktop App Notes
 

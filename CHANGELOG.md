@@ -22,6 +22,12 @@ and this project follows semantic versioning for tagged releases.
 - Added coverage for app-instance launch isolation, app clone rebuilds, and
   completion/help output.
 
+### Fixed
+
+- Fixed experimental app-instance launches on macOS by preserving Codex's
+  `CFBundleName` for Electron helper lookup and launching cloned bundles
+  through `open -a` with workspace folders passed as documents.
+
 ## 0.2.0 - 2026-05-21
 
 ### Added

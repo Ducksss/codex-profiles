@@ -438,6 +438,10 @@ FAKE_PLIST
 
   cat > "$app/Contents/MacOS/Codex" <<FAKE_CODEX_APP
 #!/usr/bin/env bash
+if [[ "\${OPEN_LAUNCHED:-}" != "yes" ]]; then
+  printf 'not launched through open\n' >&2
+  exit 64
+fi
 printf 'MESSAGE=%s\n' "$message"
 printf 'CODEX_HOME=%s\n' "\$CODEX_HOME"
 printf 'ARGS=%s\n' "\$*"
@@ -451,6 +455,20 @@ write_fake_macos_bundle_tools() {
   mkdir -p "$fake_bin"
   cat > "$fake_bin/plutil" <<'FAKE_PLUTIL'
 #!/usr/bin/env bash
+if [[ "${1:-}" == "-extract" && "${2:-}" == "CFBundleName" ]]; then
+  plist="${!#}"
+  awk '
+    previous {
+      gsub(/^[[:space:]]*<string>/, "")
+      gsub(/<\/string>[[:space:]]*$/, "")
+      print
+      exit
+    }
+    /<key>CFBundleName<\/key>/ { previous = 1 }
+  ' "$plist"
+  exit 0
+fi
+
 printf 'plutil %s\n' "$*" >> "${FAKE_TOOL_LOG:?}"
 exit 0
 FAKE_PLUTIL
@@ -476,6 +494,56 @@ printf 'pgrep should not be called\n' >&2
 exit 99
 FAKE_PGREP
   chmod 755 "$fake_bin/pgrep"
+
+  cat > "$fake_bin/open" <<'FAKE_OPEN'
+#!/usr/bin/env bash
+stdout="/dev/null"
+stderr="/dev/null"
+app=""
+env_args=()
+file_args=()
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    -n|--new)
+      shift
+      ;;
+    --env)
+      env_args+=("$2")
+      shift 2
+      ;;
+    --stdout)
+      stdout="$2"
+      shift 2
+      ;;
+    --stderr)
+      stderr="$2"
+      shift 2
+      ;;
+    -a)
+      app="$2"
+      shift 2
+      ;;
+    --args)
+      shift
+      break
+      ;;
+    *)
+      file_args+=("$1")
+      shift
+      ;;
+  esac
+done
+
+printf 'open -a %s files=%s args=%s\n' "$app" "${file_args[*]}" "$*" >> "${FAKE_TOOL_LOG:?}"
+
+if [[ "$stdout" == "$stderr" ]]; then
+  env OPEN_LAUNCHED=yes "${env_args[@]}" "$app/Contents/MacOS/Codex" "$@" "${file_args[@]}" > "$stdout" 2>&1 &
+else
+  env OPEN_LAUNCHED=yes "${env_args[@]}" "$app/Contents/MacOS/Codex" "$@" "${file_args[@]}" > "$stdout" 2> "$stderr" &
+fi
+FAKE_OPEN
+  chmod 755 "$fake_bin/open"
 }
 
 test_app_instance_launches_parallel_profile_without_quitting_existing_app() {
@@ -516,7 +584,9 @@ test_app_instance_launches_parallel_profile_without_quitting_existing_app() {
   grep -q "ARGS=--user-data-dir=$user_data_dir $tmp/workspace" "$log_file" || fail "app-instance did not pass isolated user-data dir before workspace"
   grep -q "CFBundleIdentifier" "$tool_log" || fail "app-instance did not patch bundle identifier"
   grep -q "CFBundleDisplayName" "$tool_log" || fail "app-instance did not patch display name"
+  ! grep -q "CFBundleName" "$tool_log" || fail "app-instance patched CFBundleName and broke Electron helper lookup"
   grep -q "codesign --force --deep --sign -" "$tool_log" || fail "app-instance did not re-sign patched bundle"
+  grep -q "open -a $instance_app files=$tmp/workspace args=--user-data-dir=$user_data_dir" "$tool_log" || fail "app-instance did not launch workspace through macOS open -a"
 
   rm -rf "$tmp"
 }
@@ -549,6 +619,36 @@ test_app_instance_rebuild_replaces_existing_profile_app_clone() {
   done
 
   grep -q "MESSAGE=rebuilt launch" "$log_file" || fail "rebuilt app instance did not launch"
+
+  rm -rf "$tmp"
+}
+
+test_app_instance_rebuilds_clone_with_incompatible_bundle_name() {
+  local tmp fake_app fake_bin tool_log instance_root instance_app log_file
+  tmp="$(mktemp -d)"
+  fake_app="$tmp/Codex.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  instance_root="$tmp/instances"
+  instance_app="$instance_root/personal/Codex personal.app"
+  log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
+  write_fake_codex_app_bundle "$fake_app" "fresh launch"
+  write_fake_macos_bundle_tools "$fake_bin"
+  write_fake_codex_app_bundle "$instance_app" "stale launch"
+  perl -0pi -e 's#(<key>CFBundleName</key>\s*<string>)Codex(</string>)#$1Codex personal$2#' "$instance_app/Contents/Info.plist"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance personal "$tmp/workspace"
+
+  assert_status 0
+  assert_contains "Rebuilding app instance for personal because existing clone is incompatible"
+
+  for _ in {1..20}; do
+    [[ -f "$log_file" ]] && grep -q "fresh launch" "$log_file" && break
+    sleep 0.1
+  done
+
+  grep -q "MESSAGE=fresh launch" "$log_file" || fail "incompatible app instance was not rebuilt before launch"
+  ! grep -q "MESSAGE=stale launch" "$log_file" || fail "incompatible app instance launched without rebuild"
 
   rm -rf "$tmp"
 }
@@ -1075,6 +1175,7 @@ test_app_logs_stay_under_profile_home
 test_app_refuses_to_launch_when_app_server_is_still_running
 test_app_instance_launches_parallel_profile_without_quitting_existing_app
 test_app_instance_rebuild_replaces_existing_profile_app_clone
+test_app_instance_rebuilds_clone_with_incompatible_bundle_name
 test_doctor_skips_status_when_cli_missing
 test_init_creates_private_profile_home_without_codex
 test_remove_aborts_when_confirmation_does_not_match

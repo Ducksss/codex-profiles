@@ -262,13 +262,29 @@ patch_app_instance_metadata() {
 
   plutil -replace CFBundleIdentifier -string "$bundle_id" "$plist" > /dev/null || die "Cannot patch app instance bundle identifier."
   plutil -replace CFBundleDisplayName -string "$display_name" "$plist" > /dev/null || die "Cannot patch app instance display name."
-  plutil -replace CFBundleName -string "$display_name" "$plist" > /dev/null || die "Cannot patch app instance bundle name."
 
   if command -v codesign > /dev/null 2>&1; then
     codesign --force --deep --sign - "$app" > /dev/null 2>&1 || die "Cannot re-sign app instance: $app"
   else
     note "Warning: codesign not found; patched app instance may not launch on macOS."
   fi
+}
+
+app_instance_bundle_name() {
+  local app="$1"
+  local plist="$app/Contents/Info.plist"
+
+  [[ -f "$plist" ]] || return 0
+  command -v plutil > /dev/null 2>&1 || return 0
+  plutil -extract CFBundleName raw -o - "$plist" 2> /dev/null || true
+}
+
+app_instance_is_incompatible() {
+  local app="$1"
+  local bundle_name
+
+  bundle_name="$(app_instance_bundle_name "$app")"
+  [[ -n "$bundle_name" && "$bundle_name" != "Codex" ]]
 }
 
 create_app_instance_bundle() {
@@ -306,6 +322,12 @@ ensure_app_instance_bundle() {
 
   if [[ "$rebuild" == "yes" ]]; then
     note "Rebuilding app instance for $profile"
+    create_app_instance_bundle "$profile"
+    return 0
+  fi
+
+  if [[ -x "$instance_bin" ]] && app_instance_is_incompatible "$instance_app"; then
+    note "Rebuilding app instance for $profile because existing clone is incompatible"
     create_app_instance_bundle "$profile"
     return 0
   fi
@@ -354,6 +376,7 @@ command_app_instance() {
   instance_app="$(app_instance_app_for_profile "$profile")"
   instance_bin="$instance_app/Contents/MacOS/Codex"
   [[ -x "$instance_bin" ]] || die "Codex app instance binary not found at $instance_bin"
+  command -v open > /dev/null 2>&1 || die "macOS open command not found; app-instance is macOS-only."
 
   user_data_dir="$codex_home/electron-user-data"
   ensure_home "$user_data_dir"
@@ -369,7 +392,7 @@ command_app_instance() {
   note "App bundle: $instance_app"
   note "Electron user data: $user_data_dir"
   note "Log: $log_file"
-  (umask 077 && nohup env CODEX_HOME="$codex_home" "$instance_bin" "--user-data-dir=$user_data_dir" "$workspace" > "$log_file" 2>&1 &)
+  (umask 077 && open -n --env "CODEX_HOME=$codex_home" --stdout "$log_file" --stderr "$log_file" -a "$instance_app" "$workspace" --args "--user-data-dir=$user_data_dir") || die "Cannot launch app instance: $instance_app"
 }
 
 command_cli() {
