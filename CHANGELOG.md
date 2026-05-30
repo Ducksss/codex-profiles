@@ -12,6 +12,11 @@ and this project follows semantic versioning for tagged releases.
 - npm package metadata and public install documentation for the published
   `codex-profile` package.
 
+### Fixed
+
+- Desktop profile switching now escalates to a forced quit if Codex does not
+  close cleanly after the initial quit request.
+
 ### Tests
 
 - Added npm package installation coverage.

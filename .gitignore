@@ -30,6 +30,8 @@ build/
 coverage/
 out/
 .remotion/
+exports/
+outputs/
 
 # Local demo/video production workspaces
 codex-profiles-video/
