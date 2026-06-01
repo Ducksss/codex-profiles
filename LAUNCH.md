@@ -373,11 +373,13 @@ Awesome OpenAI Codex:
 
 Awesome Codex Plugins by darknorth-123:
 
-- Status: PR opened on 2026-05-18.
+- Status: merged on 2026-05-26.
 - Why: Codex ecosystem list that explicitly accepts plugins, MCP servers,
   workflows, integrations, and developer tools for OpenAI Codex.
 - Submission source: branch `pinzheng/add-codex-profiles`, commit `4985656` adds
   `codex-profiles` to `Developer Tools`.
+- Merge commit: `d279cc3041eca41c14cc3ff167e213066df87d69`.
+- Validation: verified the upstream README lists `codex-profiles`.
 - PR target: <https://github.com/darknorth-123/Awesome-Codex-Plugins>
 - PR: <https://github.com/darknorth-123/Awesome-Codex-Plugins/pull/2>
 
@@ -392,11 +394,15 @@ Awesome OpenAI Codex CLI by taahro:
 
 Awesome Agentic Coding by tranhoangpich:
 
-- Status: PR opened on 2026-05-18.
+- Status: failed on 2026-06-01.
 - Why: open-source agentic-coding list already containing Codex and adjacent
   account/session workflow tools.
 - Submission source: branch `pinzheng/add-codex-profiles`, commit `8838169` adds
   `codex-profiles`.
+- Follow-up: GitHub no longer resolves
+  `tranhoangpich/awesome-agentic-coding` through `gh pr view`,
+  `gh repo view`, repository search, or the owner's public repository list.
+  No replacement target was found during reconciliation.
 - PR target: <https://github.com/tranhoangpich/awesome-agentic-coding>
 - PR: <https://github.com/tranhoangpich/awesome-agentic-coding/pull/3>
 
@@ -421,6 +427,9 @@ Awesome CLI Coding Agents:
   for tools that extend or support CLI coding agents.
 - Submission source: branch
   `pinzheng/add-codex-profiles`, commit `7c2b638` adds `codex-profiles`.
+- Follow-up: resolved merge conflicts against upstream `main` on 2026-06-01
+  with commit `507cebe` on the PR branch; GitHub merge state is now `CLEAN`.
+- Validation: ran `git diff --check` after resolving the conflict.
 - PR target: <https://github.com/bradAGI/awesome-cli-coding-agents>
 - PR: <https://github.com/bradAGI/awesome-cli-coding-agents/pull/90>
 
@@ -444,8 +453,14 @@ Awesome AI Coding Assistants Playbook:
 - Submission source: branch
   `pinzheng/add-codex-profiles`, commit `d3ab9f3` adds English and Portuguese
   entries.
+- Follow-up: maintainer approved the PR and asked for conflicts to be resolved
+  on 2026-05-27. Resolved conflicts against upstream `main` on 2026-06-01 with
+  commit `c1a9787` on the PR branch, commented back at
+  <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8#issuecomment-4589451832>,
+  and verified GitHub merge state is now `CLEAN`.
 - Validation: ran `git diff --check`; default `markdownlint-cli` reports
-  pre-existing repository-wide README issues unrelated to this entry.
+  pre-existing repository-wide README issues unrelated to this entry. Also ran
+  `git diff --check` after the 2026-06-01 conflict resolution.
 - PR target: <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook>
 - PR: <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8>
 
@@ -726,7 +741,7 @@ Awesome Vibe Coding by 0xWelt:
 
 Awesome Vibe Coding Resources by acvnace:
 
-- Status: PR opened on 2026-05-22.
+- Status: merged on 2026-05-22.
 - Why: active resource list with `Command Line Tools` entries for Codex-adjacent
   utilities such as Agent FM, MUSE, SwarmClaw, SwarmVault, and agenttrace.
   `codex-profiles` may fit as a command-line workflow utility for Codex users,
@@ -737,10 +752,12 @@ Awesome Vibe Coding Resources by acvnace:
 - Section: `Command Line Tools`.
 - Submission source: branch
   `pinzheng/add-codex-profiles`, commit `d332134` adds `codex-profiles`.
+- Merge commit: `e9649ed58c9e799bd5a0b12c0a6d592b87d2f0e2`.
 - Validation: reviewed repository metadata, README sections, and duplicate
   history with GitHub CLI; ran `git diff --check`. `npx --yes
   markdownlint-cli README.md` reports pre-existing repository-wide README style
-  issues, recorded as non-blocking. PR checks: no checks reported.
+  issues, recorded as non-blocking. PR checks: no checks reported. Later
+  verified the upstream README lists `codex-profiles`.
 - PR target: <https://github.com/acvnace/awesome-vibe-coding-resources>
 - PR: <https://github.com/acvnace/awesome-vibe-coding-resources/pull/20>
 - Reference: <https://github.com/acvnace/awesome-vibe-coding-resources>
@@ -947,6 +964,72 @@ Awesome AI Coding Agents by BrethofAI:
 | 50 | <https://github.com/di-su/awesome-vibe-coding> | deferred candidate | Vibe-coding resources, AI coding tools, and remote developer jobs list; possible tool fit. | Issue first. |
 
 ## Monthly Reconciliation
+
+2026-06-01 automation pass:
+
+- Status: reconciliation and follow-up pass; no new PRs, issues, listing
+  requests, or maintainer requests were opened.
+- Branch checked: `main`; launch-log branch pushed:
+  `pinzheng/outreach-2026-06-01`.
+- Outreach limit: 22 recorded distribution PRs and one issue are still open,
+  exceeding the monthly gate of 15 open submitted PRs. This run focused on
+  reconciliation and conflict repair instead of new outreach.
+- Existing PR/issue reconciliation: checked every recorded GitHub PR and issue
+  URL in this ledger with GitHub CLI after `git fetch --all --prune`.
+- Newly merged since the prior ledger update:
+  <https://github.com/acvnace/awesome-vibe-coding-resources/pull/20> merged at
+  `e9649ed58c9e799bd5a0b12c0a6d592b87d2f0e2`, and
+  <https://github.com/darknorth-123/Awesome-Codex-Plugins/pull/2> merged at
+  `d279cc3041eca41c14cc3ff167e213066df87d69`. Verified both upstream READMEs
+  list `codex-profiles`.
+- Follow-up completed:
+  <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8>
+  had maintainer approval plus a conflict-resolution request. Resolved the
+  conflict with commit `c1a9787`, pushed the branch, verified merge state
+  `CLEAN`, and replied at
+  <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8#issuecomment-4589451832>.
+- Follow-up completed:
+  <https://github.com/bradAGI/awesome-cli-coding-agents/pull/90> had merge
+  conflicts. Resolved the conflict with commit `507cebe`, pushed the branch,
+  and verified merge state `CLEAN`.
+- Failed reconciliation:
+  <https://github.com/tranhoangpich/awesome-agentic-coding/pull/3> no longer
+  resolves through GitHub CLI/API. `gh pr view`, `gh repo view`, repository
+  search, and the owner's public repository list found no accessible
+  replacement.
+- Open PRs confirmed:
+  <https://github.com/0xWelt/Awesome-Vibe-Coding/pull/176>,
+  <https://github.com/BNLNPPS/awesome-terminals-ai/pull/8>,
+  <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8>,
+  <https://github.com/KarelDO/awesome-codex/pull/15>,
+  <https://github.com/PierrunoYT/awesome-ai-dev-tools/pull/26>,
+  <https://github.com/RoggeOhta/awesome-codex-cli/pull/40>,
+  <https://github.com/ai-for-developers/awesome-ai-coding-tools/pull/330>,
+  <https://github.com/ai-for-developers/awesome-vibe-coding/pull/64>,
+  <https://github.com/bluegalaxy111/awesome-vibe-coding/pull/8>,
+  <https://github.com/bradAGI/awesome-cli-coding-agents/pull/90>,
+  <https://github.com/devtoolsd/awesome-devtools/pull/230>,
+  <https://github.com/eltociear/awesome-AI-driven-development/pull/52>,
+  <https://github.com/filipecalegario/awesome-vibe-coding/pull/187>,
+  <https://github.com/furudo-erika/awesome-vibe-coding-tools/pull/4>,
+  <https://github.com/jamesmurdza/awesome-ai-devtools/pull/554>,
+  <https://github.com/jiji262/awesome-vibe-coding-tools/pull/22>,
+  <https://github.com/taahro/awesome-openai-codex-cli/pull/3>,
+  <https://github.com/taskade/awesome-vibe-coding/pull/22>,
+  <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267>,
+  <https://github.com/vaderyang/awesome-openai-codex/pull/2>,
+  <https://github.com/walkinglabs/awesome-harness-engineering/pull/28>,
+  and <https://github.com/wsxiaoys/awesome-ai-coding/pull/103>.
+- Open issue confirmed:
+  <https://github.com/no-fluff/awesome-vibe-coding/issues/115>.
+- Deferred channels retained without action: StackShare, OpenAlternative,
+  LibHunt, SaaSHub, Awesome Shell, Antigravity Awesome Skills, Kyrolabs
+  Awesome Agents, Awesome LLM Skills by Prat011, and the 50-repository
+  outreach candidate backlog.
+- Validation: read `README.md`, `LAUNCH.md`, and `agent.md`; verified required
+  docs exist; ran `git fetch --all --prune`; checked GitHub auth; reconciled
+  35 recorded PR/issue links; verified accepted upstream README entries; ran
+  `git diff --check`.
 
 2026-05-21 automation pass:
 
