@@ -991,8 +991,9 @@ Non-GitHub Directory Feasibility Sweep:
 - Other channel findings:
   - Codexlog: medium fit for a guide/article, but no public submit path found.
   - CLIs Finder: high fit as a CLI directory, but no public submit path found.
-  - ToolShelf: high fit, submit page exists, but the form rendered as loading
-    during inspection.
+  - ToolShelf: high fit, submit page exists, but rechecking the rendered page
+    showed submission is sign-in gated. Do not attempt a no-auth submission;
+    resume only from an approved account/session.
   - OpenAlternative: sign-in gated and weaker fit unless positioned as an
     open-source alternative to manual auth-file copying.
   - LibHunt: requires suggesting the project as an alternative to an existing
