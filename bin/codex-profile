@@ -224,8 +224,18 @@ command_app() {
 
 bundle_identifier_profile_suffix() {
   local profile="$1"
+  local encoded
 
-  printf '%s' "$profile" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g'
+  encoded="$(printf '%s' "$profile" | LC_ALL=C od -An -tx1 -v | tr -d '[:space:]')" || die "Cannot encode profile name for app instance bundle identifier."
+  printf 'p%s\n' "$encoded"
+}
+
+app_instance_bundle_identifier_for_profile() {
+  local profile="$1"
+  local bundle_suffix
+
+  bundle_suffix="$(bundle_identifier_profile_suffix "$profile")"
+  printf 'com.openai.codex.profile.%s\n' "$bundle_suffix"
 }
 
 app_instance_dir_for_profile() {
@@ -247,12 +257,11 @@ patch_app_instance_metadata() {
   local profile="$1"
   local app="$2"
   local plist="$app/Contents/Info.plist"
-  local bundle_suffix bundle_id display_name
+  local bundle_id display_name
 
   [[ -f "$plist" ]] || die "Codex app clone is missing Info.plist: $plist"
 
-  bundle_suffix="$(bundle_identifier_profile_suffix "$profile")"
-  bundle_id="com.openai.codex.profile.$bundle_suffix"
+  bundle_id="$(app_instance_bundle_identifier_for_profile "$profile")"
   display_name="Codex $profile"
 
   if ! command -v plutil > /dev/null 2>&1; then
@@ -270,21 +279,37 @@ patch_app_instance_metadata() {
   fi
 }
 
-app_instance_bundle_name() {
+app_instance_plist_value() {
   local app="$1"
+  local key="$2"
   local plist="$app/Contents/Info.plist"
 
-  [[ -f "$plist" ]] || return 0
-  command -v plutil > /dev/null 2>&1 || return 0
-  plutil -extract CFBundleName raw -o - "$plist" 2> /dev/null || true
+  [[ -f "$plist" ]] || return 1
+  command -v plutil > /dev/null 2>&1 || return 2
+  plutil -extract "$key" raw -o - "$plist" 2> /dev/null
 }
 
 app_instance_is_incompatible() {
-  local app="$1"
-  local bundle_name
+  local profile="$1"
+  local app="$2"
+  local plist="$app/Contents/Info.plist"
+  local bundle_id bundle_name display_name expected_bundle_id expected_display_name
 
-  bundle_name="$(app_instance_bundle_name "$app")"
-  [[ -n "$bundle_name" && "$bundle_name" != "Codex" ]]
+  [[ -f "$plist" ]] || return 0
+  command -v plutil > /dev/null 2>&1 || return 1
+
+  bundle_name="$(app_instance_plist_value "$app" CFBundleName)" || return 0
+  [[ "$bundle_name" == "Codex" ]] || return 0
+
+  expected_bundle_id="$(app_instance_bundle_identifier_for_profile "$profile")"
+  bundle_id="$(app_instance_plist_value "$app" CFBundleIdentifier)" || return 0
+  [[ "$bundle_id" == "$expected_bundle_id" ]] || return 0
+
+  expected_display_name="Codex $profile"
+  display_name="$(app_instance_plist_value "$app" CFBundleDisplayName)" || return 0
+  [[ "$display_name" == "$expected_display_name" ]] || return 0
+
+  return 1
 }
 
 create_app_instance_bundle() {
@@ -326,7 +351,7 @@ ensure_app_instance_bundle() {
     return 0
   fi
 
-  if [[ -x "$instance_bin" ]] && app_instance_is_incompatible "$instance_app"; then
+  if [[ -x "$instance_bin" ]] && app_instance_is_incompatible "$profile" "$instance_app"; then
     note "Rebuilding app instance for $profile because existing clone is incompatible"
     create_app_instance_bundle "$profile"
     return 0

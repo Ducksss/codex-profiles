@@ -466,7 +466,25 @@ if [[ "${1:-}" == "-extract" && "${2:-}" == "CFBundleName" ]]; then
     }
     /<key>CFBundleName<\/key>/ { previous = 1 }
   ' "$plist"
-  exit 0
+  exit $?
+fi
+
+if [[ "${1:-}" == "-replace" && "${3:-}" == "-string" ]]; then
+  key="$2"
+  value="$4"
+  plist="$5"
+  printf 'plutil %s\n' "$*" >> "${FAKE_TOOL_LOG:?}"
+  PLUTIL_KEY="$key" PLUTIL_VALUE="$value" perl -0pi -e '
+    BEGIN {
+      $key = $ENV{"PLUTIL_KEY"};
+      $value = $ENV{"PLUTIL_VALUE"};
+      $value =~ s/&/&amp;/g;
+      $value =~ s/</&lt;/g;
+      $value =~ s/>/&gt;/g;
+    }
+    s#(<key>\Q$key\E</key>\s*<string>)[^<]*(</string>)#$1$value$2#s;
+  ' "$plist"
+  exit $?
 fi
 
 printf 'plutil %s\n' "$*" >> "${FAKE_TOOL_LOG:?}"
@@ -538,9 +556,9 @@ done
 printf 'open -a %s files=%s args=%s\n' "$app" "${file_args[*]}" "$*" >> "${FAKE_TOOL_LOG:?}"
 
 if [[ "$stdout" == "$stderr" ]]; then
-  env OPEN_LAUNCHED=yes "${env_args[@]}" "$app/Contents/MacOS/Codex" "$@" "${file_args[@]}" > "$stdout" 2>&1 &
+  env OPEN_LAUNCHED=yes "${env_args[@]}" "$app/Contents/MacOS/Codex" "$@" > "$stdout" 2>&1
 else
-  env OPEN_LAUNCHED=yes "${env_args[@]}" "$app/Contents/MacOS/Codex" "$@" "${file_args[@]}" > "$stdout" 2> "$stderr" &
+  env OPEN_LAUNCHED=yes "${env_args[@]}" "$app/Contents/MacOS/Codex" "$@" > "$stdout" 2> "$stderr"
 fi
 FAKE_OPEN
   chmod 755 "$fake_bin/open"
@@ -581,12 +599,38 @@ test_app_instance_launches_parallel_profile_without_quitting_existing_app() {
   assert_not_contains "pgrep should not be called"
   grep -q "MESSAGE=parallel launch" "$log_file" || fail "app-instance did not launch cloned Codex app"
   grep -q "CODEX_HOME=$tmp/home/.codex-personal" "$log_file" || fail "app-instance did not pass profile CODEX_HOME"
-  grep -q "ARGS=--user-data-dir=$user_data_dir $tmp/workspace" "$log_file" || fail "app-instance did not pass isolated user-data dir before workspace"
+  grep -Fqx "ARGS=--user-data-dir=$user_data_dir" "$log_file" || fail "app-instance passed document workspace as argv"
   grep -q "CFBundleIdentifier" "$tool_log" || fail "app-instance did not patch bundle identifier"
   grep -q "CFBundleDisplayName" "$tool_log" || fail "app-instance did not patch display name"
   ! grep -q "CFBundleName" "$tool_log" || fail "app-instance patched CFBundleName and broke Electron helper lookup"
   grep -q "codesign --force --deep --sign -" "$tool_log" || fail "app-instance did not re-sign patched bundle"
   grep -q "open -a $instance_app files=$tmp/workspace args=--user-data-dir=$user_data_dir" "$tool_log" || fail "app-instance did not launch workspace through macOS open -a"
+
+  rm -rf "$tmp"
+}
+
+test_app_instance_uses_unique_bundle_identifiers_for_similar_profile_names() {
+  local tmp fake_app fake_bin tool_log instance_root dot_plist underscore_plist
+  tmp="$(mktemp -d)"
+  fake_app="$tmp/Codex.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  instance_root="$tmp/instances"
+  dot_plist="$instance_root/client.a/Codex client.a.app/Contents/Info.plist"
+  underscore_plist="$instance_root/client_a/Codex client_a.app/Contents/Info.plist"
+  write_fake_codex_app_bundle "$fake_app" "unique bundle id"
+  write_fake_macos_bundle_tools "$fake_bin"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance client.a "$tmp/workspace-a"
+
+  assert_status 0
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance client_a "$tmp/workspace-b"
+
+  assert_status 0
+  grep -q '<string>com.openai.codex.profile.p636c69656e742e61</string>' "$dot_plist" || fail "dotted profile bundle identifier was not encoded uniquely"
+  grep -q '<string>com.openai.codex.profile.p636c69656e745f61</string>' "$underscore_plist" || fail "underscored profile bundle identifier was not encoded uniquely"
+  ! cmp -s "$dot_plist" "$underscore_plist" || fail "distinct profile app metadata should not be identical"
 
   rm -rf "$tmp"
 }
@@ -619,6 +663,69 @@ test_app_instance_rebuild_replaces_existing_profile_app_clone() {
   done
 
   grep -q "MESSAGE=rebuilt launch" "$log_file" || fail "rebuilt app instance did not launch"
+
+  rm -rf "$tmp"
+}
+
+test_app_instance_rebuilds_clone_with_missing_bundle_metadata() {
+  local tmp fake_app fake_bin tool_log instance_root instance_app log_file
+  tmp="$(mktemp -d)"
+  fake_app="$tmp/Codex.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  instance_root="$tmp/instances"
+  instance_app="$instance_root/personal/Codex personal.app"
+  log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
+  write_fake_codex_app_bundle "$fake_app" "fresh launch"
+  write_fake_macos_bundle_tools "$fake_bin"
+  write_fake_codex_app_bundle "$instance_app" "stale launch"
+  rm -f "$instance_app/Contents/Info.plist"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance personal "$tmp/workspace"
+
+  assert_status 0
+  assert_contains "Rebuilding app instance for personal because existing clone is incompatible"
+
+  for _ in {1..20}; do
+    [[ -f "$log_file" ]] && grep -q "fresh launch" "$log_file" && break
+    sleep 0.1
+  done
+
+  [[ -f "$instance_app/Contents/Info.plist" ]] || fail "rebuilt app instance is missing Info.plist"
+  grep -q "MESSAGE=fresh launch" "$log_file" || fail "app instance with missing metadata was not rebuilt before launch"
+  ! grep -q "MESSAGE=stale launch" "$log_file" || fail "app instance with missing metadata launched without rebuild"
+
+  rm -rf "$tmp"
+}
+
+test_app_instance_rebuilds_clone_with_stale_bundle_identifier() {
+  local tmp fake_app fake_bin tool_log instance_root instance_app log_file plist
+  tmp="$(mktemp -d)"
+  fake_app="$tmp/Codex.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  instance_root="$tmp/instances"
+  instance_app="$instance_root/client.a/Codex client.a.app"
+  log_file="$tmp/home/.codex-client.a/logs/desktop-instance.log"
+  plist="$instance_app/Contents/Info.plist"
+  write_fake_codex_app_bundle "$fake_app" "fresh launch"
+  write_fake_macos_bundle_tools "$fake_bin"
+  write_fake_codex_app_bundle "$instance_app" "stale launch"
+  perl -0pi -e 's#(<key>CFBundleIdentifier</key>\s*<string>)com\.openai\.codex(</string>)#$1com.openai.codex.profile.client-a$2#' "$plist"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance client.a "$tmp/workspace"
+
+  assert_status 0
+  assert_contains "Rebuilding app instance for client.a because existing clone is incompatible"
+
+  for _ in {1..20}; do
+    [[ -f "$log_file" ]] && grep -q "fresh launch" "$log_file" && break
+    sleep 0.1
+  done
+
+  grep -q '<string>com.openai.codex.profile.p636c69656e742e61</string>' "$plist" || fail "stale bundle identifier was not rebuilt to encoded identifier"
+  grep -q "MESSAGE=fresh launch" "$log_file" || fail "app instance with stale bundle identifier was not rebuilt before launch"
+  ! grep -q "MESSAGE=stale launch" "$log_file" || fail "app instance with stale bundle identifier launched without rebuild"
 
   rm -rf "$tmp"
 }
@@ -1174,7 +1281,10 @@ test_status_propagates_unexpected_cli_failure
 test_app_logs_stay_under_profile_home
 test_app_refuses_to_launch_when_app_server_is_still_running
 test_app_instance_launches_parallel_profile_without_quitting_existing_app
+test_app_instance_uses_unique_bundle_identifiers_for_similar_profile_names
 test_app_instance_rebuild_replaces_existing_profile_app_clone
+test_app_instance_rebuilds_clone_with_missing_bundle_metadata
+test_app_instance_rebuilds_clone_with_stale_bundle_identifier
 test_app_instance_rebuilds_clone_with_incompatible_bundle_name
 test_doctor_skips_status_when_cli_missing
 test_init_creates_private_profile_home_without_codex
