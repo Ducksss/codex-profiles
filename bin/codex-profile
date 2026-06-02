@@ -137,6 +137,12 @@ codex_desktop_running() {
   return 1
 }
 
+force_quit_codex_app() {
+  osascript -e 'tell application "Codex" to quit' > /dev/null 2>&1 || true
+  pkill -x Codex > /dev/null 2>&1 || true
+  pkill -f "$CODEX_BUNDLED_CLI app-server" > /dev/null 2>&1 || true
+}
+
 codex_cli_error_message() {
   if [[ -n "${CODEX_CLI:-}" ]]; then
     printf 'CODEX_CLI is set but not executable: %s\n' "$CODEX_CLI"
@@ -178,7 +184,10 @@ find_codex_cli() {
 }
 
 quit_codex_app() {
-  local attempt
+  local attempt quit_attempts="$CODEX_PROFILE_QUIT_ATTEMPTS"
+
+  [[ "$quit_attempts" =~ ^[0-9]+$ ]] || quit_attempts=30
+  (( quit_attempts < 1 )) && quit_attempts=1
 
   if ! codex_desktop_running; then
     return 0
@@ -187,7 +196,17 @@ quit_codex_app() {
   note "Quitting existing Codex app..."
   osascript -e 'tell application "Codex" to quit' > /dev/null 2>&1 || true
 
-  for ((attempt = 0; attempt < CODEX_PROFILE_QUIT_ATTEMPTS; attempt++)); do
+  for ((attempt = 0; attempt < quit_attempts; attempt++)); do
+    if ! codex_desktop_running; then
+      return 0
+    fi
+    sleep "$CODEX_PROFILE_QUIT_SLEEP"
+  done
+
+  note "Codex did not quit cleanly; forcing shutdown..."
+  force_quit_codex_app
+
+  for ((attempt = 0; attempt < quit_attempts; attempt++)); do
     if ! codex_desktop_running; then
       return 0
     fi
@@ -219,7 +238,12 @@ command_app() {
 
   note "Launching Codex Desktop with CODEX_HOME=$codex_home"
   note "Log: $log_file"
-  (umask 077 && nohup env CODEX_HOME="$codex_home" "$CODEX_APP_BIN" "$workspace" > "$log_file" 2>&1 &)
+  (umask 077 && nohup env CODEX_HOME="$codex_home" "$CODEX_APP_BIN" > "$log_file" 2>&1 &)
+
+  local codex_cli
+  if codex_cli="$(try_find_codex_cli)"; then
+    (sleep 1 && env CODEX_HOME="$codex_home" "$codex_cli" app "$workspace" > /dev/null 2>&1 &)
+  fi
 }
 
 bundle_identifier_profile_suffix() {

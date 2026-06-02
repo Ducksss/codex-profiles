@@ -476,8 +476,9 @@ Desktop updates or whenever you want to force a fresh copy from the installed
 ## Desktop App Notes
 
 Codex Desktop should run one profile at a time. `codex-profile app <profile>`
-asks the running Codex app to quit, waits for it to close, then launches the app
-with the selected `CODEX_HOME`.
+asks the running Codex app to quit, waits for it to close, and forces a
+shutdown if it keeps hanging around before relaunching the app with the
+selected `CODEX_HOME`.
 
 For predictable account switching, launch Codex Desktop through `codex-profile`
 instead of Dock or Spotlight.

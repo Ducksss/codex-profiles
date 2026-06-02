@@ -380,36 +380,50 @@ test_app_logs_stay_under_profile_home() {
   rm -rf "$tmp"
 }
 
-test_app_refuses_to_launch_when_app_server_is_still_running() {
-  local tmp fake_bin fake_codex
+test_app_forces_quit_when_app_server_is_still_running() {
+  local tmp fake_bin fake_codex state_file
   tmp="$(mktemp -d)"
   fake_bin="$tmp/bin"
   fake_codex="$tmp/codex"
   mkdir -p "$fake_bin" "$tmp/home"
+  state_file="$tmp/state"
+  printf 'running\n' > "$state_file"
 
   cat > "$fake_bin/pgrep" <<'FAKE_PGREP'
 #!/usr/bin/env bash
+state_file="${STATE_FILE:?}"
 if [[ "${1:-}" == "-x" && "${2:-}" == "Codex" ]]; then
+  [[ "$(cat "$state_file")" == "running" ]] && exit 0
   exit 1
 fi
 
 if [[ "${1:-}" == "-f" && "${2:-}" == *"app-server"* ]]; then
-  exit 0
+  [[ "$(cat "$state_file")" == "running" ]] && exit 0
+  exit 1
 fi
 
 exit 1
 FAKE_PGREP
   chmod 755 "$fake_bin/pgrep"
 
+  cat > "$fake_bin/pkill" <<'FAKE_PKILL'
+#!/usr/bin/env bash
+state_file="${STATE_FILE:?}"
+printf 'stopped\n' > "$state_file"
+exit 0
+FAKE_PKILL
+  chmod 755 "$fake_bin/pkill"
+
   printf '#!/usr/bin/env bash\nexit 0\n' > "$fake_bin/osascript"
   chmod 755 "$fake_bin/osascript"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$fake_codex"
   chmod 755 "$fake_codex"
 
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" CODEX_APP_BIN=/bin/echo CODEX_BUNDLED_CLI="$fake_codex" CODEX_PROFILE_QUIT_ATTEMPTS=1 CODEX_PROFILE_QUIT_SLEEP=0 "$SCRIPT" app personal "$tmp/workspace"
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" STATE_FILE="$state_file" CODEX_APP_BIN=/bin/echo CODEX_BUNDLED_CLI="$fake_codex" CODEX_PROFILE_QUIT_ATTEMPTS=1 CODEX_PROFILE_QUIT_SLEEP=0 "$SCRIPT" app personal "$tmp/workspace"
 
-  assert_status 1
-  assert_contains "Codex or its app-server is still running"
+  assert_status 0
+  assert_contains "Codex did not quit cleanly; forcing shutdown..."
+  assert_contains "Launching Codex Desktop with CODEX_HOME=$tmp/home/.codex-personal"
 
   rm -rf "$tmp"
 }
@@ -1279,7 +1293,7 @@ test_status_reports_arbitrary_discovered_profiles_and_skips_invalid_dirs
 test_status_treats_not_logged_in_as_normal_status
 test_status_propagates_unexpected_cli_failure
 test_app_logs_stay_under_profile_home
-test_app_refuses_to_launch_when_app_server_is_still_running
+test_app_forces_quit_when_app_server_is_still_running
 test_app_instance_launches_parallel_profile_without_quitting_existing_app
 test_app_instance_uses_unique_bundle_identifiers_for_similar_profile_names
 test_app_instance_rebuild_replaces_existing_profile_app_clone

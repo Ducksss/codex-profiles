@@ -27,6 +27,11 @@ and this project follows semantic versioning for tagged releases.
 - Refreshed README positioning around profile-scoped Codex Desktop instances
   and included media assets in the npm package file list.
 
+### Fixed
+
+- Desktop profile switching now escalates to a forced quit if Codex does not
+  close cleanly after the initial quit request.
+
 ### Tests
 
 - Added npm package installation coverage.
