@@ -17,6 +17,8 @@ and this project follows semantic versioning for tagged releases.
 - `logs <profile> --instance` for reading experimental app-instance logs.
 - Branded README demo asset showing two scoped Codex Desktop profile instances
   side by side.
+- README launch-mode and isolation-boundary tables for the experimental
+  parallel Desktop workflow.
 
 ### Changed
 

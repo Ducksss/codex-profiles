@@ -60,13 +60,12 @@ codex-profile <profile> -> one CODEX_HOME per profile
 That makes it a better fit for work, personal, education, and client accounts
 where local Codex state should not bleed between contexts.
 
-## Demo
+## Desktop Demo
 
 The screenshot above shows the experimental Desktop flow: two Codex profiles
 side by side, each with its own app clone, `CODEX_HOME`, Electron user data,
-and profile-local desktop log.
-
-![codex-profiles promo frame](media/codex-profiles-saas-promo-frame.png)
+and profile-local desktop log. The settings/account panel is visible on purpose
+so the profile boundary is easy to inspect.
 
 [Watch the short reveal video](media/codex-profiles-apple-reveal.mp4)
 
@@ -162,9 +161,12 @@ codex-profile app-instance personal ~/Dev/project-a
 codex-profile app-instance work --rebuild ~/Dev/project-b
 ```
 
-Use `app` when you want the conservative one-profile Desktop switcher. Use
-`app-instance` when you explicitly want two Desktop profiles open at the same
-time.
+Desktop launch modes are intentionally split:
+
+| Command | Use when | Behavior |
+| --- | --- | --- |
+| `codex-profile app <profile>` | You want the normal Desktop app on one active profile. | Quits the canonical `Codex.app`, then relaunches it with the selected `CODEX_HOME`. |
+| `codex-profile app-instance <profile>` | You want multiple Desktop profiles open side by side. | Creates or reuses a profile-specific app clone, separate Electron user data, and a profile-local instance log. |
 
 Check what exists and what is logged in:
 
@@ -277,6 +279,11 @@ The command creates or reuses profile-specific app clones under
 `~/Library/Application Support/codex-profile/app-instances`, patches each clone
 with a distinct bundle identifier, re-signs it, and launches it without
 quitting existing Codex windows.
+
+The separate command name is deliberate. `codex-profile app` remains the
+predictable single-app switcher for existing workflows and scripts.
+`codex-profile app-instance` is the explicit contract for cloned bundles,
+parallel windows, and experimental Desktop behavior.
 
 If Codex Desktop updates or a clone looks stale:
 
@@ -409,16 +416,16 @@ codex-profile --version
 
 ## Environment Overrides
 
-```text
-CODEX_APP                      Override Codex.app path
-CODEX_APP_BIN                  Override Codex Desktop binary path
-CODEX_CLI                      Override Codex CLI binary path
-CODEX_PROFILE_APP_INSTANCE_ROOT Override experimental app-instance clone root
-CODEX_PROFILE_UPGRADE_REPO     Override upgrade repository
-CODEX_PROFILE_UPGRADE_REF      Override upgrade git ref
-CODEX_PROFILE_UPGRADE_CACHE    Override upgrade cache checkout
-CODEX_PROFILE_UPGRADE_PREFIX   Override upgrade install prefix
-```
+| Variable | Purpose |
+| --- | --- |
+| `CODEX_APP` | Override the `Codex.app` path. |
+| `CODEX_APP_BIN` | Override the Codex Desktop binary path. |
+| `CODEX_CLI` | Override the Codex CLI binary path. |
+| `CODEX_PROFILE_APP_INSTANCE_ROOT` | Override the experimental app-instance clone root. |
+| `CODEX_PROFILE_UPGRADE_REPO` | Override the upgrade repository. |
+| `CODEX_PROFILE_UPGRADE_REF` | Override the upgrade git ref. |
+| `CODEX_PROFILE_UPGRADE_CACHE` | Override the upgrade cache checkout. |
+| `CODEX_PROFILE_UPGRADE_PREFIX` | Override the upgrade install prefix. |
 
 Examples:
 
@@ -459,6 +466,12 @@ with the selected `CODEX_HOME`.
 For predictable account switching, launch Codex Desktop through `codex-profile`
 instead of Dock or Spotlight.
 
+`app` and `app-instance` stay separate by design. Launching two windows from
+`app` would make existing scripts surprising and would hide the important
+implementation detail that parallel mode clones and re-signs an app bundle.
+The command names describe the contract: `app` switches the canonical app,
+while `app-instance` launches a profile-specific Desktop clone.
+
 ### Experimental Parallel Instances
 
 `codex-profile app-instance <profile>` is an opt-in escape hatch for users who
@@ -473,10 +486,13 @@ conservative and instead launches a profile-specific app clone with:
 - App clones stored under
   `~/Library/Application Support/codex-profile/app-instances` by default.
 
-This is still not full OS-level isolation. The two instances share your macOS
-user account, shell credentials, browser state, SSH keys, GitHub CLI auth, cloud
-CLI auth, and any other credentials outside `CODEX_HOME` and the Electron user
-data directory.
+The isolation boundary is intentionally narrow and inspectable:
+
+| Isolated per profile | Still shared by the macOS user |
+| --- | --- |
+| Codex auth, config, sessions, plugins, caches, logs, and local Codex state under the selected `CODEX_HOME`. | SSH keys, GitHub CLI auth, cloud CLI auth, browser cookies, OS keychain items, npm state, git credentials, and other credentials outside `CODEX_HOME`. |
+| Electron user data for the cloned Desktop app. | The same macOS account, filesystem permissions, network environment, Dock, login items, and system keychains. |
+| Profile-specific app clone metadata and bundle identifier. | The installed source `Codex.app` bundle used as the clone template. |
 
 ## Security Model
 
@@ -490,6 +506,10 @@ files. It does not inspect or rewrite Codex auth files.
 default repository is this project. `--dry-run` prints the source ref, cache
 path, and install prefix before anything changes. Do not point upgrade at a
 repository you do not trust.
+
+`app-instance` adds Desktop app clone metadata and Electron user-data isolation,
+but it is still profile-level process isolation. It is not a VM, container, or
+separate macOS account.
 
 Separate Codex homes are cleaner than swapping `auth.json`, but they are not
 full OS-level isolation. Your operating system user still shares SSH keys,
