@@ -970,21 +970,27 @@ CLIHunt:
 
 ToolHunter:
 
-- Status: deferred on 2026-06-02 after filling draft details.
-- Why: AI-tool directory with a `Developer Tools` category, but the final
-  submission step requires an email address.
+- Status: submitted for review on 2026-06-02.
+- Why: AI-tool directory with a `Developer Tools` category. The fit is broad
+  but reasonable because `codex-profile` is a developer workflow utility for
+  Codex CLI/Desktop users.
 - Submission URL: <https://toolhunter.ai/submit-a-tool>
-- Prepared draft details: name `codex-profile`, README homepage, one-liner,
-  `Developer Tools` category, `Free` pricing, target audience, one feature, and
-  one highlight.
-- Blocker: required email field. Do not submit with a personal email by
-  assumption; resume only with an approved contact email or project contact.
+- Submitted fields: name `codex-profile`, repository homepage, one-liner,
+  `Developer Tools` category, `Free` pricing, target audience, one feature,
+  one highlight, approved contact email, and relationship `I built this tool`.
+- Submission result: ToolHunter displayed `Submission #1748` and said it will
+  review `codex-profile` and follow up by email. It also displayed a likely
+  false-positive duplicate warning for `ClassifyAI`; leave the submission in
+  review unless ToolHunter follows up.
+- Validation: Playwright form submission succeeded and the browser network log
+  showed `POST https://toolhunter.ai/api/submissions => [200]`.
 
 Non-GitHub Directory Feasibility Sweep:
 
 - Status: read-only feasibility pass completed on 2026-06-02.
 - Best no-auth targets found: OpenAgent.bot and CLIHunt, both submitted during
-  this pass; ToolHunter was deferred on required email.
+  this pass. ToolHunter was later submitted after the project owner provided an
+  approved contact email.
 - Good gated targets for later: DevHunt, Product Hunt, Uneed, SaaSHub, and
   StackShare require account setup, OAuth, paid queueing, verification, or a
   stable browser session.
@@ -1001,6 +1007,7 @@ Non-GitHub Directory Feasibility Sweep:
   - OSS AI Hub: submit page exists but requires JavaScript; fields were not
     visible in text inspection.
   - OpenAgent.bot: submitted.
+  - ToolHunter: submitted after approved contact email was provided.
   - AgDex: accepts email submissions, but no email was sent in this pass.
   - OpenSourceAI.tech and Freemium.Tools: low fit or no submit path found.
 
@@ -1144,8 +1151,7 @@ Non-GitHub Directory Feasibility Sweep:
   <https://github.com/yubing744/awesome-agentic-coding-cli/pull/3> and
   <https://github.com/clihub-ai/clihub/pull/4>.
 - Directory submissions:
-  OpenAgent.bot and CLIHunt were submitted for review through no-auth forms.
-  ToolHunter was deferred because the final step requires an email address.
+  OpenAgent.bot, CLIHunt, and ToolHunter were submitted for review.
 - Cleanup:
   deleted stray fork branch
   `Ducksss/awesome-ai-coding-tools:PinZheng/add-codex-profiles`, which was
