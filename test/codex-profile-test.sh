@@ -469,16 +469,30 @@ write_fake_macos_bundle_tools() {
   mkdir -p "$fake_bin"
   cat > "$fake_bin/plutil" <<'FAKE_PLUTIL'
 #!/usr/bin/env bash
-if [[ "${1:-}" == "-extract" && "${2:-}" == "CFBundleName" ]]; then
+if [[ "${1:-}" == "-extract" ]]; then
+  key="${2:-}"
   plist="${!#}"
-  awk '
-    previous {
-      gsub(/^[[:space:]]*<string>/, "")
-      gsub(/<\/string>[[:space:]]*$/, "")
-      print
+  awk -v target="$key" '
+    /<key>.*<\/key>/ {
+      current = $0
+      sub(/^.*<key>/, "", current)
+      sub(/<\/key>.*$/, "", current)
+      waiting = current == target
+      next
+    }
+    waiting && /<string>/ {
+      value = $0
+      gsub(/^[[:space:]]*<string>/, "", value)
+      gsub(/<\/string>[[:space:]]*$/, "", value)
+      print value
+      found = 1
       exit
     }
-    /<key>CFBundleName<\/key>/ { previous = 1 }
+    END {
+      if (!found) {
+        exit 1
+      }
+    }
   ' "$plist"
   exit $?
 fi
@@ -619,6 +633,47 @@ test_app_instance_launches_parallel_profile_without_quitting_existing_app() {
   ! grep -q "CFBundleName" "$tool_log" || fail "app-instance patched CFBundleName and broke Electron helper lookup"
   grep -q "codesign --force --deep --sign -" "$tool_log" || fail "app-instance did not re-sign patched bundle"
   grep -q "open -a $instance_app files=$tmp/workspace args=--user-data-dir=$user_data_dir" "$tool_log" || fail "app-instance did not launch workspace through macOS open -a"
+
+  rm -rf "$tmp"
+}
+
+test_app_instance_reuses_compatible_existing_profile_app_clone() {
+  local tmp fake_app fake_bin tool_log instance_root instance_app log_file user_data_dir
+  tmp="$(mktemp -d)"
+  fake_app="$tmp/Codex.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  instance_root="$tmp/instances"
+  instance_app="$instance_root/personal/Codex personal.app"
+  log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
+  user_data_dir="$tmp/home/.codex-personal/electron-user-data"
+  write_fake_codex_app_bundle "$fake_app" "initial launch"
+  write_fake_macos_bundle_tools "$fake_bin"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance personal "$tmp/workspace-a"
+
+  assert_status 0
+  [[ -x "$instance_app/Contents/MacOS/Codex" ]] || fail "first app-instance launch did not create executable app clone"
+
+  : > "$tool_log"
+  write_fake_codex_app_bundle "$fake_app" "source changed launch"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance personal "$tmp/workspace-b"
+
+  assert_status 0
+  assert_not_contains "Creating app instance for personal"
+  assert_not_contains "Rebuilding app instance for personal"
+
+  for _ in {1..20}; do
+    [[ -f "$log_file" ]] && grep -q "initial launch" "$log_file" && break
+    sleep 0.1
+  done
+
+  grep -q "MESSAGE=initial launch" "$log_file" || fail "compatible existing app instance was not reused"
+  ! grep -q "MESSAGE=source changed launch" "$log_file" || fail "compatible existing app instance was rebuilt from source app"
+  grep -Fqx "ARGS=--user-data-dir=$user_data_dir" "$log_file" || fail "reused app instance did not keep isolated Electron user data"
+  ! grep -q "codesign" "$tool_log" || fail "compatible existing app instance was re-signed"
+  ! grep -q "CFBundleIdentifier" "$tool_log" || fail "compatible existing app instance metadata was patched"
 
   rm -rf "$tmp"
 }
@@ -1295,6 +1350,7 @@ test_status_propagates_unexpected_cli_failure
 test_app_logs_stay_under_profile_home
 test_app_forces_quit_when_app_server_is_still_running
 test_app_instance_launches_parallel_profile_without_quitting_existing_app
+test_app_instance_reuses_compatible_existing_profile_app_clone
 test_app_instance_uses_unique_bundle_identifiers_for_similar_profile_names
 test_app_instance_rebuild_replaces_existing_profile_app_clone
 test_app_instance_rebuilds_clone_with_missing_bundle_metadata
