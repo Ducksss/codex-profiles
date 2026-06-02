@@ -11,6 +11,21 @@ and this project follows semantic versioning for tagged releases.
 
 - npm package metadata and public install documentation for the published
   `codex-profile` package.
+- Experimental `app-instance` command for launching profile-specific Codex
+  Desktop app clones with isolated `CODEX_HOME`, Electron user data, and
+  profile-local instance logs.
+- `logs <profile> --instance` for reading experimental app-instance logs.
+- Branded README demo asset showing two scoped Codex Desktop profile instances
+  side by side.
+- README launch-mode and isolation-boundary tables for the experimental
+  parallel Desktop workflow.
+- README origin-story section explaining the real multi-account workflow that
+  motivated the project.
+
+### Changed
+
+- Refreshed README positioning around profile-scoped Codex Desktop instances
+  and included media assets in the npm package file list.
 
 ### Fixed
 
@@ -20,6 +35,14 @@ and this project follows semantic versioning for tagged releases.
 ### Tests
 
 - Added npm package installation coverage.
+- Added coverage for app-instance launch isolation, app clone rebuilds, and
+  completion/help output.
+
+### Fixed
+
+- Fixed experimental app-instance launches on macOS by preserving Codex's
+  `CFBundleName` for Electron helper lookup and launching cloned bundles
+  through `open -a` with workspace folders passed as documents.
 
 ## 0.2.0 - 2026-05-21
 

@@ -28,6 +28,11 @@ codes, connector credentials, or private logs.
 `codex-profiles` does not read or copy Codex auth tokens. It only sets
 `CODEX_HOME` before launching Codex.
 
+The experimental `app-instance` command also creates profile-specific Codex app
+clones and launches them with separate Electron user data directories. That is
+profile-level process isolation for Codex Desktop state, not OS-level
+isolation.
+
 It does not isolate non-Codex credentials such as SSH keys, GitHub CLI auth,
 cloud CLI credentials, browser cookies, or OS keychain items. Use separate OS
 users for stronger isolation.

@@ -9,6 +9,7 @@ CODEX_APP_BIN="${CODEX_APP_BIN:-$CODEX_APP/Contents/MacOS/Codex}"
 CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-$CODEX_APP/Contents/Resources/codex}"
 CODEX_PROFILE_QUIT_ATTEMPTS="${CODEX_PROFILE_QUIT_ATTEMPTS:-30}"
 CODEX_PROFILE_QUIT_SLEEP="${CODEX_PROFILE_QUIT_SLEEP:-0.5}"
+CODEX_PROFILE_APP_INSTANCE_ROOT="${CODEX_PROFILE_APP_INSTANCE_ROOT:-$HOME/Library/Application Support/codex-profile/app-instances}"
 CODEX_PROFILE_UPGRADE_REPO="${CODEX_PROFILE_UPGRADE_REPO:-https://github.com/Ducksss/codex-profiles.git}"
 CODEX_PROFILE_UPGRADE_REF="${CODEX_PROFILE_UPGRADE_REF:-main}"
 
@@ -18,6 +19,7 @@ $PROGRAM - run Codex with isolated CODEX_HOME profiles
 
 Usage:
   $PROGRAM app <profile> [workspace]
+  $PROGRAM app-instance <profile> [--rebuild] [workspace]
   $PROGRAM cli <profile> [codex-args...]
   $PROGRAM login <profile> [codex-login-args...]
   $PROGRAM init <profile>
@@ -25,7 +27,7 @@ Usage:
   $PROGRAM status [profile]
   $PROGRAM status --json [profile]
   $PROGRAM path <profile>
-  $PROGRAM logs <profile> [--path|--tail [lines]]
+  $PROGRAM logs <profile> [--instance] [--path|--tail [lines]]
   $PROGRAM clone-config <source-profile> <target-profile> [--force]
   $PROGRAM list
   $PROGRAM doctor [--json]
@@ -37,6 +39,7 @@ Examples:
   $PROGRAM login personal
   $PROGRAM init work
   $PROGRAM app personal ~/Dev/my-project
+  $PROGRAM app-instance work --rebuild ~/Dev/client-project
   $PROGRAM cli personal exec "review this repo"
   $PROGRAM status
   $PROGRAM logs personal --tail 50
@@ -51,6 +54,7 @@ Environment:
   CODEX_APP       Override Codex.app path.
   CODEX_APP_BIN   Override Codex Desktop binary path.
   CODEX_CLI       Override Codex CLI binary path.
+  CODEX_PROFILE_APP_INSTANCE_ROOT  Override experimental app-instance clone root.
   CODEX_PROFILE_UPGRADE_REPO    Override upgrade repository.
   CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref.
   CODEX_PROFILE_UPGRADE_CACHE   Override upgrade cache checkout.
@@ -240,6 +244,204 @@ command_app() {
   if codex_cli="$(try_find_codex_cli)"; then
     (sleep 1 && env CODEX_HOME="$codex_home" "$codex_cli" app "$workspace" > /dev/null 2>&1 &)
   fi
+}
+
+bundle_identifier_profile_suffix() {
+  local profile="$1"
+  local encoded
+
+  encoded="$(printf '%s' "$profile" | LC_ALL=C od -An -tx1 -v | tr -d '[:space:]')" || die "Cannot encode profile name for app instance bundle identifier."
+  printf 'p%s\n' "$encoded"
+}
+
+app_instance_bundle_identifier_for_profile() {
+  local profile="$1"
+  local bundle_suffix
+
+  bundle_suffix="$(bundle_identifier_profile_suffix "$profile")"
+  printf 'com.openai.codex.profile.%s\n' "$bundle_suffix"
+}
+
+app_instance_dir_for_profile() {
+  local profile="$1"
+
+  validate_profile "$profile"
+  printf '%s/%s\n' "$CODEX_PROFILE_APP_INSTANCE_ROOT" "$profile"
+}
+
+app_instance_app_for_profile() {
+  local profile="$1"
+  local instance_dir
+
+  instance_dir="$(app_instance_dir_for_profile "$profile")"
+  printf '%s/Codex %s.app\n' "$instance_dir" "$profile"
+}
+
+patch_app_instance_metadata() {
+  local profile="$1"
+  local app="$2"
+  local plist="$app/Contents/Info.plist"
+  local bundle_id display_name
+
+  [[ -f "$plist" ]] || die "Codex app clone is missing Info.plist: $plist"
+
+  bundle_id="$(app_instance_bundle_identifier_for_profile "$profile")"
+  display_name="Codex $profile"
+
+  if ! command -v plutil > /dev/null 2>&1; then
+    note "Warning: plutil not found; app instance metadata was not patched."
+    return 0
+  fi
+
+  plutil -replace CFBundleIdentifier -string "$bundle_id" "$plist" > /dev/null || die "Cannot patch app instance bundle identifier."
+  plutil -replace CFBundleDisplayName -string "$display_name" "$plist" > /dev/null || die "Cannot patch app instance display name."
+
+  if command -v codesign > /dev/null 2>&1; then
+    codesign --force --deep --sign - "$app" > /dev/null 2>&1 || die "Cannot re-sign app instance: $app"
+  else
+    note "Warning: codesign not found; patched app instance may not launch on macOS."
+  fi
+}
+
+app_instance_plist_value() {
+  local app="$1"
+  local key="$2"
+  local plist="$app/Contents/Info.plist"
+
+  [[ -f "$plist" ]] || return 1
+  command -v plutil > /dev/null 2>&1 || return 2
+  plutil -extract "$key" raw -o - "$plist" 2> /dev/null
+}
+
+app_instance_is_incompatible() {
+  local profile="$1"
+  local app="$2"
+  local plist="$app/Contents/Info.plist"
+  local bundle_id bundle_name display_name expected_bundle_id expected_display_name
+
+  [[ -f "$plist" ]] || return 0
+  command -v plutil > /dev/null 2>&1 || return 1
+
+  bundle_name="$(app_instance_plist_value "$app" CFBundleName)" || return 0
+  [[ "$bundle_name" == "Codex" ]] || return 0
+
+  expected_bundle_id="$(app_instance_bundle_identifier_for_profile "$profile")"
+  bundle_id="$(app_instance_plist_value "$app" CFBundleIdentifier)" || return 0
+  [[ "$bundle_id" == "$expected_bundle_id" ]] || return 0
+
+  expected_display_name="Codex $profile"
+  display_name="$(app_instance_plist_value "$app" CFBundleDisplayName)" || return 0
+  [[ "$display_name" == "$expected_display_name" ]] || return 0
+
+  return 1
+}
+
+create_app_instance_bundle() {
+  local profile="$1"
+  local instance_dir instance_app tmp_app source_bin
+
+  [[ -d "$CODEX_APP" ]] || die "Codex.app not found at $CODEX_APP"
+  source_bin="$CODEX_APP/Contents/MacOS/Codex"
+  [[ -x "$source_bin" ]] || die "Codex Desktop binary not found at $source_bin"
+
+  ensure_home "$CODEX_PROFILE_APP_INSTANCE_ROOT"
+  instance_dir="$(app_instance_dir_for_profile "$profile")"
+  ensure_home "$instance_dir"
+  instance_app="$(app_instance_app_for_profile "$profile")"
+  tmp_app="$instance_dir/.Codex $profile.app.tmp.$$"
+
+  rm -rf -- "$tmp_app"
+  cp -R "$CODEX_APP" "$tmp_app" || die "Cannot copy Codex.app to app instance: $tmp_app"
+  patch_app_instance_metadata "$profile" "$tmp_app"
+
+  if [[ -e "$instance_app" ]]; then
+    rm -rf -- "$instance_app" || die "Cannot replace app instance: $instance_app"
+  fi
+
+  mv "$tmp_app" "$instance_app" || die "Cannot install app instance: $instance_app"
+}
+
+ensure_app_instance_bundle() {
+  local profile="$1"
+  local rebuild="$2"
+  local instance_app instance_bin
+
+  instance_app="$(app_instance_app_for_profile "$profile")"
+  instance_bin="$instance_app/Contents/MacOS/Codex"
+
+  if [[ "$rebuild" == "yes" ]]; then
+    note "Rebuilding app instance for $profile"
+    create_app_instance_bundle "$profile"
+    return 0
+  fi
+
+  if [[ -x "$instance_bin" ]] && app_instance_is_incompatible "$profile" "$instance_app"; then
+    note "Rebuilding app instance for $profile because existing clone is incompatible"
+    create_app_instance_bundle "$profile"
+    return 0
+  fi
+
+  if [[ ! -x "$instance_bin" ]]; then
+    note "Creating app instance for $profile"
+    create_app_instance_bundle "$profile"
+  fi
+}
+
+command_app_instance() {
+  local profile="${1:-}"
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM app-instance <profile> [--rebuild] [workspace]"
+  shift || true
+
+  local rebuild=no workspace=""
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --rebuild)
+        rebuild=yes
+        ;;
+      --)
+        shift
+        [[ "$#" -le 1 ]] || die "Usage: $PROGRAM app-instance <profile> [--rebuild] [workspace]"
+        workspace="${1:-}"
+        break
+        ;;
+      --*)
+        die "Usage: $PROGRAM app-instance <profile> [--rebuild] [workspace]"
+        ;;
+      *)
+        [[ -z "$workspace" ]] || die "Usage: $PROGRAM app-instance <profile> [--rebuild] [workspace]"
+        workspace="$1"
+        ;;
+    esac
+    shift
+  done
+
+  workspace="${workspace:-$PWD}"
+
+  local codex_home instance_app instance_bin user_data_dir log_dir log_file
+  codex_home="$(codex_home_for_profile "$profile")"
+  ensure_home "$codex_home"
+  ensure_app_instance_bundle "$profile" "$rebuild"
+
+  instance_app="$(app_instance_app_for_profile "$profile")"
+  instance_bin="$instance_app/Contents/MacOS/Codex"
+  [[ -x "$instance_bin" ]] || die "Codex app instance binary not found at $instance_bin"
+  command -v open > /dev/null 2>&1 || die "macOS open command not found; app-instance is macOS-only."
+
+  user_data_dir="$codex_home/electron-user-data"
+  ensure_home "$user_data_dir"
+
+  log_dir="$codex_home/logs"
+  log_file="$log_dir/desktop-instance.log"
+  ensure_home "$log_dir"
+  (umask 077 && : > "$log_file")
+  chmod 600 "$log_file" 2> /dev/null || true
+
+  note "Launching experimental Codex Desktop instance for $profile"
+  note "CODEX_HOME=$codex_home"
+  note "App bundle: $instance_app"
+  note "Electron user data: $user_data_dir"
+  note "Log: $log_file"
+  (umask 077 && open -n --env "CODEX_HOME=$codex_home" --stdout "$log_file" --stderr "$log_file" -a "$instance_app" "$workspace" --args "--user-data-dir=$user_data_dir") || die "Cannot launch app instance: $instance_app"
 }
 
 command_cli() {
@@ -566,14 +768,18 @@ command_path() {
 
 command_logs() {
   local profile="${1:-}"
-  [[ -n "$profile" ]] || die "Usage: $PROGRAM logs <profile> [--path|--tail [lines]]"
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM logs <profile> [--instance] [--path|--tail [lines]]"
   shift || true
 
   local mode="cat"
+  local log_name="desktop.log"
   local lines=50
 
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
+      --instance)
+        log_name="desktop-instance.log"
+        ;;
       --path)
         mode="path"
         ;;
@@ -588,7 +794,7 @@ command_logs() {
         die "Unknown logs option '$1'."
         ;;
       *)
-        die "Usage: $PROGRAM logs <profile> [--path|--tail [lines]]"
+        die "Usage: $PROGRAM logs <profile> [--instance] [--path|--tail [lines]]"
         ;;
     esac
     shift
@@ -596,16 +802,22 @@ command_logs() {
 
   [[ "$lines" =~ ^[0-9]+$ ]] || die "Tail line count must be a non-negative integer."
 
-  local codex_home log_file
+  local codex_home log_file missing_label
   codex_home="$(codex_home_for_profile "$profile")"
-  log_file="$codex_home/logs/desktop.log"
+  log_file="$codex_home/logs/$log_name"
+  missing_label="$log_name"
+  if [[ "$log_name" == "desktop.log" ]]; then
+    missing_label="desktop log"
+  elif [[ "$log_name" == "desktop-instance.log" ]]; then
+    missing_label="desktop instance log"
+  fi
 
   if [[ "$mode" == "path" ]]; then
     printf '%s\n' "$log_file"
     return 0
   fi
 
-  [[ -f "$log_file" ]] || die "No desktop log for $profile ($log_file)."
+  [[ -f "$log_file" ]] || die "No $missing_label for $profile ($log_file)."
 
   if [[ "$mode" == "tail" ]]; then
     tail -n "$lines" "$log_file"
@@ -896,12 +1108,12 @@ _codex_profile()
   command="${COMP_WORDS[1]}"
 
   if [[ "$COMP_CWORD" -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "app cli login init remove status path logs clone-config list doctor completions upgrade version help" -- "$cur") )
+    COMPREPLY=( $(compgen -W "app app-instance cli login init remove status path logs clone-config list doctor completions upgrade version help" -- "$cur") )
     return 0
   fi
 
   case "$command" in
-    app|cli|login|init|remove|status|path|logs)
+    app|app-instance|cli|login|init|remove|status|path|logs)
       if [[ "$COMP_CWORD" -eq 2 ]]; then
         profiles="$(codex-profile list 2>/dev/null)"
         COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
@@ -930,7 +1142,7 @@ EOF
 _codex_profile() {
   local -a commands profiles shells
   commands=(
-    app cli login init remove status path logs clone-config list doctor completions upgrade version help
+    app app-instance cli login init remove status path logs clone-config list doctor completions upgrade version help
   )
   profiles=(${(f)"$(codex-profile list 2>/dev/null)"} default personal work)
   shells=(bash zsh fish)
@@ -941,7 +1153,7 @@ _codex_profile() {
   fi
 
   case "$words[2]" in
-    app|cli|login|init|remove|status|path|logs)
+    app|app-instance|cli|login|init|remove|status|path|logs)
       if (( CURRENT == 3 )); then
         _describe 'profile' profiles
       fi
@@ -965,8 +1177,8 @@ EOF
     fish)
       cat <<'EOF'
 complete -c codex-profile -f
-complete -c codex-profile -n '__fish_is_first_arg' -a 'app cli login init remove status path logs clone-config list doctor completions upgrade version help'
-complete -c codex-profile -n '__fish_seen_subcommand_from app cli login init remove status path logs' -a '(codex-profile list 2>/dev/null) default personal work'
+complete -c codex-profile -n '__fish_is_first_arg' -a 'app app-instance cli login init remove status path logs clone-config list doctor completions upgrade version help'
+complete -c codex-profile -n '__fish_seen_subcommand_from app app-instance cli login init remove status path logs' -a '(codex-profile list 2>/dev/null) default personal work'
 complete -c codex-profile -n '__fish_seen_subcommand_from clone-config' -a '(codex-profile list 2>/dev/null) default personal work'
 complete -c codex-profile -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish'
 EOF
@@ -1052,6 +1264,9 @@ main() {
   case "$command" in
     app)
       command_app "$@"
+      ;;
+    app-instance)
+      command_app_instance "$@"
       ;;
     cli)
       command_cli "$@"
