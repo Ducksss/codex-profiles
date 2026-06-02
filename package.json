@@ -1,7 +1,7 @@
 {
   "name": "codex-profile",
   "version": "0.2.0",
-  "description": "Switch Codex CLI and Desktop accounts with isolated CODEX_HOME profiles.",
+  "description": "Switch Codex CLI/Desktop profiles and run experimental parallel Desktop instances.",
   "license": "MIT",
   "homepage": "https://github.com/Ducksss/codex-profiles#readme",
   "repository": {
@@ -34,6 +34,7 @@
     "bin/codex-profile",
     "CHANGELOG.md",
     "LICENSE",
+    "media",
     "README.md",
     "SECURITY.md"
   ],

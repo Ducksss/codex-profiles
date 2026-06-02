@@ -15,6 +15,13 @@ and this project follows semantic versioning for tagged releases.
   Desktop app clones with isolated `CODEX_HOME`, Electron user data, and
   profile-local instance logs.
 - `logs <profile> --instance` for reading experimental app-instance logs.
+- Branded README demo asset showing two scoped Codex Desktop profile instances
+  side by side.
+
+### Changed
+
+- Refreshed README positioning around profile-scoped Codex Desktop instances
+  and included media assets in the npm package file list.
 
 ### Tests
 
