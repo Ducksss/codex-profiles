@@ -19,6 +19,8 @@ and this project follows semantic versioning for tagged releases.
   side by side.
 - README launch-mode and isolation-boundary tables for the experimental
   parallel Desktop workflow.
+- README origin-story section explaining the real multi-account workflow that
+  motivated the project.
 
 ### Changed
 

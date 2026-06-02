@@ -43,6 +43,22 @@ connector state, plugins, caches, and logs shared.
 
 `codex-profile` gives the clean boundary a short command.
 
+## The Workflow That Started It
+
+This started as an account-switching problem between profiles with different
+strengths:
+
+- A school Codex account with higher limits for heavy coding sessions, but no
+  connector setup.
+- A personal Codex account with medium limits, but the connector access needed
+  for email, outreach, and day-to-day automation workflows.
+
+Logging out, logging back in, reopening Desktop, and rebuilding context every
+time was slow enough to break focus. Copying token files would have been the
+wrong shortcut. The goal was a small command that keeps each account's Codex
+state separate, then makes it possible to open the right profile for the job,
+including two Desktop profiles side by side when the workflow calls for it.
+
 ## Why Not Swap Auth Files?
 
 Auth-file switchers only move `auth.json`. That can change who Codex logs in as,
