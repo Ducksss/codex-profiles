@@ -38,6 +38,7 @@ assert.ok(fileExists('docs/sitemap.xml'), 'docs/sitemap.xml should exist');
 assert.ok(fileExists('docs/llms.txt'), 'docs/llms.txt should exist');
 assert.ok(fileExists('docs/geo-audit.md'), 'docs/geo-audit.md should exist');
 assert.ok(fileExists('docs/geo-measurement.md'), 'docs/geo-measurement.md should exist');
+assert.ok(fileExists('docs/.nojekyll'), 'docs/.nojekyll should exist');
 assert.ok(fileExists('.github/workflows/pages.yml'), 'Pages deploy workflow should exist');
 
 assertContains(
@@ -166,7 +167,6 @@ for (const required of [
   'actions/upload-pages-artifact@v3',
   'actions/deploy-pages@v4',
   'path: docs',
-  'include-hidden-files: true',
   'pages: write',
   'id-token: write',
 ]) {

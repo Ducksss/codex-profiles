@@ -37,6 +37,9 @@ and this project follows semantic versioning for tagged releases.
 
 - Desktop profile switching now escalates to a forced quit if Codex does not
   close cleanly after the initial quit request.
+- Fixed experimental app-instance launches on macOS by preserving Codex's
+  `CFBundleName` for Electron helper lookup and launching cloned bundles
+  through `open -a` with workspace folders passed as documents.
 
 ### Tests
 
@@ -46,12 +49,6 @@ and this project follows semantic versioning for tagged releases.
 - Added GEO documentation tests for canonical URLs, indexability directives,
   robots, sitemap, FAQ/schema alignment, `llms.txt`, measurement docs, and
   Pages deployment wiring.
-
-### Fixed
-
-- Fixed experimental app-instance launches on macOS by preserving Codex's
-  `CFBundleName` for Electron helper lookup and launching cloned bundles
-  through `open -a` with workspace folders passed as documents.
 
 ## 0.2.0 - 2026-05-21
 
