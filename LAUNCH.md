@@ -985,6 +985,22 @@ ToolHunter:
 - Validation: Playwright form submission succeeded and the browser network log
   showed `POST https://toolhunter.ai/api/submissions => [200]`.
 
+Reddit:
+
+- Status: manual handoff prepared on 2026-06-03.
+- Target channels: `r/codex` standalone image post and `r/ChatGPTCoding`
+  self-promotion thread comment.
+- Why: `r/codex` is the highest-intent mass channel for Codex account/profile
+  switching. `r/ChatGPTCoding` has an explicit self-promotion thread and a
+  broader AI-coding audience.
+- Asset: use `media/codex-profile-parallel-instances.png`, the double Codex
+  Desktop profile image.
+- Drafts: `docs/outreach/reddit-posts-2026-06-03.md`.
+- Blocker: Reddit blocked both `www.reddit.com/r/codex/submit` and
+  `old.reddit.com/r/codex/submit` in the Playwright browser with `You've been
+  blocked by network security`, before login or posting. Submit manually from a
+  normal browser/account session.
+
 Non-GitHub Directory Feasibility Sweep:
 
 - Status: read-only feasibility pass completed on 2026-06-02.
