@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "description": "Switch Codex CLI/Desktop profiles and run experimental parallel Desktop instances.",
   "license": "MIT",
-  "homepage": "https://github.com/Ducksss/codex-profiles#readme",
+  "homepage": "https://ducksss.github.io/codex-profiles/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Ducksss/codex-profiles.git"
@@ -16,6 +16,7 @@
     "automation",
     "chatgpt",
     "codex",
+    "codex-account-switcher",
     "codex-cli",
     "codex-desktop",
     "codex-home",
@@ -33,6 +34,7 @@
   "files": [
     "bin/codex-profile",
     "CHANGELOG.md",
+    "docs",
     "LICENSE",
     "media",
     "README.md",

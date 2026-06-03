@@ -21,11 +21,17 @@ and this project follows semantic versioning for tagged releases.
   parallel Desktop workflow.
 - README origin-story section explaining the real multi-account workflow that
   motivated the project.
+- GitHub Pages-ready GEO documentation with canonical metadata, JSON-LD,
+  `robots.txt`, `sitemap.xml`, `llms.txt`, a public audit matrix, and a
+  measurement plan.
+- Pages deployment workflow for publishing the static GEO documentation.
 
 ### Changed
 
 - Refreshed README positioning around profile-scoped Codex Desktop instances
   and included media assets in the npm package file list.
+- Updated package homepage and package file list so the AI-readable docs ship
+  with npm metadata.
 
 ### Fixed
 
@@ -37,6 +43,9 @@ and this project follows semantic versioning for tagged releases.
 - Added npm package installation coverage.
 - Added coverage for app-instance launch isolation, app clone rebuilds, and
   completion/help output.
+- Added GEO documentation tests for canonical URLs, indexability directives,
+  robots, sitemap, FAQ/schema alignment, `llms.txt`, measurement docs, and
+  Pages deployment wiring.
 
 ### Fixed
 

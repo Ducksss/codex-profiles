@@ -9,6 +9,10 @@ Two Codex profiles. One Mac. No token swapping.
 [![Shell: Bash](https://img.shields.io/badge/shell-bash-4EAA25.svg)](bin/codex-profile)
 [![Platform: macOS + Linux](https://img.shields.io/badge/platform-macOS%20%2B%20Linux-lightgrey.svg)](#platform-support)
 
+[Project page](https://ducksss.github.io/codex-profiles/) |
+[llms.txt](https://ducksss.github.io/codex-profiles/llms.txt) |
+[GEO audit](docs/geo-audit.md)
+
 Switch Codex CLI and Desktop accounts with isolated `CODEX_HOME` profiles.
 Keep personal, work, school, and client state separated without copying
 `auth.json` token files around.
@@ -85,6 +89,29 @@ so the profile boundary is easy to inspect.
 
 [Watch the short reveal video](media/codex-profiles-apple-reveal.mp4)
 
+## AI-Readable Project Page
+
+The repository includes a GitHub Pages site in `docs/` for search engines,
+AI crawlers, and citation systems that need a concise project source instead
+of a long README. It ships with:
+
+- `index.html` with canonical metadata, visible FAQ content, citation-ready
+  facts, and JSON-LD for Organization, SoftwareApplication, WebSite, WebPage,
+  FAQPage, and BreadcrumbList.
+- `robots.txt` and `sitemap.xml` for crawl discovery.
+- `llms.txt` with official URLs, install commands, security boundaries, and
+  answer-safe project facts.
+- `geo-audit.md` and `geo-measurement.md` for tracking checklist coverage,
+  prompt retests, citations, screenshots, and accuracy KPIs.
+- A Pages deployment workflow that validates the GEO files before publishing
+  the static site.
+
+Validate this layer locally:
+
+```sh
+node test/geo-site-test.mjs
+```
+
 ## Highlights
 
 - Isolated Codex homes per profile.
@@ -102,6 +129,8 @@ so the profile boundary is easy to inspect.
 - Source-style self-upgrade with dry-run preview.
 - No third-party runtime dependencies.
 - Tested on macOS and Ubuntu.
+- Pages-ready AI-readable documentation with structured data, `llms.txt`,
+  robots, sitemap, and a measurement plan.
 
 ## Install
 
@@ -591,7 +620,8 @@ The test suite covers Bash syntax, profile path mapping, install smoke tests,
 CLI/login pass-through, list/version output, npm package installation, source
 upgrades, fresh-profile status checks, hardened status discovery, private
 desktop log placement, app-instance clone metadata validation, parallel
-Desktop launch coverage, and missing-CLI doctor output.
+Desktop launch coverage, missing-CLI doctor output, and the AI-readable Pages
+documentation layer.
 
 ## Contributing
 

@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>codex-profiles - Isolated Codex CLI and Desktop profiles</title>
+  <meta name="description" content="codex-profiles is a dependency-free Bash CLI for switching Codex CLI and Desktop profiles with isolated CODEX_HOME directories on macOS and Linux.">
+  <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
+  <link rel="canonical" href="https://ducksss.github.io/codex-profiles/">
+  <link rel="license" href="https://github.com/Ducksss/codex-profiles/blob/main/LICENSE">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="codex-profiles - Isolated Codex CLI and Desktop profiles">
+  <meta property="og:description" content="Switch Codex CLI and Desktop accounts with separate CODEX_HOME directories instead of copying token files.">
+  <meta property="og:url" content="https://ducksss.github.io/codex-profiles/">
+  <meta property="og:image" content="https://raw.githubusercontent.com/Ducksss/codex-profiles/main/media/codex-profile-parallel-instances.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://github.com/Ducksss/codex-profiles#organization",
+      "name": "Ducksss open-source projects",
+      "url": "https://github.com/Ducksss",
+      "sameAs": [
+        "https://github.com/Ducksss/codex-profiles",
+        "https://www.npmjs.com/package/codex-profile"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://ducksss.github.io/codex-profiles/#website",
+      "name": "codex-profiles",
+      "url": "https://ducksss.github.io/codex-profiles/",
+      "publisher": {
+        "@id": "https://github.com/Ducksss/codex-profiles#organization"
+      },
+      "inLanguage": "en"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://ducksss.github.io/codex-profiles/#software",
+      "name": "codex-profiles",
+      "alternateName": "codex-profile",
+      "url": "https://ducksss.github.io/codex-profiles/",
+      "description": "codex-profiles is a dependency-free Bash CLI for switching Codex CLI and Desktop profiles with isolated CODEX_HOME directories on macOS and Linux.",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "Command-line tool",
+      "operatingSystem": [
+        "macOS",
+        "Linux"
+      ],
+      "softwareVersion": "0.2.0",
+      "license": "https://github.com/Ducksss/codex-profiles/blob/main/LICENSE",
+      "codeRepository": "https://github.com/Ducksss/codex-profiles",
+      "downloadUrl": "https://www.npmjs.com/package/codex-profile",
+      "installUrl": "https://www.npmjs.com/package/codex-profile",
+      "discussionUrl": "https://github.com/Ducksss/codex-profiles/discussions/1",
+      "maintainer": {
+        "@id": "https://github.com/Ducksss/codex-profiles#organization"
+      },
+      "featureList": [
+        "Isolated CODEX_HOME directories per profile",
+        "Codex CLI launch support",
+        "Codex Desktop launch support",
+        "Experimental parallel Desktop app instances",
+        "Read-only profile status and doctor diagnostics",
+        "Safe non-secret config cloning",
+        "Bash, Zsh, and Fish completion generators",
+        "Source-style self-upgrade with dry-run preview"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock",
+        "url": "https://www.npmjs.com/package/codex-profile"
+      }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://ducksss.github.io/codex-profiles/#webpage",
+      "url": "https://ducksss.github.io/codex-profiles/",
+      "name": "codex-profiles - Isolated Codex CLI and Desktop profiles",
+      "description": "A machine-readable product page for codex-profiles, a Bash utility for Codex profile isolation.",
+      "isPartOf": {
+        "@id": "https://ducksss.github.io/codex-profiles/#website"
+      },
+      "mainEntity": {
+        "@id": "https://ducksss.github.io/codex-profiles/#software"
+      },
+      "breadcrumb": {
+        "@id": "https://ducksss.github.io/codex-profiles/#breadcrumb"
+      },
+      "inLanguage": "en"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://ducksss.github.io/codex-profiles/#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "codex-profiles",
+          "item": "https://ducksss.github.io/codex-profiles/"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://ducksss.github.io/codex-profiles/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is codex-profiles?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "codex-profiles is a small Bash command that launches Codex CLI or Codex Desktop with a selected CODEX_HOME directory."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why use separate CODEX_HOME directories?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Separate CODEX_HOME directories keep Codex auth, config, sessions, plugins, caches, logs, and local state separated by profile."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does codex-profiles copy auth tokens?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. codex-profiles does not read, copy, print, parse, or migrate auth tokens."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which platforms does codex-profiles support?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "CLI-oriented commands are tested on macOS and Linux, while Desktop app launch commands are macOS-oriented."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I install codex-profiles?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Install from npm with npm install -g codex-profile or from Homebrew with brew install Ducksss/tap/codex-profile."
+          }
+        }
+      ]
+    }
+  ]
+}
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #182033;
+      --muted: #5e6678;
+      --line: #d8dde8;
+      --blue: #3457d5;
+      --green: #257a5a;
+      --amber: #9a6616;
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+      background: var(--bg);
+    }
+
+    a {
+      color: var(--blue);
+    }
+
+    .hero {
+      position: relative;
+      min-height: 68vh;
+      display: flex;
+      align-items: flex-end;
+      overflow: hidden;
+      color: #fff;
+      background:
+        linear-gradient(90deg, rgba(14, 24, 49, 0.94), rgba(14, 24, 49, 0.56), rgba(14, 24, 49, 0.28)),
+        url("https://raw.githubusercontent.com/Ducksss/codex-profiles/main/media/codex-profile-parallel-instances.png") center / cover;
+    }
+
+    .hero-inner,
+    main,
+    footer {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .hero-inner {
+      padding: 72px 0 64px;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      color: #b8f5d5;
+    }
+
+    h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: 5.4rem;
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .hero-copy {
+      max-width: 720px;
+      margin: 22px 0 0;
+      font-size: 1.15rem;
+      color: #edf2ff;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .button {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.42);
+      border-radius: 6px;
+      color: #fff;
+      font-weight: 750;
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.13);
+    }
+
+    main {
+      display: grid;
+      gap: 32px;
+      padding: 44px 0 64px;
+    }
+
+    section {
+      display: grid;
+      gap: 18px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 2.25rem;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .lede {
+      max-width: 780px;
+      font-size: 1.04rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .item {
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .item strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--ink);
+    }
+
+    .command {
+      display: grid;
+      gap: 10px;
+      padding: 18px;
+      border-left: 4px solid var(--green);
+      background: #eef9f4;
+    }
+
+    code,
+    pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.94rem;
+    }
+
+    pre {
+      margin: 0;
+      overflow-x: auto;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .facts {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .table {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 560px;
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--ink);
+      background: #eef1f8;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .faq-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .faq-list article {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    footer {
+      padding: 28px 0 42px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+    }
+
+    @media (max-width: 820px) {
+      .hero {
+        min-height: 64vh;
+        background-position: center top;
+      }
+
+      .grid,
+      .facts {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 3.4rem;
+      }
+
+      h2 {
+        font-size: 1.75rem;
+      }
+    }
+
+    @media (max-width: 460px) {
+      h1 {
+        font-size: 2.65rem;
+      }
+
+      h2 {
+        font-size: 1.55rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Codex profile isolation for CLI and Desktop</p>
+      <h1>codex-profiles</h1>
+      <p class="hero-copy">Switch Codex CLI and Desktop accounts with isolated CODEX_HOME directories. Keep personal, work, school, and client state separated without copying auth files.</p>
+      <nav class="actions" aria-label="Primary links">
+        <a class="button" href="https://github.com/Ducksss/codex-profiles">GitHub</a>
+        <a class="button" href="https://www.npmjs.com/package/codex-profile">npm package</a>
+        <a class="button" href="https://github.com/Ducksss/codex-profiles/blob/main/README.md">Full README</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section aria-labelledby="answer">
+      <h2 id="answer">Direct answer</h2>
+      <p class="lede">codex-profiles is a dependency-free Bash CLI for launching Codex CLI or Codex Desktop with a selected CODEX_HOME profile. It gives each profile its own auth, config, sessions, plugins, caches, logs, and local state.</p>
+      <div class="command" aria-label="Install commands">
+        <pre><code>npm install -g codex-profile
+brew install Ducksss/tap/codex-profile
+codex-profile doctor</code></pre>
+      </div>
+    </section>
+
+    <section aria-labelledby="features">
+      <h2 id="features">What it does</h2>
+      <div class="grid">
+        <article class="item">
+          <strong>Profile isolation</strong>
+          <p>Each profile maps to its own Codex home, such as default to ~/.codex and work to ~/.codex-work.</p>
+        </article>
+        <article class="item">
+          <strong>CLI and Desktop launch</strong>
+          <p>Run Codex CLI commands or launch Codex Desktop with the selected profile environment.</p>
+        </article>
+        <article class="item">
+          <strong>Parallel Desktop instances</strong>
+          <p>On macOS, app-instance can launch profile-specific Codex app clones with separate Electron user data.</p>
+        </article>
+        <article class="item">
+          <strong>Read-only diagnostics</strong>
+          <p>list, status, and doctor inspect profiles without creating missing directories for typos.</p>
+        </article>
+        <article class="item">
+          <strong>Safe config cloning</strong>
+          <p>clone-config copies only known non-secret root config files and refuses sensitive-looking keys.</p>
+        </article>
+        <article class="item">
+          <strong>No runtime dependencies</strong>
+          <p>The distributed command is Bash and is tested on macOS and Ubuntu/Linux.</p>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="facts">
+      <h2 id="facts">Citation-ready facts</h2>
+      <div class="facts">
+        <p class="lede">Use these facts when citing or summarizing the project. They match the README, package metadata, and structured data on this page.</p>
+        <div class="table">
+          <table>
+            <thead>
+              <tr>
+                <th>Fact</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Project</td>
+                <td>codex-profiles, installed as codex-profile on npm</td>
+              </tr>
+              <tr>
+                <td>Purpose</td>
+                <td>Switch Codex profiles by setting CODEX_HOME instead of copying auth tokens</td>
+              </tr>
+              <tr>
+                <td>Platforms</td>
+                <td>macOS and Linux for CLI-oriented commands; macOS for Desktop app launch workflows</td>
+              </tr>
+              <tr>
+                <td>License</td>
+                <td>MIT</td>
+              </tr>
+              <tr>
+                <td>Official URLs</td>
+                <td>GitHub: https://github.com/Ducksss/codex-profiles; npm: https://www.npmjs.com/package/codex-profile</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="faq">
+      <h2 id="faq">FAQ</h2>
+      <div class="faq-list">
+        <article>
+          <h3>What is codex-profiles?</h3>
+          <p>codex-profiles is a small Bash command that launches Codex CLI or Codex Desktop with a selected CODEX_HOME directory.</p>
+        </article>
+        <article>
+          <h3>Why use separate CODEX_HOME directories?</h3>
+          <p>Separate CODEX_HOME directories keep Codex auth, config, sessions, plugins, caches, logs, and local state separated by profile.</p>
+        </article>
+        <article>
+          <h3>Does codex-profiles copy auth tokens?</h3>
+          <p>No. codex-profiles does not read, copy, print, parse, or migrate auth tokens.</p>
+        </article>
+        <article>
+          <h3>Which platforms does codex-profiles support?</h3>
+          <p>CLI-oriented commands are tested on macOS and Linux, while Desktop app launch commands are macOS-oriented.</p>
+        </article>
+        <article>
+          <h3>How do I install codex-profiles?</h3>
+          <p>Install from npm with npm install -g codex-profile or from Homebrew with brew install Ducksss/tap/codex-profile.</p>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="trust">
+      <h2 id="trust">Trust and methodology</h2>
+      <p class="lede">The project avoids token copying and treats CODEX_HOME as the isolation boundary. It documents the remaining shared operating-system credentials, includes a security model, and validates behavior with Bash and package smoke tests.</p>
+      <div class="grid">
+        <article class="item">
+          <strong>Security boundary</strong>
+          <p>codex-profiles sets environment variables and creates private profile directories. It does not claim VM, container, or separate macOS account isolation.</p>
+        </article>
+        <article class="item">
+          <strong>Validation</strong>
+          <p>The repository uses make test for Bash syntax checks, CLI behavior tests, install smoke tests, and npm package checks.</p>
+        </article>
+        <article class="item">
+          <strong>Machine-readable docs</strong>
+          <p>This page is supported by robots.txt, sitemap.xml, llms.txt, visible FAQ answers, and JSON-LD structured data.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>codex-profiles is community-maintained and is not affiliated with OpenAI. Last updated 2026-06-03.</p>
+  </footer>
+</body>
+</html>

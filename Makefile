@@ -16,6 +16,7 @@ lint:
 test:
 	bash -n bin/codex-profile
 	bash -n test/codex-profile-test.sh
+	node test/geo-site-test.mjs
 	bin/codex-profile help >/dev/null
 	bash test/codex-profile-test.sh
 	tmp_home="$$(mktemp -d)"; \
