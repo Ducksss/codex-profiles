@@ -21,28 +21,34 @@ and this project follows semantic versioning for tagged releases.
   parallel Desktop workflow.
 - README origin-story section explaining the real multi-account workflow that
   motivated the project.
+- GitHub Pages-ready GEO documentation with canonical metadata, JSON-LD,
+  `robots.txt`, `sitemap.xml`, `llms.txt`, a public audit matrix, and a
+  measurement plan.
+- Pages deployment workflow for publishing the static GEO documentation.
 
 ### Changed
 
 - Refreshed README positioning around profile-scoped Codex Desktop instances
   and included media assets in the npm package file list.
+- Updated package homepage and package file list so the AI-readable docs ship
+  with npm metadata.
 
 ### Fixed
 
 - Desktop profile switching now escalates to a forced quit if Codex does not
   close cleanly after the initial quit request.
+- Fixed experimental app-instance launches on macOS by preserving Codex's
+  `CFBundleName` for Electron helper lookup and launching cloned bundles
+  through `open -a` with workspace folders passed as documents.
 
 ### Tests
 
 - Added npm package installation coverage.
 - Added coverage for app-instance launch isolation, app clone rebuilds, and
   completion/help output.
-
-### Fixed
-
-- Fixed experimental app-instance launches on macOS by preserving Codex's
-  `CFBundleName` for Electron helper lookup and launching cloned bundles
-  through `open -a` with workspace folders passed as documents.
+- Added GEO documentation tests for canonical URLs, indexability directives,
+  robots, sitemap, FAQ/schema alignment, `llms.txt`, measurement docs, and
+  Pages deployment wiring.
 
 ## 0.2.0 - 2026-05-21
 

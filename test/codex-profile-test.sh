@@ -584,9 +584,9 @@ done
 printf 'open -a %s files=%s args=%s\n' "$app" "${file_args[*]}" "$*" >> "${FAKE_TOOL_LOG:?}"
 
 if [[ "$stdout" == "$stderr" ]]; then
-  env OPEN_LAUNCHED=yes "${env_args[@]}" "$app/Contents/MacOS/Codex" "$@" > "$stdout" 2>&1
+  env OPEN_LAUNCHED=yes "${env_args[@]}" bash "$app/Contents/MacOS/Codex" "$@" > "$stdout" 2>&1
 else
-  env OPEN_LAUNCHED=yes "${env_args[@]}" "$app/Contents/MacOS/Codex" "$@" > "$stdout" 2> "$stderr"
+  env OPEN_LAUNCHED=yes "${env_args[@]}" bash "$app/Contents/MacOS/Codex" "$@" > "$stdout" 2> "$stderr"
 fi
 FAKE_OPEN
   chmod 755 "$fake_bin/open"
