@@ -543,8 +543,8 @@ Awesome Vibe Coding by ai-for-developers:
 - Note: README links a contribution guide, but `CONTRIBUTING.md` is absent/404;
   followed the existing simple bullet format and placed the entry at the end of
   the relevant category.
-- Submission source: branch `pinzheng/add-codex-profiles-ai-for-dev-vibe`, commit `19c0153`
-  adds `codex-profiles`.
+- Submission source: branch `pinzheng/add-codex-profiles-ai-for-dev-vibe`,
+  commit `19c0153` adds `codex-profiles`.
 - Validation: ran `git diff --check`.
 - PR target: <https://github.com/ai-for-developers/awesome-vibe-coding>
 - PR: <https://github.com/ai-for-developers/awesome-vibe-coding/pull/64>
@@ -1052,22 +1052,22 @@ Non-GitHub Directory Feasibility Sweep:
 | 1 | <https://github.com/colicveinmedicine640/awesome-codex-cli> | deferred candidate | Codex CLI list with tools, skills, subagents, plugins, and resources; likely mirrors an existing Codex list, so verify originality before outreach. | Issue first unless README clearly allows direct tool PRs. |
 | 2 | <https://github.com/commonplace-middledistance109/awesome-codex-cli> | deferred candidate | Codex CLI resource list with many tools and plugins; `codex-profiles` fits only if the repo is independently maintained. | Issue first after clone/originality check. |
 | 3 | <https://github.com/AlexZander-666/awesome-codex-agents> | deferred candidate | Codex-agent collection; `codex-profiles` may fit as Codex CLI profile/account support if it has a tooling/support section. | Issue first; avoid direct PR if agent-only. |
-| 4 | <https://github.com/furudo-erika/awesome-ai-coding-tools> | deferred candidate | AI coding tools list from an owner that also maintains a vibe-coding tools list; likely has terminal/developer tooling categories. | Direct PR if README category fits; otherwise issue. |
-| 5 | <https://github.com/tyler-j-dao/awesome-ai-coding-tools> | deferred candidate | AI coding tools catalogue; possible fit if it accepts workflow utilities around coding agents. | Issue first due sparse metadata. |
-| 6 | <https://github.com/danielrosehill/Awesome-AI-Coding-Tools> | deferred candidate | Snapshot-style AI coding tools list; may accept Codex workflow utilities if still maintained. | Issue first; check current contribution stance. |
+| 4 | <https://github.com/furudo-erika/awesome-ai-coding-tools> | issue opened on 2026-06-09 | AI coding tools list from an owner that also maintains a vibe-coding tools list; README references CLI integration points and terminal helpers, but broad-list policy now favors maintainer confirmation before PRs. | Issue: <https://github.com/furudo-erika/awesome-ai-coding-tools/issues/6>. Send a PR only if the maintainer confirms scope. |
+| 5 | <https://github.com/tyler-j-dao/awesome-ai-coding-tools> | issue opened on 2026-06-09 | AI coding tools catalogue with shell/CLI assistant and coding-agent categories; possible fit as Codex CLI/Desktop support tooling. | Issue: <https://github.com/tyler-j-dao/awesome-ai-coding-tools/issues/5>. Send a PR only if the maintainer confirms scope. |
+| 6 | <https://github.com/danielrosehill/Awesome-AI-Coding-Tools> | issue opened on 2026-06-09 | Snapshot-style AI coding tools list with agent-unification, CLI, context-tool, and developer-utility sections; possible fit as a Codex CLI accessory. | Issue: <https://github.com/danielrosehill/Awesome-AI-Coding-Tools/issues/6>. Send a PR only if the maintainer confirms scope. |
 | 7 | <https://github.com/launchapp-dev/awesome-ai-coding-tools> | existing PR found | AI coding tools list explicitly includes editors, agents, code review, testing, CLI tools, and workflow automation, but it is broad and now subject to the 2026-06-02 pause on near-identical awesome-list PRs. | Existing PR #8 is open; do not open another. Consider withdrawing if broad-list reputation risk outweighs keeping the submission. |
-| 8 | <https://github.com/Icloudeng/awesome-ai-coding-tools> | deferred candidate | AI developer-tool list covers workflow automation and productivity. | Issue first unless README has clear category and PR guidance. |
-| 9 | <https://github.com/tomrzv/Awesome-AI-Coding-Tools> | deferred candidate | AI coding tools list includes developer productivity and app-building tools. | Issue first; verify activity and category. |
+| 8 | <https://github.com/Icloudeng/awesome-ai-coding-tools> | issue opened on 2026-06-09 | AI developer-tool list covers workflow automation, autonomous agents, and several CLI-tagged entries; possible fit as Codex workflow/account-state support. | Issue: <https://github.com/Icloudeng/awesome-ai-coding-tools/issues/11>. Send a PR only if the maintainer confirms scope. |
+| 9 | <https://github.com/tomrzv/Awesome-AI-Coding-Tools> | issue opened on 2026-06-09 | AI coding tools list includes developer productivity, workflow utilities, and a `Terminal & CLI Tools` section. | Issue: <https://github.com/tomrzv/Awesome-AI-Coding-Tools/issues/8>. Send a PR only if the maintainer confirms scope. |
 | 10 | <https://github.com/Web4application/awesome-ai-coding-tools> | deferred candidate | AI coding tools catalogue; possible low-priority fit if terminal/helper tools are included. | Issue first. |
-| 11 | <https://github.com/runaicode/awesome-ai-coding-tools> | deferred candidate | Weekly-updated AI coding tools list; possible fit if Codex/CLI helpers are accepted. | Direct PR only if README has CLI/workflow section. |
+| 11 | <https://github.com/runaicode/awesome-ai-coding-tools> | issue opened on 2026-06-09 | Weekly-updated AI coding tools list with an `AI Terminal & CLI Tools` section and Codex CLI already listed elsewhere in the README. | Issue: <https://github.com/runaicode/awesome-ai-coding-tools/issues/4>. Send a PR only if the maintainer confirms scope. |
 | 12 | <https://github.com/kax168/awesome-ai-coding-tools-2026> | deferred candidate | 2026 AI coding/productivity tools list; possible fit for current Codex helper. | Issue first due low signal. |
-| 13 | <https://github.com/JohannFreddyLoayzaHuana/awesome-ai-coding-tools> | deferred candidate | AI coding workflow/tool list updated recently; may accept developer productivity boosters. | Issue first unless README accepts direct PRs. |
+| 13 | <https://github.com/JohannFreddyLoayzaHuana/awesome-ai-coding-tools> | skipped on 2026-06-09 | AI coding workflow/tool list updated recently, but inspected README routes support/contribution links to a raw ZIP installer URL instead of a normal issue or contribution page. | Do not contact unless the repository changes to a normal curated-list contribution flow. |
 | 14 | <https://github.com/dingjiu1989-hue/awesome-ai-coding-tools> | deferred candidate | AI coding assistants and developer AI tools list; possible fit as Codex workflow utility. | Issue first. |
 | 15 | <https://github.com/kax168/awesome-ai-coding-agents> | deferred candidate | AI coding-agent list; `codex-profiles` fits only if it has infrastructure/support tooling. | Issue first; skip if agent-only. |
 | 16 | <https://github.com/kax168/awesome-ai-coding-assistants-2026> | deferred candidate | 2026 coding assistants/tools list; possible fit if it has helper/tooling categories. | Issue first. |
-| 17 | <https://github.com/ColinEberhardt/awesome-ai-developer-tools> | deferred candidate | More mature AI developer-tool list; relevant if it includes AI coding workflow utilities. | Issue first; quality bar likely higher. |
+| 17 | <https://github.com/ColinEberhardt/awesome-ai-developer-tools> | issue opened on 2026-06-09 | More mature AI developer-tool list; possible fit only if the maintainer accepts narrow Codex workflow utilities alongside full AI developer products. | Issue: <https://github.com/ColinEberhardt/awesome-ai-developer-tools/issues/30>. Send a PR only if the maintainer confirms scope. |
 | 18 | <https://github.com/dbpunk-labs/awesome-ai-developer-tools> | deferred candidate | AI developer tools list; possible if it accepts CLI/productivity utilities. | Issue first due sparse metadata. |
-| 19 | <https://github.com/yeaight7/awesome-ai-devtools> | deferred candidate | Open-source map of AI developer tooling ecosystem; likely good fit if taxonomy includes workflow/configuration. | Direct PR if category exists; otherwise issue. |
+| 19 | <https://github.com/yeaight7/awesome-ai-devtools> | issue opened on 2026-06-09 | Open-source map of AI developer tooling ecosystem with terminal-agent, agent-skills/plugins, and repo-automation coverage; possible fit as Codex workflow isolation support. | Issue: <https://github.com/yeaight7/awesome-ai-devtools/issues/8>. Send a PR only if the maintainer confirms scope. |
 | 20 | <https://github.com/Ravi-Chandraa/awesome-ai-devtools> | deferred candidate | AI devtools list; possible lower-priority fit for Codex helper tooling. | Issue first. |
 | 21 | <https://github.com/tamilselvanarjun/awesome-ai-devtools> | deferred candidate | AI devtools list; possible lower-priority fit. | Issue first. |
 | 22 | <https://github.com/buainoai/awesome-ai-devtools-multilingual> | deferred candidate | Multilingual AI devtools list with coding agents and code-review categories; could fit if tool entries are language-synced. | Issue first; direct PR may require multi-language updates. |
@@ -1086,21 +1086,53 @@ Non-GitHub Directory Feasibility Sweep:
 | 35 | <https://github.com/tiennm99/awesome-coding-agents> | deferred candidate | Daily-updated ranking of AI agent coding tools; possible fit only if non-agent helper tools are accepted. | Issue first; likely borderline. |
 | 36 | <https://github.com/YuyaoGe/Awesome-Vibe-Coding> | deferred candidate | Higher-star vibe-coding list; likely has tools/CLI categories. | Direct PR if Codex/CLI category exists. |
 | 37 | <https://github.com/adriannoes/awesome-vibe-coding> | existing issue found | AI-assisted development resources across Cursor, Claude Code, skills, notebooks, and reports; possible fit as Codex workflow utility. | Existing issue #3 asks about including a Codex profile-switching utility; do not duplicate. |
-| 38 | <https://github.com/tysoncung/awesome-vibe-coding> | deferred candidate | AI coding assistants/tools list with 100+ entries; possible fit if terminal/CLI tools included. | Direct PR if category exists. |
+| 38 | <https://github.com/tysoncung/awesome-vibe-coding> | issue opened on 2026-06-09 | AI coding assistants/tools list with explicit `CLI Tools`, terminal-agent, and workflow-integration coverage. | Issue: <https://github.com/tysoncung/awesome-vibe-coding/issues/6>. Send a PR only if the maintainer confirms scope. |
 | 39 | <https://github.com/Qbeczek1/awesome-vibe-coding> | deferred candidate | Vibe-coded apps/tools/projects list; possible fit if tool listings are accepted, not just built projects. | Issue first. |
-| 40 | <https://github.com/tusharjadhav124/awesome-vibe-coding-tools> | deferred candidate | Recently updated vibe-coding tools/plugins list; likely good fit for Codex CLI/Desktop helper. | Direct PR if README has terminal/workflow category. |
+| 40 | <https://github.com/tusharjadhav124/awesome-vibe-coding-tools> | skipped on 2026-06-09 | Recently updated repository, but inspected README is a generic download/install page pointing to raw ZIP assets rather than a credible curated-list contribution target. | Do not contact unless the repository changes to a normal curated-list contribution flow. |
 | 41 | <https://github.com/vibe-coding-labs/awesome-vibe-coding> | deferred candidate | Vibe-coding AI programming resources; possible fit if multilingual/resources list accepts CLI helpers. | Issue first. |
 | 42 | <https://github.com/andi-nugroho/awesome-vibe-coding> | deferred candidate | Vibe-coding references list; possible but lower priority because last update was 2025. | Issue first. |
 | 43 | <https://github.com/peteresmond/awesome-vibe-coding> | deferred candidate | Vibe-coding resources list; possible fit if tool sections exist. | Issue first. |
 | 44 | <https://github.com/byeadro/awesome-vibe-coding> | deferred candidate | Tools, prompts, and patterns for non-technical founders shipping with AI; possible fit only if developer tools are in scope. | Issue first; likely borderline. |
-| 45 | <https://github.com/Feilul6656/awesome-vibe-coding> | deferred candidate | Very recent vibe-coding resources list for AI agents and development workflows. | Issue first; verify quality before PR. |
-| 46 | <https://github.com/tangyuan-dev/awesome-vibe-coding> | deferred candidate | Vibe-coding tools/tutorials/prompt templates list; possible fit if CLI tools are accepted. | Issue first. |
-| 47 | <https://github.com/alimaliai/awesome-vibe-coding> | deferred candidate | Recently updated AI coding assistants/tools/resources list; possible fit for Codex helper. | Issue first unless README has direct PR guidance. |
+| 45 | <https://github.com/Feilul6656/awesome-vibe-coding> | skipped on 2026-06-09 | Very recent vibe-coding resources list, but inspected README is generic, issues are disabled, and the repo did not show a credible targeted contribution path. | Do not contact unless the repository changes to a normal curated-list contribution flow. |
+| 46 | <https://github.com/tangyuan-dev/awesome-vibe-coding> | issue opened on 2026-06-09 | Chinese vibe-coding tools/tutorials/prompt-template list with AI programming tools and helper-tool categories; possible fit as a Codex CLI profile helper. | Issue: <https://github.com/tangyuan-dev/awesome-vibe-coding/issues/1>. Send a PR only if the maintainer confirms scope. |
+| 47 | <https://github.com/alimaliai/awesome-vibe-coding> | skipped on 2026-06-09 | Recently updated repository, but inspected README routes support/contribution links to a raw ZIP asset and issues are disabled. | Do not contact unless the repository changes to a normal curated-list contribution flow. |
 | 48 | <https://github.com/EffectiveVibeCoding/awesome-vibe-coding> | deferred candidate | Vibe-coding list; possible but lower priority due older activity and sparse metadata. | Issue first. |
 | 49 | <https://github.com/rubylikeya/awesome-vibe-coding> | deferred candidate | Vibe Coding cases, tools, and best practices directory; possible fit as tool entry. | Issue first. |
 | 50 | <https://github.com/di-su/awesome-vibe-coding> | deferred candidate | Vibe-coding resources, AI coding tools, and remote developer jobs list; possible tool fit. | Issue first. |
 
 ## Monthly Reconciliation
+
+2026-06-09 issue-first outreach pass:
+
+- Status: opened 10 targeted maintainer issues; no new PRs, directory
+  submissions, or form submissions were opened in this pass.
+- Branch checked: `PinZheng/outreach-2026-06-09`.
+- Why issue-first: GitHub search currently shows 47 open external
+  `codex-profile(s)` PRs authored by `Ducksss`, and the 2026-06-02 policy
+  pause remains in force after maintainer feedback on broad near-identical
+  awesome-list PRs. Today used maintainer-scope questions instead of adding
+  more PR burden.
+- Issues opened:
+  <https://github.com/furudo-erika/awesome-ai-coding-tools/issues/6>,
+  <https://github.com/runaicode/awesome-ai-coding-tools/issues/4>,
+  <https://github.com/ColinEberhardt/awesome-ai-developer-tools/issues/30>,
+  <https://github.com/yeaight7/awesome-ai-devtools/issues/8>,
+  <https://github.com/tysoncung/awesome-vibe-coding/issues/6>,
+  <https://github.com/Icloudeng/awesome-ai-coding-tools/issues/11>,
+  <https://github.com/tomrzv/Awesome-AI-Coding-Tools/issues/8>,
+  <https://github.com/danielrosehill/Awesome-AI-Coding-Tools/issues/6>,
+  <https://github.com/tyler-j-dao/awesome-ai-coding-tools/issues/5>, and
+  <https://github.com/tangyuan-dev/awesome-vibe-coding/issues/1>.
+- Selection notes: skipped `JohannFreddyLoayzaHuana/awesome-ai-coding-tools`,
+  `tusharjadhav124/awesome-vibe-coding-tools`, and
+  `alimaliai/awesome-vibe-coding` because their inspected READMEs route
+  support or contribution paths to raw ZIP assets; skipped
+  `Feilul6656/awesome-vibe-coding` because issues are disabled and the README
+  did not show a credible targeted contribution flow.
+- Validation: checked GitHub auth, current `Ducksss/codex-profiles` repo
+  metadata, existing PR/issue states, backlog repository metadata, README
+  category fit, and duplicate PR/issue history for the issue-opened targets;
+  verified all 10 new issue URLs are open through GitHub CLI.
 
 2026-06-02 distribution pass:
 
