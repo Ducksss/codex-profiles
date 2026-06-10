@@ -1047,6 +1047,39 @@ Non-GitHub Directory Feasibility Sweep:
     `adriannoes/awesome-vibe-coding#3`, and hit GitHub API rate limits during
     later duplicate checks.
 
+2026-06-10 template-compliance workflow update:
+
+- Status: mandatory pre-submit gate for every future direct PR and every
+  issue-to-PR conversion.
+- Why: maintainer feedback now includes process fit, not only list fit. Future
+  outreach must respect the target repository's PR template, issue template,
+  and contribution flow before adding another submission.
+- Required inspection before drafting:
+  - PR templates: `.github/pull_request_template.md`,
+    `.github/PULL_REQUEST_TEMPLATE/*`, repository-level
+    `pull_request_template.md`, and the rendered GitHub PR form if no template
+    file is visible in the checkout.
+  - Issue templates/forms: `.github/ISSUE_TEMPLATE/*` and the rendered GitHub
+    issue choices when the workflow is issue-first.
+  - Contribution rules: `CONTRIBUTING*`, README contribution sections, recent
+    accepted PRs, closed similar submissions, sorting rules, category rules,
+    and metadata requirements.
+- Submission rule: use the target's template verbatim, preserve headings and
+  checkboxes, fill every required section truthfully, and write `N/A` only when
+  the section genuinely does not apply. If a template or guide asks for tests,
+  lint, screenshots, duplicate checks, alphabetical sorting, multi-file
+  metadata, language mirrors, or issue links, complete and document those items
+  before opening the PR.
+- Stop conditions: do not open a PR if the repository says "issue first",
+  prohibits self-submission or self-promotion, requires maintainer invitation,
+  requires facts we cannot verify, or has a template we cannot satisfy without
+  invented claims. Open a scope-check issue only when issue templates allow it;
+  otherwise skip and record the skip.
+- Ledger requirement: each future outreach row or reconciliation entry must
+  record the inspected template/guideline paths, duplicate-search terms,
+  required checks, template-compliance outcome, and the exact reason for PR,
+  issue-first, or skip.
+
 | # | Repository | Status | Why it may fit | Suggested outreach |
 | - | - | - | - | - |
 | 1 | <https://github.com/colicveinmedicine640/awesome-codex-cli> | deferred candidate | Codex CLI list with tools, skills, subagents, plugins, and resources; likely mirrors an existing Codex list, so verify originality before outreach. | Issue first unless README clearly allows direct tool PRs. |
@@ -1101,6 +1134,22 @@ Non-GitHub Directory Feasibility Sweep:
 | 50 | <https://github.com/di-su/awesome-vibe-coding> | deferred candidate | Vibe-coding resources, AI coding tools, and remote developer jobs list; possible tool fit. | Issue first. |
 
 ## Monthly Reconciliation
+
+2026-06-10 workflow hardening:
+
+- Status: workflow-only update; no external PRs, issues, directory
+  submissions, or form submissions were opened in this pass.
+- Branch checked: `PinZheng/update-outreach-template-workflow`.
+- Why: user reported maintainer feedback that submissions should follow target
+  repository PR templates and contribution rules. This reconciles that feedback
+  into the launch workflow before the next outreach pass.
+- Policy change: future direct PRs and issue-to-PR conversions now require
+  explicit inspection of PR/issue templates, `CONTRIBUTING*` files, README
+  contribution sections, required checkboxes/checks, and recent accepted PR
+  style before submission. If the target workflow cannot be satisfied
+  truthfully, the target must be issue-first or skipped.
+- Validation: searched open `codex-profile(s)` PRs for template/contribution
+  feedback, then updated this ledger as the source of truth for future outreach.
 
 2026-06-09 second issue-first outreach pass:
 
