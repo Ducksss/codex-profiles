@@ -226,8 +226,11 @@ Update rule:
 | P0 | CLIhub | PR open on 2026-06-02 | <https://github.com/clihub-ai/clihub/pull/4> | Monitor registry review; preserve schema/tests if changes are requested. |
 | P0 | Awesome Agentic Coding CLI | PR open on 2026-06-02 | <https://github.com/yubing744/awesome-agentic-coding-cli/pull/3> | Monitor; do not use this as a template for broad list PRs. |
 | P0 | Awesome CLI Apps in a CSV | PR open on 2026-06-02 | <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267> | Monitor structured CSV submission. |
-| P1 | OpenAgent.bot | Submitted for editorial review on 2026-06-02 | <https://www.openagent.bot/submit/> | Check for listing or response before resubmitting. |
-| P1 | CLIHunt | Submitted for review on 2026-06-02 | <https://clihunt.dev/> | Check listing status before resubmitting. |
+| P0 | Awesome AI DevTools by yeaight7 | PR open on 2026-06-11 after maintainer green light | <https://github.com/yeaight7/awesome-ai-devtools/pull/11> | Monitor CI/review; PR closes issue #8. |
+| P0 | OpenAI Developer Community | Existing Codex / Codex CLI topic reverified by forum search on 2026-06-11 | <https://community.openai.com/t/codex-profiles-switch-codex-accounts-without-copying-auth-json/1380415> | Monitor replies; do not repost duplicate topic. |
+| P1 | Hacker News Show HN | Submit attempt reached HN temporary Show HN restriction page on 2026-06-11 | <https://news.ycombinator.com/showlim> | Retry only after account/community readiness; do not bypass restriction. |
+| P1 | OpenAgent.bot | No public listing found in sitemap/search on 2026-06-11 after 2026-06-02 submission | <https://www.openagent.bot/submit/> | Wait for editorial review or contact response; do not resubmit blindly. |
+| P1 | CLIHunt | No public listing found via API search on 2026-06-11 after 2026-06-02 submission | <https://clihunt.dev/> | Wait or contact before duplicate submission; API search returned 0. |
 | P2 | ToolHunter | Draft deferred on 2026-06-02 | <https://toolhunter.ai/submit-a-tool> | Resume only with an approved project contact email. |
 
 ### Broad Open PR Backlog
@@ -272,7 +275,7 @@ pass through the template-compliance gate.
 | Awesome AI Coding Tools by furudo-erika | Issue open on 2026-06-09 | <https://github.com/furudo-erika/awesome-ai-coding-tools/issues/6> | Wait for maintainer scope confirmation. |
 | Awesome AI Coding Tools by runaicode | Issue open on 2026-06-09 | <https://github.com/runaicode/awesome-ai-coding-tools/issues/4> | Wait for maintainer scope confirmation. |
 | Awesome AI Developer Tools by ColinEberhardt | Issue open on 2026-06-09 | <https://github.com/ColinEberhardt/awesome-ai-developer-tools/issues/30> | Wait for maintainer scope confirmation. |
-| Awesome AI DevTools by yeaight7 | Issue open on 2026-06-09 | <https://github.com/yeaight7/awesome-ai-devtools/issues/8> | Wait for maintainer scope confirmation. |
+| Awesome AI DevTools by yeaight7 | Maintainer green-lit PR on 2026-06-09; PR open on 2026-06-11 | <https://github.com/yeaight7/awesome-ai-devtools/issues/8> | PR #11 is open; no duplicate outreach. |
 | Awesome Vibe Coding by tysoncung | Issue open on 2026-06-09 | <https://github.com/tysoncung/awesome-vibe-coding/issues/6> | Wait for maintainer scope confirmation. |
 | Awesome AI Coding Tools by Icloudeng | Issue open on 2026-06-09 | <https://github.com/Icloudeng/awesome-ai-coding-tools/issues/11> | Wait for maintainer scope confirmation. |
 | Awesome AI Coding Tools by tomrzv | Issue open on 2026-06-09 | <https://github.com/tomrzv/Awesome-AI-Coding-Tools/issues/8> | Wait for maintainer scope confirmation. |
@@ -288,7 +291,7 @@ pass through the template-compliance gate.
 | Awesome Coding Agents by wdzhwsh4067 | Issue open on 2026-06-09 | <https://github.com/wdzhwsh4067/awesome-coding-agents/issues/4> | Wait for maintainer scope confirmation. |
 | Awesome Vibe Coding by YuyaoGe | Issue open on 2026-06-09 | <https://github.com/YuyaoGe/Awesome-Vibe-Coding/issues/8> | Wait for maintainer scope confirmation. |
 | Awesome Vibe Coding by vibe-coding-labs | Issue open on 2026-06-09 | <https://github.com/vibe-coding-labs/awesome-vibe-coding/issues/1> | Wait for maintainer scope confirmation. |
-| Awesome Vibe Coding by adriannoes | Existing issue found on 2026-06-02 | <https://github.com/adriannoes/awesome-vibe-coding/issues/3> | Do not duplicate; wait for maintainer response. |
+| Awesome Vibe Coding by adriannoes | Closed with maintainer inclusion plan and upstream-install reply posted on 2026-06-11 | <https://github.com/adriannoes/awesome-vibe-coding/issues/3> | Monitor maintainer PR; avoid duplicate snapshot unless requested. |
 
 ### Manual Or Gated Directories
 
@@ -311,6 +314,9 @@ No current action unless a listed link breaks or a maintainer requests changes.
   <https://github.com/namphuongtran/awesome-ai-coding-agent-tools/pull/4>,
   <https://github.com/dalisoft/awesome-ai-coding/pull/65>, and
   <https://github.com/acvnace/awesome-vibe-coding-resources/pull/20>.
+- Verified independently listed on 2026-06-11:
+  <https://github.com/Jenqyang/Awesome-AI-Agents> includes `codex-profiles`
+  in its Tools section.
 - Closed or declined items, skipped targets, rejected fits, and detailed
   validation logs are archived in
   [`archive/launch-ledger-history.md`](archive/launch-ledger-history.md).
@@ -324,6 +330,12 @@ Current backlog posture:
 
 - The June 9 passes already opened 20 targeted maintainer issues. Do not create
   duplicate issues or PRs for those repositories.
+- 2026-06-11 fresh discovery note: `vanna-ai/Awesome-Vibe-Coding-CLI` is a
+  possible but lower-priority CLI list with stale open PRs; use issue-first or
+  wait for maintainer activity. `techiediaries/awesome-vibe-coding` is broad
+  and has a stale open-PR backlog; skip unless maintainers become active.
+  `onurkanbakirci/awesome-codex-automations` is Codex-specific but scoped to
+  automation templates, not profile-switching tooling.
 - Remaining uncontacted candidates from the archived table were lower-confidence
   or deferred. Re-run discovery and duplicate checks before using any of them.
 - For each new candidate, record only: repository, fit reason, inspected
@@ -336,6 +348,14 @@ Current backlog posture:
 
 Keep this list compact. Full dated notes are archived.
 
+- 2026-06-11, current outreach wave: opened
+  <https://github.com/yeaight7/awesome-ai-devtools/pull/11>, replied on
+  <https://github.com/adriannoes/awesome-vibe-coding/issues/3>, checked
+  OpenAgent.bot sitemap/search and CLIHunt API search, reverified the existing
+  OpenAI Developer Community topic, and attempted Hacker News Show HN. HN
+  redirected to its temporary `showlim` restriction page before publishing.
+  External submissions: 1 PR, 1 issue comment, 0 directory resubmissions,
+  0 new forum posts, 0 HN posts published.
 - 2026-06-10, this pruning pass: archived full ledger history and slimmed
   `LAUNCH.md` for next-agent handoff. External submissions: 0.
 - 2026-06-10, <https://github.com/Ducksss/codex-profiles/pull/12>: added the
