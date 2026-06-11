@@ -228,7 +228,7 @@ Update rule:
 | P0 | Awesome CLI Apps in a CSV | PR open on 2026-06-02 | <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267> | Monitor structured CSV submission. |
 | P0 | Awesome AI DevTools by yeaight7 | PR open on 2026-06-11 after maintainer green light | <https://github.com/yeaight7/awesome-ai-devtools/pull/11> | Monitor CI/review; PR closes issue #8. |
 | P0 | OpenAI Developer Community | Existing Codex / Codex CLI topic reverified by forum search on 2026-06-11 | <https://community.openai.com/t/codex-profiles-switch-codex-accounts-without-copying-auth-json/1380415> | Monitor replies; do not repost duplicate topic. |
-| P1 | Hacker News Show HN | Submit attempt reached HN temporary Show HN restriction page on 2026-06-11 | <https://news.ycombinator.com/showlim> | Retry only after account/community readiness; do not bypass restriction. |
+| P1 | Hacker News Show HN | Submit attempt and same-day retry reached HN temporary Show HN restriction page on 2026-06-11 | <https://news.ycombinator.com/showlim> | Retry only after account/community readiness; do not bypass restriction. |
 | P1 | OpenAgent.bot | No public listing found in sitemap/search on 2026-06-11 after 2026-06-02 submission | <https://www.openagent.bot/submit/> | Wait for editorial review or contact response; do not resubmit blindly. |
 | P1 | CLIHunt | No public listing found via API search on 2026-06-11 after 2026-06-02 submission | <https://clihunt.dev/> | Wait or contact before duplicate submission; API search returned 0. |
 | P2 | ToolHunter | Draft deferred on 2026-06-02 | <https://toolhunter.ai/submit-a-tool> | Resume only with an approved project contact email. |
@@ -353,7 +353,9 @@ Keep this list compact. Full dated notes are archived.
   <https://github.com/adriannoes/awesome-vibe-coding/issues/3>, checked
   OpenAgent.bot sitemap/search and CLIHunt API search, reverified the existing
   OpenAI Developer Community topic, and attempted Hacker News Show HN. HN
-  redirected to its temporary `showlim` restriction page before publishing.
+  redirected to its temporary `showlim` restriction page before publishing;
+  the same-day retry reached the normal submit form but redirected back to
+  `showlim` after submit.
   External submissions: 1 PR, 1 issue comment, 0 directory resubmissions,
   0 new forum posts, 0 HN posts published.
 - 2026-06-10, this pruning pass: archived full ledger history and slimmed
