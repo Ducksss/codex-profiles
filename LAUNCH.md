@@ -303,6 +303,16 @@ pass through the template-compliance gate.
 | Awesome Coding Agents by Caldalis | Issue open on 2026-06-22 | <https://github.com/Caldalis/awesome-coding-agents/issues/1> | Wait for maintainer scope confirmation. |
 | Awesome Agentic Coding by fecet | Issue open on 2026-06-22 | <https://github.com/fecet/awesome-agentic-coding/issues/1> | Wait for maintainer scope confirmation. |
 | Awesome Agentic Coding by li0nel | Issue open on 2026-06-22 | <https://github.com/li0nel/awesome-agentic-coding/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome AI Coding Agents by brandonhimpfen | Issue open on 2026-06-23 | <https://github.com/brandonhimpfen/awesome-ai-coding-agents/issues/26> | Wait for maintainer scope confirmation; if approved, follow `CONTRIBUTING.md` and PR template. |
+| Awesome AI Coding Agents by vinkius-labs | Issue open on 2026-06-23 | <https://github.com/vinkius-labs/awesome-ai-coding-agents/issues/5> | Wait for maintainer scope confirmation. |
+| Awesome AI Coding Agents by SahitiMulagada | Issue open on 2026-06-23 | <https://github.com/SahitiMulagada/awesome-ai-coding-agents/issues/2> | Wait for maintainer scope confirmation; if approved, follow PR template. |
+| Awesome AI Coding Agents by BrethofAI | Issue open on 2026-06-23 | <https://github.com/BrethofAI/awesome-ai-coding-agents/issues/1> | Wait for maintainer scope confirmation; if approved, follow `entries/*.yaml` schema. |
+| Awesome AI Coding Agents by awdemos | Issue open on 2026-06-23 | <https://github.com/awdemos/awesome-ai-coding-agents/issues/1> | Wait for maintainer scope confirmation; if approved, follow `CONTRIBUTING.md`. |
+| Awesome Vibe Coding Guide by analyticalrohit | Issue open on 2026-06-23 | <https://github.com/analyticalrohit/awesome-vibe-coding-guide/issues/28> | Wait for maintainer scope confirmation. |
+| Awesome Vibe Coding by clumsyquest | Issue open on 2026-06-23 | <https://github.com/clumsyquest/awesome-vibe-coding/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome Vibe Coding by jaywheel1 | Issue open on 2026-06-23 | <https://github.com/jaywheel1/awesome-vibe-coding/issues/1> | Wait for maintainer scope confirmation; if approved, follow `CONTRIBUTING.md`. |
+| Awesome AI Coding Assistants 2026 by kax168 | Issue open on 2026-06-23 | <https://github.com/kax168/awesome-ai-coding-assistants-2026/issues/4> | Wait for maintainer scope confirmation. |
+| Awesome Vibe Coding by mukesh1811 | Issue open on 2026-06-23 | <https://github.com/mukesh1811/awesome_vibe_coding/issues/1> | Wait for maintainer scope confirmation. |
 
 ### Manual Or Gated Directories
 
@@ -344,8 +354,9 @@ candidates directly for new outreach; treat them as stale leads.
 
 Current backlog posture:
 
-- The June 9 passes already opened 20 targeted maintainer issues. Do not create
-  duplicate issues or PRs for those repositories.
+- The June 9, June 22, and June 23 passes already opened 45 targeted
+  maintainer issues. Do not create duplicate issues or PRs for those
+  repositories.
 - 2026-06-11 fresh discovery note: `vanna-ai/Awesome-Vibe-Coding-CLI` is a
   possible but lower-priority CLI list with stale open PRs; use issue-first or
   wait for maintainer activity. `techiediaries/awesome-vibe-coding` is broad
@@ -364,6 +375,25 @@ Current backlog posture:
 
 Keep this list compact. Full dated notes are archived.
 
+- 2026-06-23, 10-repo issue-first outreach wave: opened scope-check issues
+  with no PRs and no directory submissions. Targets had issues enabled, no
+  visible issue templates, and no duplicate `codex-profile(s)` or Ducksss
+  issue/PR history in fresh checks. Inspected contribution docs or PR templates
+  where present; if maintainers approve, follow the target-specific notes in
+  the active queue before opening any PR. Opened:
+  <https://github.com/brandonhimpfen/awesome-ai-coding-agents/issues/26>,
+  <https://github.com/vinkius-labs/awesome-ai-coding-agents/issues/5>,
+  <https://github.com/SahitiMulagada/awesome-ai-coding-agents/issues/2>,
+  <https://github.com/BrethofAI/awesome-ai-coding-agents/issues/1>,
+  <https://github.com/awdemos/awesome-ai-coding-agents/issues/1>,
+  <https://github.com/analyticalrohit/awesome-vibe-coding-guide/issues/28>,
+  <https://github.com/clumsyquest/awesome-vibe-coding/issues/1>,
+  <https://github.com/jaywheel1/awesome-vibe-coding/issues/1>,
+  <https://github.com/kax168/awesome-ai-coding-assistants-2026/issues/4>, and
+  <https://github.com/mukesh1811/awesome_vibe_coding/issues/1>. Skipped quick
+  candidates that were empty, very thin/stale, already in active outreach, had
+  duplicate Codex PR history, or were narrower security, paper, prompt,
+  non-technical-founder, or built-with-AI project showcases.
 - 2026-06-22, 15-repo issue-first outreach wave: opened scope-check issues
   with no PRs and no directory submissions. Targets had issues enabled, no
   visible issue templates, and no duplicate `codex-profile(s)` issue/PR history
