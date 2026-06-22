@@ -288,6 +288,21 @@ pass through the template-compliance gate.
 | Awesome Coding Agents by wdzhwsh4067 | Issue open on 2026-06-09 | <https://github.com/wdzhwsh4067/awesome-coding-agents/issues/4> | Wait for maintainer scope confirmation. |
 | Awesome Vibe Coding by YuyaoGe | Issue open on 2026-06-09 | <https://github.com/YuyaoGe/Awesome-Vibe-Coding/issues/8> | Wait for maintainer scope confirmation. |
 | Awesome Vibe Coding by vibe-coding-labs | Issue open on 2026-06-09 | <https://github.com/vibe-coding-labs/awesome-vibe-coding/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome Code Agents by EuniAI | Issue open on 2026-06-22 | <https://github.com/EuniAI/awesome-code-agents/issues/299> | Wait for maintainer scope confirmation. |
+| Awesome Code Agents by sorrycc | Issue open on 2026-06-22 | <https://github.com/sorrycc/awesome-code-agents/issues/32> | Wait for maintainer scope confirmation. |
+| Awesome Terminal Agents | Issue open on 2026-06-22 | <https://github.com/EnigmaYYYY/awesome-terminal-agents/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome AI Developer Tools by ayushrajdev9-cmyk | Issue open on 2026-06-22 | <https://github.com/ayushrajdev9-cmyk/awesome-ai-developer-tools/issues/4> | Wait for maintainer scope confirmation. |
+| Awesome AI Coding Tools by klymaxltd-ctrl | Issue open on 2026-06-22 | <https://github.com/klymaxltd-ctrl/awesome-ai-coding-tools/issues/3> | Wait for maintainer scope confirmation. |
+| Awesome AI Coding Tools by KnoSkillz | Issue open on 2026-06-22 | <https://github.com/KnoSkillz/awesome-ai-coding-tools/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome AI DevTools by tamilselvanarjun | Issue open on 2026-06-22 | <https://github.com/tamilselvanarjun/awesome-ai-devtools/issues/3> | Wait for maintainer scope confirmation. |
+| Awesome AI Developer Tools by dbpunk-labs | Issue open on 2026-06-22 | <https://github.com/dbpunk-labs/awesome-ai-developer-tools/issues/4> | Wait for maintainer scope confirmation. |
+| Awesome Agentic Coding by Supersynergy | Issue open on 2026-06-22 | <https://github.com/Supersynergy/awesome-agentic-coding/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome Coding Agents by tiennm99 | Issue open on 2026-06-22 | <https://github.com/tiennm99/awesome-coding-agents/issues/2> | Wait for maintainer scope confirmation. |
+| Awesome Coding Agents by closedloop-technologies | Issue open on 2026-06-22 | <https://github.com/closedloop-technologies/awesome-coding-agents/issues/5> | Wait for maintainer scope confirmation. |
+| Awesome Coding Agents by outer-joined | Issue open on 2026-06-22 | <https://github.com/outer-joined/awesome-coding-agents/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome Coding Agents by Caldalis | Issue open on 2026-06-22 | <https://github.com/Caldalis/awesome-coding-agents/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome Agentic Coding by fecet | Issue open on 2026-06-22 | <https://github.com/fecet/awesome-agentic-coding/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome Agentic Coding by li0nel | Issue open on 2026-06-22 | <https://github.com/li0nel/awesome-agentic-coding/issues/1> | Wait for maintainer scope confirmation. |
 
 ### Manual Or Gated Directories
 
@@ -349,6 +364,27 @@ Current backlog posture:
 
 Keep this list compact. Full dated notes are archived.
 
+- 2026-06-22, 15-repo issue-first outreach wave: opened scope-check issues
+  with no PRs and no directory submissions. Targets had issues enabled, no
+  visible issue templates, and no duplicate `codex-profile(s)` issue/PR history
+  in fresh checks. Opened:
+  <https://github.com/EuniAI/awesome-code-agents/issues/299>,
+  <https://github.com/sorrycc/awesome-code-agents/issues/32>,
+  <https://github.com/EnigmaYYYY/awesome-terminal-agents/issues/1>,
+  <https://github.com/ayushrajdev9-cmyk/awesome-ai-developer-tools/issues/4>,
+  <https://github.com/klymaxltd-ctrl/awesome-ai-coding-tools/issues/3>,
+  <https://github.com/KnoSkillz/awesome-ai-coding-tools/issues/1>,
+  <https://github.com/tamilselvanarjun/awesome-ai-devtools/issues/3>,
+  <https://github.com/dbpunk-labs/awesome-ai-developer-tools/issues/4>,
+  <https://github.com/Supersynergy/awesome-agentic-coding/issues/1>,
+  <https://github.com/tiennm99/awesome-coding-agents/issues/2>,
+  <https://github.com/closedloop-technologies/awesome-coding-agents/issues/5>,
+  <https://github.com/outer-joined/awesome-coding-agents/issues/1>,
+  <https://github.com/Caldalis/awesome-coding-agents/issues/1>,
+  <https://github.com/fecet/awesome-agentic-coding/issues/1>, and
+  <https://github.com/li0nel/awesome-agentic-coding/issues/1>. Skipped quick
+  candidates with issues disabled, duplicate PR history, or narrower plugin,
+  skill, ACP, pet, paper, prompt, or raw-rule scope.
 - 2026-06-22, GitHub status audit: verified
   <https://github.com/eltociear/awesome-AI-driven-development/pull/52> and
   <https://github.com/yeaight7/awesome-ai-devtools/pull/11> are merged, and
