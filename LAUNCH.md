@@ -260,6 +260,7 @@ maintainer feedback suggests reputation risk.
 | Awesome OpenAI Codex by KarelDO | PR open on 2026-06-02 | <https://github.com/KarelDO/awesome-codex/pull/15> | Monitor only. |
 | Awesome Vibe Coding Tools by furudo-erika | PR open on 2026-06-02 | <https://github.com/furudo-erika/awesome-vibe-coding-tools/pull/4> | Monitor only. |
 | LaunchApp Awesome AI Coding Tools | Existing prior PR found on 2026-06-02 | <https://github.com/launchapp-dev/awesome-ai-coding-tools/pull/8> | Monitor or withdraw if broad-list reputation risk rises. |
+| Awesome AI Coding Agents by brandonhimpfen | PR open on 2026-06-23 after issue #26 PR-only flow feedback | <https://github.com/brandonhimpfen/awesome-ai-coding-agents/pull/29> | Monitor PR; no issue reply needed. |
 
 ### Issue-First Queue
 
@@ -303,7 +304,6 @@ pass through the template-compliance gate.
 | Awesome Coding Agents by Caldalis | Issue open on 2026-06-22 | <https://github.com/Caldalis/awesome-coding-agents/issues/1> | Wait for maintainer scope confirmation. |
 | Awesome Agentic Coding by fecet | Issue open on 2026-06-22 | <https://github.com/fecet/awesome-agentic-coding/issues/1> | Wait for maintainer scope confirmation. |
 | Awesome Agentic Coding by li0nel | Issue open on 2026-06-22 | <https://github.com/li0nel/awesome-agentic-coding/issues/1> | Wait for maintainer scope confirmation. |
-| Awesome AI Coding Agents by brandonhimpfen | Issue open on 2026-06-23 | <https://github.com/brandonhimpfen/awesome-ai-coding-agents/issues/26> | Wait for maintainer scope confirmation; if approved, follow `CONTRIBUTING.md` and PR template. |
 | Awesome AI Coding Agents by vinkius-labs | Issue open on 2026-06-23 | <https://github.com/vinkius-labs/awesome-ai-coding-agents/issues/5> | Wait for maintainer scope confirmation. |
 | Awesome AI Coding Agents by SahitiMulagada | Issue open on 2026-06-23 | <https://github.com/SahitiMulagada/awesome-ai-coding-agents/issues/2> | Wait for maintainer scope confirmation; if approved, follow PR template. |
 | Awesome AI Coding Agents by BrethofAI | Issue open on 2026-06-23 | <https://github.com/BrethofAI/awesome-ai-coding-agents/issues/1> | Wait for maintainer scope confirmation; if approved, follow `entries/*.yaml` schema. |
@@ -355,8 +355,8 @@ candidates directly for new outreach; treat them as stale leads.
 Current backlog posture:
 
 - The June 9, June 22, and June 23 passes already opened 45 targeted
-  maintainer issues. Do not create duplicate issues or PRs for those
-  repositories.
+  maintainer issues, with one now converted to a PR after maintainer feedback.
+  Do not create duplicate issues or PRs for those repositories.
 - 2026-06-11 fresh discovery note: `vanna-ai/Awesome-Vibe-Coding-CLI` is a
   possible but lower-priority CLI list with stale open PRs; use issue-first or
   wait for maintainer activity. `techiediaries/awesome-vibe-coding` is broad
@@ -375,6 +375,16 @@ Current backlog posture:
 
 Keep this list compact. Full dated notes are archived.
 
+- 2026-06-23 follow-up review: checked all recorded outreach PRs/issues for
+  human maintainer comments. No open PR had unresolved convention feedback:
+  CodandoTV #8's conflict request was already resolved and the PR is `CLEAN`.
+  Brandon Himpfen issue #26 was closed because that repo does not accept
+  issue-based resource checks, so opened
+  <https://github.com/brandonhimpfen/awesome-ai-coding-agents/pull/29>
+  instead, following `CONTRIBUTING.md` and the PR template. Validation:
+  `python3 .github/scripts/awesome_list_lint.py`,
+  `python3 .github/scripts/detect_duplicate_links.py README.md`, and
+  `git diff --check`.
 - 2026-06-23, 10-repo issue-first outreach wave: opened scope-check issues
   with no PRs and no directory submissions. Targets had issues enabled, no
   visible issue templates, and no duplicate `codex-profile(s)` or Ducksss
