@@ -223,9 +223,9 @@ Update rule:
 | Priority | Target | Last ledger status | Link | Next action |
 | - | - | - | - | - |
 | P0 | Awesome Codex CLI | Replacement PR open on 2026-06-02 | <https://github.com/RoggeOhta/awesome-codex-cli/pull/40> | Monitor; respond only to maintainer feedback. |
-| P0 | CLIhub | PR open on 2026-06-02 | <https://github.com/clihub-ai/clihub/pull/4> | Monitor registry review; preserve schema/tests if changes are requested. |
+| P0 | CLIhub | PR open; rechecked on 2026-06-26 with `UNSTABLE` merge state, no checks, and no comments | <https://github.com/clihub-ai/clihub/pull/4> | Monitor registry review; preserve schema/tests if changes are requested. |
 | P0 | Awesome Agentic Coding CLI | PR open on 2026-06-02 | <https://github.com/yubing744/awesome-agentic-coding-cli/pull/3> | Monitor; do not use this as a template for broad list PRs. |
-| P0 | Awesome CLI Apps in a CSV | PR open on 2026-06-02 | <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267> | Monitor structured CSV submission. |
+| P0 | Awesome CLI Apps in a CSV | PR open; rechecked on 2026-06-26 with `DIRTY` merge state and no comments | <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267> | Resolve conflict before maintainer review. |
 | P0 | OpenAI Developer Community | Existing Codex / Codex CLI topic reverified by forum search on 2026-06-11 | <https://community.openai.com/t/codex-profiles-switch-codex-accounts-without-copying-auth-json/1380415> | Monitor replies; do not repost duplicate topic. |
 | P1 | Hacker News Show HN | Submit attempt and same-day retry reached HN temporary Show HN restriction page on 2026-06-11 | <https://news.ycombinator.com/showlim> | Retry only after account/community readiness; do not bypass restriction. |
 | P1 | OpenAgent.bot | No exact-name listing found in sitemap on 2026-06-22 after 2026-06-02 submission | <https://www.openagent.bot/submit/> | Wait for editorial review or contact response; do not resubmit blindly. |
@@ -248,7 +248,6 @@ maintainer feedback suggests reputation risk.
 | Awesome OpenAI Codex CLI by taahro | PR open on 2026-06-02 | <https://github.com/taahro/awesome-openai-codex-cli/pull/3> | Monitor only. |
 | Awesome Agentic Coding by tranhoangpich | Still inaccessible on 2026-06-22 | <https://github.com/tranhoangpich/awesome-agentic-coding/pull/3> | Treat as dead unless the repo reappears. |
 | Awesome CLI Coding Agents | PR open on 2026-06-02 | <https://github.com/bradAGI/awesome-cli-coding-agents/pull/90> | Monitor only. |
-| Awesome AI Dev Tools | PR open on 2026-06-02 | <https://github.com/PierrunoYT/awesome-ai-dev-tools/pull/26> | Monitor only. |
 | Awesome AI Coding Assistants Playbook | PR open on 2026-06-02 | <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8> | Monitor only. |
 | Awesome AI Coding by wsxiaoys | PR open on 2026-06-02 | <https://github.com/wsxiaoys/awesome-ai-coding/pull/103> | Monitor only. |
 | Awesome Harness Engineering | PR open on 2026-06-02 | <https://github.com/walkinglabs/awesome-harness-engineering/pull/28> | Monitor only. |
@@ -260,7 +259,6 @@ maintainer feedback suggests reputation risk.
 | Awesome OpenAI Codex by KarelDO | PR open on 2026-06-02 | <https://github.com/KarelDO/awesome-codex/pull/15> | Monitor only. |
 | Awesome Vibe Coding Tools by furudo-erika | PR open on 2026-06-02 | <https://github.com/furudo-erika/awesome-vibe-coding-tools/pull/4> | Monitor only. |
 | LaunchApp Awesome AI Coding Tools | Existing prior PR found on 2026-06-02 | <https://github.com/launchapp-dev/awesome-ai-coding-tools/pull/8> | Monitor or withdraw if broad-list reputation risk rises. |
-| Awesome AI Coding Agents by brandonhimpfen | PR open on 2026-06-23 after issue #26 PR-only flow feedback | <https://github.com/brandonhimpfen/awesome-ai-coding-agents/pull/29> | Monitor PR; no issue reply needed. |
 
 ### Issue-First Queue
 
@@ -343,6 +341,8 @@ No current action unless a listed link breaks or a maintainer requests changes.
   <https://github.com/yeaight7/awesome-ai-devtools/pull/11>, and
   <https://github.com/adriannoes/awesome-vibe-coding/pull/4>. The related
   yeaight7 issue #8 and adriannoes issue #3 are closed as completed.
+- Verified accepted/listed on 2026-06-26:
+  <https://github.com/PierrunoYT/awesome-ai-dev-tools/pull/26>.
 - Closed or declined items, skipped targets, rejected fits, and detailed
   validation logs are archived in
   [`archive/launch-ledger-history.md`](archive/launch-ledger-history.md).
@@ -375,6 +375,22 @@ Current backlog posture:
 
 Keep this list compact. Full dated notes are archived.
 
+- 2026-06-26, active outreach audit: checked 69 active GitHub outreach links:
+  25 PRs and 44 issues. Current live tally is 22 open PRs, 44 open issues,
+  1 newly merged PR, 1 newly closed PR, and 1 inaccessible PR. No issue-first
+  scope check has new human feedback. New status changes: moved
+  <https://github.com/PierrunoYT/awesome-ai-dev-tools/pull/26> to accepted
+  after merge on 2026-06-24; removed declined
+  <https://github.com/brandonhimpfen/awesome-ai-coding-agents/pull/29> from
+  active follow-up after maintainer passed because the repo's section focuses
+  on core agent infrastructure; noted
+  <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267> is `DIRTY`
+  with no comments or checks; noted
+  <https://github.com/clihub-ai/clihub/pull/4> is `UNSTABLE` with no comments
+  or checks; reverified
+  <https://github.com/tranhoangpich/awesome-agentic-coding/pull/3> remains
+  inaccessible. CodandoTV #8 still has old conflict feedback, but the PR is
+  now `CLEAN` and approved. External comments/submissions: 0.
 - 2026-06-23 follow-up review: checked all recorded outreach PRs/issues for
   human maintainer comments. No open PR had unresolved convention feedback:
   CodandoTV #8's conflict request was already resolved and the PR is `CLEAN`.
