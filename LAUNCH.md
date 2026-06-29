@@ -247,7 +247,6 @@ maintainer feedback suggests reputation risk.
 | Awesome OpenAI Codex | PR open on 2026-06-02 | <https://github.com/vaderyang/awesome-openai-codex/pull/2> | Monitor only. |
 | Awesome OpenAI Codex CLI by taahro | PR open on 2026-06-02 | <https://github.com/taahro/awesome-openai-codex-cli/pull/3> | Monitor only. |
 | Awesome Agentic Coding by tranhoangpich | Still inaccessible on 2026-06-22 | <https://github.com/tranhoangpich/awesome-agentic-coding/pull/3> | Treat as dead unless the repo reappears. |
-| Awesome CLI Coding Agents | PR open on 2026-06-02 | <https://github.com/bradAGI/awesome-cli-coding-agents/pull/90> | Monitor only. |
 | Awesome AI Coding Assistants Playbook | PR open on 2026-06-02 | <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8> | Monitor only. |
 | Awesome AI Coding by wsxiaoys | PR open on 2026-06-02 | <https://github.com/wsxiaoys/awesome-ai-coding/pull/103> | Monitor only. |
 | Awesome Harness Engineering | PR open on 2026-06-02 | <https://github.com/walkinglabs/awesome-harness-engineering/pull/28> | Monitor only. |
@@ -343,6 +342,8 @@ No current action unless a listed link breaks or a maintainer requests changes.
   yeaight7 issue #8 and adriannoes issue #3 are closed as completed.
 - Verified accepted/listed on 2026-06-26:
   <https://github.com/PierrunoYT/awesome-ai-dev-tools/pull/26>.
+- Verified accepted/listed on 2026-06-30:
+  <https://github.com/bradAGI/awesome-cli-coding-agents/pull/90>.
 - Closed or declined items, skipped targets, rejected fits, and detailed
   validation logs are archived in
   [`archive/launch-ledger-history.md`](archive/launch-ledger-history.md).
@@ -375,6 +376,20 @@ Current backlog posture:
 
 Keep this list compact. Full dated notes are archived.
 
+- 2026-06-30, all-time GitHub outreach audit: checked 87 unique external
+  GitHub outreach links from the live ledger and archive: 38 PRs and 49
+  issues. Live GitHub states before reconciliation: 21 open PRs, 44 open
+  issues, 10 merged PRs, 6 closed PRs, 5 closed issues, and 1 inaccessible PR.
+  New status change: <https://github.com/bradAGI/awesome-cli-coding-agents/pull/90>
+  was closed on 2026-06-29 with maintainer note that it was merged into the
+  README in commit `c0ee24a`; README verification found the `codex-profiles`
+  entry, so it moved to accepted. Remaining items needing attention are
+  unchanged: <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267>
+  is `DIRTY`, <https://github.com/clihub-ai/clihub/pull/4> is `UNSTABLE` with
+  no comments or checks, and
+  <https://github.com/tranhoangpich/awesome-agentic-coding/pull/3> remains
+  inaccessible. No issue-first scope check has new human feedback. External
+  comments/submissions: 0.
 - 2026-06-26, active outreach audit: checked 69 active GitHub outreach links:
   25 PRs and 44 issues. Current live tally is 22 open PRs, 44 open issues,
   1 newly merged PR, 1 newly closed PR, and 1 inaccessible PR. No issue-first
