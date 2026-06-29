@@ -228,6 +228,7 @@ Update rule:
 | P0 | Awesome CLI Apps in a CSV | PR open; rechecked on 2026-06-26 with `DIRTY` merge state and no comments | <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267> | Resolve conflict before maintainer review. |
 | P0 | OpenAI Developer Community | Existing Codex / Codex CLI topic reverified by forum search on 2026-06-11 | <https://community.openai.com/t/codex-profiles-switch-codex-accounts-without-copying-auth-json/1380415> | Monitor replies; do not repost duplicate topic. |
 | P1 | Hacker News Show HN | Submit attempt and same-day retry reached HN temporary Show HN restriction page on 2026-06-11 | <https://news.ycombinator.com/showlim> | Retry only after account/community readiness; do not bypass restriction. |
+| P1 | Product Hunt | Copy prepared; not launched as of 2026-06-30 | <https://www.producthunt.com/> | Launch only after screenshots, demo video, README, and install paths are click-tested. |
 | P1 | OpenAgent.bot | No exact-name listing found in sitemap on 2026-06-22 after 2026-06-02 submission | <https://www.openagent.bot/submit/> | Wait for editorial review or contact response; do not resubmit blindly. |
 | P1 | CLIHunt | No exact-name listing found on homepage on 2026-06-22 after 2026-06-02 submission | <https://clihunt.dev/> | Wait or contact before duplicate submission. |
 | P2 | ToolHunter | Draft deferred on 2026-06-02 | <https://toolhunter.ai/submit-a-tool> | Resume only with an approved project contact email. |
@@ -311,15 +312,36 @@ pass through the template-compliance gate.
 | Awesome AI Coding Assistants 2026 by kax168 | Issue open on 2026-06-23 | <https://github.com/kax168/awesome-ai-coding-assistants-2026/issues/4> | Wait for maintainer scope confirmation. |
 | Awesome Vibe Coding by mukesh1811 | Issue open on 2026-06-23 | <https://github.com/mukesh1811/awesome_vibe_coding/issues/1> | Wait for maintainer scope confirmation. |
 
-### Manual Or Gated Directories
+### Manual Or Gated Channels
 
-| Target | Last ledger status | Link | Next action |
-| - | - | - | - |
-| StackShare | Deferred on 2026-05-14 | <https://stackshare.io/tools/new> | Requires stable browser and GitHub OAuth. |
-| OpenAlternative | Deferred on 2026-05-14 | <https://openalternative.co/submit> | Requires sign-in. |
-| LibHunt | Deferred on 2026-05-14 | <https://www.libhunt.com/repo/submit> | Requires stable browser; position as alternative to a relevant project. |
-| SaaSHub | Deferred on 2026-05-14 | <https://www.saashub.com/services/submit> | Requires stable browser and verification. |
-| Gated targets | Gated 2026-06-02 | See archive | Requires account setup. |
+- DEV / Hashnode: copy prepared; not published as of 2026-06-30.
+  Publish only after HN/context plan or explicit approval.
+- X / Bluesky / Mastodon / LinkedIn: copy prepared; not posted as of
+  2026-06-30. Requires approved accounts and demo clip.
+- StackShare: deferred on 2026-05-14.
+  <https://stackshare.io/tools/new>. Requires stable browser and GitHub OAuth.
+- OpenAlternative: deferred on 2026-05-14.
+  <https://openalternative.co/submit>. Requires sign-in.
+- LibHunt: deferred on 2026-05-14.
+  <https://www.libhunt.com/repo/submit>. Requires stable browser; position as
+  an alternative to a relevant project.
+- SaaSHub: deferred on 2026-05-14.
+  <https://www.saashub.com/services/submit>. Requires stable browser and
+  verification.
+- DevHunt and Uneed: gated on 2026-06-02 feasibility sweep. See archive.
+  Requires account setup; verify current submit flow.
+- ToolShelf: submit page rendered as loading on 2026-06-02. See archive.
+  Retry only in stable browser if directory fit still matters.
+- OSS AI Hub: JavaScript-gated submit page on 2026-06-02. See archive.
+  Retry only in stable browser.
+- AgDex: email submission path found on 2026-06-02; no email sent.
+  Send only from approved project contact email.
+- Codexlog: medium fit for guide/article; no public submit path found on
+  2026-06-02. Recheck only if writing an article.
+- CLIs Finder: high CLI-directory fit; no public submit path found on
+  2026-06-02. Recheck submit path before any outreach.
+- OpenSourceAI.tech / Freemium.Tools: low fit or no submit path found on
+  2026-06-02. Skip unless positioning changes.
 
 ### Accepted Or Listed
 
@@ -376,6 +398,10 @@ Current backlog posture:
 
 Keep this list compact. Full dated notes are archived.
 
+- 2026-06-30, non-GitHub tracking cleanup: made Product Hunt explicit in
+  Priority Follow-Up and expanded the manual/gated table to track DEV/Hashnode,
+  social reposts, DevHunt, Uneed, ToolShelf, OSS AI Hub, AgDex, Codexlog,
+  CLIs Finder, OpenSourceAI.tech, and Freemium.Tools. External submissions: 0.
 - 2026-06-30, all-time GitHub outreach audit: checked 87 unique external
   GitHub outreach links from the live ledger and archive: 38 PRs and 49
   issues. Live GitHub states before reconciliation: 21 open PRs, 44 open
