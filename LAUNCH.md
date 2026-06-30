@@ -249,6 +249,10 @@ maintainer feedback suggests reputation risk.
 | Awesome OpenAI Codex CLI by taahro | PR open on 2026-06-02 | <https://github.com/taahro/awesome-openai-codex-cli/pull/3> | Monitor only. |
 | Awesome Agentic Coding by tranhoangpich | Still inaccessible on 2026-06-22 | <https://github.com/tranhoangpich/awesome-agentic-coding/pull/3> | Treat as dead unless the repo reappears. |
 | Awesome AI Coding Assistants Playbook | PR open on 2026-06-02 | <https://github.com/CodandoTV/awesome-ai-coding-assistants-playbook/pull/8> | Monitor only. |
+| Awesome AI Coding by shalk | Existing Ducksss PR found on 2026-06-30; opened on 2026-05-27 | <https://github.com/shalk/awesome-ai-coding/pull/4> | Monitor only; do not duplicate. |
+| Awesome AI Coding All in One by XD3an | Existing Ducksss PR found on 2026-06-30; opened on 2026-05-27 | <https://github.com/XD3an/awesome-ai-coding-all-in-one/pull/3> | Monitor only; do not duplicate. |
+| Awesome AI Coding by chendongqi | Existing Ducksss PR found on 2026-06-30; opened on 2026-05-27 | <https://github.com/chendongqi/awesome-ai-coding/pull/4> | Monitor only; do not duplicate. |
+| Awesome AI Coding by TomGranot | Existing Ducksss PR found on 2026-06-30; opened on 2026-05-27 | <https://github.com/TomGranot/awesome-ai-coding/pull/3> | Monitor only; do not duplicate. |
 | Awesome AI Coding by wsxiaoys | PR open on 2026-06-02 | <https://github.com/wsxiaoys/awesome-ai-coding/pull/103> | Monitor only. |
 | Awesome Harness Engineering | PR open on 2026-06-02 | <https://github.com/walkinglabs/awesome-harness-engineering/pull/28> | Monitor only. |
 | Awesome Vibe Coding by ai-for-developers | PR open on 2026-06-02 | <https://github.com/ai-for-developers/awesome-vibe-coding/pull/64> | Monitor only. |
@@ -311,6 +315,18 @@ pass through the template-compliance gate.
 | Awesome Vibe Coding by jaywheel1 | Issue open on 2026-06-23 | <https://github.com/jaywheel1/awesome-vibe-coding/issues/1> | Wait for maintainer scope confirmation; if approved, follow `CONTRIBUTING.md`. |
 | Awesome AI Coding Assistants 2026 by kax168 | Issue open on 2026-06-23 | <https://github.com/kax168/awesome-ai-coding-assistants-2026/issues/4> | Wait for maintainer scope confirmation. |
 | Awesome Vibe Coding by mukesh1811 | Issue open on 2026-06-23 | <https://github.com/mukesh1811/awesome_vibe_coding/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome AI Coding Agents by Enterprise-AI-Atlas | Existing Ducksss issue found on 2026-06-30; opened on 2026-06-22 | <https://github.com/Enterprise-AI-Atlas/awesome-ai-coding-agents/issues/1> | Wait for maintainer scope confirmation; do not duplicate. |
+| Awesome AI Coding CLI by tatn | Existing Ducksss issue found on 2026-06-30; opened on 2026-05-27 | <https://github.com/tatn/awesome-ai-coding-cli/issues/1> | Wait for maintainer scope confirmation; do not duplicate. |
+| Awesome CLI Agents by phamquiluan | Issue open on 2026-06-30 | <https://github.com/phamquiluan/awesome-cli-agents/issues/20> | Wait for maintainer scope confirmation. |
+| Awesome Vibe Coding Tools by Jordan-type | Issue open on 2026-06-30 | <https://github.com/Jordan-type/awesome-vibe-coding-tools/issues/2> | Wait for maintainer scope confirmation. |
+| Awesome AI Coding Agents by kax168 | Issue open on 2026-06-30 | <https://github.com/kax168/awesome-ai-coding-agents/issues/5> | Wait for maintainer scope confirmation. |
+| Awesome Vibe Coding by rubylikeya | Issue open on 2026-06-30 | <https://github.com/rubylikeya/awesome-vibe-coding/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome Vibe Coding by di-su | Issue open on 2026-06-30 | <https://github.com/di-su/awesome-vibe-coding/issues/2> | Wait for maintainer scope confirmation; if approved, follow `CONTRIBUTING.md`. |
+| Awesome Codex Plugins by hashgraph-online | Issue open on 2026-06-30 | <https://github.com/hashgraph-online/awesome-codex-plugins/issues/248> | Wait for maintainer scope confirmation; if approved, follow `CONTRIBUTING.md`. |
+| Awesome AI Coding by youxufkhan | Issue open on 2026-06-30 | <https://github.com/youxufkhan/awesome-ai-coding/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome AI Coding by dimaad5017-dotcom | Issue open on 2026-06-30 | <https://github.com/dimaad5017-dotcom/awesome-ai-coding/issues/1> | Wait for maintainer scope confirmation; if approved, follow `CONTRIBUTING.md`. |
+| Awesome AI Coding Tools by jessciazhang329 | Issue open on 2026-06-30 | <https://github.com/jessciazhang329/awesome-ai-coding-tools/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome AI Coding KR by hgko1207 | Issue open on 2026-06-30 | <https://github.com/hgko1207/awesome-ai-coding-kr/issues/1> | Wait for maintainer scope confirmation. |
 
 ### Manual Or Gated Channels
 
@@ -377,9 +393,9 @@ candidates directly for new outreach; treat them as stale leads.
 
 Current backlog posture:
 
-- The June 9, June 22, and June 23 passes already opened 45 targeted
-  maintainer issues, with one now converted to a PR after maintainer feedback.
-  Do not create duplicate issues or PRs for those repositories.
+- The live issue-first queue now has 56 active maintainer-scope issues after
+  the June 30 duplicate audit. Do not create duplicate issues or PRs for those
+  repositories.
 - 2026-06-11 fresh discovery note: `vanna-ai/Awesome-Vibe-Coding-CLI` is a
   possible but lower-priority CLI list with stale open PRs; use issue-first or
   wait for maintainer activity. `techiediaries/awesome-vibe-coding` is broad
@@ -398,6 +414,31 @@ Current backlog posture:
 
 Keep this list compact. Full dated notes are archived.
 
+- 2026-06-30, 10-repo GitHub issue-first outreach wave: opened scope-check
+  issues with no PRs and no directory submissions after checking the live
+  ledger, archive, and exact GitHub duplicate terms `codex-profiles`,
+  `codex-profile`, and `Ducksss`. Opened:
+  <https://github.com/phamquiluan/awesome-cli-agents/issues/20>,
+  <https://github.com/Jordan-type/awesome-vibe-coding-tools/issues/2>,
+  <https://github.com/kax168/awesome-ai-coding-agents/issues/5>,
+  <https://github.com/rubylikeya/awesome-vibe-coding/issues/1>,
+  <https://github.com/di-su/awesome-vibe-coding/issues/2>,
+  <https://github.com/hashgraph-online/awesome-codex-plugins/issues/248>,
+  <https://github.com/youxufkhan/awesome-ai-coding/issues/1>,
+  <https://github.com/dimaad5017-dotcom/awesome-ai-coding/issues/1>,
+  <https://github.com/jessciazhang329/awesome-ai-coding-tools/issues/1>, and
+  <https://github.com/hgko1207/awesome-ai-coding-kr/issues/1>. Duplicate guard
+  found and logged six existing Ducksss outreach links that were missing from
+  the live ledger:
+  <https://github.com/Enterprise-AI-Atlas/awesome-ai-coding-agents/issues/1>,
+  <https://github.com/tatn/awesome-ai-coding-cli/issues/1>,
+  <https://github.com/shalk/awesome-ai-coding/pull/4>,
+  <https://github.com/XD3an/awesome-ai-coding-all-in-one/pull/3>,
+  <https://github.com/chendongqi/awesome-ai-coding/pull/4>, and
+  <https://github.com/TomGranot/awesome-ai-coding/pull/3>. Skipped additional
+  candidates with existing exact-name PRs/issues, no README, disabled issues,
+  or narrower alternatives, guides, tutorials, prompt, pet, skill, subagent, or
+  single-plugin scope.
 - 2026-06-30, non-GitHub tracking cleanup: made Product Hunt explicit in
   Priority Follow-Up and expanded the manual/gated table to track DEV/Hashnode,
   social reposts, DevHunt, Uneed, ToolShelf, OSS AI Hub, AgDex, Codexlog,
