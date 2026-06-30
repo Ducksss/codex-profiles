@@ -7,6 +7,12 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- GitHub Actions workflow that publishes the `codex-profile` npm package on
+  `v*` tag pushes (or manual dispatch), gated on `make test` and verifying the
+  tag matches `package.json`, with npm provenance.
+
 ## 0.3.0 - 2026-06-30
 
 ### Added
