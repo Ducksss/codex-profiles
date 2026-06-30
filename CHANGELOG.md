@@ -13,6 +13,13 @@ and this project follows semantic versioning for tagged releases.
   `v*` tag pushes (or manual dispatch), gated on `make test` and verifying the
   tag matches `package.json`, with npm provenance.
 
+### Changed
+
+- `clone-config` allowlist now tracks current Codex instruction-file
+  conventions: dropped the obsolete `instructions.md` and
+  `custom-instructions.md` (Codex consolidated on `AGENTS.md`) and added
+  `AGENTS.override.md`.
+
 ## 0.3.0 - 2026-06-30
 
 ### Added
