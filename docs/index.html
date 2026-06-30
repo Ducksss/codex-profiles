@@ -16,7 +16,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
   <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -170,29 +170,29 @@
   <style>
     :root {
       color-scheme: light;
-      --paper: #f3f6fc;
-      --paper-2: #e9eef8;
+      --paper: #ffffff;
+      --paper-2: #f4f4f5;
       --surface: #ffffff;
-      --ink: #0f1626;
-      --ink-2: #2a3450;
-      --muted: #515c78;
-      --line: #dde4f0;
-      --line-2: #c8d2e6;
-      --brand: #2f4ad0;
-      --brand-ink: #2238ad;
-      --teal: #0f9d74;
-      --teal-ink: #0c7d5d;
-      --amber: #b06a12;
-      --danger: #d2492c;
-      --danger-soft: #f4dcd4;
-      --grad: linear-gradient(102deg, #2f4ad0 0%, #2aa0bf 52%, #0f9d74 100%);
-      --grad-soft: linear-gradient(102deg, rgba(47, 74, 208, 0.14), rgba(15, 157, 116, 0.14));
-      --shadow-sm: 0 1px 2px rgba(15, 22, 38, 0.06), 0 2px 6px rgba(15, 22, 38, 0.05);
-      --shadow: 0 6px 16px rgba(15, 22, 38, 0.08), 0 18px 40px -18px rgba(34, 56, 173, 0.28);
-      --shadow-lg: 0 24px 60px -22px rgba(34, 56, 173, 0.38);
+      --ink: #0a0a0b;
+      --ink-2: #27272a;
+      --muted: #71717a;
+      --line: #e8e8ea;
+      --line-2: #d4d4d8;
+      --brand: #0a0a0b;
+      --brand-ink: #0a0a0b;
+      --teal: #52525b;
+      --teal-ink: #3f3f46;
+      --amber: #52525b;
+      --danger: #3f3f46;
+      --danger-soft: #f4f4f5;
+      --grad: linear-gradient(102deg, #0a0a0b, #3f3f46);
+      --grad-soft: #f4f4f5;
+      --shadow-sm: 0 1px 2px rgba(9, 9, 11, 0.05), 0 2px 6px rgba(9, 9, 11, 0.05);
+      --shadow: 0 6px 16px rgba(9, 9, 11, 0.07), 0 18px 40px -18px rgba(9, 9, 11, 0.16);
+      --shadow-lg: 0 24px 60px -22px rgba(9, 9, 11, 0.24);
       --radius: 16px;
       --radius-sm: 11px;
-      --grid: rgba(47, 74, 208, 0.05);
+      --grid: rgba(9, 9, 11, 0.035);
       --ease: cubic-bezier(0.22, 1, 0.36, 1);
       --maxw: 1140px;
     }
@@ -208,12 +208,9 @@
       line-height: 1.6;
       background-color: var(--paper);
       background-image:
-        radial-gradient(1100px 620px at 82% -8%, rgba(15, 157, 116, 0.13), transparent 60%),
-        radial-gradient(1000px 560px at 8% -4%, rgba(47, 74, 208, 0.16), transparent 58%),
-        linear-gradient(var(--grid) 1px, transparent 1px),
-        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-      background-size: 100% 100%, 100% 100%, 30px 30px, 30px 30px;
-      background-position: 0 0, 0 0, -1px -1px, -1px -1px;
+        radial-gradient(1200px 700px at 84% -10%, rgba(9, 9, 11, 0.05), transparent 60%),
+        radial-gradient(900px 520px at 2% -6%, rgba(9, 9, 11, 0.035), transparent 55%);
+      background-repeat: no-repeat;
       -webkit-font-smoothing: antialiased;
       text-rendering: optimizeLegibility;
       overflow-x: hidden;
@@ -238,14 +235,14 @@
       font-weight: 500;
       letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: var(--brand-ink);
+      color: var(--muted);
     }
     .eyebrow::before {
       content: "";
       width: 22px;
       height: 1px;
-      background: var(--brand);
-      opacity: 0.6;
+      background: var(--line-2);
+      opacity: 1;
     }
 
     /* ---------- Hero ---------- */
@@ -261,7 +258,7 @@
     }
     h1.wordmark {
       margin: 18px 0 0;
-      font-family: "Bricolage Grotesque", sans-serif;
+      font-family: "Schibsted Grotesk", sans-serif;
       font-weight: 800;
       font-size: clamp(2.9rem, 7.4vw, 5.2rem);
       line-height: 0.94;
@@ -299,9 +296,9 @@
     .button.primary {
       color: #fff;
       background: var(--brand);
-      box-shadow: 0 8px 18px -6px rgba(47, 74, 208, 0.6);
+      box-shadow: 0 8px 18px -6px rgba(9, 9, 11, 0.35);
     }
-    .button.primary:hover { transform: translateY(-2px); box-shadow: 0 14px 26px -8px rgba(47, 74, 208, 0.66); }
+    .button.primary:hover { transform: translateY(-2px); box-shadow: 0 14px 26px -8px rgba(9, 9, 11, 0.42); }
     .button.ghost {
       color: var(--ink-2);
       background: var(--surface);
@@ -320,14 +317,14 @@
       color: var(--muted);
     }
     .meta-row span { display: inline-flex; align-items: center; gap: 7px; }
-    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 3px rgba(15, 157, 116, 0.16); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.10); }
 
     /* ---------- Terminal card ---------- */
     .term {
       position: relative;
       border-radius: var(--radius);
-      background: #0d1426;
-      border: 1px solid #1e2740;
+      background: #0c0c0d;
+      border: 1px solid #1f1f22;
       box-shadow: var(--shadow-lg);
       overflow: hidden;
       font-family: "JetBrains Mono", ui-monospace, monospace;
@@ -336,26 +333,26 @@
     .term::after {
       content: "";
       position: absolute; inset: 0;
-      background: radial-gradient(120% 80% at 90% -10%, rgba(15, 157, 116, 0.16), transparent 55%),
-                  radial-gradient(90% 70% at -10% 0%, rgba(47, 74, 208, 0.22), transparent 52%);
+      background: radial-gradient(120% 80% at 90% -10%, rgba(255, 255, 255, 0.06), transparent 55%),
+                  radial-gradient(90% 70% at -10% 0%, rgba(255, 255, 255, 0.035), transparent 52%);
       pointer-events: none;
     }
     .term-bar {
       display: flex; align-items: center; gap: 8px;
       padding: 12px 15px;
-      border-bottom: 1px solid #1c2540;
-      color: #8a96b4;
+      border-bottom: 1px solid #1f1f22;
+      color: #8a8a90;
       font-size: 0.74rem;
     }
     .term-bar i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
-    .term-bar .b1 { background: #ff5f57; } .term-bar .b2 { background: #febc2e; } .term-bar .b3 { background: #28c840; }
+    .term-bar .b1 { background: #45454a; } .term-bar .b2 { background: #56565b; } .term-bar .b3 { background: #67676d; }
     .term-bar .title { margin-left: 6px; letter-spacing: 0.02em; }
-    .term-body { padding: 18px 18px 22px; color: #d7def0; line-height: 1.85; position: relative; z-index: 1; }
-    .term-body .pl { color: #5fd0a6; }
-    .term-body .cmd { color: #eef3ff; }
-    .term-body .arg { color: #9fb4ff; }
-    .term-body .out { color: #7d89a8; }
-    .term-body .ok { color: #51d88a; }
+    .term-body { padding: 18px 18px 22px; color: #d6d6d9; line-height: 1.85; position: relative; z-index: 1; }
+    .term-body .pl { color: #8a8a90; }
+    .term-body .cmd { color: #f4f4f5; }
+    .term-body .arg { color: #adadb3; }
+    .term-body .out { color: #76767c; }
+    .term-body .ok { color: #d4d4d8; }
     .term-line { display: block; white-space: pre-wrap; word-break: break-word; }
 
     /* ---------- Sections ---------- */
@@ -364,7 +361,7 @@
     .section-head { max-width: 64ch; margin-bottom: clamp(22px, 3vw, 34px); }
     h2 {
       margin: 12px 0 0;
-      font-family: "Bricolage Grotesque", sans-serif;
+      font-family: "Schibsted Grotesk", sans-serif;
       font-weight: 700;
       font-size: clamp(1.8rem, 3.4vw, 2.6rem);
       line-height: 1.06;
@@ -425,8 +422,8 @@
       transition: color 0.18s var(--ease), background 0.18s var(--ease), box-shadow 0.18s var(--ease);
     }
     .seg button .k { font-family: "JetBrains Mono", monospace; font-size: 0.78em; opacity: 0.7; margin-right: 6px; }
-    .seg button[aria-pressed="true"] { color: #fff; background: var(--brand); box-shadow: 0 6px 14px -6px rgba(47, 74, 208, 0.7); }
-    .seg button.danger[aria-pressed="true"] { background: var(--danger); box-shadow: 0 6px 14px -6px rgba(210, 73, 44, 0.6); }
+    .seg button[aria-pressed="true"] { color: #fff; background: var(--brand); box-shadow: 0 6px 14px -6px rgba(9, 9, 11, 0.4); }
+    .seg button.danger[aria-pressed="true"] { color: #fff; background: var(--danger); box-shadow: 0 6px 14px -6px rgba(9, 9, 11, 0.3); }
     .seg button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
     .graph-hint {
@@ -441,7 +438,7 @@
       height: clamp(420px, 56vw, 560px);
       border-radius: var(--radius);
       background:
-        radial-gradient(120% 120% at 50% 0%, rgba(47, 74, 208, 0.05), transparent 60%),
+        radial-gradient(120% 120% at 50% 0%, rgba(9, 9, 11, 0.035), transparent 60%),
         var(--surface);
       border: 1px solid var(--line);
       box-shadow: var(--shadow);
@@ -464,9 +461,9 @@
       gap: 8px;
       padding: 7px 12px;
       border-radius: 10px;
-      background: var(--danger-soft);
-      color: #8f2c16;
-      border: 1px solid #e6b3a4;
+      background: var(--paper-2);
+      color: var(--ink-2);
+      border: 1px solid var(--line-2);
       font-family: "JetBrains Mono", monospace;
       font-size: 0.72rem;
       z-index: 3;
@@ -492,10 +489,10 @@
     .n-profile .chip-bg { fill: var(--surface); stroke: var(--line-2); stroke-width: 1.4; }
     .n-profile.hot .chip-bg { stroke: var(--brand); }
     .n-profile text { fill: var(--ink); font-weight: 600; }
-    .n-home .chip-bg { fill: #eef2fc; stroke: #cdd8f2; stroke-width: 1.2; }
-    .n-home text { fill: var(--brand-ink); font-weight: 500; }
-    .graph-stage[data-mode="shared"] .n-home .chip-bg { fill: var(--danger-soft); stroke: #e0a999; }
-    .graph-stage[data-mode="shared"] .n-home text { fill: #8f2c16; }
+    .n-home .chip-bg { fill: #f4f4f5; stroke: #e4e4e7; stroke-width: 1.2; }
+    .n-home text { fill: var(--ink-2); font-weight: 500; }
+    .graph-stage[data-mode="shared"] .n-home .chip-bg { fill: #e4e4e7; stroke: #b9b9c0; }
+    .graph-stage[data-mode="shared"] .n-home text { fill: var(--ink); }
 
     .tip {
       position: absolute;
@@ -507,18 +504,18 @@
       max-width: 230px;
       padding: 10px 12px;
       border-radius: 10px;
-      background: #0d1426;
-      color: #e7ecf8;
+      background: #0c0c0d;
+      color: #e8e8ea;
       box-shadow: var(--shadow-lg);
       font-size: 0.78rem;
       line-height: 1.5;
     }
     .tip.show { opacity: 1; transform: translateY(0); }
-    .tip b { color: #8fd9bd; font-family: "JetBrains Mono", monospace; font-size: 0.82em; }
-    .tip .files { margin-top: 5px; color: #97a3c2; font-family: "JetBrains Mono", monospace; font-size: 0.74em; }
+    .tip b { color: #f4f4f5; font-family: "JetBrains Mono", monospace; font-size: 0.82em; }
+    .tip .files { margin-top: 5px; color: #a1a1aa; font-family: "JetBrains Mono", monospace; font-size: 0.74em; }
 
     .graph-fallback { padding: 28px 24px; color: var(--muted); position: relative; z-index: 2; }
-    .graph-fallback h3 { margin: 0 0 10px; color: var(--ink); font-family: "Bricolage Grotesque", sans-serif; }
+    .graph-fallback h3 { margin: 0 0 10px; color: var(--ink); font-family: "Schibsted Grotesk", sans-serif; }
     .graph-fallback ul { margin: 12px 0 0; padding-left: 20px; }
     .graph-fallback li { margin-bottom: 6px; }
     .graph-fallback code { background: var(--paper-2); padding: 1px 6px; border-radius: 5px; font-size: 0.85em; }
@@ -959,11 +956,11 @@ codex-profile doctor</code></pre>
     // defs: gradients + glow
     var defs = svg.append("defs");
     var ng = defs.append("linearGradient").attr("id", "nodeGrad").attr("x1", "0").attr("y1", "0").attr("x2", "1").attr("y2", "1");
-    ng.append("stop").attr("offset", "0%").attr("stop-color", "#3a5bd9");
-    ng.append("stop").attr("offset", "100%").attr("stop-color", "#137b9b");
+    ng.append("stop").attr("offset", "0%").attr("stop-color", "#3f3f46");
+    ng.append("stop").attr("offset", "100%").attr("stop-color", "#0a0a0b");
     var lg = defs.append("linearGradient").attr("id", "linkGrad").attr("x1", "0").attr("y1", "0").attr("x2", "1").attr("y2", "1");
-    lg.append("stop").attr("offset", "0%").attr("stop-color", "#2f4ad0");
-    lg.append("stop").attr("offset", "100%").attr("stop-color", "#0f9d74");
+    lg.append("stop").attr("offset", "0%").attr("stop-color", "#d4d4d8");
+    lg.append("stop").attr("offset", "100%").attr("stop-color", "#b4b4ba");
     var f = defs.append("filter").attr("id", "glow").attr("x", "-60%").attr("y", "-60%").attr("width", "220%").attr("height", "220%");
     f.append("feGaussianBlur").attr("stdDeviation", "5").attr("result", "b");
     var fm = f.append("feMerge");
