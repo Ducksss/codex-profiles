@@ -139,12 +139,12 @@ test_version_prints_script_version() {
   run_cmd "$SCRIPT" version
 
   assert_status 0
-  assert_equals "codex-profile 0.2.0"
+  assert_equals "codex-profile 0.3.0"
 
   run_cmd "$SCRIPT" --version
 
   assert_status 0
-  assert_equals "codex-profile 0.2.0"
+  assert_equals "codex-profile 0.3.0"
 }
 
 test_cli_passes_profile_home_and_args() {

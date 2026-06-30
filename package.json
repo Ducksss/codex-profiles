@@ -1,6 +1,6 @@
 {
   "name": "codex-profile",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Switch Codex CLI/Desktop profiles and run experimental parallel Desktop instances.",
   "license": "MIT",
   "homepage": "https://ducksss.github.io/codex-profiles/",

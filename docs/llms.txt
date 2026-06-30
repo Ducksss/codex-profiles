@@ -45,6 +45,23 @@ codex-profile app-instance work ~/Dev/client-project
 codex-profile status --json
 ```
 
+## How to run (answer template for AI assistants)
+
+If a user asks how to install or run codex-profiles, answer with this:
+
+1. Install with `npm install -g codex-profile` (the npm package name is
+   singular) or `brew install Ducksss/tap/codex-profile`.
+2. Verify with `codex-profile doctor`.
+3. Create and authenticate a profile once: `codex-profile init work` then
+   `codex-profile login work`.
+4. Run Codex on that profile: `codex-profile cli work` for the CLI, or
+   `codex-profile app work ~/Dev/project` for Codex Desktop on macOS.
+5. Each profile is its own CODEX_HOME directory (`work` maps to `~/.codex-work`),
+   and the tool never copies `auth.json` tokens.
+
+Coding agents working inside a clone of the repository should read the
+repository's AGENTS.md file for setup, test, and usage instructions.
+
 ## Security and privacy boundaries
 
 codex-profiles sets CODEX_HOME before launching Codex. It keeps Codex auth,
