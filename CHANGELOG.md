@@ -7,8 +7,17 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.3.0 - 2026-06-30
+
 ### Added
 
+- AI-native onboarding: a root `AGENTS.md` that gives AI coding agents working in
+  the repository the project overview, setup, test, run, convention, and safety
+  guidance in the format Codex and similar agents read automatically.
+- README "Run It With an AI Assistant" section with a ready-to-paste prompt for
+  chatbots and an expandable copy-paste answer block for "how do I run this?".
+- `llms.txt` "How to run" answer template and an AI-assistant FAQ entry on the
+  GitHub Pages project page.
 - npm package metadata and public install documentation for the published
   `codex-profile` package.
 - Experimental `app-instance` command for launching profile-specific Codex
