@@ -132,6 +132,33 @@ jobs:
           V: ${{ steps.ver.outputs.version }}
         run: gh release create "v$V" --title "v$V" --generate-notes
 
+      - name: Update Homebrew tap
+        if: env.DRY_RUN != 'true'
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          V: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TAP_TOKEN:-}" ]; then
+            echo "TAP_TOKEN secret not set; skipping Homebrew tap update." >&2
+            exit 0
+          fi
+          tarball="https://github.com/Ducksss/codex-profiles/archive/refs/tags/v$V.tar.gz"
+          sha="$(curl -fsSL "$tarball" | sha256sum | cut -d ' ' -f 1)"
+          tmp="$(mktemp -d)"
+          git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/Ducksss/homebrew-tap.git" "$tmp/tap"
+          formula="$tmp/tap/Formula/codex-profile.rb"
+          sed -i "s|url \".*\"|url \"$tarball\"|" "$formula"
+          sed -i "s|sha256 \".*\"|sha256 \"$sha\"|" "$formula"
+          if git -C "$tmp/tap" diff --quiet; then
+            echo "Homebrew formula already up to date for v$V."
+          else
+            git -C "$tmp/tap" config user.name "github-actions[bot]"
+            git -C "$tmp/tap" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C "$tmp/tap" commit -am "codex-profile $V"
+            git -C "$tmp/tap" push
+          fi
+
       - name: Dry-run summary
         if: env.DRY_RUN == 'true'
         env:

@@ -7,6 +7,15 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Changed
+
+- The release workflow now updates the Homebrew tap (`Ducksss/homebrew-tap`)
+  after publishing, so `brew` installs track the latest version. Requires a
+  `TAP_TOKEN` repo secret with write access to the tap; the step is skipped
+  when the secret is absent.
+- Release workflow runs on `actions/setup-node@v6` / Node 22, clearing the
+  Node 20 runtime deprecation warning.
+
 ## 0.4.2 - 2026-07-01
 
 ### Fixed
