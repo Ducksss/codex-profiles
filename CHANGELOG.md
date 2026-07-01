@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.5.0 - 2026-07-01
+
 ### Changed
 
 - The release workflow now updates the Homebrew tap (`Ducksss/homebrew-tap`)

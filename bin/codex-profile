@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PROGRAM="${0##*/}"
-VERSION="0.4.2"
+VERSION="0.5.0"
 CODEX_APP="${CODEX_APP:-/Applications/Codex.app}"
 CODEX_APP_BIN="${CODEX_APP_BIN:-$CODEX_APP/Contents/MacOS/Codex}"
 CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-$CODEX_APP/Contents/Resources/codex}"
