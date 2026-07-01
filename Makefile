@@ -1,7 +1,7 @@
 PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
 
-.PHONY: install uninstall lint test path-smoke-test install-smoke-test npm-package-test
+.PHONY: install uninstall lint test path-smoke-test install-smoke-test npm-package-test outreach
 
 install:
 	install -d "$(BINDIR)"
@@ -92,3 +92,8 @@ npm-package-test:
 		else \
 			printf '%s\n' 'npm not found; skipping npm package smoke test.'; \
 		fi
+
+# Operational helper for the outreach tracker (not part of the shipped CLI).
+# Usage: make outreach ARGS="list --owned"
+outreach:
+	node scripts/outreach-tracker.mjs $(ARGS)

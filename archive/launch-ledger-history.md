@@ -1,9 +1,13 @@
 # Launch Ledger Historical Archive
 
 This is the full pre-prune launch ledger snapshot archived on 2026-06-10.
-Use it for audit history, old per-target evidence, and reconstruction. Keep
-`LAUNCH.md` focused on the active handoff, current policy, open follow-up, and
-compact reconciliation notes for the next AI agent.
+Use it for audit history, old per-target evidence, and reconstruction.
+
+**Frozen.** Active outreach tracking has since moved to Airtable (base
+`appcezSUhDxz7uaQW`, tables `Targets` + `Log`), managed via
+`scripts/outreach-tracker.mjs`. This file and the git history are the
+pre-Airtable record; nothing is written here anymore. `LAUNCH.md` now holds only
+positioning, channel copy, launch order, and policy.
 
 ---
 
