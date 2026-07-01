@@ -1,6 +1,6 @@
 # Maintainer: Ducksss <https://github.com/Ducksss>
 pkgname=codex-profile
-pkgver=0.5.0
+pkgver=0.6.0
 pkgrel=1
 pkgdesc="Switch Codex CLI and Desktop accounts with isolated CODEX_HOME profiles"
 arch=('any')
@@ -8,7 +8,7 @@ url="https://github.com/Ducksss/codex-profiles"
 license=('MIT')
 depends=('bash')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/Ducksss/codex-profiles/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('1aec20c0d484e8cf835b250df3e9d6e8a4d5c0dcf173e80008b1a5d0429deb39')
+sha256sums=('2d949af33d6b24499b25abf19d25c1fa6d758e35c3e0a649c7872bade90d083b')
 
 package() {
   cd "codex-profiles-$pkgver"
