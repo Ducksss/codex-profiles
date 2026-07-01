@@ -527,6 +527,10 @@ codex-profile --version
 | `CODEX_PROFILE_UPGRADE_REF` | Override the upgrade git ref. |
 | `CODEX_PROFILE_UPGRADE_CACHE` | Override the upgrade cache checkout. |
 | `CODEX_PROFILE_UPGRADE_PREFIX` | Override the upgrade install prefix. |
+| `CODEX_PROFILE_NO_UPDATE_CHECK` | Disable the update check (also honors `DO_NOT_TRACK`). |
+| `CODEX_PROFILE_UPDATE_INTERVAL` | Seconds between update checks (default `86400`). |
+| `CODEX_PROFILE_UPDATE_CACHE` | Override the update-check state file path. |
+| `CODEX_PROFILE_UPDATE_URL` | Override the version source (default the npm registry). |
 
 Examples:
 
@@ -534,6 +538,29 @@ Examples:
 CODEX_CLI=/path/to/codex codex-profile cli personal
 CODEX_PROFILE_UPGRADE_REF=v0.2.0 codex-profile upgrade --dry-run
 ```
+
+## Update Checks
+
+When run in an interactive terminal, `codex-profile` checks at most once per day
+whether a newer release is available and prints a one-line notice to stderr when
+one is:
+
+```text
+codex-profile 0.4.0 available (you have 0.3.0); run 'codex-profile upgrade' or 'npm i -g codex-profile'.
+```
+
+The check is deliberately unobtrusive:
+
+- It only runs when standard output is a terminal, so scripts, pipes, CI, and
+  `--json` consumers never see it and never incur the network call.
+- The lookup runs in the background; commands never wait on the network. The
+  notice you see comes from the previous run's cached result, stored in
+  `${XDG_CACHE_HOME:-~/.cache}/codex-profile/update-check`.
+- It performs a single anonymous HTTPS `GET` to the npm registry
+  (`https://registry.npmjs.org/codex-profile/latest`). No identifiers are sent.
+
+Disable it entirely by exporting `CODEX_PROFILE_NO_UPDATE_CHECK=1` (or the
+conventional `DO_NOT_TRACK=1`).
 
 ## Platform Support
 

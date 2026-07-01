@@ -60,6 +60,7 @@ Environment:
   CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref.
   CODEX_PROFILE_UPGRADE_CACHE   Override upgrade cache checkout.
   CODEX_PROFILE_UPGRADE_PREFIX  Override upgrade install prefix.
+  CODEX_PROFILE_NO_UPDATE_CHECK  Disable the daily update check (also honors DO_NOT_TRACK).
 
 Platform:
   app and app-instance require macOS (they drive the Codex Desktop app).
@@ -1001,6 +1002,123 @@ version_is_older_than_current() {
   return 1
 }
 
+update_check_state_file() {
+  if [[ -n "${CODEX_PROFILE_UPDATE_CACHE:-}" ]]; then
+    printf '%s\n' "$CODEX_PROFILE_UPDATE_CACHE"
+  elif [[ -n "${XDG_CACHE_HOME:-}" ]]; then
+    printf '%s/codex-profile/update-check\n' "$XDG_CACHE_HOME"
+  else
+    printf '%s/.cache/codex-profile/update-check\n' "$HOME"
+  fi
+}
+
+update_check_fetch_latest() {
+  local url body
+  url="${CODEX_PROFILE_UPDATE_URL:-https://registry.npmjs.org/codex-profile/latest}"
+
+  if [[ -f "$url" ]]; then
+    body="$(cat "$url" 2> /dev/null)" || return 1
+  elif command -v curl > /dev/null 2>&1; then
+    body="$(curl -fsSL --max-time 5 "$url" 2> /dev/null)" || return 1
+  elif command -v wget > /dev/null 2>&1; then
+    body="$(wget -qO- --timeout=5 "$url" 2> /dev/null)" || return 1
+  else
+    return 1
+  fi
+
+  printf '%s' "$body" \
+    | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+    | head -n 1
+}
+
+update_version_is_newer() {
+  local candidate="$1"
+  local candidate_core current_core
+  local candidate_parts current_parts candidate_part current_part index
+
+  candidate_core="$(version_core "$candidate")"
+  current_core="$(version_core "$VERSION")"
+
+  IFS=. read -r -a candidate_parts <<< "$candidate_core"
+  IFS=. read -r -a current_parts <<< "$current_core"
+
+  for index in 0 1 2; do
+    candidate_part="${candidate_parts[$index]:-0}"
+    current_part="${current_parts[$index]:-0}"
+
+    [[ "$candidate_part" =~ ^[0-9]+$ ]] || return 1
+    [[ "$current_part" =~ ^[0-9]+$ ]] || return 1
+
+    if ((10#$candidate_part > 10#$current_part)); then
+      return 0
+    fi
+    if ((10#$candidate_part < 10#$current_part)); then
+      return 1
+    fi
+  done
+
+  return 1
+}
+
+update_check_refresh() {
+  local state_file="$1"
+  local now="$2"
+  local prev_version="$3"
+  local latest tmp
+
+  latest="$(update_check_fetch_latest 2> /dev/null || true)"
+  [[ -n "$latest" ]] || latest="$prev_version"
+
+  mkdir -p "$(dirname "$state_file")" 2> /dev/null || return 0
+  tmp="$state_file.$$"
+  if printf '%s %s\n' "$now" "$latest" > "$tmp" 2> /dev/null; then
+    mv "$tmp" "$state_file" 2> /dev/null || rm -f "$tmp" 2> /dev/null || true
+  fi
+}
+
+update_check_disabled() {
+  [[ -n "${CODEX_PROFILE_NO_UPDATE_CHECK:-}" ]] && return 0
+  [[ -n "${DO_NOT_TRACK:-}" && "${DO_NOT_TRACK}" != "0" ]] && return 0
+  return 1
+}
+
+maybe_check_for_update() {
+  update_check_disabled && return 0
+
+  # Interactive terminals only, unless a test hook forces the check.
+  if [[ -z "${CODEX_PROFILE_FORCE_UPDATE_CHECK:-}" ]]; then
+    [[ -t 1 ]] || return 0
+  fi
+
+  local state_file now interval last cached_epoch="" cached_version=""
+  state_file="$(update_check_state_file)"
+  now="$(date +%s 2> /dev/null)" || return 0
+  [[ "$now" =~ ^[0-9]+$ ]] || return 0
+  interval="${CODEX_PROFILE_UPDATE_INTERVAL:-86400}"
+  [[ "$interval" =~ ^[0-9]+$ ]] || interval=86400
+
+  if [[ -f "$state_file" ]]; then
+    read -r cached_epoch cached_version < "$state_file" 2> /dev/null || true
+    if [[ -n "$cached_version" ]] && update_version_is_newer "$cached_version"; then
+      printf "codex-profile %s available (you have %s); run '%s upgrade' or 'npm i -g codex-profile'.\n" \
+        "$cached_version" "$VERSION" "$PROGRAM" >&2
+    fi
+  fi
+
+  last="${cached_epoch:-0}"
+  [[ "$last" =~ ^[0-9]+$ ]] || last=0
+
+  if ((now - last >= interval)); then
+    if [[ -n "${CODEX_PROFILE_UPDATE_SYNC:-}" ]]; then
+      update_check_refresh "$state_file" "$now" "$cached_version"
+    else
+      (update_check_refresh "$state_file" "$now" "$cached_version") > /dev/null 2>&1 &
+    fi
+  fi
+
+  return 0
+}
+
 script_declared_version_output() {
   local script="$1"
   local declared_version
@@ -1277,6 +1395,8 @@ command_doctor() {
 main() {
   local command="${1:-help}"
   shift || true
+
+  maybe_check_for_update || true
 
   case "$command" in
     app)

@@ -9,6 +9,12 @@ and this project follows semantic versioning for tagged releases.
 
 ### Added
 
+- Update check: interactive runs query the npm registry at most once per day
+  (in the background, result cached) and print a one-line notice to stderr when
+  a newer release is available. It stays silent in non-interactive use (scripts,
+  pipes, CI, `--json`) and can be disabled with `CODEX_PROFILE_NO_UPDATE_CHECK`
+  or `DO_NOT_TRACK`. See README "Update Checks" and SECURITY.md "Network
+  Activity".
 - GitHub Actions workflow that publishes the `codex-profile` npm package on
   `v*` tag pushes (or manual dispatch), gated on `make test` and verifying the
   tag matches `package.json`, with npm provenance.

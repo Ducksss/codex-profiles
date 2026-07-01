@@ -1275,6 +1275,115 @@ test_doctor_reports_desktop_and_cli_when_present() {
   rm -rf "$tmp"
 }
 
+test_update_check_notifies_when_newer_version_is_cached() {
+  local tmp cache stub now
+  tmp="$(mktemp -d)"
+  cache="$tmp/update-check"
+  stub="$tmp/latest.json"
+  printf '{"version":"9.9.9"}\n' > "$stub"
+  now="$(date +%s)"
+  printf '%s 9.9.9\n' "$now" > "$cache"
+
+  run_cmd env HOME="$tmp/home" \
+    CODEX_PROFILE_FORCE_UPDATE_CHECK=1 \
+    CODEX_PROFILE_UPDATE_CACHE="$cache" \
+    CODEX_PROFILE_UPDATE_URL="$stub" \
+    "$SCRIPT" list
+
+  assert_status 0
+  assert_contains "9.9.9 available"
+
+  rm -rf "$tmp"
+}
+
+test_update_check_is_silent_when_up_to_date() {
+  local tmp cache stub now
+  tmp="$(mktemp -d)"
+  cache="$tmp/update-check"
+  stub="$tmp/latest.json"
+  printf '{"version":"0.0.1"}\n' > "$stub"
+  now="$(date +%s)"
+  printf '%s 0.0.1\n' "$now" > "$cache"
+
+  run_cmd env HOME="$tmp/home" \
+    CODEX_PROFILE_FORCE_UPDATE_CHECK=1 \
+    CODEX_PROFILE_UPDATE_CACHE="$cache" \
+    CODEX_PROFILE_UPDATE_URL="$stub" \
+    "$SCRIPT" list
+
+  assert_status 0
+  assert_not_contains "available"
+
+  rm -rf "$tmp"
+}
+
+test_update_check_respects_disable_env() {
+  local tmp cache stub now
+  tmp="$(mktemp -d)"
+  cache="$tmp/update-check"
+  stub="$tmp/latest.json"
+  printf '{"version":"9.9.9"}\n' > "$stub"
+  now="$(date +%s)"
+  printf '%s 9.9.9\n' "$now" > "$cache"
+
+  run_cmd env HOME="$tmp/home" \
+    CODEX_PROFILE_FORCE_UPDATE_CHECK=1 \
+    CODEX_PROFILE_NO_UPDATE_CHECK=1 \
+    CODEX_PROFILE_UPDATE_CACHE="$cache" \
+    CODEX_PROFILE_UPDATE_URL="$stub" \
+    "$SCRIPT" list
+
+  assert_status 0
+  assert_not_contains "available"
+
+  rm -rf "$tmp"
+}
+
+test_update_check_is_silent_without_a_terminal() {
+  local tmp cache stub now
+  tmp="$(mktemp -d)"
+  cache="$tmp/update-check"
+  stub="$tmp/latest.json"
+  printf '{"version":"9.9.9"}\n' > "$stub"
+  now="$(date +%s)"
+  printf '%s 9.9.9\n' "$now" > "$cache"
+
+  # No force hook: run_cmd captures stdout through a pipe, so it is not a
+  # terminal and the check must stay silent.
+  run_cmd env HOME="$tmp/home" \
+    CODEX_PROFILE_UPDATE_CACHE="$cache" \
+    CODEX_PROFILE_UPDATE_URL="$stub" \
+    "$SCRIPT" list
+
+  assert_status 0
+  assert_not_contains "available"
+
+  rm -rf "$tmp"
+}
+
+test_update_check_refreshes_cache_from_source() {
+  local tmp cache stub cached_version cached_epoch
+  tmp="$(mktemp -d)"
+  cache="$tmp/nested/update-check"
+  stub="$tmp/latest.json"
+  printf '{"version":"9.9.9"}\n' > "$stub"
+
+  run_cmd env HOME="$tmp/home" \
+    CODEX_PROFILE_FORCE_UPDATE_CHECK=1 \
+    CODEX_PROFILE_UPDATE_SYNC=1 \
+    CODEX_PROFILE_UPDATE_CACHE="$cache" \
+    CODEX_PROFILE_UPDATE_URL="$stub" \
+    "$SCRIPT" list
+
+  assert_status 0
+  [[ -f "$cache" ]] || fail "update check did not write its cache file"
+  read -r cached_epoch cached_version < "$cache"
+  [[ "$cached_version" == "9.9.9" ]] || fail "update cache did not record fetched version (got '$cached_version')"
+  [[ "$cached_epoch" =~ ^[0-9]+$ ]] || fail "update cache did not record a numeric timestamp (got '$cached_epoch')"
+
+  rm -rf "$tmp"
+}
+
 test_clone_config_copies_safe_files_and_never_auth_files() {
   local tmp source_home target_home
   tmp="$(mktemp -d)"
@@ -1426,3 +1535,8 @@ test_clone_config_refuses_sensitive_looking_config
 test_clone_config_refuses_symlinked_config_files
 test_clone_config_refuses_symlinked_target_files_even_with_force
 test_clone_config_refuses_to_overwrite_without_force
+test_update_check_notifies_when_newer_version_is_cached
+test_update_check_is_silent_when_up_to_date
+test_update_check_respects_disable_env
+test_update_check_is_silent_without_a_terminal
+test_update_check_refreshes_cache_from_source
