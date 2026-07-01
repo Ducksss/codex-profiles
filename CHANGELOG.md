@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.6.0 - 2026-07-01
+
 ### Changed
 
 - Parallel Codex Desktop launch is now an opt-in flag on the primary command:
