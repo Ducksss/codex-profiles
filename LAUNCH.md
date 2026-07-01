@@ -327,6 +327,16 @@ pass through the template-compliance gate.
 | Awesome AI Coding by dimaad5017-dotcom | Issue open on 2026-06-30 | <https://github.com/dimaad5017-dotcom/awesome-ai-coding/issues/1> | Wait for maintainer scope confirmation; if approved, follow `CONTRIBUTING.md`. |
 | Awesome AI Coding Tools by jessciazhang329 | Issue open on 2026-06-30 | <https://github.com/jessciazhang329/awesome-ai-coding-tools/issues/1> | Wait for maintainer scope confirmation. |
 | Awesome AI Coding KR by hgko1207 | Issue open on 2026-06-30 | <https://github.com/hgko1207/awesome-ai-coding-kr/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome CLI Coding Agents by ishandutta2007 | Issue open on 2026-07-01 | <https://github.com/ishandutta2007/Awesome-CLI-Coding-Agents/issues/2> | Wait for maintainer scope confirmation. |
+| Awesome Vibe Coding by dereknguyen269 | Issue open on 2026-07-01 | <https://github.com/dereknguyen269/awesome-vibe-coding/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome Vibe Coding by mrmcduff | Issue open on 2026-07-01 | <https://github.com/mrmcduff/awesome-vibe-coding/issues/1> | Wait for maintainer scope confirmation; if approved, follow `CONTRIBUTING.md`. |
+| Awesome Code Agents by liu-yang-maker | Issue open on 2026-07-01 | <https://github.com/liu-yang-maker/awesome-code-agents/issues/1> | Wait for maintainer scope confirmation. |
+| Awesome AI Agents 2026 by Zijian-Ni | Issue open on 2026-07-01 | <https://github.com/Zijian-Ni/awesome-ai-agents-2026/issues/56> | Wait for maintainer scope confirmation. |
+| Awesome AI Agents by aloth | Issue open on 2026-07-01 | <https://github.com/aloth/awesome-ai-agents/issues/8> | Wait for maintainer scope confirmation. |
+| Awesome AI Agents by frangelbarrera | Issue open on 2026-07-01 | <https://github.com/frangelbarrera/awesome-ai-agents/issues/5> | Wait for maintainer scope confirmation. |
+| Awesome Developer Tools by Rasinj | Issue open on 2026-07-01 | <https://github.com/Rasinj/awesome-developer-tools/issues/12> | Wait for maintainer scope confirmation. |
+| Aswath's Awesome Tools by aswsub | Issue open on 2026-07-01 using `suggestion.yaml` fields | <https://github.com/aswsub/awesome-tools/issues/4> | Wait for maintainer scope confirmation. |
+| Awesome Devtools by ysdy823 | Issue open on 2026-07-01 | <https://github.com/ysdy823/awesome-devtools/issues/4> | Wait for maintainer scope confirmation. |
 
 ### Manual Or Gated Channels
 
@@ -393,8 +403,8 @@ candidates directly for new outreach; treat them as stale leads.
 
 Current backlog posture:
 
-- The live issue-first queue now has 56 active maintainer-scope issues after
-  the June 30 duplicate audit. Do not create duplicate issues or PRs for those
+- The live issue-first queue now has 66 active maintainer-scope issues after
+  the July 1 duplicate audit. Do not create duplicate issues or PRs for those
   repositories.
 - 2026-06-11 fresh discovery note: `vanna-ai/Awesome-Vibe-Coding-CLI` is a
   possible but lower-priority CLI list with stale open PRs; use issue-first or
@@ -414,6 +424,22 @@ Current backlog posture:
 
 Keep this list compact. Full dated notes are archived.
 
+- 2026-07-01, 10-repo GitHub issue-first outreach wave: opened scope-check
+  issues with no PRs after checking the live ledger, archive, target templates,
+  and exact GitHub duplicate terms `"codex-profiles" author:Ducksss`,
+  `"codex-profile" author:Ducksss`, and `Ducksss`. Opened:
+  <https://github.com/ishandutta2007/Awesome-CLI-Coding-Agents/issues/2>,
+  <https://github.com/dereknguyen269/awesome-vibe-coding/issues/1>,
+  <https://github.com/mrmcduff/awesome-vibe-coding/issues/1>,
+  <https://github.com/liu-yang-maker/awesome-code-agents/issues/1>,
+  <https://github.com/Zijian-Ni/awesome-ai-agents-2026/issues/56>,
+  <https://github.com/aloth/awesome-ai-agents/issues/8>,
+  <https://github.com/frangelbarrera/awesome-ai-agents/issues/5>,
+  <https://github.com/Rasinj/awesome-developer-tools/issues/12>,
+  <https://github.com/aswsub/awesome-tools/issues/4>, and
+  <https://github.com/ysdy823/awesome-devtools/issues/4>. Duplicate-guard
+  evidence and skipped exact-match prior outreach are archived in
+  [`archive/outreach-duplicate-guard-2026-07-01.md`](archive/outreach-duplicate-guard-2026-07-01.md).
 - 2026-06-30, 10-repo GitHub issue-first outreach wave: opened scope-check
   issues with no PRs and no directory submissions after checking the live
   ledger, archive, and exact GitHub duplicate terms `codex-profiles`,
