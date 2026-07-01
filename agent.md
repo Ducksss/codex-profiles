@@ -29,8 +29,20 @@ brew install Ducksss/tap/codex-profile
 Start every run by reading:
 
 - `README.md` for the current product surface, install path, and positioning.
-- `LAUNCH.md` for prior PRs, missed channels, deferred channels, ineligible
-  repositories, and launch notes.
+- `LAUNCH.md` for positioning, channel copy, launch order, and the current
+  policy gates. It no longer holds tracking data.
+
+Outreach tracking — every target, its status, and each event — lives in Airtable,
+not in `LAUNCH.md`. Read and write it only through the tracker helper:
+
+```sh
+node scripts/outreach-tracker.mjs list                  # state of all targets
+node scripts/outreach-tracker.mjs list --status "PR Open"
+```
+
+The helper needs a token: set `AIRTABLE_TOKEN`, or place it at
+`~/.codex-outreach-airtable-token` (`AIRTABLE_TOKEN_FILE` overrides). It defaults
+to base `appcezSUhDxz7uaQW` and requires Node 18+.
 
 Do not duplicate prior submissions unless there is a clear reason, such as a
 closed PR that needs a replacement.
@@ -45,7 +57,9 @@ switching.
 
 Before researching or drafting anything:
 
-- Verify `agent.md`, `README.md`, and `LAUNCH.md` exist in the repository root.
+- Verify `agent.md`, `README.md`, and `LAUNCH.md` exist in the repository root,
+  and that the tracker is reachable (`node scripts/outreach-tracker.mjs list`
+  succeeds).
 - Run `git status --porcelain=v1 --branch` and record the branch in the final
   report.
 - Work only from a clean automation worktree. If unrelated dirty files are
@@ -53,8 +67,8 @@ Before researching or drafting anything:
   into them.
 - Fetch the latest remote refs before checking open PRs or preparing new
   branches.
-- Reconcile existing `LAUNCH.md` PR and issue links before discovering new
-  targets.
+- Reconcile existing tracker entries (open PRs and issues, plus deferred and
+  pending targets) before discovering new targets.
 
 ## Airtable Source Of Truth
 
@@ -65,7 +79,7 @@ workflow.
 - Targets stays the main pipeline table.
 - Log stays append-only history.
 - Merge Queue handles dedupe conflicts.
-- Bots coordinates automation claims.
+- Claims coordinates append-preserving automation leases.
 
 Primary lead unit: repository.
 Primary close: accepted listing/PR.
@@ -168,7 +182,8 @@ not a daily volume pass.
 
 At the start of every run:
 
-- Check the state of all PRs and issues already recorded in `LAUNCH.md`.
+- Check the state of all PRs and issues already recorded in the tracker
+  (`outreach-tracker.mjs list`, filtering by status).
 - Update merged, closed, stale, replied-to, or blocked entries before looking
   for new targets.
 - If 15 or more submitted PRs are still open, do not draft more than one new PR
@@ -176,6 +191,23 @@ At the start of every run:
 - Otherwise, cap new draft PRs, issues, or listing requests at three per run.
 - Prefer maintainer follow-up, status cleanup, and eligibility revisits over
   expanding into weak directories.
+
+## Concurrency
+
+Several copies of this agent may run at the same time. Coordinate through the
+tracker so two runs never act on the same target:
+
+- At startup, pick a unique run id to use for `--workflow` and `--by`, e.g.
+  `run-<UTC-timestamp>-<random-suffix>`.
+- Before acting on a target, claim it. If the claim exits non-zero, another live
+  run holds it — skip that target and move on:
+
+```sh
+node scripts/outreach-tracker.mjs claim <key> --by <run-id>
+```
+
+- `release` the target as soon as you finish or abandon it. Claims older than 15
+  minutes are treated as stale and may be re-claimed automatically.
 
 ## Automation Authority
 
@@ -205,7 +237,8 @@ Defer when:
 
 When contribution rules are ambiguous but the repository is relevant, make a
 best-effort judgment. Prefer drafting an issue over drafting a PR for borderline
-cases, and document the rationale in Airtable and `LAUNCH.md`.
+cases, and document the rationale in Airtable (`upsert` the target and `log` the
+decision).
 
 ## Candidate Priorities
 
@@ -233,7 +266,7 @@ Avoid:
 - Only draft a PR when `codex-profiles` clearly fits the repository scope and
   contribution rules.
 - If contribution rules ask for an issue first, draft an issue instead of a PR.
-- If eligibility is not met, skip it and document why in `LAUNCH.md`.
+- If eligibility is not met, skip it and document why in the tracker.
 - Keep every edit minimal and consistent with the target repository's style.
 - Follow the target repository's contribution, branch, commit, PR title,
   template, ordering, and validation conventions over this repository's
@@ -307,34 +340,65 @@ Repo: https://github.com/Ducksss/codex-profiles
 
 ## Required Logging
 
-For every candidate considered, update Airtable first. `LAUNCH.md` is only a
-compact handoff after Airtable is current. The final handoff should include:
+Record everything in the Airtable tracker, never in `LAUNCH.md`.
 
-- Repository or channel URL.
-- Status: `PR opened`, `issue opened`, `merged`, `closed`, `not eligible`,
-  `not a fit`, `deferred`, or `failed`.
-- Why it fits or why it was skipped.
-- PR or issue URL if opened.
-- Branch and commit if applicable.
-- Validation performed.
-- Any blocker requiring non-interactive authentication, maintainer interaction,
-  or a later retry.
+For every candidate considered, `upsert` its target row (dedup is on `Key`, so
+choose a stable slug such as `awesome-foo-bar` and reuse it on later runs):
 
-Preserve existing `LAUNCH.md` history. Add new entries under the most relevant
-section, and do not remove prior notes.
+```sh
+node scripts/outreach-tracker.mjs upsert <key> \
+  --name "<display name>" \
+  --channel "<Directory|Awesome-List PR|Issue-First|Forum|Owned Listing|Social|Manual/Gated>" \
+  --status "<Backlog|Issue Open|PR Open|Pending Review|Listed|Declined|Deferred|Dead>" \
+  --link "<PR/issue/listing URL>" \
+  --last-checked <YYYY-MM-DD> \
+  --next-action "<owner-visible next step, or the reason it was skipped>"
+```
+
+Then append one event per action taken. The log is append-only and is the audit
+trail that replaces the old reconciliation notes:
+
+```sh
+node scripts/outreach-tracker.mjs log --target <key> --workflow <run-id> \
+  --action "<Submitted PR|Opened Issue|Commented|Rechecked|Status Change|Listed|Declined>" \
+  --result "<what happened, validation performed, or the blocker>" \
+  --link "<URL>"
+```
+
+Capture the same facts the old ledger required: fit reason or skip reason, the
+PR/issue URL, validation performed, and any blocker needing non-interactive
+authentication, maintainer interaction, or a later retry. Never delete tracker
+rows or log entries — correct state by upserting the row and appending a new
+event.
 
 ## Durable State
 
-Before finishing:
+Outreach state now lives in Airtable, so a normal run makes **no repository
+commit**. Before finishing:
 
-- Run `git diff --check`.
-- Verify `LAUNCH.md` contains every PR, issue, listing request, skipped target,
-  and deferred follow-up from the run.
-- Commit only scoped `LAUNCH.md` updates and any intentional automation
-  instruction changes.
-- Push the commit to the current automation branch.
-- If committing or pushing is blocked, leave `LAUNCH.md` updated and report the
-  exact blocker, command, and error.
+- Verify every target touched this run is reflected in the tracker — `upsert`ed
+  with its current status and `log`ged — using `outreach-tracker.mjs list`.
+- `release` every target you claimed this run. Release on failure too, so a
+  crashed run does not hold a claim (stale claims also free themselves after 15
+  minutes).
+- Commit and push only when you intentionally changed repository files, such as
+  `agent.md` or `scripts/outreach-tracker.mjs`. Run `git diff --check` first and
+  keep the commit scoped to those files.
+- If a tracker write is blocked, report the exact target, command, and error. Do
+  not fall back to editing `LAUNCH.md`.
+
+## Owned Listings On Release
+
+Some targets are listings we control (`Owned?` = true — currently Product Hunt,
+Unikorn, and the OpenAI Developer Community thread). When a run follows a new
+`codex-profiles` release, refresh those listings and record the version you told
+them about:
+
+```sh
+node scripts/outreach-tracker.mjs list --owned
+node scripts/outreach-tracker.mjs upsert <key> \
+  --last-version-told <version> --last-checked <YYYY-MM-DD>
+```
 
 ## Final Report
 
