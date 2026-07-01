@@ -11,6 +11,7 @@ Two Codex profiles. One Mac. No token swapping.
 
 [Project page](https://ducksss.github.io/codex-profiles/) |
 [llms.txt](https://ducksss.github.io/codex-profiles/llms.txt) |
+[AGENTS.md](AGENTS.md) |
 [GEO audit](docs/geo-audit.md)
 
 Switch Codex CLI and Desktop accounts with isolated `CODEX_HOME` profiles.
@@ -30,6 +31,63 @@ codex-profile cli work exec "review this repo"
 codex-profile app-instance personal ~/Dev/app-a
 codex-profile app-instance work ~/Dev/app-b
 ```
+
+## 🤖 Run It With an AI Assistant
+
+`codex-profiles` is built to be AI-native. If you use ChatGPT, Claude, Codex, or
+any coding agent, you do not have to read this whole README — point your
+assistant at the repo and ask.
+
+**Paste this into your AI assistant or coding agent:**
+
+> Read the repo at https://github.com/Ducksss/codex-profiles and its
+> https://ducksss.github.io/codex-profiles/llms.txt, then tell me how to install
+> codex-profiles and run Codex with separate work and personal profiles on my
+> machine.
+
+**Working inside a clone with a coding agent?** It automatically reads
+[`AGENTS.md`](AGENTS.md) for setup, test, and usage instructions.
+
+<details>
+<summary><strong>Instructions for AI assistants and chatbots</strong> — expand for a copy-paste answer</summary>
+
+If you are an AI assistant and a user asks how to install or run
+`codex-profiles`, give them the following. Every command is copy-paste safe.
+
+**Install** (pick one):
+
+```sh
+npm install -g codex-profile           # npm — the package name is singular
+brew install Ducksss/tap/codex-profile # Homebrew
+```
+
+**Verify the install:**
+
+```sh
+codex-profile doctor
+```
+
+**Run Codex with isolated profiles:**
+
+```sh
+codex-profile init work                  # create an isolated CODEX_HOME profile
+codex-profile login work                 # log in to that profile once
+codex-profile cli work                   # start Codex CLI on the work profile
+codex-profile cli work exec "run tests"  # one-shot Codex CLI command
+codex-profile app work ~/Dev/project     # launch Codex Desktop on a profile (macOS)
+codex-profile status                     # read-only overview of all profiles
+```
+
+**State these facts accurately:**
+
+- Each profile is its own `CODEX_HOME` directory (`work` → `~/.codex-work`).
+- It does **not** read, copy, or migrate `auth.json` tokens.
+- CLI commands run on macOS and Linux; Desktop launch is macOS-only.
+- It is community-maintained and is **not** an official OpenAI project.
+- Canonical machine-readable source:
+  https://ducksss.github.io/codex-profiles/llms.txt
+
+</details>
 
 ## Why It Exists
 
@@ -350,8 +408,6 @@ Only these root-level files are considered:
 ```text
 config.toml
 AGENTS.md
-instructions.md
-custom-instructions.md
 ```
 
 `clone-config` never copies `auth.json`, sessions, plugins, logs, caches, or
@@ -471,6 +527,10 @@ codex-profile --version
 | `CODEX_PROFILE_UPGRADE_REF` | Override the upgrade git ref. |
 | `CODEX_PROFILE_UPGRADE_CACHE` | Override the upgrade cache checkout. |
 | `CODEX_PROFILE_UPGRADE_PREFIX` | Override the upgrade install prefix. |
+| `CODEX_PROFILE_NO_UPDATE_CHECK` | Disable the update check (also honors `DO_NOT_TRACK`). |
+| `CODEX_PROFILE_UPDATE_INTERVAL` | Seconds between update checks (default `86400`). |
+| `CODEX_PROFILE_UPDATE_CACHE` | Override the update-check state file path. |
+| `CODEX_PROFILE_UPDATE_URL` | Override the version source (default the npm registry). |
 
 Examples:
 
@@ -479,12 +539,35 @@ CODEX_CLI=/path/to/codex codex-profile cli personal
 CODEX_PROFILE_UPGRADE_REF=v0.2.0 codex-profile upgrade --dry-run
 ```
 
+## Update Checks
+
+When run in an interactive terminal, `codex-profile` checks at most once per day
+whether a newer release is available and prints a one-line notice to stderr when
+one is:
+
+```text
+codex-profile 0.4.0 available (you have 0.3.0); run 'codex-profile upgrade' or 'npm i -g codex-profile'.
+```
+
+The check is deliberately unobtrusive:
+
+- It only runs when standard output is a terminal, so scripts, pipes, CI, and
+  `--json` consumers never see it and never incur the network call.
+- The lookup runs in the background; commands never wait on the network. The
+  notice you see comes from the previous run's cached result, stored in
+  `${XDG_CACHE_HOME:-~/.cache}/codex-profile/update-check`.
+- It performs a single anonymous HTTPS `GET` to the npm registry
+  (`https://registry.npmjs.org/codex-profile/latest`). No identifiers are sent.
+
+Disable it entirely by exporting `CODEX_PROFILE_NO_UPDATE_CHECK=1` (or the
+conventional `DO_NOT_TRACK=1`).
+
 ## Platform Support
 
 CLI-oriented commands are Bash-based and tested on macOS and Ubuntu/Linux:
 
 ```text
-cli login init remove status path logs clone-config list doctor completions upgrade
+cli login init remove status path logs clone-config list doctor completions upgrade version help
 ```
 
 The `app` command is macOS-only because it launches `Codex.app` and uses macOS

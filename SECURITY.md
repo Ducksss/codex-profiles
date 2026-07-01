@@ -36,3 +36,15 @@ isolation.
 It does not isolate non-Codex credentials such as SSH keys, GitHub CLI auth,
 cloud CLI credentials, browser cookies, or OS keychain items. Use separate OS
 users for stronger isolation.
+
+## Network Activity
+
+`codex-profile` runs entirely offline except for two explicit, user-facing
+actions:
+
+- `upgrade` clones/pulls the project repository over the network.
+- When run in an interactive terminal, an update check makes a single anonymous
+  HTTPS `GET` to the npm registry (`registry.npmjs.org`) at most once per day to
+  compare the installed version against the latest release. No identifiers,
+  telemetry, or profile data are transmitted; only the response version is read.
+  Disable it with `CODEX_PROFILE_NO_UPDATE_CHECK=1` or `DO_NOT_TRACK=1`.

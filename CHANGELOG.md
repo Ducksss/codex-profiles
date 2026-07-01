@@ -5,10 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows semantic versioning for tagged releases.
 
-## Unreleased
+## 0.4.0 - 2026-07-01
 
 ### Added
 
+- Update check: interactive runs query the npm registry at most once per day
+  (in the background, result cached) and print a one-line notice to stderr when
+  a newer release is available. It stays silent in non-interactive use (scripts,
+  pipes, CI, `--json`) and can be disabled with `CODEX_PROFILE_NO_UPDATE_CHECK`
+  or `DO_NOT_TRACK`. See README "Update Checks" and SECURITY.md "Network
+  Activity".
+- GitHub Actions workflow that publishes the `codex-profile` npm package on
+  `v*` tag pushes (or manual dispatch), gated on `make test` and verifying the
+  tag matches `package.json`, with npm provenance.
+- Release-drift guard: `make test` now asserts that `bin/codex-profile`'s
+  `VERSION` matches `package.json` (which already had to match the docs
+  `softwareVersion`), so a version bump can't ship a CLI that reports a stale
+  version. Added `doctor` happy-path and `upgrade` missing-Makefile test cases.
+
+### Changed
+
+- `clone-config` allowlist now matches current Codex instruction-file
+  conventions: dropped the obsolete `instructions.md` and
+  `custom-instructions.md` entries, leaving `config.toml` and the global
+  `AGENTS.md` (Codex consolidated global user instructions onto `AGENTS.md`).
+- `app` and `app-instance` now fail with a clear "only available on macOS"
+  message on non-macOS systems instead of a Codex-path "not found" error.
+- `help` is now listed in `codex-profile help` output, and the README
+  Platform Support list includes `version` and `help`.
+
+## 0.3.0 - 2026-06-30
+
+### Added
+
+- AI-native onboarding: a root `AGENTS.md` that gives AI coding agents working in
+  the repository the project overview, setup, test, run, convention, and safety
+  guidance in the format Codex and similar agents read automatically.
+- README "Run It With an AI Assistant" section with a ready-to-paste prompt for
+  chatbots and an expandable copy-paste answer block for "how do I run this?".
+- `llms.txt` "How to run" answer template and an AI-assistant FAQ entry on the
+  GitHub Pages project page.
 - npm package metadata and public install documentation for the published
   `codex-profile` package.
 - Experimental `app-instance` command for launching profile-specific Codex

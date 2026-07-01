@@ -136,15 +136,20 @@ init_git_main_branch() {
 }
 
 test_version_prints_script_version() {
+  local declared expected
+  declared="$(sed -n 's/^VERSION="\([^"]*\)".*/\1/p' "$SCRIPT" | sed -n '1p')"
+  [[ -n "$declared" ]] || fail "could not read VERSION from $SCRIPT"
+  expected="codex-profile $declared"
+
   run_cmd "$SCRIPT" version
 
   assert_status 0
-  assert_equals "codex-profile 0.2.0"
+  assert_equals "$expected"
 
   run_cmd "$SCRIPT" --version
 
   assert_status 0
-  assert_equals "codex-profile 0.2.0"
+  assert_equals "$expected"
 }
 
 test_cli_passes_profile_home_and_args() {
@@ -1231,6 +1236,159 @@ FAKE_MAKEFILE
   rm -rf "$tmp"
 }
 
+test_upgrade_refuses_checkout_missing_makefile() {
+  local tmp repo cache prefix
+  tmp="$(mktemp -d)"
+  repo="$tmp/repo"
+  cache="$tmp/cache/source"
+  prefix="$tmp/prefix"
+  mkdir -p "$repo/bin"
+  init_git_main_branch "$repo"
+  cat > "$repo/bin/codex-profile" <<'FAKE_PROFILE'
+#!/usr/bin/env bash
+VERSION="9.9.9"
+printf 'codex-profile %s\n' "$VERSION"
+FAKE_PROFILE
+  chmod 755 "$repo/bin/codex-profile"
+  git -C "$repo" add .
+  git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "no makefile" >/dev/null
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+
+  assert_status 1
+  assert_contains "Upgrade checkout is missing Makefile"
+  [[ ! -e "$prefix/bin/codex-profile" ]] || fail "upgrade installed despite missing Makefile"
+
+  rm -rf "$tmp"
+}
+
+test_doctor_reports_desktop_and_cli_when_present() {
+  local tmp fake_codex
+  tmp="$(mktemp -d)"
+  fake_codex="$tmp/codex"
+  write_fake_codex "$fake_codex"
+  mkdir -p "$tmp/home/.codex-personal"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" CODEX_APP_BIN=/bin/echo "$SCRIPT" doctor
+
+  assert_status 0
+  assert_contains "Desktop: /bin/echo"
+  assert_contains "CLI: $fake_codex"
+  assert_contains "fake-codex 1.0"
+  assert_contains "login status"
+
+  rm -rf "$tmp"
+}
+
+test_update_check_notifies_when_newer_version_is_cached() {
+  local tmp cache stub now
+  tmp="$(mktemp -d)"
+  cache="$tmp/update-check"
+  stub="$tmp/latest.json"
+  printf '{"version":"9.9.9"}\n' > "$stub"
+  now="$(date +%s)"
+  printf '%s 9.9.9\n' "$now" > "$cache"
+
+  run_cmd env HOME="$tmp/home" \
+    CODEX_PROFILE_FORCE_UPDATE_CHECK=1 \
+    CODEX_PROFILE_UPDATE_CACHE="$cache" \
+    CODEX_PROFILE_UPDATE_URL="$stub" \
+    "$SCRIPT" list
+
+  assert_status 0
+  assert_contains "9.9.9 available"
+
+  rm -rf "$tmp"
+}
+
+test_update_check_is_silent_when_up_to_date() {
+  local tmp cache stub now
+  tmp="$(mktemp -d)"
+  cache="$tmp/update-check"
+  stub="$tmp/latest.json"
+  printf '{"version":"0.0.1"}\n' > "$stub"
+  now="$(date +%s)"
+  printf '%s 0.0.1\n' "$now" > "$cache"
+
+  run_cmd env HOME="$tmp/home" \
+    CODEX_PROFILE_FORCE_UPDATE_CHECK=1 \
+    CODEX_PROFILE_UPDATE_CACHE="$cache" \
+    CODEX_PROFILE_UPDATE_URL="$stub" \
+    "$SCRIPT" list
+
+  assert_status 0
+  assert_not_contains "available"
+
+  rm -rf "$tmp"
+}
+
+test_update_check_respects_disable_env() {
+  local tmp cache stub now
+  tmp="$(mktemp -d)"
+  cache="$tmp/update-check"
+  stub="$tmp/latest.json"
+  printf '{"version":"9.9.9"}\n' > "$stub"
+  now="$(date +%s)"
+  printf '%s 9.9.9\n' "$now" > "$cache"
+
+  run_cmd env HOME="$tmp/home" \
+    CODEX_PROFILE_FORCE_UPDATE_CHECK=1 \
+    CODEX_PROFILE_NO_UPDATE_CHECK=1 \
+    CODEX_PROFILE_UPDATE_CACHE="$cache" \
+    CODEX_PROFILE_UPDATE_URL="$stub" \
+    "$SCRIPT" list
+
+  assert_status 0
+  assert_not_contains "available"
+
+  rm -rf "$tmp"
+}
+
+test_update_check_is_silent_without_a_terminal() {
+  local tmp cache stub now
+  tmp="$(mktemp -d)"
+  cache="$tmp/update-check"
+  stub="$tmp/latest.json"
+  printf '{"version":"9.9.9"}\n' > "$stub"
+  now="$(date +%s)"
+  printf '%s 9.9.9\n' "$now" > "$cache"
+
+  # No force hook: run_cmd captures stdout through a pipe, so it is not a
+  # terminal and the check must stay silent.
+  run_cmd env HOME="$tmp/home" \
+    CODEX_PROFILE_UPDATE_CACHE="$cache" \
+    CODEX_PROFILE_UPDATE_URL="$stub" \
+    "$SCRIPT" list
+
+  assert_status 0
+  assert_not_contains "available"
+
+  rm -rf "$tmp"
+}
+
+test_update_check_refreshes_cache_from_source() {
+  local tmp cache stub cached_version cached_epoch
+  tmp="$(mktemp -d)"
+  cache="$tmp/nested/update-check"
+  stub="$tmp/latest.json"
+  printf '{"version":"9.9.9"}\n' > "$stub"
+
+  run_cmd env HOME="$tmp/home" \
+    CODEX_PROFILE_FORCE_UPDATE_CHECK=1 \
+    CODEX_PROFILE_UPDATE_SYNC=1 \
+    CODEX_PROFILE_UPDATE_CACHE="$cache" \
+    CODEX_PROFILE_UPDATE_URL="$stub" \
+    "$SCRIPT" list
+
+  assert_status 0
+  [[ -f "$cache" ]] || fail "update check did not write its cache file"
+  read -r cached_epoch cached_version < "$cache"
+  [[ "$cached_version" == "9.9.9" ]] || fail "update cache did not record fetched version (got '$cached_version')"
+  [[ "$cached_epoch" =~ ^[0-9]+$ ]] || fail "update cache did not record a numeric timestamp (got '$cached_epoch')"
+
+  rm -rf "$tmp"
+}
+
 test_clone_config_copies_safe_files_and_never_auth_files() {
   local tmp source_home target_home
   tmp="$(mktemp -d)"
@@ -1357,6 +1515,7 @@ test_app_instance_rebuilds_clone_with_missing_bundle_metadata
 test_app_instance_rebuilds_clone_with_stale_bundle_identifier
 test_app_instance_rebuilds_clone_with_incompatible_bundle_name
 test_doctor_skips_status_when_cli_missing
+test_doctor_reports_desktop_and_cli_when_present
 test_init_creates_private_profile_home_without_codex
 test_remove_aborts_when_confirmation_does_not_match
 test_remove_yes_deletes_profile_home
@@ -1375,8 +1534,14 @@ test_upgrade_installs_commit_sha_ref_on_fresh_cache
 test_upgrade_refuses_dirty_cached_checkout
 test_upgrade_refuses_to_install_older_version
 test_upgrade_refuses_unversioned_candidate
+test_upgrade_refuses_checkout_missing_makefile
 test_clone_config_copies_safe_files_and_never_auth_files
 test_clone_config_refuses_sensitive_looking_config
 test_clone_config_refuses_symlinked_config_files
 test_clone_config_refuses_symlinked_target_files_even_with_force
 test_clone_config_refuses_to_overwrite_without_force
+test_update_check_notifies_when_newer_version_is_cached
+test_update_check_is_silent_when_up_to_date
+test_update_check_respects_disable_env
+test_update_check_is_silent_without_a_terminal
+test_update_check_refreshes_cache_from_source

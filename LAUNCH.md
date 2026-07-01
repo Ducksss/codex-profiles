@@ -228,7 +228,8 @@ Update rule:
 | P0 | Awesome CLI Apps in a CSV | PR open; rechecked on 2026-06-26 with `DIRTY` merge state and no comments | <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267> | Resolve conflict before maintainer review. |
 | P0 | OpenAI Developer Community | Existing Codex / Codex CLI topic reverified by forum search on 2026-06-11 | <https://community.openai.com/t/codex-profiles-switch-codex-accounts-without-copying-auth-json/1380415> | Monitor replies; do not repost duplicate topic. |
 | P1 | Hacker News Show HN | Submit attempt and same-day retry reached HN temporary Show HN restriction page on 2026-06-11 | <https://news.ycombinator.com/showlim> | Retry only after account/community readiness; do not bypass restriction. |
-| P1 | Product Hunt | Copy prepared; not launched as of 2026-06-30 | <https://www.producthunt.com/> | Launch only after screenshots, demo video, README, and install paths are click-tested. |
+| P1 | Product Hunt | Launch draft fully prepared on 2026-06-23; scheduling the Jun 24 launch returned a Product Hunt 403 after confirmation | <https://www.producthunt.com/posts/new/submission> | Finish scheduling manually in the open browser tab or retry once Product Hunt clears the 403; avoid duplicate listing. |
+| P1 | Unikorn.vn | Product submitted on 2026-06-24; Unikorn shows `codex-profiles` pending AI/manual review after accepting logo, screenshots, category, tags, tech stack, and GitHub link | <https://unikorn.vn/p/codex-profiles> | Monitor approval notification or profile page; publish the public link after approval. |
 | P1 | OpenAgent.bot | No exact-name listing found in sitemap on 2026-06-22 after 2026-06-02 submission | <https://www.openagent.bot/submit/> | Wait for editorial review or contact response; do not resubmit blindly. |
 | P1 | CLIHunt | No exact-name listing found on homepage on 2026-06-22 after 2026-06-02 submission | <https://clihunt.dev/> | Wait or contact before duplicate submission. |
 | P2 | ToolHunter | Draft deferred on 2026-06-02 | <https://toolhunter.ai/submit-a-tool> | Resume only with an approved project contact email. |
@@ -392,6 +393,10 @@ No current action unless a listed link breaks or a maintainer requests changes.
   <https://github.com/PierrunoYT/awesome-ai-dev-tools/pull/26>.
 - Verified accepted/listed on 2026-06-30:
   <https://github.com/bradAGI/awesome-cli-coding-agents/pull/90>.
+- Verified accepted/listed during the 2026-07-01 duplicate audit:
+  <https://github.com/ARUNAGIRINATHAN-K/awesome-ai-agents-2026/pull/75>,
+  <https://github.com/Jenqyang/Awesome-AI-Agents/pull/269>, and
+  <https://github.com/kailiu42/awesome-coding-agents/pull/2>.
 - Closed or declined items, skipped targets, rejected fits, and detailed
   validation logs are archived in
   [`archive/launch-ledger-history.md`](archive/launch-ledger-history.md).
