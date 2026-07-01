@@ -41,7 +41,7 @@ codex-profile init work
 codex-profile login personal
 codex-profile cli work exec "review this repo"
 codex-profile app personal ~/Dev/project
-codex-profile app-instance work ~/Dev/client-project
+codex-profile app work --instance ~/Dev/client-project
 codex-profile status --json
 eval "$(codex-profile env work)"
 codex-profile use work

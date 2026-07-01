@@ -67,7 +67,7 @@
         "Isolated CODEX_HOME directories per profile",
         "Codex CLI launch support",
         "Codex Desktop launch support",
-        "Experimental parallel Desktop app instances",
+        "Experimental parallel Desktop windows via app --instance",
         "Read-only profile status and doctor diagnostics",
         "Safe non-secret config cloning",
         "Bash, Zsh, and Fish completion generators",
@@ -726,7 +726,7 @@ codex-profile doctor</code></pre>
         <article class="item">
           <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="9" height="9" rx="1.5"/><rect x="12" y="12" width="9" height="9" rx="1.5"/></svg></span>
           <strong>Parallel Desktop instances</strong>
-          <p>On macOS, app-instance can launch profile-specific Codex app clones with separate Electron user data.</p>
+          <p>On macOS, app --instance can launch profile-specific Codex app clones with separate Electron user data.</p>
         </article>
         <article class="item">
           <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
@@ -750,11 +750,11 @@ codex-profile doctor</code></pre>
       <div class="section-head">
         <p class="eyebrow">Two profiles, side by side</p>
         <h2 id="showcase-title">See it on the desktop</h2>
-        <p class="lede">The experimental <span class="mono">app-instance</span> flow runs two Codex Desktop profiles at once — each with its own app clone, CODEX_HOME, and Electron user data.</p>
+        <p class="lede">The experimental <span class="mono">app --instance</span> flag runs two Codex Desktop profiles at once — each with its own app clone, CODEX_HOME, and Electron user data.</p>
       </div>
       <figure class="showcase" style="margin:0">
         <img src="https://raw.githubusercontent.com/Ducksss/codex-profiles/main/media/codex-profile-parallel-instances.png" width="2400" height="1500" loading="lazy" alt="Two Codex Desktop profile instances running side by side, each showing its own account panel">
-        <figcaption>codex-profile app-instance personal · codex-profile app-instance work</figcaption>
+        <figcaption>codex-profile app personal --instance · codex-profile app work --instance</figcaption>
       </figure>
     </section>
 

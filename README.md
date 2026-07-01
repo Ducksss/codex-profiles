@@ -26,10 +26,10 @@ wrapper launches Codex CLI or Codex Desktop with the selected profile.
 ![Two Codex Desktop profiles running side by side](media/codex-profile-parallel-instances.png)
 
 ```sh
-codex-profile cli personal
-codex-profile cli work exec "review this repo"
-codex-profile app-instance personal ~/Dev/app-a
-codex-profile app-instance work ~/Dev/app-b
+codex-profile cli personal                     # CLI on the personal profile
+codex-profile cli work exec "review this repo" # one-shot CLI on work
+codex-profile app personal ~/Dev/app-a         # Desktop on personal (switches)
+codex-profile app work --instance ~/Dev/app-b  # run work alongside — two windows
 ```
 
 ## 🤖 Run It With an AI Assistant
@@ -174,7 +174,7 @@ node test/geo-site-test.mjs
 
 - Isolated Codex homes per profile.
 - CLI and Codex Desktop launch support.
-- Experimental parallel Codex Desktop app instances for power users on macOS.
+- Opt-in `app --instance` for parallel Codex Desktop windows on macOS (experimental).
 - Profile-specific app clones with distinct macOS bundle identifiers.
 - Separate Electron user data for each experimental Desktop instance.
 - No token copying, parsing, printing, or migration.
@@ -258,20 +258,23 @@ codex-profile app personal ~/Dev/my-project
 codex-profile app work
 ```
 
-Run an experimental parallel Codex Desktop instance with its own app clone and
-Electron user data directory:
+Add `--instance` to run an experimental parallel Codex Desktop window with its
+own app clone and Electron user data directory, alongside any others:
 
 ```sh
-codex-profile app-instance personal ~/Dev/project-a
-codex-profile app-instance work --rebuild ~/Dev/project-b
+codex-profile app personal --instance ~/Dev/project-a
+codex-profile app work --instance --rebuild ~/Dev/project-b
 ```
 
-Desktop launch modes are intentionally split:
+`app` has one default and one opt-in mode:
 
 | Command | Use when | Behavior |
 | --- | --- | --- |
 | `codex-profile app <profile>` | You want the normal Desktop app on one active profile. | Quits the canonical `Codex.app`, then relaunches it with the selected `CODEX_HOME`. |
-| `codex-profile app-instance <profile>` | You want multiple Desktop profiles open side by side. | Creates or reuses a profile-specific app clone, separate Electron user data, and a profile-local instance log. |
+| `codex-profile app <profile> --instance` | You want multiple Desktop profiles open side by side. | Creates or reuses a profile-specific app clone, separate Electron user data, and a profile-local instance log. |
+
+> The older `codex-profile app-instance <profile>` command still works as a
+> deprecated alias for `codex-profile app <profile> --instance`.
 
 Check what exists and what is logged in:
 
@@ -372,28 +375,29 @@ codex-profile logs personal --instance --tail 100
 
 ### Run Parallel Desktop Instances
 
-`app-instance` is the visual power-user workflow: two Codex Desktop profiles,
+`app --instance` is the visual power-user workflow: two Codex Desktop profiles,
 same macOS user, separate Codex state.
 
 ```sh
-codex-profile app-instance personal ~/Dev/personal-app
-codex-profile app-instance work ~/Dev/work-app
+codex-profile app personal --instance ~/Dev/personal-app
+codex-profile app work --instance ~/Dev/work-app
 ```
 
-The command creates or reuses profile-specific app clones under
+The flag creates or reuses profile-specific app clones under
 `~/Library/Application Support/codex-profile/app-instances`, patches each clone
 with a distinct bundle identifier, re-signs it, and launches it without
 quitting existing Codex windows.
 
-The separate command name is deliberate. `codex-profile app` remains the
-predictable single-app switcher for existing workflows and scripts.
-`codex-profile app-instance` is the explicit contract for cloned bundles,
-parallel windows, and experimental Desktop behavior.
+`--instance` is opt-in on purpose. Plain `codex-profile app` stays the
+predictable, cheap single-app switcher that uses the stock, notarized
+`Codex.app` — the right default for everyday use. Reach for `--instance` only
+when you actually want multiple windows side by side, since each clone costs
+disk, a first-run copy + re-sign, and a rebuild whenever Codex Desktop updates.
 
 If Codex Desktop updates or a clone looks stale:
 
 ```sh
-codex-profile app-instance work --rebuild ~/Dev/work-app
+codex-profile app work --instance --rebuild ~/Dev/work-app
 ```
 
 ### Clone Safe Config
@@ -548,8 +552,7 @@ To pin a whole terminal to a profile instead of launching per command, see
 ## Command Reference
 
 ```text
-codex-profile app <profile> [workspace]
-codex-profile app-instance <profile> [--rebuild] [workspace]
+codex-profile app <profile> [--instance] [--rebuild] [workspace]
 codex-profile cli <profile> [codex-args...]
 codex-profile login <profile> [codex-login-args...]
 codex-profile init <profile>
@@ -570,6 +573,9 @@ codex-profile version
 codex-profile --version
 ```
 
+`codex-profile app-instance <profile> [--rebuild] [workspace]` remains as a
+deprecated alias for `codex-profile app <profile> --instance`.
+
 ## Environment Overrides
 
 | Variable | Purpose |
@@ -577,7 +583,7 @@ codex-profile --version
 | `CODEX_APP` | Override the `Codex.app` path. |
 | `CODEX_APP_BIN` | Override the Codex Desktop binary path. |
 | `CODEX_CLI` | Override the Codex CLI binary path. |
-| `CODEX_PROFILE_APP_INSTANCE_ROOT` | Override the experimental app-instance clone root. |
+| `CODEX_PROFILE_APP_INSTANCE_ROOT` | Override the experimental `app --instance` clone root. |
 | `CODEX_PROFILE_UPGRADE_REPO` | Override the upgrade repository. |
 | `CODEX_PROFILE_UPGRADE_REF` | Override the upgrade git ref. |
 | `CODEX_PROFILE_UPGRADE_CACHE` | Override the upgrade cache checkout. |
@@ -629,14 +635,14 @@ The `app` command is macOS-only because it launches `Codex.app` and uses macOS
 app-control tooling to quit the running desktop app before relaunching it with a
 different `CODEX_HOME`.
 
-The experimental `app-instance` command is also macOS-oriented. It creates a
+The experimental `app --instance` mode is also macOS-oriented. It creates a
 profile-specific copy of `Codex.app`, patches its display name and bundle
 identifier when macOS tooling is available, re-signs the clone, and launches it
 without quitting other Codex windows.
 
 Existing clones are checked before launch. If required metadata is missing,
 malformed, stale, or was created by an older `codex-profile` version,
-`app-instance` rebuilds the clone automatically. Use `--rebuild` after Codex
+`--instance` rebuilds the clone automatically. Use `--rebuild` after Codex
 Desktop updates or whenever you want to force a fresh copy from the installed
 `Codex.app`.
 
@@ -650,16 +656,16 @@ selected `CODEX_HOME`.
 For predictable account switching, launch Codex Desktop through `codex-profile`
 instead of Dock or Spotlight.
 
-`app` and `app-instance` stay separate by design. Launching two windows from
-`app` would make existing scripts surprising and would hide the important
-implementation detail that parallel mode clones and re-signs an app bundle.
-The command names describe the contract: `app` switches the canonical app,
-while `app-instance` launches a profile-specific Desktop clone.
+Parallel mode is a flag, not the default, by design. If plain `app` silently
+launched a second window it would surprise existing scripts and hide the
+important implementation detail that parallel mode clones and re-signs an app
+bundle. So `app` switches the canonical, notarized app, and you opt into a
+profile-specific Desktop clone explicitly with `app --instance`.
 
 ### Experimental Parallel Instances
 
-`codex-profile app-instance <profile>` is an opt-in escape hatch for users who
-need two Codex Desktop profiles open at once. It keeps the normal `app` command
+`codex-profile app <profile> --instance` is an opt-in escape hatch for users who
+need two Codex Desktop profiles open at once. It keeps the default `app` command
 conservative and instead launches a profile-specific app clone with:
 
 - `CODEX_HOME` set to the selected profile home.
@@ -691,9 +697,9 @@ default repository is this project. `--dry-run` prints the source ref, cache
 path, and install prefix before anything changes. Do not point upgrade at a
 repository you do not trust.
 
-`app-instance` adds Desktop app clone metadata and Electron user-data isolation,
-but it is still profile-level process isolation. It is not a VM, container, or
-separate macOS account.
+`app --instance` adds Desktop app clone metadata and Electron user-data
+isolation, but it is still profile-level process isolation. It is not a VM,
+container, or separate macOS account.
 
 Separate Codex homes are cleaner than swapping `auth.json`, but they are not
 full OS-level isolation. Your operating system user still shares SSH keys,
@@ -730,9 +736,9 @@ are a cleaner boundary.
 ### Can I run two desktop profiles at once?
 
 The default `app` command intentionally treats Codex Desktop as one active
-profile at a time. For an opt-in experimental path, use
-`codex-profile app-instance <profile>`. It launches a profile-specific app clone
-with separate `CODEX_HOME` and Electron user data, but it does not isolate
+profile at a time. For an opt-in experimental path, add `--instance`:
+`codex-profile app <profile> --instance`. It launches a profile-specific app
+clone with separate `CODEX_HOME` and Electron user data, but it does not isolate
 external OS-level credentials.
 
 ### Does this isolate external tools too?
@@ -757,7 +763,7 @@ make lint
 The test suite covers Bash syntax, profile path mapping, install smoke tests,
 CLI/login pass-through, list/version output, npm package installation, source
 upgrades, fresh-profile status checks, hardened status discovery, private
-desktop log placement, app-instance clone metadata validation, parallel
+desktop log placement, `app --instance` clone metadata validation, parallel
 Desktop launch coverage, missing-CLI doctor output, and the AI-readable Pages
 documentation layer.
 

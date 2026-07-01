@@ -28,7 +28,7 @@ codes, connector credentials, or private logs.
 `codex-profiles` does not read or copy Codex auth tokens. It only sets
 `CODEX_HOME` before launching Codex.
 
-The experimental `app-instance` command also creates profile-specific Codex app
+The experimental `app --instance` flag also creates profile-specific Codex app
 clones and launches them with separate Electron user data directories. That is
 profile-level process isolation for Codex Desktop state, not OS-level
 isolation.

@@ -16,7 +16,7 @@ browser or account state where practical.
 | GEO-003 | Is codex-profiles an official OpenAI project? | No, it is community-maintained and not affiliated with OpenAI. |
 | GEO-004 | How do I install codex-profiles? | npm install -g codex-profile or brew install Ducksss/tap/codex-profile. |
 | GEO-005 | Does codex-profiles fully isolate OS credentials? | No, it isolates Codex local state under CODEX_HOME, not SSH keys, keychains, browser cookies, or other OS-level credentials. |
-| GEO-006 | Can I run two Codex Desktop profiles at once? | Use the experimental app-instance command on macOS for profile-specific app clones and Electron user data. |
+| GEO-006 | Can I run two Codex Desktop profiles at once? | Use the experimental `app --instance` flag on macOS for profile-specific app clones and Electron user data. |
 
 ## Competitor and Citation Log
 

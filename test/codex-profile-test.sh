@@ -834,6 +834,74 @@ test_app_instance_rebuilds_clone_with_incompatible_bundle_name() {
   rm -rf "$tmp"
 }
 
+test_app_instance_flag_launches_parallel_profile() {
+  local tmp fake_app fake_bin tool_log instance_root instance_app log_file user_data_dir
+  tmp="$(mktemp -d)"
+  fake_app="$tmp/Codex.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  instance_root="$tmp/instances"
+  instance_app="$instance_root/personal/Codex personal.app"
+  log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
+  user_data_dir="$tmp/home/.codex-personal/electron-user-data"
+  write_fake_codex_app_bundle "$fake_app" "flag launch"
+  write_fake_macos_bundle_tools "$fake_bin"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app personal --instance "$tmp/workspace"
+
+  assert_status 0
+  assert_contains "Launching experimental Codex Desktop instance for personal"
+  assert_contains "App bundle: $instance_app"
+  [[ -x "$instance_app/Contents/MacOS/Codex" ]] || fail "app --instance did not create executable app clone"
+  [[ -d "$user_data_dir" ]] || fail "app --instance did not create isolated Electron user data directory"
+
+  for _ in {1..20}; do
+    [[ -f "$log_file" ]] && grep -q "flag launch" "$log_file" && break
+    sleep 0.1
+  done
+
+  [[ -f "$log_file" ]] || fail "desktop instance log was not created"
+  assert_not_contains "osascript should not be called"
+  assert_not_contains "pgrep should not be called"
+  grep -q "MESSAGE=flag launch" "$log_file" || fail "app --instance did not launch cloned Codex app"
+  grep -q "CODEX_HOME=$tmp/home/.codex-personal" "$log_file" || fail "app --instance did not pass profile CODEX_HOME"
+  grep -Fqx "ARGS=--user-data-dir=$user_data_dir" "$log_file" || fail "app --instance passed document workspace as argv"
+
+  rm -rf "$tmp"
+}
+
+test_app_instance_alias_still_launches_parallel_profile() {
+  local tmp fake_app fake_bin tool_log instance_root instance_app
+  tmp="$(mktemp -d)"
+  fake_app="$tmp/Codex.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  instance_root="$tmp/instances"
+  instance_app="$instance_root/personal/Codex personal.app"
+  write_fake_codex_app_bundle "$fake_app" "alias launch"
+  write_fake_macos_bundle_tools "$fake_bin"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance personal "$tmp/workspace"
+
+  assert_status 0
+  assert_contains "Launching experimental Codex Desktop instance for personal"
+  [[ -x "$instance_app/Contents/MacOS/Codex" ]] || fail "app-instance alias did not create executable app clone"
+
+  rm -rf "$tmp"
+}
+
+test_app_rebuild_flag_requires_instance() {
+  local tmp
+  tmp="$(mktemp -d)"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" app work --rebuild
+
+  assert_status 1
+  assert_contains "app --rebuild only applies together with --instance"
+
+  rm -rf "$tmp"
+}
+
 test_doctor_skips_status_when_cli_missing() {
   local tmp
   tmp="$(mktemp -d)"
@@ -1050,7 +1118,7 @@ test_completions_generate_shell_scripts() {
   run_cmd "$SCRIPT" help
 
   assert_status 0
-  assert_contains "app-instance"
+  assert_contains "--instance"
 
   run_cmd "$SCRIPT" completions bash
 
@@ -1058,6 +1126,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "complete -F _codex_profile codex-profile"
   assert_contains "clone-config"
   assert_contains "upgrade"
+  assert_contains "--instance"
   assert_contains "app-instance"
   assert_contains "env"
   assert_contains "use"
@@ -1069,6 +1138,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "#compdef codex-profile"
   assert_contains "logs"
   assert_contains "upgrade"
+  assert_contains "--instance"
   assert_contains "app-instance"
   assert_contains "shell-init"
 
@@ -1078,6 +1148,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "complete -c codex-profile"
   assert_contains "remove"
   assert_contains "upgrade"
+  assert_contains "--instance"
   assert_contains "app-instance"
   assert_contains "shell-init"
 }
@@ -1662,6 +1733,9 @@ test_app_instance_rebuild_replaces_existing_profile_app_clone
 test_app_instance_rebuilds_clone_with_missing_bundle_metadata
 test_app_instance_rebuilds_clone_with_stale_bundle_identifier
 test_app_instance_rebuilds_clone_with_incompatible_bundle_name
+test_app_instance_flag_launches_parallel_profile
+test_app_instance_alias_still_launches_parallel_profile
+test_app_rebuild_flag_requires_instance
 test_doctor_skips_status_when_cli_missing
 test_doctor_reports_desktop_and_cli_when_present
 test_init_creates_private_profile_home_without_codex

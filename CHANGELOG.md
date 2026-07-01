@@ -7,6 +7,25 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Changed
+
+- Parallel Codex Desktop launch is now an opt-in flag on the primary command:
+  `codex-profile app <profile> --instance` (with `--rebuild` still available,
+  only valid together with `--instance`). Plain `codex-profile app` remains the
+  cheap, notarized single-app switcher and stays the default. This collapses the
+  two co-equal launch commands into one verb with an advanced flag, matching how
+  GUI apps (Firefox `-no-remote`, Chrome/VS Code `--user-data-dir`) expose
+  parallel-instance launching, and keeps the `--instance` naming consistent with
+  the existing `logs <profile> --instance` and `CODEX_PROFILE_APP_INSTANCE_ROOT`.
+- Help, examples, and shell completions now lead with `app` and present
+  `--instance`/`--rebuild` as its flags; `app-instance` is no longer advertised.
+
+### Deprecated
+
+- `codex-profile app-instance <profile>` is now a deprecated, undocumented alias
+  for `codex-profile app <profile> --instance`. Existing scripts and muscle
+  memory keep working; prefer the flag form going forward.
+
 ## 0.5.0 - 2026-07-01
 
 ### Changed

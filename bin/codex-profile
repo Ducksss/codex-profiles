@@ -18,8 +18,7 @@ usage() {
 $PROGRAM - run Codex with isolated CODEX_HOME profiles
 
 Usage:
-  $PROGRAM app <profile> [workspace]
-  $PROGRAM app-instance <profile> [--rebuild] [workspace]
+  $PROGRAM app <profile> [--instance] [--rebuild] [workspace]
   $PROGRAM cli <profile> [codex-args...]
   $PROGRAM login <profile> [codex-login-args...]
   $PROGRAM init <profile>
@@ -43,7 +42,7 @@ Examples:
   $PROGRAM login personal
   $PROGRAM init work
   $PROGRAM app personal ~/Dev/my-project
-  $PROGRAM app-instance work --rebuild ~/Dev/client-project
+  $PROGRAM app work --instance ~/Dev/client-project
   $PROGRAM cli personal exec "review this repo"
   $PROGRAM status
   eval "\$($PROGRAM env work)"     # set CODEX_HOME for this shell
@@ -51,6 +50,12 @@ Examples:
   $PROGRAM logs personal --tail 50
   $PROGRAM clone-config personal work
   $PROGRAM upgrade
+
+Desktop (app):
+  default         Switch Codex Desktop to <profile> (quits the running app first).
+  --instance      Run a parallel Codex Desktop clone for <profile>, alongside
+                  any others (experimental, macOS only).
+  --rebuild       Force-rebuild that clone; only valid together with --instance.
 
 Profiles:
   default         -> ~/.codex
@@ -60,7 +65,7 @@ Environment:
   CODEX_APP       Override Codex.app path.
   CODEX_APP_BIN   Override Codex Desktop binary path.
   CODEX_CLI       Override Codex CLI binary path.
-  CODEX_PROFILE_APP_INSTANCE_ROOT  Override experimental app-instance clone root.
+  CODEX_PROFILE_APP_INSTANCE_ROOT  Override the experimental app --instance clone root.
   CODEX_PROFILE_UPGRADE_REPO    Override upgrade repository.
   CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref.
   CODEX_PROFILE_UPGRADE_CACHE   Override upgrade cache checkout.
@@ -68,7 +73,7 @@ Environment:
   CODEX_PROFILE_NO_UPDATE_CHECK  Disable the daily update check (also honors DO_NOT_TRACK).
 
 Platform:
-  app and app-instance require macOS (they drive the Codex Desktop app).
+  app requires macOS (it drives the Codex Desktop app).
   All other commands run on macOS and Linux.
 EOF
 }
@@ -234,11 +239,65 @@ quit_codex_app() {
 }
 
 command_app() {
-  local profile="${1:-}"
-  [[ -n "$profile" ]] || die "Usage: $PROGRAM app <profile> [workspace]"
-  shift || true
+  local usage="Usage: $PROGRAM app <profile> [--instance] [--rebuild] [workspace]"
+  local instance=no rebuild=no
+  local profile="" workspace="" profile_set=no workspace_set=no positional_only=no
 
-  local workspace="${1:-$PWD}"
+  while [[ "$#" -gt 0 ]]; do
+    if [[ "$positional_only" == no ]]; then
+      case "$1" in
+        --instance)
+          instance=yes
+          shift
+          continue
+          ;;
+        --rebuild)
+          rebuild=yes
+          shift
+          continue
+          ;;
+        --)
+          positional_only=yes
+          shift
+          continue
+          ;;
+        --*)
+          die "$usage"
+          ;;
+      esac
+    fi
+
+    if [[ "$profile_set" == no ]]; then
+      profile="$1"
+      profile_set=yes
+    elif [[ "$workspace_set" == no ]]; then
+      workspace="$1"
+      workspace_set=yes
+    else
+      die "$usage"
+    fi
+    shift
+  done
+
+  [[ "$profile_set" == yes ]] || die "$usage"
+  [[ "$workspace_set" == yes ]] || workspace="$PWD"
+
+  if [[ "$rebuild" == yes && "$instance" == no ]]; then
+    die "$PROGRAM app --rebuild only applies together with --instance."
+  fi
+
+  if [[ "$instance" == yes ]]; then
+    run_app_instance "$profile" "$rebuild" "$workspace"
+  else
+    run_app_switch "$profile" "$workspace"
+  fi
+}
+
+# Default `app` behavior: quit any running Codex Desktop, then relaunch the
+# stock app bound to the profile's CODEX_HOME. One window at a time.
+run_app_switch() {
+  local profile="$1"
+  local workspace="$2"
   local codex_home
 
   if [[ ! -x "$CODEX_APP_BIN" ]]; then
@@ -361,7 +420,7 @@ create_app_instance_bundle() {
   local instance_dir instance_app tmp_app source_bin
 
   if [[ ! -d "$CODEX_APP" ]]; then
-    [[ "$(uname -s)" == "Darwin" ]] || die_macos_only app-instance
+    [[ "$(uname -s)" == "Darwin" ]] || die_macos_only "app --instance"
     die "Codex.app not found at $CODEX_APP"
   fi
   source_bin="$CODEX_APP/Contents/MacOS/Codex"
@@ -410,35 +469,18 @@ ensure_app_instance_bundle() {
   fi
 }
 
+# Deprecated back-compat alias for `app --instance`. Undocumented; kept so
+# existing scripts and muscle memory keep working. Prefer `app --instance`.
 command_app_instance() {
-  local profile="${1:-}"
-  [[ -n "$profile" ]] || die "Usage: $PROGRAM app-instance <profile> [--rebuild] [workspace]"
-  shift || true
+  command_app --instance "$@"
+}
 
-  local rebuild=no workspace=""
-  while [[ "$#" -gt 0 ]]; do
-    case "$1" in
-      --rebuild)
-        rebuild=yes
-        ;;
-      --)
-        shift
-        [[ "$#" -le 1 ]] || die "Usage: $PROGRAM app-instance <profile> [--rebuild] [workspace]"
-        workspace="${1:-}"
-        break
-        ;;
-      --*)
-        die "Usage: $PROGRAM app-instance <profile> [--rebuild] [workspace]"
-        ;;
-      *)
-        [[ -z "$workspace" ]] || die "Usage: $PROGRAM app-instance <profile> [--rebuild] [workspace]"
-        workspace="$1"
-        ;;
-    esac
-    shift
-  done
-
-  workspace="${workspace:-$PWD}"
+# Opt-in `app --instance` behavior: launch a profile-specific Codex Desktop
+# clone alongside any running Codex, with its own Electron user data. macOS only.
+run_app_instance() {
+  local profile="$1"
+  local rebuild="$2"
+  local workspace="$3"
 
   local codex_home instance_app instance_bin user_data_dir log_dir log_file
   codex_home="$(codex_home_for_profile "$profile")"
@@ -448,7 +490,7 @@ command_app_instance() {
   instance_app="$(app_instance_app_for_profile "$profile")"
   instance_bin="$instance_app/Contents/MacOS/Codex"
   [[ -x "$instance_bin" ]] || die "Codex app instance binary not found at $instance_bin"
-  command -v open > /dev/null 2>&1 || die "macOS open command not found; app-instance is macOS-only."
+  command -v open > /dev/null 2>&1 || die "macOS open command not found; app --instance is macOS-only."
 
   user_data_dir="$codex_home/electron-user-data"
   ensure_home "$user_data_dir"
@@ -1322,12 +1364,20 @@ _codex_profile()
   command="${COMP_WORDS[1]}"
 
   if [[ "$COMP_CWORD" -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help" -- "$cur") )
+    COMPREPLY=( $(compgen -W "app cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help" -- "$cur") )
     return 0
   fi
 
   case "$command" in
-    app|app-instance|cli|login|init|remove|status|path|env|use|logs)
+    app)
+      if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "--instance --rebuild" -- "$cur") )
+      elif [[ "$COMP_CWORD" -eq 2 ]]; then
+        profiles="$(codex-profile list 2>/dev/null)"
+        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
+      fi
+      ;;
+    app-instance|cli|login|init|remove|status|path|env|use|logs)
       if [[ "$COMP_CWORD" -eq 2 ]]; then
         profiles="$(codex-profile list 2>/dev/null)"
         COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
@@ -1354,12 +1404,13 @@ EOF
 #compdef codex-profile
 
 _codex_profile() {
-  local -a commands profiles shells
+  local -a commands profiles shells app_flags
   commands=(
-    app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help
+    app cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help
   )
   profiles=(${(f)"$(codex-profile list 2>/dev/null)"} default personal work)
   shells=(bash zsh fish)
+  app_flags=(--instance --rebuild)
 
   if (( CURRENT == 2 )); then
     _describe 'command' commands
@@ -1367,7 +1418,14 @@ _codex_profile() {
   fi
 
   case "$words[2]" in
-    app|app-instance|cli|login|init|remove|status|path|env|use|logs)
+    app)
+      if [[ "$words[CURRENT]" == -* ]]; then
+        _describe 'flag' app_flags
+      elif (( CURRENT == 3 )); then
+        _describe 'profile' profiles
+      fi
+      ;;
+    app-instance|cli|login|init|remove|status|path|env|use|logs)
       if (( CURRENT == 3 )); then
         _describe 'profile' profiles
       fi
@@ -1391,8 +1449,10 @@ EOF
     fish)
       cat <<'EOF'
 complete -c codex-profile -f
-complete -c codex-profile -n '__fish_is_first_arg' -a 'app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help'
+complete -c codex-profile -n '__fish_is_first_arg' -a 'app cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help'
 complete -c codex-profile -n '__fish_seen_subcommand_from app app-instance cli login init remove status path env use logs' -a '(codex-profile list 2>/dev/null) default personal work'
+complete -c codex-profile -n '__fish_seen_subcommand_from app' -l instance -d 'Run a parallel Codex Desktop clone alongside others (experimental)'
+complete -c codex-profile -n '__fish_seen_subcommand_from app' -l rebuild -d 'Rebuild the app --instance clone (only with --instance)'
 complete -c codex-profile -n '__fish_seen_subcommand_from clone-config' -a '(codex-profile list 2>/dev/null) default personal work'
 complete -c codex-profile -n '__fish_seen_subcommand_from completions shell-init' -a 'bash zsh fish'
 EOF

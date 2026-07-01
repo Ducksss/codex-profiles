@@ -55,7 +55,7 @@ codex-profile login work                 # authenticate that profile once
 codex-profile cli work                   # Codex CLI on the work profile
 codex-profile cli work exec "run tests"  # one-shot Codex CLI command
 codex-profile app work ~/Dev/project     # Codex Desktop on a profile (macOS)
-codex-profile app-instance work ~/Dev/p  # parallel Desktop instance (macOS, experimental)
+codex-profile app work --instance ~/Dev/p # parallel Desktop window (macOS, experimental)
 codex-profile status                     # read-only profile overview
 codex-profile doctor                     # environment diagnostics
 ```
