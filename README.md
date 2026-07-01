@@ -210,6 +210,25 @@ With Homebrew:
 brew install Ducksss/tap/codex-profile
 ```
 
+With the install script (macOS and Linux, no package manager needed):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/main/install.sh | sh
+```
+
+It installs the latest release into `~/.local/bin` (override with
+`CODEX_PROFILE_PREFIX`, or pin a tag with `CODEX_PROFILE_VERSION`).
+
+With Nix (flakes):
+
+```sh
+nix run github:Ducksss/codex-profiles              # run without installing
+nix profile install github:Ducksss/codex-profiles # install into your profile
+```
+
+Arch Linux: a `PKGBUILD` is maintained under
+[`packaging/aur/`](packaging/aur/PKGBUILD) (AUR publication pending).
+
 With npm directly from this GitHub repo:
 
 ```sh

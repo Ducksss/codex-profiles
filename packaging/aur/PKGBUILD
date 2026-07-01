@@ -1,0 +1,18 @@
+# Maintainer: Ducksss <https://github.com/Ducksss>
+pkgname=codex-profile
+pkgver=0.5.0
+pkgrel=1
+pkgdesc="Switch Codex CLI and Desktop accounts with isolated CODEX_HOME profiles"
+arch=('any')
+url="https://github.com/Ducksss/codex-profiles"
+license=('MIT')
+depends=('bash')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/Ducksss/codex-profiles/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('1aec20c0d484e8cf835b250df3e9d6e8a4d5c0dcf173e80008b1a5d0429deb39')
+
+package() {
+  cd "codex-profiles-$pkgver"
+  install -Dm755 "bin/codex-profile" "$pkgdir/usr/bin/codex-profile"
+  ln -s codex-profile "$pkgdir/usr/bin/codex-profiles"
+  install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

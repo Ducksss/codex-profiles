@@ -7,6 +7,15 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- Additional install channels: a `curl | sh` installer (`install.sh`, fetches
+  the latest release into `~/.local/bin`), a Nix flake
+  (`nix run github:Ducksss/codex-profiles`), and an AUR `PKGBUILD` under
+  `packaging/aur/`. The installer and flake track the current version
+  automatically (the flake reads `package.json`), so they add no release drift;
+  `install.sh` is covered by ShellCheck in CI.
+
 ## 0.6.0 - 2026-07-01
 
 ### Changed

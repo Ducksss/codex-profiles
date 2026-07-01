@@ -31,7 +31,7 @@ jobs:
         run: make test
 
       - name: Run ShellCheck
-        run: shellcheck bin/codex-profile test/codex-profile-test.sh
+        run: shellcheck bin/codex-profile test/codex-profile-test.sh install.sh
 
   macos:
     name: macOS smoke test

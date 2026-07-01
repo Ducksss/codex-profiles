@@ -11,11 +11,12 @@ uninstall:
 	rm -f "$(BINDIR)/codex-profile"
 
 lint:
-	shellcheck bin/codex-profile test/codex-profile-test.sh
+	shellcheck bin/codex-profile test/codex-profile-test.sh install.sh
 
 test:
 	bash -n bin/codex-profile
 	bash -n test/codex-profile-test.sh
+	sh -n install.sh
 	node test/geo-site-test.mjs
 	bin/codex-profile help >/dev/null
 	bash test/codex-profile-test.sh
