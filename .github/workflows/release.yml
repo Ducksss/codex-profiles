@@ -1,0 +1,140 @@
+name: Release
+
+# Auto-release on code changes. A push to main that touches the shipped script
+# (bin/**) cuts the next patch release (0.4.x). Use the manual "Run workflow"
+# button to force a specific version (e.g. a minor/major bump) or to dry-run.
+#
+# The job commits the version bump with GITHUB_TOKEN; pushes made with that
+# token do not trigger workflows, so the bump commit cannot re-trigger this
+# release (no loop).
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "bin/**"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact version to release (e.g. 0.5.0). Leave blank to auto-bump the patch."
+        required: false
+        default: ""
+      dry_run:
+        description: "Compute + build only; skip commit, tag, publish, and release."
+        required: false
+        default: "false"
+
+permissions:
+  contents: write # push the bump commit + tag, create the release
+  id-token: write # npm provenance
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Cut release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      INPUT_VERSION: ${{ github.event.inputs.version }}
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Compute version
+        id: ver
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            next="$INPUT_VERSION"
+          else
+            cur="$(node -p "require('./package.json').version")"
+            IFS=. read -r major minor patch <<< "$cur"
+            next="$major.$minor.$((patch + 1))"
+          fi
+          if ! printf '%s' "$next" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Computed version '$next' is not X.Y.Z." >&2
+            exit 1
+          fi
+          if git rev-parse "v$next" >/dev/null 2>&1; then
+            echo "Tag v$next already exists; refusing to re-release." >&2
+            exit 1
+          fi
+          echo "version=$next" >> "$GITHUB_OUTPUT"
+          echo "date=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$next"
+
+      - name: Bump version in all tracked files
+        env:
+          V: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          npm version "$V" --no-git-tag-version >/dev/null
+          sed -i "s/^VERSION=\"[^\"]*\"/VERSION=\"$V\"/" bin/codex-profile
+          sed -i "s/\"softwareVersion\": \"[^\"]*\"/\"softwareVersion\": \"$V\"/" docs/index.html
+          sed -i "s|<span>v[0-9][0-9.]*</span>|<span>v$V</span>|" docs/index.html
+
+      - name: Promote CHANGELOG Unreleased section
+        env:
+          V: ${{ steps.ver.outputs.version }}
+          D: ${{ steps.ver.outputs.date }}
+        run: |
+          set -euo pipefail
+          awk -v hdr="## $V - $D" '
+            /^## Unreleased/ && !done { print; print ""; print hdr; done=1; next }
+            { print }
+          ' CHANGELOG.md > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
+
+      - name: Verify (make test enforces the version-sync guard)
+        run: make test
+
+      - name: Show release diff
+        run: git --no-pager diff
+
+      - name: Commit, tag, and push
+        if: env.DRY_RUN != 'true'
+        env:
+          V: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore(release): v$V"
+          git tag -a "v$V" -m "codex-profile v$V"
+          git push origin HEAD:main
+          git push origin "v$V"
+
+      - name: Publish to npm
+        if: env.DRY_RUN != 'true'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        if: env.DRY_RUN != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.ver.outputs.version }}
+        run: gh release create "v$V" --title "v$V" --generate-notes
+
+      - name: Dry-run summary
+        if: env.DRY_RUN == 'true'
+        env:
+          V: ${{ steps.ver.outputs.version }}
+        run: |
+          echo "DRY RUN: would release v$V (commit, tag, npm publish, GitHub Release skipped)."

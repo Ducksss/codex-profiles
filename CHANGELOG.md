@@ -19,6 +19,14 @@ and this project follows semantic versioning for tagged releases.
   Uninitialized profiles warn on stderr so evaluated stdout stays clean. Completion
   generators, README, and `docs/llms.txt` updated for the new commands.
 
+### Changed
+
+- Releases are now automated. Pushing a change under `bin/**` to `main` (or a
+  manual workflow dispatch) auto-increments the patch version, bumps every
+  version file in lockstep, runs `make test`, commits, tags, publishes to npm,
+  and creates the GitHub Release. Replaces the tag-triggered publish workflow.
+  A workflow-dispatch `version` input can force a minor/major bump.
+
 ## 0.4.0 - 2026-07-01
 
 ### Added
