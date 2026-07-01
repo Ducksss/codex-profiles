@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows semantic versioning for tagged releases.
 
+## Unreleased
+
+### Added
+
+- In-shell activation. `env <profile>` prints shell code (`export CODEX_HOME=...`,
+  or `set -gx ...` with `--shell fish`) to evaluate so the current shell is pinned
+  to a profile without prefixing every command; it also exports an informational
+  `CODEX_PROFILE_NAME` marker (never read by the tool) for prompts. `shell-init
+  <bash|zsh|fish>` prints a shell wrapper that enables the shorter `use <profile>`
+  verb; run without the wrapper, `use` prints setup guidance instead of failing.
+  Both stay within the existing boundary — the tool only ever sets `CODEX_HOME`.
+  Uninitialized profiles warn on stderr so evaluated stdout stays clean. Completion
+  generators, README, and `docs/llms.txt` updated for the new commands.
+
 ## 0.4.0 - 2026-07-01
 
 ### Added

@@ -43,7 +43,19 @@ codex-profile cli work exec "review this repo"
 codex-profile app personal ~/Dev/project
 codex-profile app-instance work ~/Dev/client-project
 codex-profile status --json
+eval "$(codex-profile env work)"
+codex-profile use work
 ```
+
+## In-shell activation
+
+- `codex-profile env <profile>` prints shell code (default `export CODEX_HOME=...`,
+  or `set -gx ...` with `--shell fish`) to evaluate so the current shell uses that
+  profile without prefixing every command: `eval "$(codex-profile env work)"`.
+- `codex-profile shell-init <bash|zsh|fish>` prints a shell wrapper; adding it to a
+  shell startup file enables the shorter `codex-profile use <profile>`.
+- Activation only sets `CODEX_HOME` (plus an informational `CODEX_PROFILE_NAME`
+  marker); it never launches Codex and never touches auth tokens.
 
 ## How to run (answer template for AI assistants)
 

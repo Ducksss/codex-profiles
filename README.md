@@ -179,6 +179,8 @@ node test/geo-site-test.mjs
 - Separate Electron user data for each experimental Desktop instance.
 - No token copying, parsing, printing, or migration.
 - Read-only `list`, `status`, and `doctor` commands for diagnostics.
+- In-shell activation with `env`, `use`, and `shell-init` to pin a terminal to a
+  profile without prefixing every command.
 - JSON output for automation.
 - Profile lifecycle commands: `init` and confirmed `remove`.
 - Profile-local desktop logs with private permissions.
@@ -451,6 +453,53 @@ If you installed with Homebrew and do not want a source-style
 brew upgrade Ducksss/tap/codex-profile
 ```
 
+## In-Shell Activation
+
+`cli` and `app` launch Codex on a profile. Activation is the opposite: it does
+not launch anything, it flips your **current shell** to a profile by exporting
+`CODEX_HOME`, so from then on a bare `codex` (and anything else that reads
+`CODEX_HOME`) uses that profile — no prefix, for the rest of the session.
+
+The primitive is `env`, which prints shell code to evaluate:
+
+```sh
+eval "$(codex-profile env work)"   # this shell is now on the work profile
+codex                              # bare codex, already on work
+codex exec "run tests"             # still work
+```
+
+`env` prints two lines — the functional `CODEX_HOME` plus an informational
+`CODEX_PROFILE_NAME` marker you can show in your prompt. Only `CODEX_HOME`
+changes Codex behavior; `CODEX_PROFILE_NAME` is never read by the tool. It emits
+POSIX (`export …`) syntax by default; pass `--shell fish` for `set -gx …`.
+
+For the shorter `use` verb, install the shell wrapper once. Add this to your
+shell startup file:
+
+```sh
+# bash (~/.bashrc) or zsh (~/.zshrc)
+eval "$(codex-profile shell-init bash)"   # use zsh for ~/.zshrc
+
+# fish (~/.config/fish/config.fish)
+codex-profile shell-init fish | source
+```
+
+Then activation is one command:
+
+```sh
+codex-profile use work    # sets CODEX_HOME for this shell
+codex-profile use personal
+```
+
+`use` requires the wrapper because only code running in your shell can change
+your shell's environment — a plain subcommand runs in a child process and cannot.
+Running `codex-profile use` without the wrapper prints setup instructions instead
+of failing silently. Deactivate by opening a new shell, or `unset CODEX_HOME`.
+
+Activation is a lighter alternative to per-profile aliases when you want a whole
+terminal — including non-Codex tools — pinned to one profile. It stays within the
+same security boundary: the tool only ever sets `CODEX_HOME`.
+
 ## Shell Completions
 
 Generate completions for Bash, Zsh, or Fish:
@@ -493,6 +542,9 @@ alias codex-work='codex-profile cli work'
 alias codex-app-work='codex-profile app work'
 ```
 
+To pin a whole terminal to a profile instead of launching per command, see
+[In-Shell Activation](#in-shell-activation) (`codex-profile use <profile>`).
+
 ## Command Reference
 
 ```text
@@ -505,11 +557,14 @@ codex-profile remove <profile> [--yes]
 codex-profile status [profile]
 codex-profile status --json [profile]
 codex-profile path <profile>
+codex-profile env <profile> [--shell <bash|zsh|fish>]
+codex-profile use <profile>
 codex-profile logs <profile> [--instance] [--path|--tail [lines]]
 codex-profile clone-config <source-profile> <target-profile> [--force]
 codex-profile list
 codex-profile doctor [--json]
 codex-profile completions <bash|zsh|fish>
+codex-profile shell-init <bash|zsh|fish>
 codex-profile upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
 codex-profile version
 codex-profile --version
@@ -567,7 +622,7 @@ conventional `DO_NOT_TRACK=1`).
 CLI-oriented commands are Bash-based and tested on macOS and Ubuntu/Linux:
 
 ```text
-cli login init remove status path logs clone-config list doctor completions upgrade version help
+cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help
 ```
 
 The `app` command is macOS-only because it launches `Codex.app` and uses macOS

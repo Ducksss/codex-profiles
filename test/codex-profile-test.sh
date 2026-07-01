@@ -1059,6 +1059,9 @@ test_completions_generate_shell_scripts() {
   assert_contains "clone-config"
   assert_contains "upgrade"
   assert_contains "app-instance"
+  assert_contains "env"
+  assert_contains "use"
+  assert_contains "shell-init"
 
   run_cmd "$SCRIPT" completions zsh
 
@@ -1067,6 +1070,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "logs"
   assert_contains "upgrade"
   assert_contains "app-instance"
+  assert_contains "shell-init"
 
   run_cmd "$SCRIPT" completions fish
 
@@ -1075,6 +1079,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "remove"
   assert_contains "upgrade"
   assert_contains "app-instance"
+  assert_contains "shell-init"
 }
 
 test_upgrade_dry_run_reports_plan_without_mutating_files() {
@@ -1494,6 +1499,147 @@ test_clone_config_refuses_to_overwrite_without_force() {
   rm -rf "$tmp"
 }
 
+test_env_prints_posix_exports_for_profile() {
+  local tmp
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/home/.codex" "$tmp/home/.codex-work"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" env work
+
+  assert_status 0
+  assert_contains "export CODEX_HOME='$tmp/home/.codex-work'"
+  assert_contains "export CODEX_PROFILE_NAME='work'"
+  assert_not_contains "not initialized"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" env default
+
+  assert_status 0
+  assert_contains "export CODEX_HOME='$tmp/home/.codex'"
+
+  rm -rf "$tmp"
+}
+
+test_env_emits_fish_syntax() {
+  local tmp
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/home/.codex-work"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" env work --shell fish
+
+  assert_status 0
+  assert_contains "set -gx CODEX_HOME '$tmp/home/.codex-work'"
+  assert_contains "set -gx CODEX_PROFILE_NAME 'work'"
+  assert_not_contains "export CODEX_HOME"
+
+  rm -rf "$tmp"
+}
+
+test_env_warns_to_stderr_without_polluting_stdout_when_uninitialized() {
+  local tmp out err
+  tmp="$(mktemp -d)"
+
+  set +e
+  out="$(env HOME="$tmp/home" "$SCRIPT" env ghost 2> "$tmp/err")"
+  status=$?
+  set -e
+  err="$(cat "$tmp/err")"
+
+  [[ "$status" -eq 0 ]] || fail "env should still emit exports for an uninitialized profile"
+  [[ "$out" == "export CODEX_HOME='$tmp/home/.codex-ghost'"* ]] || fail "env stdout must carry eval-safe export lines"
+  [[ "$out" != *"not initialized"* ]] || fail "env stdout must stay eval-safe (warning must not land on stdout)"
+  [[ "$err" == *"profile 'ghost' is not initialized"* ]] || fail "env should warn on stderr for an uninitialized profile"
+
+  rm -rf "$tmp"
+}
+
+test_env_rejects_invalid_profile_and_unsupported_shell() {
+  local tmp
+  tmp="$(mktemp -d)"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" env ../bad
+
+  assert_status 1
+  assert_contains "Invalid profile '../bad'"
+
+  mkdir -p "$tmp/home/.codex-work"
+  run_cmd env HOME="$tmp/home" "$SCRIPT" env work --shell tcsh
+
+  assert_status 1
+  assert_contains "Unsupported shell 'tcsh'"
+
+  rm -rf "$tmp"
+}
+
+test_use_without_wrapper_explains_shell_init() {
+  local tmp
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/home/.codex-work"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" use work
+
+  assert_status 1
+  assert_contains "shell-init"
+  assert_contains "eval"
+  assert_contains "codex-profile env work"
+
+  rm -rf "$tmp"
+}
+
+test_shell_init_emits_use_wrapper() {
+  run_cmd "$SCRIPT" shell-init bash
+
+  assert_status 0
+  assert_contains "codex-profile() {"
+  assert_contains "command codex-profile env"
+  # shellcheck disable=SC2016 # matching the literal wrapper text, not expanding
+  assert_contains 'eval "$__codex_profile_env"'
+
+  run_cmd "$SCRIPT" shell-init zsh
+
+  assert_status 0
+  assert_contains "codex-profile() {"
+
+  run_cmd "$SCRIPT" shell-init fish
+
+  assert_status 0
+  assert_contains "function codex-profile"
+  assert_contains "env --shell fish"
+  assert_contains "| source"
+
+  run_cmd "$SCRIPT" shell-init tcsh
+
+  assert_status 1
+  assert_contains "Unsupported shell 'tcsh'"
+
+  run_cmd "$SCRIPT" shell-init
+
+  assert_status 1
+  assert_contains "Usage:"
+}
+
+test_shell_init_use_activates_profile_in_current_shell() {
+  local tmp
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/home/.codex-work" "$tmp/bin"
+  ln -s "$SCRIPT" "$tmp/bin/codex-profile"
+
+  # shellcheck disable=SC2016 # the child bash must expand these, not this shell
+  run_cmd env HOME="$tmp/home" PATH="$tmp/bin:$PATH" bash -c '
+    eval "$(codex-profile shell-init bash)"
+    codex-profile use work
+    printf "HOME_IS=%s\n" "$CODEX_HOME"
+    printf "NAME_IS=%s\n" "$CODEX_PROFILE_NAME"
+    codex-profile path work
+  '
+
+  assert_status 0
+  assert_contains "HOME_IS=$tmp/home/.codex-work"
+  assert_contains "NAME_IS=work"
+  assert_contains "$tmp/home/.codex-work"
+
+  rm -rf "$tmp"
+}
+
 test_version_prints_script_version
 test_cli_passes_profile_home_and_args
 test_login_passes_profile_home_and_login_args
@@ -1520,6 +1666,13 @@ test_init_creates_private_profile_home_without_codex
 test_remove_aborts_when_confirmation_does_not_match
 test_remove_yes_deletes_profile_home
 test_remove_yes_deletes_profiles_named_like_common_aliases
+test_env_prints_posix_exports_for_profile
+test_env_emits_fish_syntax
+test_env_warns_to_stderr_without_polluting_stdout_when_uninitialized
+test_env_rejects_invalid_profile_and_unsupported_shell
+test_use_without_wrapper_explains_shell_init
+test_shell_init_emits_use_wrapper
+test_shell_init_use_activates_profile_in_current_shell
 test_logs_prints_path_and_contents
 test_logs_prints_instance_path_and_contents
 test_logs_reports_missing_log_file

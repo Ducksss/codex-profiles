@@ -27,11 +27,14 @@ Usage:
   $PROGRAM status [profile]
   $PROGRAM status --json [profile]
   $PROGRAM path <profile>
+  $PROGRAM env <profile> [--shell <bash|zsh|fish>]
+  $PROGRAM use <profile>
   $PROGRAM logs <profile> [--instance] [--path|--tail [lines]]
   $PROGRAM clone-config <source-profile> <target-profile> [--force]
   $PROGRAM list
   $PROGRAM doctor [--json]
   $PROGRAM completions <bash|zsh|fish>
+  $PROGRAM shell-init <bash|zsh|fish>
   $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
   $PROGRAM version
   $PROGRAM help
@@ -43,6 +46,8 @@ Examples:
   $PROGRAM app-instance work --rebuild ~/Dev/client-project
   $PROGRAM cli personal exec "review this repo"
   $PROGRAM status
+  eval "\$($PROGRAM env work)"     # set CODEX_HOME for this shell
+  $PROGRAM use work               # same, via the shell-init wrapper
   $PROGRAM logs personal --tail 50
   $PROGRAM clone-config personal work
   $PROGRAM upgrade
@@ -784,6 +789,80 @@ command_path() {
   codex_home_for_profile "$profile"
 }
 
+shell_squote() {
+  local value="$1"
+
+  value=${value//\'/\'\\\'\'}
+  printf "'%s'" "$value"
+}
+
+fish_squote() {
+  local value="$1"
+
+  value=${value//\\/\\\\}
+  value=${value//\'/\\\'}
+  printf "'%s'" "$value"
+}
+
+command_env() {
+  local profile="" shell="posix"
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --shell)
+        [[ -n "${2:-}" ]] || die "Usage: $PROGRAM env <profile> [--shell <bash|zsh|fish>]"
+        shell="$2"
+        shift
+        ;;
+      -*)
+        die "Usage: $PROGRAM env <profile> [--shell <bash|zsh|fish>]"
+        ;;
+      *)
+        [[ -z "$profile" ]] || die "Usage: $PROGRAM env <profile> [--shell <bash|zsh|fish>]"
+        profile="$1"
+        ;;
+    esac
+    shift
+  done
+
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM env <profile> [--shell <bash|zsh|fish>]"
+
+  local codex_home
+  codex_home="$(codex_home_for_profile "$profile")"
+
+  if [[ ! -d "$codex_home" ]]; then
+    printf "%s: profile '%s' is not initialized (%s); run '%s init %s' or '%s login %s'.\n" \
+      "$PROGRAM" "$profile" "$codex_home" "$PROGRAM" "$profile" "$PROGRAM" "$profile" >&2
+  fi
+
+  case "$shell" in
+    fish)
+      printf 'set -gx CODEX_HOME %s\n' "$(fish_squote "$codex_home")"
+      printf 'set -gx CODEX_PROFILE_NAME %s\n' "$(fish_squote "$profile")"
+      ;;
+    posix | sh | bash | zsh)
+      printf 'export CODEX_HOME=%s\n' "$(shell_squote "$codex_home")"
+      printf 'export CODEX_PROFILE_NAME=%s\n' "$(shell_squote "$profile")"
+      ;;
+    *)
+      die "Unsupported shell '$shell'. Use bash, zsh, or fish."
+      ;;
+  esac
+}
+
+command_use() {
+  local profile="${1:-}"
+  local shell_hint="bash"
+
+  case "${SHELL:-}" in
+    */fish) shell_hint="fish" ;;
+    */zsh) shell_hint="zsh" ;;
+  esac
+
+  die "$(printf "'%s use' changes CODEX_HOME in your current shell, so it must run through the shell wrapper.\nAdd the wrapper to your shell startup file, then reopen your shell:\n  bash/zsh:  eval \"\$(%s shell-init %s)\"\n  fish:      %s shell-init fish | source\nThen: %s use %s\nOne-off (no wrapper): eval \"\$(%s env %s)\"" \
+    "$PROGRAM" "$PROGRAM" "$shell_hint" "$PROGRAM" "$PROGRAM" "${profile:-<profile>}" "$PROGRAM" "${profile:-<profile>}")"
+}
+
 command_logs() {
   local profile="${1:-}"
   [[ -n "$profile" ]] || die "Usage: $PROGRAM logs <profile> [--instance] [--path|--tail [lines]]"
@@ -1243,12 +1322,12 @@ _codex_profile()
   command="${COMP_WORDS[1]}"
 
   if [[ "$COMP_CWORD" -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "app app-instance cli login init remove status path logs clone-config list doctor completions upgrade version help" -- "$cur") )
+    COMPREPLY=( $(compgen -W "app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help" -- "$cur") )
     return 0
   fi
 
   case "$command" in
-    app|app-instance|cli|login|init|remove|status|path|logs)
+    app|app-instance|cli|login|init|remove|status|path|env|use|logs)
       if [[ "$COMP_CWORD" -eq 2 ]]; then
         profiles="$(codex-profile list 2>/dev/null)"
         COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
@@ -1260,7 +1339,7 @@ _codex_profile()
         COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
       fi
       ;;
-    completions)
+    completions|shell-init)
       if [[ "$COMP_CWORD" -eq 2 ]]; then
         COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
       fi
@@ -1277,7 +1356,7 @@ EOF
 _codex_profile() {
   local -a commands profiles shells
   commands=(
-    app app-instance cli login init remove status path logs clone-config list doctor completions upgrade version help
+    app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help
   )
   profiles=(${(f)"$(codex-profile list 2>/dev/null)"} default personal work)
   shells=(bash zsh fish)
@@ -1288,7 +1367,7 @@ _codex_profile() {
   fi
 
   case "$words[2]" in
-    app|app-instance|cli|login|init|remove|status|path|logs)
+    app|app-instance|cli|login|init|remove|status|path|env|use|logs)
       if (( CURRENT == 3 )); then
         _describe 'profile' profiles
       fi
@@ -1298,7 +1377,7 @@ _codex_profile() {
         _describe 'profile' profiles
       fi
       ;;
-    completions)
+    completions|shell-init)
       if (( CURRENT == 3 )); then
         _describe 'shell' shells
       fi
@@ -1312,10 +1391,53 @@ EOF
     fish)
       cat <<'EOF'
 complete -c codex-profile -f
-complete -c codex-profile -n '__fish_is_first_arg' -a 'app app-instance cli login init remove status path logs clone-config list doctor completions upgrade version help'
-complete -c codex-profile -n '__fish_seen_subcommand_from app app-instance cli login init remove status path logs' -a '(codex-profile list 2>/dev/null) default personal work'
+complete -c codex-profile -n '__fish_is_first_arg' -a 'app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help'
+complete -c codex-profile -n '__fish_seen_subcommand_from app app-instance cli login init remove status path env use logs' -a '(codex-profile list 2>/dev/null) default personal work'
 complete -c codex-profile -n '__fish_seen_subcommand_from clone-config' -a '(codex-profile list 2>/dev/null) default personal work'
-complete -c codex-profile -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish'
+complete -c codex-profile -n '__fish_seen_subcommand_from completions shell-init' -a 'bash zsh fish'
+EOF
+      ;;
+    *)
+      die "Unsupported shell '$shell'. Use bash, zsh, or fish."
+      ;;
+  esac
+}
+
+command_shell_init() {
+  local shell="${1:-}"
+  [[ -n "$shell" ]] || die "Usage: $PROGRAM shell-init <bash|zsh|fish>"
+  shift || true
+  [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM shell-init <bash|zsh|fish>"
+
+  case "$shell" in
+    bash | zsh)
+      cat <<'EOF'
+codex-profile() {
+  if [ "${1:-}" = "use" ]; then
+    shift
+    local __codex_profile_env
+    __codex_profile_env="$(command codex-profile env "$@")" || return $?
+    eval "$__codex_profile_env"
+  else
+    command codex-profile "$@"
+  fi
+}
+codex-profiles() { codex-profile "$@"; }
+EOF
+      ;;
+    fish)
+      cat <<'EOF'
+function codex-profile
+    if test (count $argv) -ge 1; and test "$argv[1]" = use
+        command codex-profile env --shell fish $argv[2..-1] | source
+    else
+        command codex-profile $argv
+    end
+end
+
+function codex-profiles
+    codex-profile $argv
+end
 EOF
       ;;
     *)
@@ -1423,6 +1545,12 @@ main() {
     path)
       command_path "$@"
       ;;
+    env)
+      command_env "$@"
+      ;;
+    use)
+      command_use "$@"
+      ;;
     logs)
       command_logs "$@"
       ;;
@@ -1437,6 +1565,9 @@ main() {
       ;;
     completions)
       command_completions "$@"
+      ;;
+    shell-init)
+      command_shell_init "$@"
       ;;
     upgrade)
       command_upgrade "$@"
