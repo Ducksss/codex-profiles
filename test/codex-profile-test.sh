@@ -1239,7 +1239,6 @@ test_clone_config_copies_safe_files_and_never_auth_files() {
   mkdir -p "$source_home/sessions"
   printf 'model = "gpt-5"\n' > "$source_home/config.toml"
   printf '# Instructions\n' > "$source_home/AGENTS.md"
-  printf '# Override\n' > "$source_home/AGENTS.override.md"
   printf '{"token":"secret"}\n' > "$source_home/auth.json"
   printf 'private session\n' > "$source_home/sessions/session.json"
 
@@ -1248,10 +1247,8 @@ test_clone_config_copies_safe_files_and_never_auth_files() {
   assert_status 0
   assert_contains "Copied config.toml"
   assert_contains "Copied AGENTS.md"
-  assert_contains "Copied AGENTS.override.md"
   [[ -f "$target_home/config.toml" ]] || fail "clone-config did not copy config.toml"
   [[ -f "$target_home/AGENTS.md" ]] || fail "clone-config did not copy AGENTS.md"
-  [[ -f "$target_home/AGENTS.override.md" ]] || fail "clone-config did not copy AGENTS.override.md"
   [[ ! -e "$target_home/auth.json" ]] || fail "clone-config copied auth.json"
   [[ ! -e "$target_home/sessions" ]] || fail "clone-config copied sessions"
 

@@ -866,7 +866,7 @@ command_clone_config() {
   [[ -d "$source_home" ]] || die "Source profile is not initialized: $source_profile ($source_home)"
   ensure_home "$target_home"
 
-  local safe_files=("config.toml" "AGENTS.md" "AGENTS.override.md")
+  local safe_files=("config.toml" "AGENTS.md")
   local file source_file target_file copied failed
   copied=0
   failed=0

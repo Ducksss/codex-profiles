@@ -408,7 +408,6 @@ Only these root-level files are considered:
 ```text
 config.toml
 AGENTS.md
-AGENTS.override.md
 ```
 
 `clone-config` never copies `auth.json`, sessions, plugins, logs, caches, or

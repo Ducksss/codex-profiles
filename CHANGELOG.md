@@ -15,10 +15,10 @@ and this project follows semantic versioning for tagged releases.
 
 ### Changed
 
-- `clone-config` allowlist now tracks current Codex instruction-file
+- `clone-config` allowlist now matches current Codex instruction-file
   conventions: dropped the obsolete `instructions.md` and
-  `custom-instructions.md` (Codex consolidated on `AGENTS.md`) and added
-  `AGENTS.override.md`.
+  `custom-instructions.md` entries, leaving `config.toml` and the global
+  `AGENTS.md` (Codex consolidated global user instructions onto `AGENTS.md`).
 
 ## 0.3.0 - 2026-06-30
 
