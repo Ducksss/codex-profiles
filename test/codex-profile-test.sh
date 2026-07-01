@@ -136,15 +136,20 @@ init_git_main_branch() {
 }
 
 test_version_prints_script_version() {
+  local declared expected
+  declared="$(sed -n 's/^VERSION="\([^"]*\)".*/\1/p' "$SCRIPT" | sed -n '1p')"
+  [[ -n "$declared" ]] || fail "could not read VERSION from $SCRIPT"
+  expected="codex-profile $declared"
+
   run_cmd "$SCRIPT" version
 
   assert_status 0
-  assert_equals "codex-profile 0.3.0"
+  assert_equals "$expected"
 
   run_cmd "$SCRIPT" --version
 
   assert_status 0
-  assert_equals "codex-profile 0.3.0"
+  assert_equals "$expected"
 }
 
 test_cli_passes_profile_home_and_args() {
