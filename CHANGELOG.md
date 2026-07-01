@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.4.2 - 2026-07-01
+
 ### Fixed
 
 - The fish `use` wrapper emitted by `shell-init fish` piped `env ... | source`,
