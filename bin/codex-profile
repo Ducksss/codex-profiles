@@ -1429,7 +1429,8 @@ EOF
       cat <<'EOF'
 function codex-profile
     if test (count $argv) -ge 1; and test "$argv[1]" = use
-        command codex-profile env --shell fish $argv[2..-1] | source
+        set -l __cp_env (command codex-profile env --shell fish $argv[2..-1]); or return $status
+        printf '%s\n' $__cp_env | source
     else
         command codex-profile $argv
     end

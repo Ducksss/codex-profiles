@@ -1605,6 +1605,8 @@ test_shell_init_emits_use_wrapper() {
   assert_contains "function codex-profile"
   assert_contains "env --shell fish"
   assert_contains "| source"
+  # the fish wrapper must propagate env's failure status, not source's
+  assert_contains "or return \$status"
 
   run_cmd "$SCRIPT" shell-init tcsh
 

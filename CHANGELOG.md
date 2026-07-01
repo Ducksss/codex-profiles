@@ -7,6 +7,14 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Fixed
+
+- The fish `use` wrapper emitted by `shell-init fish` piped `env ... | source`,
+  so it returned `source`'s exit status (always 0) and swallowed `env`'s
+  failure — `use <invalid>` or `use` with no argument reported success in fish
+  while bash/zsh correctly returned non-zero. It now captures `env`'s output and
+  propagates the failure status, restoring cross-shell parity.
+
 ## 0.4.1 - 2026-07-01
 
 ### Added
