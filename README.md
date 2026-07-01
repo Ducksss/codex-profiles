@@ -540,7 +540,7 @@ CODEX_PROFILE_UPGRADE_REF=v0.2.0 codex-profile upgrade --dry-run
 CLI-oriented commands are Bash-based and tested on macOS and Ubuntu/Linux:
 
 ```text
-cli login init remove status path logs clone-config list doctor completions upgrade
+cli login init remove status path logs clone-config list doctor completions upgrade version help
 ```
 
 The `app` command is macOS-only because it launches `Codex.app` and uses macOS

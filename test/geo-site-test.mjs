@@ -90,6 +90,18 @@ assert.equal(app.url, canonicalUrl);
 assert.equal(app.codeRepository, 'https://github.com/Ducksss/codex-profiles');
 assert.equal(app.downloadUrl, 'https://www.npmjs.com/package/codex-profile');
 assert.equal(app.softwareVersion, packageJson.version);
+
+// The CLI script hardcodes its own VERSION (it ships without package.json), so
+// guard against release drift: script VERSION must match package.json, which in
+// turn matches the docs softwareVersion asserted above.
+const scriptSource = read('bin/codex-profile');
+const scriptVersionMatch = scriptSource.match(/^VERSION="([^"]*)"/m);
+assert.ok(scriptVersionMatch, 'bin/codex-profile should declare a VERSION constant');
+assert.equal(
+  scriptVersionMatch[1],
+  packageJson.version,
+  'bin/codex-profile VERSION must match package.json version'
+);
 assert.deepEqual(app.operatingSystem, ['macOS', 'Linux']);
 assert.ok(app.featureList.length >= 6, 'SoftwareApplication schema should list major features');
 assert.equal(app.offers.price, '0');

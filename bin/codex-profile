@@ -34,6 +34,7 @@ Usage:
   $PROGRAM completions <bash|zsh|fish>
   $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
   $PROGRAM version
+  $PROGRAM help
 
 Examples:
   $PROGRAM login personal
@@ -59,6 +60,10 @@ Environment:
   CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref.
   CODEX_PROFILE_UPGRADE_CACHE   Override upgrade cache checkout.
   CODEX_PROFILE_UPGRADE_PREFIX  Override upgrade install prefix.
+
+Platform:
+  app and app-instance require macOS (they drive the Codex Desktop app).
+  All other commands run on macOS and Linux.
 EOF
 }
 
@@ -69,6 +74,12 @@ die() {
 
 note() {
   printf '%s\n' "$*"
+}
+
+die_macos_only() {
+  local subcommand="$1"
+
+  die "$PROGRAM $subcommand is only available on macOS (it drives the Codex Desktop app)."
 }
 
 is_valid_profile_name() {
@@ -224,7 +235,10 @@ command_app() {
   local workspace="${1:-$PWD}"
   local codex_home
 
-  [[ -x "$CODEX_APP_BIN" ]] || die "Codex Desktop binary not found at $CODEX_APP_BIN"
+  if [[ ! -x "$CODEX_APP_BIN" ]]; then
+    [[ "$(uname -s)" == "Darwin" ]] || die_macos_only app
+    die "Codex Desktop binary not found at $CODEX_APP_BIN"
+  fi
 
   codex_home="$(codex_home_for_profile "$profile")"
   ensure_home "$codex_home"
@@ -340,7 +354,10 @@ create_app_instance_bundle() {
   local profile="$1"
   local instance_dir instance_app tmp_app source_bin
 
-  [[ -d "$CODEX_APP" ]] || die "Codex.app not found at $CODEX_APP"
+  if [[ ! -d "$CODEX_APP" ]]; then
+    [[ "$(uname -s)" == "Darwin" ]] || die_macos_only app-instance
+    die "Codex.app not found at $CODEX_APP"
+  fi
   source_bin="$CODEX_APP/Contents/MacOS/Codex"
   [[ -x "$source_bin" ]] || die "Codex Desktop binary not found at $source_bin"
 

@@ -12,6 +12,10 @@ and this project follows semantic versioning for tagged releases.
 - GitHub Actions workflow that publishes the `codex-profile` npm package on
   `v*` tag pushes (or manual dispatch), gated on `make test` and verifying the
   tag matches `package.json`, with npm provenance.
+- Release-drift guard: `make test` now asserts that `bin/codex-profile`'s
+  `VERSION` matches `package.json` (which already had to match the docs
+  `softwareVersion`), so a version bump can't ship a CLI that reports a stale
+  version. Added `doctor` happy-path and `upgrade` missing-Makefile test cases.
 
 ### Changed
 
@@ -19,6 +23,10 @@ and this project follows semantic versioning for tagged releases.
   conventions: dropped the obsolete `instructions.md` and
   `custom-instructions.md` entries, leaving `config.toml` and the global
   `AGENTS.md` (Codex consolidated global user instructions onto `AGENTS.md`).
+- `app` and `app-instance` now fail with a clear "only available on macOS"
+  message on non-macOS systems instead of a Codex-path "not found" error.
+- `help` is now listed in `codex-profile help` output, and the README
+  Platform Support list includes `version` and `help`.
 
 ## 0.3.0 - 2026-06-30
 

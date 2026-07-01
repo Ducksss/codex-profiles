@@ -1231,6 +1231,50 @@ FAKE_MAKEFILE
   rm -rf "$tmp"
 }
 
+test_upgrade_refuses_checkout_missing_makefile() {
+  local tmp repo cache prefix
+  tmp="$(mktemp -d)"
+  repo="$tmp/repo"
+  cache="$tmp/cache/source"
+  prefix="$tmp/prefix"
+  mkdir -p "$repo/bin"
+  init_git_main_branch "$repo"
+  cat > "$repo/bin/codex-profile" <<'FAKE_PROFILE'
+#!/usr/bin/env bash
+VERSION="9.9.9"
+printf 'codex-profile %s\n' "$VERSION"
+FAKE_PROFILE
+  chmod 755 "$repo/bin/codex-profile"
+  git -C "$repo" add .
+  git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "no makefile" >/dev/null
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+
+  assert_status 1
+  assert_contains "Upgrade checkout is missing Makefile"
+  [[ ! -e "$prefix/bin/codex-profile" ]] || fail "upgrade installed despite missing Makefile"
+
+  rm -rf "$tmp"
+}
+
+test_doctor_reports_desktop_and_cli_when_present() {
+  local tmp fake_codex
+  tmp="$(mktemp -d)"
+  fake_codex="$tmp/codex"
+  write_fake_codex "$fake_codex"
+  mkdir -p "$tmp/home/.codex-personal"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" CODEX_APP_BIN=/bin/echo "$SCRIPT" doctor
+
+  assert_status 0
+  assert_contains "Desktop: /bin/echo"
+  assert_contains "CLI: $fake_codex"
+  assert_contains "fake-codex 1.0"
+  assert_contains "login status"
+
+  rm -rf "$tmp"
+}
+
 test_clone_config_copies_safe_files_and_never_auth_files() {
   local tmp source_home target_home
   tmp="$(mktemp -d)"
@@ -1357,6 +1401,7 @@ test_app_instance_rebuilds_clone_with_missing_bundle_metadata
 test_app_instance_rebuilds_clone_with_stale_bundle_identifier
 test_app_instance_rebuilds_clone_with_incompatible_bundle_name
 test_doctor_skips_status_when_cli_missing
+test_doctor_reports_desktop_and_cli_when_present
 test_init_creates_private_profile_home_without_codex
 test_remove_aborts_when_confirmation_does_not_match
 test_remove_yes_deletes_profile_home
@@ -1375,6 +1420,7 @@ test_upgrade_installs_commit_sha_ref_on_fresh_cache
 test_upgrade_refuses_dirty_cached_checkout
 test_upgrade_refuses_to_install_older_version
 test_upgrade_refuses_unversioned_candidate
+test_upgrade_refuses_checkout_missing_makefile
 test_clone_config_copies_safe_files_and_never_auth_files
 test_clone_config_refuses_sensitive_looking_config
 test_clone_config_refuses_symlinked_config_files
