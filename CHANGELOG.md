@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.4.1 - 2026-07-01
+
 ### Added
 
 - In-shell activation. `env <profile>` prints shell code (`export CODEX_HOME=...`,
