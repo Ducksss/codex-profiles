@@ -29,6 +29,12 @@ active next actions; use this file as the grep-friendly duplicate guard.
 - <https://github.com/aswsub/awesome-tools/issues/4>
 - <https://github.com/ysdy823/awesome-devtools/issues/4>
 
+## Converted After Maintainer Approval
+
+- <https://github.com/ishandutta2007/Awesome-CLI-Coding-Agents/issues/2>
+  converted to
+  <https://github.com/ishandutta2007/Awesome-CLI-Coding-Agents/pull/3>.
+
 ## Skipped Existing Exact Ducksss Outreach
 
 These were found during the duplicate audit and were not contacted again.

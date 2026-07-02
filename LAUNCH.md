@@ -328,7 +328,7 @@ pass through the template-compliance gate.
 | Awesome AI Coding by dimaad5017-dotcom | Issue open on 2026-06-30 | <https://github.com/dimaad5017-dotcom/awesome-ai-coding/issues/1> | Wait for maintainer scope confirmation; if approved, follow `CONTRIBUTING.md`. |
 | Awesome AI Coding Tools by jessciazhang329 | Issue open on 2026-06-30 | <https://github.com/jessciazhang329/awesome-ai-coding-tools/issues/1> | Wait for maintainer scope confirmation. |
 | Awesome AI Coding KR by hgko1207 | Issue open on 2026-06-30 | <https://github.com/hgko1207/awesome-ai-coding-kr/issues/1> | Wait for maintainer scope confirmation. |
-| Awesome CLI Coding Agents by ishandutta2007 | Issue open on 2026-07-01 | <https://github.com/ishandutta2007/Awesome-CLI-Coding-Agents/issues/2> | Wait for maintainer scope confirmation. |
+| Awesome CLI Coding Agents by ishandutta2007 | PR open on 2026-07-02 after maintainer approved issue #2 | <https://github.com/ishandutta2007/Awesome-CLI-Coding-Agents/pull/3> | Monitor PR #3; original scope-check issue is <https://github.com/ishandutta2007/Awesome-CLI-Coding-Agents/issues/2>. |
 | Awesome Vibe Coding by dereknguyen269 | Issue open on 2026-07-01 | <https://github.com/dereknguyen269/awesome-vibe-coding/issues/1> | Wait for maintainer scope confirmation. |
 | Awesome Vibe Coding by mrmcduff | Issue open on 2026-07-01 | <https://github.com/mrmcduff/awesome-vibe-coding/issues/1> | Wait for maintainer scope confirmation; if approved, follow `CONTRIBUTING.md`. |
 | Awesome Code Agents by liu-yang-maker | Issue open on 2026-07-01 | <https://github.com/liu-yang-maker/awesome-code-agents/issues/1> | Wait for maintainer scope confirmation. |
@@ -445,6 +445,9 @@ Keep this list compact. Full dated notes are archived.
   <https://github.com/ysdy823/awesome-devtools/issues/4>. Duplicate-guard
   evidence and skipped exact-match prior outreach are archived in
   [`archive/outreach-duplicate-guard-2026-07-01.md`](archive/outreach-duplicate-guard-2026-07-01.md).
+  Follow-up: the ishandutta2007 issue was approved and converted to PR
+  <https://github.com/ishandutta2007/Awesome-CLI-Coding-Agents/pull/3> on
+  2026-07-02.
 - 2026-06-30, 10-repo GitHub issue-first outreach wave: opened scope-check
   issues with no PRs and no directory submissions after checking the live
   ledger, archive, and exact GitHub duplicate terms `codex-profiles`,
