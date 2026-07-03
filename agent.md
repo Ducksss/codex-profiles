@@ -134,6 +134,40 @@ Avoid:
 - Do not send DMs, manipulate stars, request votes, mass-comment, or post the
   same generic pitch across multiple targets.
 
+## Email Outreach Style
+
+For email-only submissions or maintainer requests, use short contextual
+outreach modeled on:
+
+```text
+Hi [Name/team],
+
+Saw [specific thing about their project/directory]. codex-profiles may fit:
+[one sentence tying the project to their audience].
+
+Curious if this fits [their catalog/list/community]?
+
+[2-3 concrete links max]
+
+-
+Chai, maintainer @ codex-profile
+
+Gentle note: This is a one-time email to get your optional opinion/listing
+review. If you don't want further communication emails, just reply unsubscribe.
+I won't add you to any list, and this contact note will be deleted in 7 days if
+there is no reply.
+```
+
+- Keep it human and concise: no long product dumps or generic sales copy.
+- Lead with a real, target-specific observation: "Saw your work on..." or
+  "Saw [directory] curating...".
+- Ask for optional opinion or fit review, not votes, stars, or promotion.
+- Include a human signature. Never invent a company, role, affiliation, postal
+  address, or legal footer.
+- Include a postal address only if this repository explicitly configures one.
+- Leave outbound email drafts unsent unless the current task explicitly asks
+  to send that exact email.
+
 ## PR Body Template
 
 Use this as a starting point and tailor it to the target repository:
@@ -170,6 +204,18 @@ For every candidate considered, update `LAUNCH.md` with:
 
 Preserve existing `LAUNCH.md` history. Add new entries under the most relevant
 section, and do not remove prior notes.
+
+## Airtable Ledger
+
+When Airtable records exist for outreach targets, treat Airtable as the durable
+ledger. Preserve platform records even when a target is blocked, skipped,
+submitted, or later needs a major update.
+
+For every meaningful outreach change, update the existing target row instead of
+creating a duplicate. Keep `Status`, `Last Checked`, `Next Action`, and `Notes`
+current, and append a log entry with the exact outcome, blocker or reason, and
+relevant URL. If payment, login, CAPTCHA, OAuth, policy mismatch, or broken site
+behavior blocks a submission, leave the record in place and log that reason.
 
 ## Durable State
 
