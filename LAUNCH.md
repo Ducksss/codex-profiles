@@ -222,14 +222,14 @@ Update rule:
 
 | Priority | Target | Last ledger status | Link | Next action |
 | - | - | - | - | - |
-| P0 | Awesome Codex CLI | Replacement PR open on 2026-06-02 | <https://github.com/RoggeOhta/awesome-codex-cli/pull/40> | Monitor; respond only to maintainer feedback. |
-| P0 | CLIhub | PR open on 2026-06-02 | <https://github.com/clihub-ai/clihub/pull/4> | Monitor registry review; preserve schema/tests if changes are requested. |
-| P0 | Awesome Agentic Coding CLI | PR open on 2026-06-02 | <https://github.com/yubing744/awesome-agentic-coding-cli/pull/3> | Monitor; do not use this as a template for broad list PRs. |
-| P0 | Awesome CLI Apps in a CSV | PR open on 2026-06-02 | <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267> | Monitor structured CSV submission. |
+| P0 | Awesome Codex CLI | PR open and clean on 2026-07-06 after 2026-07-01 bump | <https://github.com/RoggeOhta/awesome-codex-cli/pull/40> | Monitor; respond only to maintainer feedback. |
+| P0 | CLIhub | PR open and clean on 2026-07-06 | <https://github.com/clihub-ai/clihub/pull/4> | Monitor registry review; no bump without maintainer activity. |
+| P0 | Awesome Agentic Coding CLI | PR open and clean on 2026-07-06 after 2026-07-01 bump | <https://github.com/yubing744/awesome-agentic-coding-cli/pull/3> | Monitor; do not use this as a template for broad list PRs. |
+| P0 | Awesome CLI Apps in a CSV | PR open and clean on 2026-07-06 after conflict fix | <https://github.com/toolleeo/awesome-cli-apps-in-a-csv/pull/267> | Monitor structured CSV submission. |
 | P0 | OpenAI Developer Community | Existing Codex / Codex CLI topic reverified by forum search on 2026-06-11 | <https://community.openai.com/t/codex-profiles-switch-codex-accounts-without-copying-auth-json/1380415> | Monitor replies; do not repost duplicate topic. |
 | P1 | Hacker News Show HN | Submit attempt and same-day retry reached HN temporary Show HN restriction page on 2026-06-11 | <https://news.ycombinator.com/showlim> | Retry only after account/community readiness; do not bypass restriction. |
 | P1 | Product Hunt | Launch draft fully prepared on 2026-06-23; scheduling the Jun 24 launch returned a Product Hunt 403 after confirmation | <https://www.producthunt.com/posts/new/submission> | Finish scheduling manually in the open browser tab or retry once Product Hunt clears the 403; avoid duplicate listing. |
-| P1 | Unikorn.vn | Product submitted on 2026-06-24; Unikorn shows `codex-profiles` pending AI/manual review after accepting logo, screenshots, category, tags, tech stack, and GitHub link | <https://unikorn.vn/p/codex-profiles> | Monitor approval notification or profile page; publish the public link after approval. |
+| P1 | Unikorn.vn | Listed on 2026-07-02; URL redirected to site maintenance on 2026-07-06 | <https://unikorn.vn/p/codex-profiles> | Recheck after maintenance clears; do not resubmit blindly. |
 | P1 | OpenAgent.bot | No exact-name listing found in sitemap on 2026-06-22 after 2026-06-02 submission | <https://www.openagent.bot/submit/> | Wait for editorial review or contact response; do not resubmit blindly. |
 | P1 | CLIHunt | No exact-name listing found on homepage on 2026-06-22 after 2026-06-02 submission | <https://clihunt.dev/> | Wait or contact before duplicate submission. |
 | P2 | ToolHunter | Draft deferred on 2026-06-02 | <https://toolhunter.ai/submit-a-tool> | Resume only with an approved project contact email. |
@@ -335,6 +335,8 @@ No current action unless a listed link breaks or a maintainer requests changes.
   <https://github.com/yeaight7/awesome-ai-devtools/pull/11>, and
   <https://github.com/adriannoes/awesome-vibe-coding/pull/4>. The related
   yeaight7 issue #8 and adriannoes issue #3 are closed as completed.
+- Verified accepted/listed on 2026-07-06:
+  <https://github.com/ishandutta2007/Awesome-CLI-Coding-Agents/pull/3>.
 - Closed or declined items, skipped targets, rejected fits, and detailed
   validation logs are archived in
   [`archive/launch-ledger-history.md`](archive/launch-ledger-history.md).
@@ -366,6 +368,15 @@ Current backlog posture:
 
 Keep this list compact. Full dated notes are archived.
 
+- 2026-07-06, Airtable-ledger reconciliation: updated 19 target rows and
+  appended 19 log records in Airtable. Rechecked 7 P0/P1 PRs, moved
+  <https://github.com/ishandutta2007/Awesome-CLI-Coding-Agents/pull/3> to
+  listed after merge, kept 2 issue-first rows open, found no exact public
+  listings yet for Terminal Trove, Changelog News, CLIHunt, or OpenAgent.bot,
+  and deferred the top 5 startup-profile backlog candidates because they
+  require truthful startup/company or geography claims not supplied here.
+  External submissions, comments, social posts, emails, payments, and account
+  creations: 0.
 - 2026-06-22, 15-repo issue-first outreach wave: opened scope-check issues
   with no PRs and no directory submissions. Targets had issues enabled, no
   visible issue templates, and no duplicate `codex-profile(s)` issue/PR history
