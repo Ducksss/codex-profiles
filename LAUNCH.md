@@ -379,6 +379,13 @@ Current backlog posture:
 
 Keep this list compact. Full dated notes are archived.
 
+- 2026-07-06, full monitoring-only reconciliation: checked 45 `PR Open`
+  rows, 71 `Issue Open` rows, 7 `Pending Review` rows, and requalified 9
+  `Backlog` rows. Outcomes: wins 0; declines/deferred 2 closed issues
+  (1 `Declined`, 1 `Deferred`); blocked/dead rows 10 (1 missing GitHub repo
+  plus 9 non-ICP startup/regional/ecosystem backlog rows); still open 45 PRs
+  and 68 issues; pending reviews still 7; Airtable updates/logs 120 each;
+  external actions 0.
 - 2026-07-06, lead-qualification cleanup: Airtable moved 95 startup, venture,
   accelerator, regional ecosystem, funding/media, and generic startup/listing
   surfaces to `Dead` with `ICP: no` notes, `Last Checked = 2026-07-06`, and 95
