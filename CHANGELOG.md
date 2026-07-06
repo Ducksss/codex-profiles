@@ -9,6 +9,10 @@ and this project follows semantic versioning for tagged releases.
 
 ### Added
 
+- Airtable-first GitHub lead workflow instructions for the outreach agent,
+  including repository-first qualification, ICP/truthfulness gates,
+  approval-gated external actions, pipeline views, and a regression test that
+  keeps `agent.md` aligned with the workflow.
 - Additional install channels: a `curl | sh` installer (`install.sh`, fetches
   the latest release into `~/.local/bin`), a Nix flake
   (`nix run github:Ducksss/codex-profiles`), and an AUR `PKGBUILD` under

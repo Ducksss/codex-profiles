@@ -12,6 +12,12 @@ public feedback loops.
   Prefer issue-first unless the target is Codex-specific, explicitly requests
   Codex CLI/Desktop workflow tooling, or has a structured registry/package
   format.
+- Lead qualification gate: treat `codex-profiles` as an open-source developer
+  CLI/Codex workflow tool, not a startup. Startup maps, founder directories,
+  accelerator databases, investor networks, regional startup ecosystems, and
+  generic launch boards stay out of active outreach unless they have a concrete
+  developer-tool category that fits without unsupported company, geography, or
+  funding claims.
 - Before any PR or issue-to-PR conversion, follow the template-compliance gate
   below and record the inspected paths/checks in this ledger.
 - Treat every "last ledger status" row as stale until reverified with GitHub
@@ -203,6 +209,11 @@ Update rule:
 
 ### Current Policy Gates
 
+- Airtable is the source of truth. `LAUNCH.md` is a compact handoff after the
+  Airtable `Targets` and append-only `Log` records are current.
+- Before any outreach, record an ICP decision. Keep `Backlog` only for clear
+  `ICP: yes` targets, use `Deferred` for temporary blockers or strong
+  `ICP: maybe` targets, and use `Dead` for permanent non-ICP mismatches.
 - Broad awesome-list PRs remain paused after Taskade declined PR #22 on
   2026-06-02 and cited the pattern of near-identical `Add codex-profiles` PRs.
 - Direct PRs are allowed only when the target is Codex-specific, explicitly
@@ -368,6 +379,15 @@ Current backlog posture:
 
 Keep this list compact. Full dated notes are archived.
 
+- 2026-07-06, lead-qualification cleanup: Airtable moved 95 startup, venture,
+  accelerator, regional ecosystem, funding/media, and generic startup/listing
+  surfaces to `Dead` with `ICP: no` notes, `Last Checked = 2026-07-06`, and 95
+  matching `lead-qualification` log records. P0/P1 `Backlog` is now 0. The
+  remaining P0/P1 `Deferred` rows are not active outreach; they require a
+  confirmed developer-tool category, useful technical content, owner login, a
+  free path, or maintainer/admin approval before any action. Open monitoring
+  remains 45 PRs and 71 issues in Airtable. New PRs, issues, listings,
+  comments, emails, social posts, payments, and account creations: 0.
 - 2026-07-06, Airtable-ledger reconciliation: updated 19 target rows and
   appended 19 log records in Airtable. Rechecked 7 P0/P1 PRs, moved
   <https://github.com/ishandutta2007/Awesome-CLI-Coding-Agents/pull/3> to

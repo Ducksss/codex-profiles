@@ -6,9 +6,10 @@ Run a developer-cred distribution pass for
 <https://github.com/Ducksss/codex-profiles>.
 
 Find genuinely relevant GitHub repositories, curated lists, directories, and
-developer-tool catalogs where `codex-profiles` belongs. Open high-quality PRs,
-issues, listing requests, or maintainer requests whenever the fit is clear and
-the target's contribution rules allow it.
+developer-tool catalogs where `codex-profiles` belongs. Qualify repository-first
+leads, keep Airtable current, and draft high-quality PRs, issues, listing
+requests, or maintainer requests whenever the fit is clear and the target's
+contribution rules allow it.
 
 ## Project Context
 
@@ -31,7 +32,7 @@ closed PR that needs a replacement.
 
 ## Run Preconditions
 
-Before researching or submitting anything:
+Before researching or drafting anything:
 
 - Verify `agent.md`, `README.md`, and `LAUNCH.md` exist in the repository root.
 - Run `git status --porcelain=v1 --branch` and record the branch in the final
@@ -44,6 +45,148 @@ Before researching or submitting anything:
 - Reconcile existing `LAUNCH.md` PR and issue links before discovering new
   targets.
 
+## Airtable Source Of Truth
+
+Use the existing `Codex Profile` Airtable base as the durable operating ledger.
+Do not create a new base, table, CRM, spreadsheet, or side ledger for this
+workflow.
+
+- Targets stays the main pipeline table.
+- Log stays append-only history.
+- Merge Queue handles dedupe conflicts.
+- Bots coordinates automation claims.
+
+Primary lead unit: repository.
+Primary close: accepted listing/PR.
+
+Automation may research, score, dedupe, update Airtable, and draft artifacts.
+Do not submit, open, post, comment, email, DM, or otherwise contact externally
+without explicit approval for that exact action.
+
+For every meaningful outreach change, update the existing target row instead of
+creating a duplicate. Keep `Status`, `Last Checked`, `Next Action`, and `Notes`
+current, then append a `Log` record with the exact outcome, blocker or reason,
+and relevant URL. Preserve records even when a target is blocked, skipped,
+submitted, or later needs a major update.
+
+## Airtable Field Contract
+
+- `Targets.Key`: deterministic slug such as `gh-owner-repo`,
+  `awesome-owner-repo`, or `if-owner-repo`.
+- `Targets.Channel`: reuse existing choices, including `Awesome-List PR`,
+  `Issue-First`, `Directory`, `Forum`, `Web`, and `Manual/Gated`.
+- `Targets.Status`: use `Backlog -> Issue Open/PR Open -> Pending Review ->
+  Listed`, or terminal `Declined`, `Deferred`, or `Dead`.
+- `Targets.Priority`: `P0` for direct Codex, agent, or CLI listing fit; `P1`
+  for likely Codex or `CODEX_HOME` workflow fit; `P2` for broader devtool
+  visibility.
+- `Log.Workflow`: use stable labels such as `lead-qualification`,
+  `github-lead-gen`, `closing`, and `monitoring`.
+
+## Lead Qualification Gate
+
+Treat `codex-profiles` as an open-source developer CLI and Codex workflow tool,
+not a startup, company, SaaS launch, accelerator applicant, or fundraising
+story. Qualification is the first step before any drafting or outreach.
+
+ICP fit:
+
+- Codex, OpenAI Codex, AI coding agent, CLI, terminal, shell, package,
+  developer workflow, and open-source devtool catalogs.
+- Developer communities, technical publications, and newsletters with clear
+  devtool coverage where the submission can be useful rather than promotional.
+
+Maybe ICP:
+
+- Broad AI, product, or developer-tool directories with a free structured
+  category that can truthfully list an open-source CLI utility.
+- Ambiguous awesome lists or media targets where an issue-first scope check is
+  appropriate before any PR.
+
+Not ICP:
+
+- Startup maps, founder directories, accelerator or incubator databases,
+  investor networks, funding or venture media, regional startup ecosystems,
+  startup event calendars, fintech/startup verticals, generic launch boards
+  without a developer-tool category, paid placement, CAPTCHA/OAuth/account-only
+  submissions, and social-post-only channels.
+
+Truthfulness gate:
+
+- Skip anything requiring claims about funding, incorporation, traction,
+  geography, team/company status, customer counts, founder identity, regional
+  eligibility, or paid sponsorship unless those claims are already documented.
+- Do not invent a company, startup, region, market, customer story, or use case
+  to force a listing fit.
+
+Airtable status rule:
+
+- Keep `Backlog` only for `ICP: yes` targets with a concrete next action.
+- Use `Deferred` for `ICP: maybe` targets, temporary blockers, account-gated
+  flows, payment uncertainty, CAPTCHA/OAuth, or issue-first-only cases.
+- Use `Dead` for permanent `ICP: no` mismatches, especially startup, venture,
+  accelerator, regional ecosystem, and unsupported company/geography targets.
+
+For every qualification decision, update `Status`, `Last Checked`,
+`Next Action`, and `Notes` with `ICP: yes`, `ICP: maybe`, or `ICP: no`, plus
+the evidence and truthful-fit rationale. Then append a `Log` entry using
+workflow `lead-qualification`. No new outreach may start until this gate passes.
+
+## GitHub Lead Workflow
+
+Lead generation searches GitHub for repository-first sources: Codex CLI,
+`CODEX_HOME`, AI agent CLI lists, awesome lists, Codex skills and resources,
+CLI devtool directories, and repositories discussing multi-account or profile
+workflows.
+
+Qualification checks fit against current `codex-profiles` positioning:
+isolated `CODEX_HOME` profiles, multiple Codex accounts or contexts, CLI and
+Desktop support, no auth-token copying, not an official OpenAI project, and not
+full OS isolation.
+
+A target becomes actionable only when it has evidence, a valid contribution or
+listing route, no duplicate open PR or issue, and a concrete `Next Action`.
+
+Closing path:
+
+- Clear awesome-list fit: draft a PR.
+- Ambiguous scope: draft an issue first.
+- Directory: draft only if guidelines allow CLI/devtool projects; submit only
+  after explicit approval.
+- Forum, social, or manual/gated target: draft only and hold for approval.
+
+Monitoring rechecks open PRs and issues, updates `Last Checked`, appends `Log`,
+and avoids duplicate comments unless there is new information and explicit
+approval to comment.
+
+## Pipeline Views
+
+Use these operational views when triaging Airtable:
+
+- Today: `P0` or `P1` targets in `Backlog` or `Active` with a concrete next
+  action.
+- Waiting: `Issue Open`, `PR Open`, and `Pending Review`, sorted by oldest
+  `Last Checked`.
+- Wins: `Listed` or `Owned?` checked.
+- Suppressed: `Deferred`, `Declined`, and `Dead`.
+- Dedupe: pending `Merge Queue` records.
+
+## Workflow Checks
+
+Every run must satisfy these scenarios:
+
+- Duplicate repo discovered: no new `Target`; append `Log` or route to
+  `Merge Queue`.
+- Existing open PR found outside Airtable: reconcile to one `Target`, set
+  status `PR Open`, and log the source.
+- Awesome list has a matching section and contribution pattern: mark `P0` and
+  draft the PR.
+- Repo scope is ambiguous: use `Issue-First`; no PR until maintainer confirms.
+- Directory rejects CLIs/scripts: mark `Deferred` with a source note.
+- Forum or social target: draft only; no external post.
+- PR merged/listing accepted: status `Listed`, log `Listed`, and clear the next
+  action unless follow-up is required.
+
 ## Monthly Operating Mode
 
 This automation runs monthly. Treat each run as a quality and follow-up pass,
@@ -54,33 +197,25 @@ At the start of every run:
 - Check the state of all PRs and issues already recorded in `LAUNCH.md`.
 - Update merged, closed, stale, replied-to, or blocked entries before looking
   for new targets.
-- If 15 or more submitted PRs are still open, do not open more than one new
-  PR or issue unless the new target is Codex-specific and clearly high-signal.
-- Otherwise, cap new PRs/issues/listing requests at three per run.
+- If 15 or more submitted PRs are still open, do not draft more than one new PR
+  or issue unless the new target is Codex-specific and clearly high-signal.
+- Otherwise, cap new draft PRs, issues, or listing requests at three per run.
 - Prefer maintainer follow-up, status cleanup, and eligibility revisits over
   expanding into weak directories.
 
-## Autonomy
+## Automation Authority
 
-You have full execution authority for this distribution pass. Do not ask the
-project owner for permission before opening PRs, issues, listing requests, or
-similar submissions that satisfy this file's quality bar.
+You have full internal execution authority for this distribution pass: research,
+read repositories, inspect rules, score fit, dedupe, draft artifacts, and update
+Airtable or repo-local ledgers.
 
 Use available authenticated GitHub CLI access, GitHub API access, browser
 sessions, local credentials, and repository permissions that are already
-configured in the environment. Do not print, copy, or expose secrets.
+configured in the environment for read-only research and drafting. Do not print,
+copy, or expose secrets.
 
 Use subagents freely for parallel repository discovery, fit checks,
-contribution-rule review, implementation, validation, and final reporting.
-
-Act without waiting for manual approval when:
-
-- The repository is clearly relevant.
-- The contribution rules allow a direct PR or issue.
-- The edit is small, truthful, and consistent with the target repository.
-- Any required validation can be run locally.
-- A listing, issue, PR, or request can be submitted through already available
-  authenticated access.
+contribution-rule review, drafting, validation, and final reporting.
 
 Defer when:
 
@@ -95,8 +230,8 @@ Defer when:
   authenticated session.
 
 When contribution rules are ambiguous but the repository is relevant, make a
-best-effort judgment. Prefer opening an issue over a PR for borderline cases,
-and document the rationale in `LAUNCH.md`.
+best-effort judgment. Prefer drafting an issue over drafting a PR for borderline
+cases, and document the rationale in Airtable and `LAUNCH.md`.
 
 ## Candidate Priorities
 
@@ -110,6 +245,9 @@ Prioritize:
 
 Avoid:
 
+- Startup, founder, venture, accelerator, investor, funding, regional ecosystem,
+  and generic launch-board surfaces unless they have a concrete developer-tool
+  category that fits without unsupported claims.
 - Generic or low-quality lists submitted only for backlinks.
 - Unmaintained repositories unless they are highly relevant and still accept
   submissions.
@@ -118,14 +256,15 @@ Avoid:
 
 ## Submission Rules
 
-- Only open a PR when `codex-profiles` clearly fits the repository scope and
+- Only draft a PR when `codex-profiles` clearly fits the repository scope and
   contribution rules.
-- If contribution rules ask for an issue first, open an issue instead of a PR.
+- If contribution rules ask for an issue first, draft an issue instead of a PR.
 - If eligibility is not met, skip it and document why in `LAUNCH.md`.
 - Keep every edit minimal and consistent with the target repository's style.
-- Validate structured files before opening a PR, especially CSV, JSON, YAML,
+- Validate structured files before preparing a PR, especially CSV, JSON, YAML,
   Markdown tables, or generated indexes.
-- Use GitHub CLI if available to fork, branch, push, and open PRs.
+- Use GitHub CLI if available to prepare forks, branches, commits, and PR drafts
+  after approval. Do not push or open external PRs before approval.
 - Use branch name `pinzheng/add-codex-profiles` unless a collision requires a
   suffix.
 - Use direct PR titles, usually `Add codex-profiles`.
@@ -190,7 +329,8 @@ Repo: https://github.com/Ducksss/codex-profiles
 
 ## Required Logging
 
-For every candidate considered, update `LAUNCH.md` with:
+For every candidate considered, update Airtable first. `LAUNCH.md` is only a
+compact handoff after Airtable is current. The final handoff should include:
 
 - Repository or channel URL.
 - Status: `PR opened`, `issue opened`, `merged`, `closed`, `not eligible`,
@@ -204,18 +344,6 @@ For every candidate considered, update `LAUNCH.md` with:
 
 Preserve existing `LAUNCH.md` history. Add new entries under the most relevant
 section, and do not remove prior notes.
-
-## Airtable Ledger
-
-When Airtable records exist for outreach targets, treat Airtable as the durable
-ledger. Preserve platform records even when a target is blocked, skipped,
-submitted, or later needs a major update.
-
-For every meaningful outreach change, update the existing target row instead of
-creating a duplicate. Keep `Status`, `Last Checked`, `Next Action`, and `Notes`
-current, and append a log entry with the exact outcome, blocker or reason, and
-relevant URL. If payment, login, CAPTCHA, OAuth, policy mismatch, or broken site
-behavior blocks a submission, leave the record in place and log that reason.
 
 ## Durable State
 
