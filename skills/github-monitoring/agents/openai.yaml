@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Monitoring"
+  short_description: "Monitor GitHub outreach outcomes"
+  default_prompt: "Use $github-monitoring to reconcile open GitHub PRs and issues for codex-profiles."

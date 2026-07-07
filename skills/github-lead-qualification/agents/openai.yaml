@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Lead Qualification"
+  short_description: "Qualify GitHub leads for codex-profiles"
+  default_prompt: "Use $github-lead-qualification to qualify Airtable GitHub leads for codex-profiles."

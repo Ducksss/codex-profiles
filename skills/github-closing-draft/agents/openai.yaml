@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Closing Draft"
+  short_description: "Draft approved GitHub outreach assets"
+  default_prompt: "Use $github-closing-draft to draft PRs, issues, or listing copy for qualified codex-profiles leads."

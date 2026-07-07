@@ -18,6 +18,7 @@ test:
 	bash -n test/codex-profile-test.sh
 	sh -n install.sh
 	node test/geo-site-test.mjs
+	node test/github-pipeline-skills-test.mjs
 	node test/outreach-agent-test.mjs
 	bin/codex-profile help >/dev/null
 	bash test/codex-profile-test.sh

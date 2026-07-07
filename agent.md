@@ -87,29 +87,9 @@ submitted, or later needs a major update.
 
 Treat `codex-profiles` as an open-source developer CLI and Codex workflow tool,
 not a startup, company, SaaS launch, accelerator applicant, or fundraising
-story. Qualification is the first step before any drafting or outreach.
-
-ICP fit:
-
-- Codex, OpenAI Codex, AI coding agent, CLI, terminal, shell, package,
-  developer workflow, and open-source devtool catalogs.
-- Developer communities, technical publications, and newsletters with clear
-  devtool coverage where the submission can be useful rather than promotional.
-
-Maybe ICP:
-
-- Broad AI, product, or developer-tool directories with a free structured
-  category that can truthfully list an open-source CLI utility.
-- Ambiguous awesome lists or media targets where an issue-first scope check is
-  appropriate before any PR.
-
-Not ICP:
-
-- Startup maps, founder directories, accelerator or incubator databases,
-  investor networks, funding or venture media, regional startup ecosystems,
-  startup event calendars, fintech/startup verticals, generic launch boards
-  without a developer-tool category, paid placement, CAPTCHA/OAuth/account-only
-  submissions, and social-post-only channels.
+story. Use the repo-local GitHub Lead Qualification skill at
+`skills/github-lead-qualification` for ICP fit, Maybe ICP, Not ICP, and
+Truthfulness gate decisions.
 
 Truthfulness gate:
 
@@ -119,45 +99,28 @@ Truthfulness gate:
 - Do not invent a company, startup, region, market, customer story, or use case
   to force a listing fit.
 
-Airtable status rule:
-
-- Keep `Backlog` only for `ICP: yes` targets with a concrete next action.
-- Use `Deferred` for `ICP: maybe` targets, temporary blockers, account-gated
-  flows, payment uncertainty, CAPTCHA/OAuth, or issue-first-only cases.
-- Use `Dead` for permanent `ICP: no` mismatches, especially startup, venture,
-  accelerator, regional ecosystem, and unsupported company/geography targets.
-
-For every qualification decision, update `Status`, `Last Checked`,
-`Next Action`, and `Notes` with `ICP: yes`, `ICP: maybe`, or `ICP: no`, plus
-the evidence and truthful-fit rationale. Then append a `Log` entry using
-workflow `lead-qualification`. No new outreach may start until this gate passes.
+No closing draft or external action may start until Airtable records an
+`ICP: yes` decision from the qualification phase. Keep Airtable as the handoff;
+chat context is disposable.
 
 ## GitHub Lead Workflow
 
-Lead generation searches GitHub for repository-first sources: Codex CLI,
-`CODEX_HOME`, AI agent CLI lists, awesome lists, Codex skills and resources,
-CLI devtool directories, and repositories discussing multi-account or profile
-workflows.
+Run the GitHub pipeline as four small phase contexts. Each phase writes its
+handoff to Airtable through `Targets.Next Action` and an append-only `Log`
+record.
 
-Qualification checks fit against current `codex-profiles` positioning:
-isolated `CODEX_HOME` profiles, multiple Codex accounts or contexts, CLI and
-Desktop support, no auth-token copying, not an official OpenAI project, and not
-full OS isolation.
+- Use the repo-local GitHub Lead Gen skill at `skills/github-lead-gen` for
+  candidate discovery and shallow Airtable intake.
+- Use the repo-local GitHub Lead Qualification skill at
+  `skills/github-lead-qualification` for ICP, status, priority, evidence, and
+  next-action decisions.
+- Use the repo-local GitHub Closing Draft skill at `skills/github-closing-draft`
+  for PR, issue, listing, forum, or maintainer-request drafts.
+- Use the repo-local GitHub Monitoring skill at `skills/github-monitoring` for
+  existing PR, issue, listing, and submitted-target rechecks.
 
-A target becomes actionable only when it has evidence, a valid contribution or
-listing route, no duplicate open PR or issue, and a concrete `Next Action`.
-
-Closing path:
-
-- Clear awesome-list fit: draft a PR.
-- Ambiguous scope: draft an issue first.
-- Directory: draft only if guidelines allow CLI/devtool projects; submit only
-  after explicit approval.
-- Forum, social, or manual/gated target: draft only and hold for approval.
-
-Monitoring rechecks open PRs and issues, updates `Last Checked`, appends `Log`,
-and avoids duplicate comments unless there is new information and explicit
-approval to comment.
+Do not collapse phases into one long context unless the user explicitly asks.
+Do not skip Airtable handoffs between phases.
 
 ## Pipeline Views
 
@@ -261,6 +224,9 @@ Avoid:
 - If contribution rules ask for an issue first, draft an issue instead of a PR.
 - If eligibility is not met, skip it and document why in `LAUNCH.md`.
 - Keep every edit minimal and consistent with the target repository's style.
+- Follow the target repository's contribution, branch, commit, PR title,
+  template, ordering, and validation conventions over this repository's
+  conventions.
 - Validate structured files before preparing a PR, especially CSV, JSON, YAML,
   Markdown tables, or generated indexes.
 - Use GitHub CLI if available to prepare forks, branches, commits, and PR drafts
