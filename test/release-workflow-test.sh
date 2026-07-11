@@ -9,6 +9,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$ROOT_DIR/.github/workflows/release.yml"
 PAGES_WORKFLOW="$ROOT_DIR/.github/workflows/pages.yml"
 MAKEFILE="$ROOT_DIR/Makefile"
+WORKFLOW_DIR="$ROOT_DIR/.github/workflows"
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
@@ -17,6 +18,19 @@ fail() {
   printf 'FAIL: %s\n' "$*" >&2
   exit 1
 }
+
+uses_count=0
+for workflow_file in "$WORKFLOW_DIR"/*.yml "$WORKFLOW_DIR"/*.yaml; do
+  [[ -f "$workflow_file" ]] || continue
+  while IFS= read -r uses_line; do
+    uses_ref="${uses_line#*uses: }"
+    if ! [[ "$uses_ref" =~ ^[^[:space:]@]+/[^[:space:]@]+@[0-9a-f]{40}[[:space:]]+#[[:space:]]v[0-9]+$ ]]; then
+      fail "workflow action must use a full immutable SHA with a version comment: ${workflow_file#"$ROOT_DIR/"}: $uses_ref"
+    fi
+    uses_count=$((uses_count + 1))
+  done < <(grep -E '^[[:space:]]*uses: ' "$workflow_file" || true)
+done
+[[ "$uses_count" -gt 0 ]] || fail "no workflow action references were checked"
 
 require_literal() {
   local literal="$1"
@@ -330,7 +344,7 @@ require_tag_publish_scenario race_same false success 1 1
 require_tag_publish_scenario race_different false failure 1 1
 require_tag_publish_scenario transient false failure 1 1
 
-publish_line="$(line_number 'npm publish --provenance --access public')"
+publish_line="$(line_number 'npm publish "$tarball" --provenance --access public')"
 npm_verify_line="$(line_number '      - name: Verify published npm package')"
 [[ "$publish_line" -lt "$npm_verify_line" ]] \
   || fail "npm verification must run after npm publication"
@@ -355,13 +369,17 @@ done
 
 npm_publish_block="$(step_block "Publish to npm")"
 for literal in \
+  'npm pack --json --pack-destination "$tmp"' \
+  'local_integrity' \
   'for attempt in {1..5}; do' \
   'npm view codex-profile versions --json' \
+  'npm view "codex-profile@$V" dist.integrity --json' \
   'versions.includes(version)' \
+  'registryIntegrity !== expectedIntegrity' \
   'npm_lookup_succeeded=true' \
   '[[ "$npm_lookup_succeeded" == "true" ]]' \
-  'npm_published_after_failure=true' \
-  'npm publish --provenance --access public'
+  'npm_artifact_verified_after_publish=true' \
+  'npm publish "$tarball" --provenance --access public'
 do
   grep -F -- "$literal" <<< "$npm_publish_block" >/dev/null \
     || fail "Publish to npm is missing fail-closed lookup contract: $literal"
@@ -374,31 +392,80 @@ cat > "$npm_fake_bin/npm" <<'FAKE_NPM'
 
 set -eu
 
+local_integrity='sha512-dGVzdC1jb2RleC1wcm9maWxl'
+
 case "${1:-}" in
+  pack)
+    printf '%s\n' 'pack' >> "$RELEASE_WORKFLOW_TEST_LOG"
+    shift
+    destination=''
+    while [ "$#" -gt 0 ]; do
+      if [ "$1" = '--pack-destination' ]; then
+        destination="$2"
+        shift 2
+      else
+        shift
+      fi
+    done
+    [ -n "$destination" ]
+    tarball="$destination/codex-profile-0.7.0.tgz"
+    printf '%s\n' 'fixture tarball' > "$tarball"
+    printf '[{"name":"codex-profile","version":"0.7.0","filename":"codex-profile-0.7.0.tgz","integrity":"%s"}]\n' \
+      "$local_integrity"
+    ;;
   view)
-    printf '%s\n' 'view' >> "$RELEASE_WORKFLOW_TEST_LOG"
-    case "$FAKE_NPM_SCENARIO" in
-      present) printf '%s\n' '["0.6.0", "0.7.0"]' ;;
-      absent) printf '%s\n' '["0.6.0"]' ;;
-      race)
-        view_count="$(grep -Fxc 'view' "$RELEASE_WORKFLOW_TEST_LOG")"
-        if [ "$view_count" -eq 1 ]; then
-          printf '%s\n' '["0.6.0"]'
-        else
+    if [ "${2:-}" = 'codex-profile' ] && [ "${3:-}" = 'versions' ]; then
+      printf '%s\n' 'view:versions' >> "$RELEASE_WORKFLOW_TEST_LOG"
+      case "$FAKE_NPM_SCENARIO" in
+        present|mismatch|malformed_integrity)
           printf '%s\n' '["0.6.0", "0.7.0"]'
-        fi
-        ;;
-      malformed) printf '%s\n' '{"unexpected":true}' ;;
-      transient)
-        printf '%s\n' 'npm error code E503' >&2
-        exit 1
-        ;;
-      *) exit 64 ;;
-    esac
+          ;;
+        absent|race)
+          if grep -Fqx 'publish' "$RELEASE_WORKFLOW_TEST_LOG"; then
+            printf '%s\n' '["0.6.0", "0.7.0"]'
+          else
+            printf '%s\n' '["0.6.0"]'
+          fi
+          ;;
+        malformed_versions)
+          printf '%s\n' '{"unexpected":true}'
+          ;;
+        transient)
+          printf '%s\n' 'npm error code E503' >&2
+          exit 1
+          ;;
+        *) exit 64 ;;
+      esac
+    elif [ "${2:-}" = 'codex-profile@0.7.0' ] && [ "${3:-}" = 'dist.integrity' ]; then
+      printf '%s\n' 'view:integrity' >> "$RELEASE_WORKFLOW_TEST_LOG"
+      case "$FAKE_NPM_SCENARIO" in
+        present|absent|race)
+          printf '"%s"\n' "$local_integrity"
+          ;;
+        mismatch)
+          printf '%s\n' '"sha512-ZGlmZmVyZW50LWFydGlmYWN0"'
+          ;;
+        malformed_integrity)
+          printf '%s\n' '{"unexpected":true}'
+          ;;
+        *) exit 64 ;;
+      esac
+    else
+      printf 'unexpected npm view invocation: %s\n' "$*" >&2
+      exit 64
+    fi
     ;;
   publish)
     printf '%s\n' 'publish' >> "$RELEASE_WORKFLOW_TEST_LOG"
-    [ "$FAKE_NPM_SCENARIO" != "race" ] || exit 1
+    [ -f "${2:-}" ] || {
+      printf 'publish did not receive the packed tarball: %s\n' "${2:-}" >&2
+      exit 65
+    }
+    case "$FAKE_NPM_SCENARIO" in
+      race) exit 1 ;;
+      absent) ;;
+      *) exit 64 ;;
+    esac
     ;;
   *)
     printf 'unexpected npm invocation: %s\n' "$*" >&2
@@ -418,9 +485,11 @@ npm_publish_script="$(step_script "Publish to npm")"
 require_npm_publish_scenario() {
   local scenario="$1"
   local expected_status="$2"
-  local expected_views="$3"
-  local expected_publishes="$4"
-  local expected_sleeps="$5"
+  local expected_packs="$3"
+  local expected_version_views="$4"
+  local expected_integrity_views="$5"
+  local expected_publishes="$6"
+  local expected_sleeps="$7"
   local log="$tmp_dir/npm-$scenario.log"
   local status
   local actual
@@ -441,9 +510,15 @@ require_npm_publish_scenario() {
     [[ "$status" -ne 0 ]] || fail "npm $scenario lookup unexpectedly succeeded"
   fi
 
-  actual="$(grep -Fxc 'view' "$log" || true)"
-  [[ "$actual" -eq "$expected_views" ]] \
-    || fail "npm $scenario lookup ran $actual time(s); expected $expected_views"
+  actual="$(grep -Fxc 'pack' "$log" || true)"
+  [[ "$actual" -eq "$expected_packs" ]] \
+    || fail "npm $scenario packed $actual time(s); expected $expected_packs"
+  actual="$(grep -Fxc 'view:versions' "$log" || true)"
+  [[ "$actual" -eq "$expected_version_views" ]] \
+    || fail "npm $scenario version lookup ran $actual time(s); expected $expected_version_views"
+  actual="$(grep -Fxc 'view:integrity' "$log" || true)"
+  [[ "$actual" -eq "$expected_integrity_views" ]] \
+    || fail "npm $scenario integrity lookup ran $actual time(s); expected $expected_integrity_views"
   actual="$(grep -Fxc 'publish' "$log" || true)"
   [[ "$actual" -eq "$expected_publishes" ]] \
     || fail "npm $scenario published $actual time(s); expected $expected_publishes"
@@ -452,23 +527,27 @@ require_npm_publish_scenario() {
     || fail "npm $scenario backoff ran $actual time(s); expected $expected_sleeps"
 }
 
-require_npm_publish_scenario present success 1 0 0
-require_npm_publish_scenario absent success 1 1 0
-require_npm_publish_scenario transient failure 5 0 4
-require_npm_publish_scenario malformed failure 5 0 4
-require_npm_publish_scenario race success 2 1 0
+require_npm_publish_scenario present success 1 1 1 0 0
+require_npm_publish_scenario absent success 1 2 1 1 0
+require_npm_publish_scenario race success 1 2 1 1 0
+require_npm_publish_scenario transient failure 1 5 0 0 4
+require_npm_publish_scenario malformed_versions failure 1 5 0 0 4
+require_npm_publish_scenario malformed_integrity failure 1 5 5 0 4
+require_npm_publish_scenario mismatch failure 1 5 5 0 4
 
 github_release_block="$(step_block "Create GitHub Release")"
 for literal in \
   'for attempt in {1..5}; do' \
   'gh api --paginate' \
   'releases?per_page=100' \
+  "--jq '.[] | @json'" \
+  'release.draft !== false' \
+  'release.prerelease !== false' \
+  "typeof release.published_at !== 'string'" \
   'release_lookup_succeeded=true' \
   '[[ "$release_lookup_succeeded" == "true" ]]' \
-  'grep -Fx "$TAG"' \
   'gh release create "$TAG"' \
-  'release_verified_after_failure=true' \
-  'gh release view "$TAG" --json tagName'
+  'release_verified_after_create=true'
 do
   grep -F -- "$literal" <<< "$github_release_block" >/dev/null \
     || fail "Create GitHub Release is missing fail-closed lookup contract: $literal"
@@ -485,9 +564,43 @@ command="${1:-}:${2:-}"
 case "$command" in
   api:--paginate)
     printf '%s\n' 'lookup' >> "$RELEASE_WORKFLOW_TEST_LOG"
+    lookup_count="$(grep -Fxc 'lookup' "$RELEASE_WORKFLOW_TEST_LOG")"
     case "$FAKE_GH_RELEASE_SCENARIO" in
-      present) printf '%s\n' 'v0.6.0' 'v0.7.0' ;;
-      absent|race) printf '%s\n' 'v0.6.0' ;;
+      present)
+        printf '%s\n' \
+          '{"tag_name":"v0.7.0","draft":false,"prerelease":false,"published_at":"2026-07-12T00:00:00Z"}'
+        ;;
+      absent)
+        if grep -Fqx 'create' "$RELEASE_WORKFLOW_TEST_LOG"; then
+          printf '%s\n' \
+            '{"tag_name":"v0.7.0","draft":false,"prerelease":false,"published_at":"2026-07-12T00:00:00Z"}'
+        else
+          printf '%s\n' \
+            '{"tag_name":"v0.6.0","draft":false,"prerelease":false,"published_at":"2026-07-01T00:00:00Z"}'
+        fi
+        ;;
+      race)
+        if grep -Fqx 'create' "$RELEASE_WORKFLOW_TEST_LOG" \
+          && [ "$lookup_count" -ge 4 ]; then
+          printf '%s\n' \
+            '{"tag_name":"v0.7.0","draft":false,"prerelease":false,"published_at":"2026-07-12T00:00:00Z"}'
+        else
+          printf '%s\n' \
+            '{"tag_name":"v0.6.0","draft":false,"prerelease":false,"published_at":"2026-07-01T00:00:00Z"}'
+        fi
+        ;;
+      draft)
+        printf '%s\n' \
+          '{"tag_name":"v0.7.0","draft":true,"prerelease":false,"published_at":null}'
+        ;;
+      prerelease)
+        printf '%s\n' \
+          '{"tag_name":"v0.7.0","draft":false,"prerelease":true,"published_at":"2026-07-12T00:00:00Z"}'
+        ;;
+      unpublished)
+        printf '%s\n' \
+          '{"tag_name":"v0.7.0","draft":false,"prerelease":false,"published_at":null}'
+        ;;
       transient)
         printf '%s\n' 'HTTP 503: service unavailable' >&2
         exit 1
@@ -497,14 +610,37 @@ case "$command" in
     ;;
   release:create)
     printf '%s\n' 'create' >> "$RELEASE_WORKFLOW_TEST_LOG"
-    [ "$FAKE_GH_RELEASE_SCENARIO" != "race" ] || exit 1
+    case "$FAKE_GH_RELEASE_SCENARIO" in
+      absent) ;;
+      race) exit 1 ;;
+      *) exit 64 ;;
+    esac
     ;;
   release:view)
     printf '%s\n' 'view' >> "$RELEASE_WORKFLOW_TEST_LOG"
-    [ "$FAKE_GH_RELEASE_SCENARIO" = "race" ] || exit 1
-    view_count="$(grep -Fxc 'view' "$RELEASE_WORKFLOW_TEST_LOG")"
-    [ "$view_count" -ge 3 ] || exit 1
-    printf '%s\n' 'v0.7.0'
+    case "$FAKE_GH_RELEASE_SCENARIO" in
+      present)
+        printf '%s\n' \
+          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-12T00:00:00Z"}'
+        ;;
+      draft)
+        printf '%s\n' \
+          '{"tagName":"v0.7.0","isDraft":true,"isPrerelease":false,"publishedAt":null}'
+        ;;
+      prerelease)
+        printf '%s\n' \
+          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":true,"publishedAt":"2026-07-12T00:00:00Z"}'
+        ;;
+      unpublished)
+        printf '%s\n' \
+          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":null}'
+        ;;
+      wrong_tag)
+        printf '%s\n' \
+          '{"tagName":"v0.6.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-01T00:00:00Z"}'
+        ;;
+      *) exit 64 ;;
+    esac
     ;;
   *)
     printf 'unexpected gh invocation: %s\n' "$*" >&2
@@ -527,7 +663,6 @@ require_github_release_scenario() {
   local expected_lookups="$3"
   local expected_creates="$4"
   local expected_sleeps="$5"
-  local expected_views="$6"
   local log="$tmp_dir/release-$scenario.log"
   local status
   local actual
@@ -558,15 +693,58 @@ require_github_release_scenario() {
   actual="$(grep -Fxc 'sleep' "$log" || true)"
   [[ "$actual" -eq "$expected_sleeps" ]] \
     || fail "GitHub Release $scenario backoff ran $actual time(s); expected $expected_sleeps"
-  actual="$(grep -Fxc 'view' "$log" || true)"
-  [[ "$actual" -eq "$expected_views" ]] \
-    || fail "GitHub Release $scenario verification ran $actual time(s); expected $expected_views"
 }
 
-require_github_release_scenario present success 1 0 0 0
-require_github_release_scenario absent success 1 1 0 0
-require_github_release_scenario transient failure 5 0 4 0
-require_github_release_scenario race success 1 1 2 3
+require_github_release_scenario present success 1 0 0
+require_github_release_scenario absent success 2 1 0
+require_github_release_scenario race success 4 1 2
+require_github_release_scenario transient failure 5 0 4
+require_github_release_scenario draft failure 5 0 4
+require_github_release_scenario prerelease failure 5 0 4
+require_github_release_scenario unpublished failure 5 0 4
+
+github_release_verify_block="$(step_block "Verify GitHub Release")"
+for literal in \
+  '--json tagName,isDraft,isPrerelease,publishedAt' \
+  'release.tagName !== expectedTag' \
+  'release.isDraft !== false' \
+  'release.isPrerelease !== false' \
+  "typeof release.publishedAt !== 'string'"
+do
+  grep -F -- "$literal" <<< "$github_release_verify_block" >/dev/null \
+    || fail "Verify GitHub Release is missing public-final contract: $literal"
+done
+
+github_release_verify_script="$(step_script "Verify GitHub Release")"
+require_github_release_final_scenario() {
+  local scenario="$1"
+  local expected_status="$2"
+  local log="$tmp_dir/release-final-$scenario.log"
+  local status
+
+  : > "$log"
+  set +e
+  PATH="$release_fake_bin:$PATH" \
+    RELEASE_WORKFLOW_TEST_LOG="$log" \
+    FAKE_GH_RELEASE_SCENARIO="$scenario" \
+    TAG="v0.7.0" \
+    bash -c "$github_release_verify_script" \
+      >"$tmp_dir/release-final-$scenario.out" 2>&1
+  status=$?
+  set -e
+
+  if [[ "$expected_status" == "success" ]]; then
+    [[ "$status" -eq 0 ]] || fail "GitHub Release final $scenario verification unexpectedly failed"
+  else
+    [[ "$status" -ne 0 ]] || fail "GitHub Release final $scenario verification unexpectedly succeeded"
+  fi
+}
+
+require_github_release_final_scenario present success
+require_github_release_final_scenario draft failure
+require_github_release_final_scenario prerelease failure
+require_github_release_final_scenario unpublished failure
+require_github_release_final_scenario wrong_tag failure
 
 for step_name in \
   'Validate release credentials' \

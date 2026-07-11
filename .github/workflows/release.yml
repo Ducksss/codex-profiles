@@ -49,13 +49,13 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -217,12 +217,12 @@ jobs:
 
     steps:
       - name: Check out verified release
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -388,12 +388,55 @@ jobs:
           set -euo pipefail
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
+          pack_json="$tmp/npm-pack.json"
+          pack_fields="$tmp/npm-pack-fields"
           versions_file="$tmp/npm-versions.json"
+          integrity_file="$tmp/npm-integrity.json"
           lookup_error="$tmp/npm-lookup.err"
-          lookup_npm_membership() {
+
+          npm pack --json --pack-destination "$tmp" > "$pack_json"
+          node - "$V" "$pack_json" > "$pack_fields" <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const [, , version, file] = process.argv;
+          const packed = JSON.parse(fs.readFileSync(file, 'utf8'));
+          if (!Array.isArray(packed) || packed.length !== 1) {
+            throw new Error('npm pack must produce exactly one artifact');
+          }
+          const [artifact] = packed;
+          if (artifact.name !== 'codex-profile' || artifact.version !== version) {
+            throw new Error('npm pack returned the wrong package identity');
+          }
+          if (typeof artifact.filename !== 'string'
+              || path.basename(artifact.filename) !== artifact.filename
+              || !artifact.filename.endsWith('.tgz')) {
+            throw new Error('npm pack returned an unsafe tarball filename');
+          }
+          if (typeof artifact.integrity !== 'string'
+              || !/^sha512-[A-Za-z0-9+/]+={0,2}$/.test(artifact.integrity)) {
+            throw new Error('npm pack returned an invalid SHA-512 integrity');
+          }
+          process.stdout.write(`${artifact.filename}\n${artifact.integrity}\n`);
+          NODE
+          artifact_line_count="$(awk 'END { print NR + 0 }' "$pack_fields")"
+          artifact_filename="$(sed -n '1p' "$pack_fields")"
+          local_integrity="$(sed -n '2p' "$pack_fields")"
+          [[ "$artifact_line_count" -eq 2 \
+            && -n "$artifact_filename" \
+            && -n "$local_integrity" ]] || {
+            echo "Could not parse the packed npm artifact." >&2
+            exit 1
+          }
+          tarball="$tmp/$artifact_filename"
+          [[ -f "$tarball" && ! -L "$tarball" ]] || {
+            echo "npm pack did not create the expected tarball: $tarball" >&2
+            exit 1
+          }
+
+          lookup_npm_artifact() {
             npm view codex-profile versions --json > "$versions_file" 2> "$lookup_error" \
               || return 1
-            node - "$V" "$versions_file" 2>> "$lookup_error" <<'NODE'
+            membership="$(node - "$V" "$versions_file" 2>> "$lookup_error" <<'NODE'
           const fs = require('fs');
           const [, , version, file] = process.argv;
           const versions = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -402,13 +445,35 @@ jobs:
           }
           process.stdout.write(versions.includes(version) ? 'present' : 'absent');
           NODE
+            )" || return 1
+            if [[ "$membership" == "absent" ]]; then
+              printf '%s\n' absent
+              return 0
+            fi
+
+            npm view "codex-profile@$V" dist.integrity --json \
+              > "$integrity_file" 2>> "$lookup_error" || return 1
+            node - "$V" "$local_integrity" "$integrity_file" \
+              2>> "$lookup_error" <<'NODE'
+          const fs = require('fs');
+          const [, , version, expectedIntegrity, file] = process.argv;
+          const registryIntegrity = JSON.parse(fs.readFileSync(file, 'utf8'));
+          if (typeof registryIntegrity !== 'string'
+              || !/^sha512-[A-Za-z0-9+/]+={0,2}$/.test(registryIntegrity)) {
+            throw new Error(`npm registry returned invalid integrity for codex-profile@${version}`);
+          }
+          if (registryIntegrity !== expectedIntegrity) {
+            throw new Error(`npm registry integrity mismatch for codex-profile@${version}`);
+          }
+          process.stdout.write('matching');
+          NODE
           }
 
           npm_lookup_succeeded=false
-          membership=""
+          npm_artifact_state=""
           for attempt in {1..5}; do
             : > "$lookup_error"
-            if membership="$(lookup_npm_membership)"; then
+            if npm_artifact_state="$(lookup_npm_artifact)"; then
               npm_lookup_succeeded=true
               break
             fi
@@ -422,32 +487,40 @@ jobs:
             exit 1
           }
 
-          if [[ "$membership" == "present" ]]; then
-            echo "codex-profile@$V is already published; continuing the release."
+          if [[ "$npm_artifact_state" == "matching" ]]; then
+            echo "codex-profile@$V already matches the packed artifact; continuing the release."
           else
             publish_error="$tmp/npm-publish.err"
-            if npm publish --provenance --access public 2> "$publish_error"; then
-              :
-            else
-              npm_published_after_failure=false
-              for attempt in {1..5}; do
-                : > "$lookup_error"
-                if membership="$(lookup_npm_membership)" \
-                  && [[ "$membership" == "present" ]]; then
-                  npm_published_after_failure=true
-                  break
-                fi
-                if [[ "$attempt" -lt 5 ]]; then
-                  sleep "$((attempt * 2))"
-                fi
-              done
-              [[ "$npm_published_after_failure" == "true" ]] || {
+            npm_publish_succeeded=false
+            if npm publish "$tarball" --provenance --access public \
+              2> "$publish_error"; then
+              npm_publish_succeeded=true
+            fi
+
+            npm_artifact_verified_after_publish=false
+            for attempt in {1..5}; do
+              : > "$lookup_error"
+              if npm_artifact_state="$(lookup_npm_artifact)" \
+                && [[ "$npm_artifact_state" == "matching" ]]; then
+                npm_artifact_verified_after_publish=true
+                break
+              fi
+              if [[ "$attempt" -lt 5 ]]; then
+                sleep "$((attempt * 2))"
+              fi
+            done
+            [[ "$npm_artifact_verified_after_publish" == "true" ]] || {
+              if [[ "$npm_publish_succeeded" != "true" ]]; then
                 cat "$publish_error" >&2
-                cat "$lookup_error" >&2
-                echo "Could not publish or verify codex-profile@$V." >&2
-                exit 1
-              }
-              echo "codex-profile@$V was published concurrently; continuing the release."
+              fi
+              cat "$lookup_error" >&2
+              echo "Could not publish or verify the exact npm artifact for codex-profile@$V." >&2
+              exit 1
+            }
+            if [[ "$npm_publish_succeeded" == "true" ]]; then
+              echo "Published and verified the exact npm artifact for codex-profile@$V."
+            else
+              echo "The exact npm artifact for codex-profile@$V was published concurrently; continuing the release."
             fi
           fi
 
@@ -490,14 +563,47 @@ jobs:
           set -euo pipefail
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
-          release_tags="$tmp/release-tags"
+          release_records="$tmp/release-records.jsonl"
           lookup_error="$tmp/release-lookup.err"
+          lookup_release_state() {
+            gh api --paginate \
+              "/repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq '.[] | @json' > "$release_records" 2> "$lookup_error" \
+              || return 1
+            node - "$TAG" "$release_records" 2>> "$lookup_error" <<'NODE'
+          const fs = require('fs');
+          const [, , expectedTag, file] = process.argv;
+          const releases = fs.readFileSync(file, 'utf8')
+            .split('\n')
+            .filter(Boolean)
+            .map((line) => JSON.parse(line));
+          const matching = releases.filter((release) => release.tag_name === expectedTag);
+          if (matching.length === 0) {
+            process.stdout.write('absent');
+            process.exit(0);
+          }
+          if (matching.length !== 1) {
+            throw new Error(`GitHub returned duplicate releases for ${expectedTag}`);
+          }
+          const [release] = matching;
+          if (release.draft !== false) {
+            throw new Error(`GitHub Release ${expectedTag} is still a draft`);
+          }
+          if (release.prerelease !== false) {
+            throw new Error(`GitHub Release ${expectedTag} is still a prerelease`);
+          }
+          if (typeof release.published_at !== 'string' || release.published_at.length === 0) {
+            throw new Error(`GitHub Release ${expectedTag} has no publication time`);
+          }
+          process.stdout.write('public_final');
+          NODE
+          }
+
           release_lookup_succeeded=false
+          release_state=""
           for attempt in {1..5}; do
             : > "$lookup_error"
-            if gh api --paginate \
-              "/repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-              --jq '.[].tag_name' > "$release_tags" 2> "$lookup_error"; then
+            if release_state="$(lookup_release_state)"; then
               release_lookup_succeeded=true
               break
             fi
@@ -511,33 +617,40 @@ jobs:
             exit 1
           }
 
-          if grep -Fx "$TAG" "$release_tags" >/dev/null; then
-            echo "GitHub Release $TAG already exists; continuing the release."
+          if [[ "$release_state" == "public_final" ]]; then
+            echo "Public final GitHub Release $TAG already exists; continuing the release."
           else
             create_error="$tmp/release-create.err"
+            release_create_succeeded=false
             if gh release create "$TAG" --title "codex-profile $TAG" --generate-notes \
               2> "$create_error"; then
-              :
-            else
-              release_verified_after_failure=false
-              for attempt in {1..5}; do
-                if verified_tag="$(
-                  gh release view "$TAG" --json tagName --jq '.tagName' \
-                    2>> "$create_error"
-                )" && [[ "$verified_tag" == "$TAG" ]]; then
-                  release_verified_after_failure=true
-                  break
-                fi
-                if [[ "$attempt" -lt 5 ]]; then
-                  sleep "$((attempt * 2))"
-                fi
-              done
-              [[ "$release_verified_after_failure" == "true" ]] || {
+              release_create_succeeded=true
+            fi
+
+            release_verified_after_create=false
+            for attempt in {1..5}; do
+              : > "$lookup_error"
+              if release_state="$(lookup_release_state)" \
+                && [[ "$release_state" == "public_final" ]]; then
+                release_verified_after_create=true
+                break
+              fi
+              if [[ "$attempt" -lt 5 ]]; then
+                sleep "$((attempt * 2))"
+              fi
+            done
+            [[ "$release_verified_after_create" == "true" ]] || {
+              if [[ "$release_create_succeeded" != "true" ]]; then
                 cat "$create_error" >&2
-                echo "Could not create or verify GitHub Release $TAG." >&2
-                exit 1
-              }
-              echo "GitHub Release $TAG was created concurrently; continuing the release."
+              fi
+              cat "$lookup_error" >&2
+              echo "Could not create or verify public final GitHub Release $TAG." >&2
+              exit 1
+            }
+            if [[ "$release_create_succeeded" == "true" ]]; then
+              echo "Created and verified public final GitHub Release $TAG."
+            else
+              echo "Public final GitHub Release $TAG was created concurrently; continuing the release."
             fi
           fi
 
@@ -548,11 +661,28 @@ jobs:
           TAG: ${{ needs.verify.outputs.tag }}
         run: |
           set -euo pipefail
-          released_tag="$(gh release view "$TAG" --json tagName --jq '.tagName')"
-          [[ "$released_tag" == "$TAG" ]] || {
-            echo "GitHub Release reported $released_tag; expected $TAG." >&2
-            exit 1
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          release_json="$tmp/release.json"
+          gh release view "$TAG" \
+            --json tagName,isDraft,isPrerelease,publishedAt > "$release_json"
+          node - "$TAG" "$release_json" <<'NODE'
+          const fs = require('fs');
+          const [, , expectedTag, file] = process.argv;
+          const release = JSON.parse(fs.readFileSync(file, 'utf8'));
+          if (release.tagName !== expectedTag) {
+            throw new Error(`GitHub Release reported ${release.tagName}; expected ${expectedTag}`);
           }
+          if (release.isDraft !== false) {
+            throw new Error(`GitHub Release ${expectedTag} is still a draft`);
+          }
+          if (release.isPrerelease !== false) {
+            throw new Error(`GitHub Release ${expectedTag} is still a prerelease`);
+          }
+          if (typeof release.publishedAt !== 'string' || release.publishedAt.length === 0) {
+            throw new Error(`GitHub Release ${expectedTag} has no publication time`);
+          }
+          NODE
 
       - name: Update Homebrew tap
         if: ${{ ! inputs.dry_run }}

@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Run smoke tests
         run: make test
@@ -64,14 +64,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        uses: cachix/install-nix-action@a49548c11d9846ad46ecc0115273879b045f001c # v31
 
       - name: Build and verify package
         run: |
-          nix build .# --print-build-logs
+          nix build .# --no-update-lock-file --print-build-logs
+          git diff --exit-code -- flake.lock
           test -x result/bin/codex-profile
           test -x result/bin/codex-profiles
           result/bin/codex-profile help >/dev/null
