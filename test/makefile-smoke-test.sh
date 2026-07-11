@@ -127,15 +127,23 @@ require_mutation_failure() {
 
 require_print_then_fail_mutation() {
   local mutated="$tmp_dir/path-smoke-producer.mk"
-  local original replacement
+  local rewritten="$mutated.rewritten"
+  local original replacement line
+  local matches=0
 
   original=$'\t\toutput="$$(HOME="$$tmp_home" bin/codex-profile path default)"; \\'
   replacement=$'\t\toutput="$$(printf \'%s\\n\' "$$tmp_home/.codex"; exit 23)"; \\'
-  awk -v original="$original" -v replacement="$replacement" '
-    $0 == original { print replacement; replaced += 1; next }
-    { print }
-    END { if (replaced != 1) exit 42 }
-  ' "$MAKEFILE" > "$mutated" || fail "could not create producer-failure mutation"
+  : > "$rewritten"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" == "$original" ]]; then
+      printf '%s\n' "$replacement" >> "$rewritten"
+      matches=$((matches + 1))
+    else
+      printf '%s\n' "$line" >> "$rewritten"
+    fi
+  done < "$MAKEFILE"
+  [[ "$matches" -eq 1 ]] || fail "could not create producer-failure mutation"
+  mv "$rewritten" "$mutated"
 
   if make -C "$ROOT_DIR" -f "$mutated" path-smoke-test >/dev/null 2>&1; then
     fail "path-smoke-test masked a producer that printed a match and exited non-zero"
