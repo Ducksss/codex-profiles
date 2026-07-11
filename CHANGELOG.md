@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.7.0 - 2026-07-11
+
 ### Added
 
 - Additional install channels: a `curl | sh` installer (`install.sh`, fetches
@@ -15,6 +17,73 @@ and this project follows semantic versioning for tagged releases.
   `packaging/aur/`. The installer and flake track the current version
   automatically (the flake reads `package.json`), so they add no release drift;
   `install.sh` is covered by ShellCheck in CI.
+
+### Changed
+
+- Adapted Desktop launching to OpenAI's integrated ChatGPT app. `app default`
+  launches the original signed application with `CODEX_HOME=~/.codex` and no
+  custom Electron user-data directory, preserving the stock ChatGPT session.
+- Named `app <profile>` launches now use both `~/.codex-<profile>` and matching
+  `electron-user-data` for the entire ChatGPT window across Chat, Work, and
+  Codex. Different names can coexist; reopening one name reuses its context.
+- Desktop discovery now prefers `CHATGPT_APP`, accepts legacy `CODEX_APP`, and
+  detects `/Applications/ChatGPT.app` before legacy `Codex.app`.
+- CLI resolution now validates candidates: an explicit `CODEX_CLI` must be
+  healthy; otherwise the wrapper can fall back from `PATH` to an explicit
+  bundled candidate or the CLI inside the detected Desktop app.
+- Documentation, security guidance, support templates, GEO structured data,
+  launch copy, and AI-readable facts now distinguish Codex-only commands from
+  whole-window ChatGPT Desktop profiles.
+- Version metadata is aligned on `0.7.0` without changing the project,
+  repository, npm package, commands, or profile-directory names.
+- Source, standalone, npm, Nix, AUR, and Homebrew release paths now preserve
+  both `codex-profile` and `codex-profiles` command spellings. CI validates the
+  aliases and synchronized package metadata on Linux and macOS.
+- Releases are now explicit, version-validated workflow dispatches from
+  `main`; the workflow verifies the dated changelog, publishes idempotently,
+  updates Homebrew, and deploys Pages from the immutable release tag.
+- The npm tarball excludes historical pre-v0.7 screenshot and video assets;
+  those files remain in the repository for release-history context.
+
+### Removed
+
+- Removed Desktop app copying, bundle metadata patching, ad-hoc signing,
+  canonical-app quitting, and broad process-kill behavior. The installed signed
+  application is never modified or replaced.
+- Removed stale clone-based screenshot and video references from primary
+  documentation. Historical release and outreach records remain intact.
+
+### Deprecated
+
+- `app --instance`, `app --rebuild`, and `app-instance` remain accepted
+  compatibility spellings but use the ordinary named launcher. Named launches
+  are already parallel-capable, and `--rebuild` is now a no-op because no app
+  clone exists.
+- `CODEX_APP_BIN` remains a compatibility override only for an executable
+  inside an application bundle. Prefer the `CHATGPT_APP` bundle override.
+
+### Fixed
+
+- Corrected the AI-readable profile graph so `personal` maps to
+  `~/.codex-personal` rather than `~/.codex`; `default` remains the only name
+  mapped to `~/.codex`.
+- Clarified that `status` describes Codex-local authentication and that the
+  tool does not inspect or verify equality between CLI and Desktop accounts.
+- Normalized current logged-out CLI messages, prevented update notices from
+  polluting `status --json` and `doctor --json`, and expanded doctor output
+  with detected app metadata, CLI source/health, and explicit scope fields.
+- Rejected symlinked managed profile and Electron user-data directories before
+  creating files or changing permissions.
+
+### Security
+
+- Replaced overbroad isolation claims with an explicit local-state model.
+  Named Electron data is not an operating-system sandbox or a server-side
+  ChatGPT workspace boundary; keychains, external credentials, filesystem
+  access, and OpenAI-managed state remain shared or outside the tool's control.
+- Desktop launch now refuses an inherited `CODEX_ACCESS_TOKEN` so a shell
+  access token cannot silently override the selected window's authentication
+  context.
 
 ## 0.6.0 - 2026-07-01
 

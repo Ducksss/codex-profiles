@@ -3,12 +3,11 @@
 set -euo pipefail
 
 PROGRAM="${0##*/}"
-VERSION="0.6.0"
-CODEX_APP="${CODEX_APP:-/Applications/Codex.app}"
-CODEX_APP_BIN="${CODEX_APP_BIN:-$CODEX_APP/Contents/MacOS/Codex}"
-CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-$CODEX_APP/Contents/Resources/codex}"
-CODEX_PROFILE_QUIT_ATTEMPTS="${CODEX_PROFILE_QUIT_ATTEMPTS:-30}"
-CODEX_PROFILE_QUIT_SLEEP="${CODEX_PROFILE_QUIT_SLEEP:-0.5}"
+VERSION="0.7.0"
+CHATGPT_APP="${CHATGPT_APP:-}"
+CODEX_APP="${CODEX_APP:-}"
+CODEX_APP_BIN="${CODEX_APP_BIN:-}"
+CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-}"
 CODEX_PROFILE_APP_INSTANCE_ROOT="${CODEX_PROFILE_APP_INSTANCE_ROOT:-$HOME/Library/Application Support/codex-profile/app-instances}"
 CODEX_PROFILE_UPGRADE_REPO="${CODEX_PROFILE_UPGRADE_REPO:-https://github.com/Ducksss/codex-profiles.git}"
 CODEX_PROFILE_UPGRADE_REF="${CODEX_PROFILE_UPGRADE_REF:-main}"
@@ -42,7 +41,7 @@ Examples:
   $PROGRAM login personal
   $PROGRAM init work
   $PROGRAM app personal ~/Dev/my-project
-  $PROGRAM app work --instance ~/Dev/client-project
+  $PROGRAM app work ~/Dev/client-project
   $PROGRAM cli personal exec "review this repo"
   $PROGRAM status
   eval "\$($PROGRAM env work)"     # set CODEX_HOME for this shell
@@ -52,28 +51,35 @@ Examples:
   $PROGRAM upgrade
 
 Desktop (app):
-  default         Switch Codex Desktop to <profile> (quits the running app first).
-  --instance      Run a parallel Codex Desktop clone for <profile>, alongside
-                  any others (experimental, macOS only).
-  --rebuild       Force-rebuild that clone; only valid together with --instance.
+  default         Launch the stock ChatGPT session with CODEX_HOME=~/.codex.
+  named profile   Isolate the whole ChatGPT window (Chat, Work, and Codex) with
+                  a profile-specific Electron user-data directory.
+  --instance      Compatibility flag; named profiles are already isolated.
+  --rebuild       Compatibility flag; app bundles are never cloned or rebuilt.
 
 Profiles:
   default         -> ~/.codex
   any other name  -> ~/.codex-<profile>
 
 Environment:
-  CODEX_APP       Override Codex.app path.
-  CODEX_APP_BIN   Override Codex Desktop binary path.
+  CHATGPT_APP     Override the ChatGPT.app bundle path (preferred).
+  CODEX_APP       Override the desktop app bundle path (legacy compatibility).
+  CODEX_APP_BIN   Locate a desktop .app from its executable (deprecated).
   CODEX_CLI       Override Codex CLI binary path.
-  CODEX_PROFILE_APP_INSTANCE_ROOT  Override the experimental app --instance clone root.
+  CODEX_BUNDLED_CLI  Override the bundled Codex CLI fallback path.
+  CODEX_PROFILE_APP_INSTANCE_ROOT  Legacy clone root (doctor only; never written).
   CODEX_PROFILE_UPGRADE_REPO    Override upgrade repository.
   CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref.
   CODEX_PROFILE_UPGRADE_CACHE   Override upgrade cache checkout.
   CODEX_PROFILE_UPGRADE_PREFIX  Override upgrade install prefix.
   CODEX_PROFILE_NO_UPDATE_CHECK  Disable the daily update check (also honors DO_NOT_TRACK).
 
+Desktop auth safety:
+  app refuses an inherited CODEX_ACCESS_TOKEN so a shell credential cannot
+  silently override the selected window.
+
 Platform:
-  app requires macOS (it drives the Codex Desktop app).
+  app requires macOS (it drives the ChatGPT desktop app).
   All other commands run on macOS and Linux.
 EOF
 }
@@ -90,7 +96,7 @@ note() {
 die_macos_only() {
   local subcommand="$1"
 
-  die "$PROGRAM $subcommand is only available on macOS (it drives the Codex Desktop app)."
+  die "$PROGRAM $subcommand is only available on macOS (it drives the ChatGPT desktop app)."
 }
 
 is_valid_profile_name() {
@@ -148,50 +154,236 @@ discover_profiles() {
 ensure_home() {
   local codex_home="$1"
 
+  [[ ! -L "$codex_home" ]] || die "Refusing symlinked managed directory: $codex_home"
   mkdir -p "$codex_home" || die "Cannot create directory: $codex_home"
   [[ -d "$codex_home" ]] || die "Not a directory: $codex_home"
   chmod 700 "$codex_home" || die "Cannot set private permissions on: $codex_home"
 }
 
-codex_desktop_running() {
-  pgrep -x Codex > /dev/null 2>&1 && return 0
-  pgrep -f "$CODEX_BUNDLED_CLI app-server" > /dev/null 2>&1 && return 0
+desktop_plist_value() {
+  local app="$1"
+  local key="$2"
+  local plist="$app/Contents/Info.plist"
+
+  [[ -f "$plist" ]] || return 1
+
+  if command -v plutil > /dev/null 2>&1; then
+    plutil -extract "$key" raw -o - "$plist" 2> /dev/null && return 0
+  fi
+
+  if [[ -x /usr/libexec/PlistBuddy ]]; then
+    /usr/libexec/PlistBuddy -c "Print :$key" "$plist" 2> /dev/null && return 0
+  fi
+
   return 1
 }
 
-force_quit_codex_app() {
-  osascript -e 'tell application "Codex" to quit' > /dev/null 2>&1 || true
-  pkill -x Codex > /dev/null 2>&1 || true
-  pkill -f "$CODEX_BUNDLED_CLI app-server" > /dev/null 2>&1 || true
+desktop_executable_name() {
+  local app="$1"
+  local executable
+
+  executable="$(desktop_plist_value "$app" CFBundleExecutable 2> /dev/null || true)"
+  if [[ -n "$executable" ]]; then
+    printf '%s\n' "$executable"
+  elif [[ -x "$app/Contents/MacOS/ChatGPT" ]]; then
+    printf 'ChatGPT\n'
+  elif [[ -x "$app/Contents/MacOS/Codex" ]]; then
+    printf 'Codex\n'
+  else
+    return 1
+  fi
+}
+
+desktop_executable_path() {
+  local app="$1"
+  local executable
+
+  executable="$(desktop_executable_name "$app")" || return 1
+  printf '%s/Contents/MacOS/%s\n' "$app" "$executable"
+}
+
+desktop_product_name() {
+  local app="$1"
+  local product
+
+  product="$(desktop_plist_value "$app" CFBundleDisplayName 2> /dev/null || true)"
+  [[ -n "$product" ]] || product="$(desktop_plist_value "$app" CFBundleName 2> /dev/null || true)"
+  [[ -n "$product" ]] || product="$(desktop_executable_name "$app" 2> /dev/null || true)"
+  printf '%s\n' "${product:-ChatGPT}"
+}
+
+desktop_bundle_identifier() {
+  local app="$1"
+
+  desktop_plist_value "$app" CFBundleIdentifier 2> /dev/null || true
+}
+
+desktop_app_from_legacy_binary() {
+  local executable="$1"
+
+  case "$executable" in
+    */Contents/MacOS/*)
+      printf '%s\n' "${executable%/Contents/MacOS/*}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+desktop_app_is_usable() {
+  local app="$1"
+  local executable
+
+  [[ -d "$app" && -f "$app/Contents/Info.plist" ]] || return 1
+  executable="$(desktop_executable_path "$app" 2> /dev/null || true)"
+  [[ -n "$executable" && -x "$executable" ]]
+}
+
+try_find_desktop_app() {
+  local app
+
+  if [[ -n "$CHATGPT_APP" ]]; then
+    desktop_app_is_usable "$CHATGPT_APP" || return 1
+    printf '%s\n' "$CHATGPT_APP"
+    return 0
+  fi
+
+  if [[ -n "$CODEX_APP" ]]; then
+    desktop_app_is_usable "$CODEX_APP" || return 1
+    printf '%s\n' "$CODEX_APP"
+    return 0
+  fi
+
+  if [[ -n "$CODEX_APP_BIN" ]]; then
+    app="$(desktop_app_from_legacy_binary "$CODEX_APP_BIN" 2> /dev/null || true)"
+    [[ -n "$app" ]] && desktop_app_is_usable "$app" || return 1
+    printf '%s\n' "$app"
+    return 0
+  fi
+
+  for app in /Applications/ChatGPT.app /Applications/Codex.app; do
+    if desktop_app_is_usable "$app"; then
+      printf '%s\n' "$app"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+desktop_app_error_message() {
+  if [[ -n "$CHATGPT_APP" ]]; then
+    printf 'CHATGPT_APP is not a usable desktop app bundle: %s\n' "$CHATGPT_APP"
+  elif [[ -n "$CODEX_APP" ]]; then
+    printf 'CODEX_APP is not a usable desktop app bundle: %s\n' "$CODEX_APP"
+  elif [[ -n "$CODEX_APP_BIN" ]]; then
+    printf 'CODEX_APP_BIN must be an executable inside a usable .app bundle: %s\n' "$CODEX_APP_BIN"
+  else
+    printf 'ChatGPT desktop app not found. Install ChatGPT.app or set CHATGPT_APP=/path/to/ChatGPT.app.\n'
+  fi
+}
+
+find_desktop_app() {
+  local app
+
+  if app="$(try_find_desktop_app)"; then
+    printf '%s\n' "$app"
+    return 0
+  fi
+
+  if [[ -n "$CHATGPT_APP" || -n "$CODEX_APP" || -n "$CODEX_APP_BIN" ]]; then
+    die "$(desktop_app_error_message)"
+  fi
+  [[ "$(uname -s)" == "Darwin" ]] || die_macos_only app
+  die "$(desktop_app_error_message)"
+}
+
+codex_cli_is_healthy() {
+  local codex_cli="$1"
+
+  [[ -x "$codex_cli" ]] || return 1
+  "$codex_cli" --version > /dev/null 2>&1
 }
 
 codex_cli_error_message() {
   if [[ -n "${CODEX_CLI:-}" ]]; then
-    printf 'CODEX_CLI is set but not executable: %s\n' "$CODEX_CLI"
+    if [[ ! -x "$CODEX_CLI" ]]; then
+      printf 'CODEX_CLI is set but not executable: %s\n' "$CODEX_CLI"
+    else
+      printf 'CODEX_CLI is set but unhealthy (its --version check failed): %s\n' "$CODEX_CLI"
+    fi
     return 0
   fi
 
-  printf 'Codex CLI not found. Install Codex or set CODEX_CLI=/path/to/codex.\n'
+  printf 'No healthy Codex CLI found. Install Codex, repair PATH, or set CODEX_CLI=/path/to/codex.\n'
 }
 
 try_find_codex_cli() {
+  local app bundled_cli path_cli
+
   if [[ -n "${CODEX_CLI:-}" ]]; then
-    [[ -x "$CODEX_CLI" ]] || return 1
+    codex_cli_is_healthy "$CODEX_CLI" || return 1
     printf '%s\n' "$CODEX_CLI"
     return 0
   fi
 
-  if command -v codex > /dev/null 2>&1; then
-    command -v codex
+  path_cli="$(command -v codex 2> /dev/null || true)"
+  if [[ -n "$path_cli" ]] && codex_cli_is_healthy "$path_cli"; then
+    printf '%s\n' "$path_cli"
     return 0
   fi
 
-  if [[ -x "$CODEX_BUNDLED_CLI" ]]; then
+  if [[ -n "$CODEX_BUNDLED_CLI" ]] && codex_cli_is_healthy "$CODEX_BUNDLED_CLI"; then
     printf '%s\n' "$CODEX_BUNDLED_CLI"
     return 0
   fi
 
+  if app="$(try_find_desktop_app 2> /dev/null)"; then
+    bundled_cli="$app/Contents/Resources/codex"
+    if codex_cli_is_healthy "$bundled_cli"; then
+      printf '%s\n' "$bundled_cli"
+      return 0
+    fi
+  fi
+
   return 1
+}
+
+codex_cli_source() {
+  local codex_cli="$1"
+  local path_cli app
+
+  if [[ -n "${CODEX_CLI:-}" && "$codex_cli" == "$CODEX_CLI" ]]; then
+    printf 'CODEX_CLI\n'
+    return 0
+  fi
+
+  path_cli="$(command -v codex 2> /dev/null || true)"
+  if [[ -n "$path_cli" && "$codex_cli" == "$path_cli" ]]; then
+    printf 'PATH\n'
+    return 0
+  fi
+
+  if [[ -n "$CODEX_BUNDLED_CLI" && "$codex_cli" == "$CODEX_BUNDLED_CLI" ]]; then
+    printf 'CODEX_BUNDLED_CLI\n'
+    return 0
+  fi
+
+  if app="$(try_find_desktop_app 2> /dev/null)" && [[ "$codex_cli" == "$app/Contents/Resources/codex" ]]; then
+    printf 'desktop bundle\n'
+    return 0
+  fi
+
+  printf 'discovered\n'
+}
+
+codex_cli_version_string() {
+  local codex_cli="$1"
+  local version_output
+
+  version_output="$("$codex_cli" --version 2>&1)" || return 1
+  printf '%s\n' "$version_output" | awk 'NF { line = $0 } END { if (line != "") print line }'
 }
 
 find_codex_cli() {
@@ -203,39 +395,6 @@ find_codex_cli() {
   fi
 
   die "$(codex_cli_error_message)"
-}
-
-quit_codex_app() {
-  local attempt quit_attempts="$CODEX_PROFILE_QUIT_ATTEMPTS"
-
-  [[ "$quit_attempts" =~ ^[0-9]+$ ]] || quit_attempts=30
-  (( quit_attempts < 1 )) && quit_attempts=1
-
-  if ! codex_desktop_running; then
-    return 0
-  fi
-
-  note "Quitting existing Codex app..."
-  osascript -e 'tell application "Codex" to quit' > /dev/null 2>&1 || true
-
-  for ((attempt = 0; attempt < quit_attempts; attempt++)); do
-    if ! codex_desktop_running; then
-      return 0
-    fi
-    sleep "$CODEX_PROFILE_QUIT_SLEEP"
-  done
-
-  note "Codex did not quit cleanly; forcing shutdown..."
-  force_quit_codex_app
-
-  for ((attempt = 0; attempt < quit_attempts; attempt++)); do
-    if ! codex_desktop_running; then
-      return 0
-    fi
-    sleep "$CODEX_PROFILE_QUIT_SLEEP"
-  done
-
-  die "Codex or its app-server is still running. Quit Codex with Cmd+Q, then retry."
 }
 
 command_app() {
@@ -282,231 +441,74 @@ command_app() {
   [[ "$profile_set" == yes ]] || die "$usage"
   [[ "$workspace_set" == yes ]] || workspace="$PWD"
 
-  if [[ "$rebuild" == yes && "$instance" == no ]]; then
-    die "$PROGRAM app --rebuild only applies together with --instance."
+  if [[ "$instance" == yes ]]; then
+    note "Compatibility: --instance is no longer needed; named profiles already launch isolated ChatGPT windows."
+  fi
+  if [[ "$rebuild" == yes ]]; then
+    note "Compatibility: --rebuild no longer rebuilds an app clone; the original signed app is always used."
   fi
 
-  if [[ "$instance" == yes ]]; then
-    run_app_instance "$profile" "$rebuild" "$workspace"
-  else
-    run_app_switch "$profile" "$workspace"
-  fi
+  run_desktop_app "$profile" "$workspace"
 }
 
-# Default `app` behavior: quit any running Codex Desktop, then relaunch the
-# stock app bound to the profile's CODEX_HOME. One window at a time.
-run_app_switch() {
+# Launch the original signed ChatGPT (or legacy Codex) app. A named profile
+# gets both its own CODEX_HOME and Electron browser state, so the local boundary
+# spans Chat, Work, and Codex in that window. Account identity is still
+# unverified. The default profile intentionally keeps stock browser state.
+run_desktop_app() {
   local profile="$1"
   local workspace="$2"
-  local codex_home
-
-  if [[ ! -x "$CODEX_APP_BIN" ]]; then
-    [[ "$(uname -s)" == "Darwin" ]] || die_macos_only app
-    die "Codex Desktop binary not found at $CODEX_APP_BIN"
-  fi
-
-  codex_home="$(codex_home_for_profile "$profile")"
-  ensure_home "$codex_home"
-  quit_codex_app
-
-  local log_dir="$codex_home/logs"
-  local log_file="$log_dir/desktop.log"
-  ensure_home "$log_dir"
-  (umask 077 && : > "$log_file")
-  chmod 600 "$log_file" 2> /dev/null || true
-
-  note "Launching Codex Desktop with CODEX_HOME=$codex_home"
-  note "Log: $log_file"
-  (umask 077 && nohup env CODEX_HOME="$codex_home" "$CODEX_APP_BIN" > "$log_file" 2>&1 &)
-
-  local codex_cli
-  if codex_cli="$(try_find_codex_cli)"; then
-    (sleep 1 && env CODEX_HOME="$codex_home" "$codex_cli" app "$workspace" > /dev/null 2>&1 &)
-  fi
-}
-
-bundle_identifier_profile_suffix() {
-  local profile="$1"
-  local encoded
-
-  encoded="$(printf '%s' "$profile" | LC_ALL=C od -An -tx1 -v | tr -d '[:space:]')" || die "Cannot encode profile name for app instance bundle identifier."
-  printf 'p%s\n' "$encoded"
-}
-
-app_instance_bundle_identifier_for_profile() {
-  local profile="$1"
-  local bundle_suffix
-
-  bundle_suffix="$(bundle_identifier_profile_suffix "$profile")"
-  printf 'com.openai.codex.profile.%s\n' "$bundle_suffix"
-}
-
-app_instance_dir_for_profile() {
-  local profile="$1"
+  local app product executable codex_home user_data_dir="" log_dir log_file
 
   validate_profile "$profile"
-  printf '%s/%s\n' "$CODEX_PROFILE_APP_INSTANCE_ROOT" "$profile"
-}
-
-app_instance_app_for_profile() {
-  local profile="$1"
-  local instance_dir
-
-  instance_dir="$(app_instance_dir_for_profile "$profile")"
-  printf '%s/Codex %s.app\n' "$instance_dir" "$profile"
-}
-
-patch_app_instance_metadata() {
-  local profile="$1"
-  local app="$2"
-  local plist="$app/Contents/Info.plist"
-  local bundle_id display_name
-
-  [[ -f "$plist" ]] || die "Codex app clone is missing Info.plist: $plist"
-
-  bundle_id="$(app_instance_bundle_identifier_for_profile "$profile")"
-  display_name="Codex $profile"
-
-  if ! command -v plutil > /dev/null 2>&1; then
-    note "Warning: plutil not found; app instance metadata was not patched."
-    return 0
+  if [[ -n "${CODEX_ACCESS_TOKEN:-}" ]]; then
+    die "Refusing Desktop launch while CODEX_ACCESS_TOKEN is set; unset it so the selected ChatGPT window controls authentication."
   fi
 
-  plutil -replace CFBundleIdentifier -string "$bundle_id" "$plist" > /dev/null || die "Cannot patch app instance bundle identifier."
-  plutil -replace CFBundleDisplayName -string "$display_name" "$plist" > /dev/null || die "Cannot patch app instance display name."
+  app="$(find_desktop_app)"
+  executable="$(desktop_executable_path "$app")" || die "Desktop app has no executable: $app"
+  [[ -x "$executable" ]] || die "Desktop app executable is not runnable: $executable"
+  product="$(desktop_product_name "$app")"
+  command -v open > /dev/null 2>&1 || die "macOS open command not found; $PROGRAM app is macOS-only."
 
-  if command -v codesign > /dev/null 2>&1; then
-    codesign --force --deep --sign - "$app" > /dev/null 2>&1 || die "Cannot re-sign app instance: $app"
-  else
-    note "Warning: codesign not found; patched app instance may not launch on macOS."
-  fi
-}
-
-app_instance_plist_value() {
-  local app="$1"
-  local key="$2"
-  local plist="$app/Contents/Info.plist"
-
-  [[ -f "$plist" ]] || return 1
-  command -v plutil > /dev/null 2>&1 || return 2
-  plutil -extract "$key" raw -o - "$plist" 2> /dev/null
-}
-
-app_instance_is_incompatible() {
-  local profile="$1"
-  local app="$2"
-  local plist="$app/Contents/Info.plist"
-  local bundle_id bundle_name display_name expected_bundle_id expected_display_name
-
-  [[ -f "$plist" ]] || return 0
-  command -v plutil > /dev/null 2>&1 || return 1
-
-  bundle_name="$(app_instance_plist_value "$app" CFBundleName)" || return 0
-  [[ "$bundle_name" == "Codex" ]] || return 0
-
-  expected_bundle_id="$(app_instance_bundle_identifier_for_profile "$profile")"
-  bundle_id="$(app_instance_plist_value "$app" CFBundleIdentifier)" || return 0
-  [[ "$bundle_id" == "$expected_bundle_id" ]] || return 0
-
-  expected_display_name="Codex $profile"
-  display_name="$(app_instance_plist_value "$app" CFBundleDisplayName)" || return 0
-  [[ "$display_name" == "$expected_display_name" ]] || return 0
-
-  return 1
-}
-
-create_app_instance_bundle() {
-  local profile="$1"
-  local instance_dir instance_app tmp_app source_bin
-
-  if [[ ! -d "$CODEX_APP" ]]; then
-    [[ "$(uname -s)" == "Darwin" ]] || die_macos_only "app --instance"
-    die "Codex.app not found at $CODEX_APP"
-  fi
-  source_bin="$CODEX_APP/Contents/MacOS/Codex"
-  [[ -x "$source_bin" ]] || die "Codex Desktop binary not found at $source_bin"
-
-  ensure_home "$CODEX_PROFILE_APP_INSTANCE_ROOT"
-  instance_dir="$(app_instance_dir_for_profile "$profile")"
-  ensure_home "$instance_dir"
-  instance_app="$(app_instance_app_for_profile "$profile")"
-  tmp_app="$instance_dir/.Codex $profile.app.tmp.$$"
-
-  rm -rf -- "$tmp_app"
-  cp -R "$CODEX_APP" "$tmp_app" || die "Cannot copy Codex.app to app instance: $tmp_app"
-  patch_app_instance_metadata "$profile" "$tmp_app"
-
-  if [[ -e "$instance_app" ]]; then
-    rm -rf -- "$instance_app" || die "Cannot replace app instance: $instance_app"
-  fi
-
-  mv "$tmp_app" "$instance_app" || die "Cannot install app instance: $instance_app"
-}
-
-ensure_app_instance_bundle() {
-  local profile="$1"
-  local rebuild="$2"
-  local instance_app instance_bin
-
-  instance_app="$(app_instance_app_for_profile "$profile")"
-  instance_bin="$instance_app/Contents/MacOS/Codex"
-
-  if [[ "$rebuild" == "yes" ]]; then
-    note "Rebuilding app instance for $profile"
-    create_app_instance_bundle "$profile"
-    return 0
-  fi
-
-  if [[ -x "$instance_bin" ]] && app_instance_is_incompatible "$profile" "$instance_app"; then
-    note "Rebuilding app instance for $profile because existing clone is incompatible"
-    create_app_instance_bundle "$profile"
-    return 0
-  fi
-
-  if [[ ! -x "$instance_bin" ]]; then
-    note "Creating app instance for $profile"
-    create_app_instance_bundle "$profile"
-  fi
-}
-
-# Deprecated back-compat alias for `app --instance`. Undocumented; kept so
-# existing scripts and muscle memory keep working. Prefer `app --instance`.
-command_app_instance() {
-  command_app --instance "$@"
-}
-
-# Opt-in `app --instance` behavior: launch a profile-specific Codex Desktop
-# clone alongside any running Codex, with its own Electron user data. macOS only.
-run_app_instance() {
-  local profile="$1"
-  local rebuild="$2"
-  local workspace="$3"
-
-  local codex_home instance_app instance_bin user_data_dir log_dir log_file
   codex_home="$(codex_home_for_profile "$profile")"
   ensure_home "$codex_home"
-  ensure_app_instance_bundle "$profile" "$rebuild"
-
-  instance_app="$(app_instance_app_for_profile "$profile")"
-  instance_bin="$instance_app/Contents/MacOS/Codex"
-  [[ -x "$instance_bin" ]] || die "Codex app instance binary not found at $instance_bin"
-  command -v open > /dev/null 2>&1 || die "macOS open command not found; app --instance is macOS-only."
-
-  user_data_dir="$codex_home/electron-user-data"
-  ensure_home "$user_data_dir"
+  if [[ "$profile" != "default" ]]; then
+    user_data_dir="$codex_home/electron-user-data"
+    ensure_home "$user_data_dir"
+  fi
 
   log_dir="$codex_home/logs"
-  log_file="$log_dir/desktop-instance.log"
+  log_file="$log_dir/desktop.log"
   ensure_home "$log_dir"
   (umask 077 && : > "$log_file")
   chmod 600 "$log_file" 2> /dev/null || true
 
-  note "Launching experimental Codex Desktop instance for $profile"
+  note "Launching $product for profile $profile"
   note "CODEX_HOME=$codex_home"
-  note "App bundle: $instance_app"
-  note "Electron user data: $user_data_dir"
+  note "App bundle: $app"
+  if [[ "$profile" == "default" ]]; then
+    note "Desktop scope: stock ChatGPT session"
+  else
+    note "Desktop scope: isolated ChatGPT window (Chat, Work, and Codex)"
+    note "Electron user data: $user_data_dir"
+  fi
   note "Log: $log_file"
-  (umask 077 && open -n --env "CODEX_HOME=$codex_home" --stdout "$log_file" --stderr "$log_file" -a "$instance_app" "$workspace" --args "--user-data-dir=$user_data_dir") || die "Cannot launch app instance: $instance_app"
+
+  if [[ "$profile" == "default" ]]; then
+    (umask 077 && open -n --env "CODEX_HOME=$codex_home" --stdout "$log_file" --stderr "$log_file" -a "$app" "$workspace") \
+      || die "Cannot launch $product app: $app"
+  else
+    (umask 077 && open -n --env "CODEX_HOME=$codex_home" --stdout "$log_file" --stderr "$log_file" -a "$app" "$workspace" --args "--user-data-dir=$user_data_dir") \
+      || die "Cannot launch $product app: $app"
+  fi
+}
+
+# Deprecated compatibility alias. The original signed app and the same
+# profile-isolated launcher are used; no app bundle is copied or re-signed.
+command_app_instance() {
+  note "Compatibility: app-instance is now an alias for app; named profiles already launch isolated ChatGPT windows."
+  command_app --instance "$@"
 }
 
 command_cli() {
@@ -595,6 +597,20 @@ command_remove() {
   note "Removed $profile ($codex_home)"
 }
 
+login_status_is_logged_out() {
+  local status_output="$1"
+  local normalized
+
+  normalized="$(printf '%s' "$status_output" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
+  case "$normalized" in
+    *"not logged in"* | *"not authenticated"* | *"no login credentials"* | *"authentication required"*)
+      return 0
+      ;;
+  esac
+
+  return 1
+}
+
 command_status_one() {
   local profile="$1"
   local codex_home codex_cli
@@ -618,7 +634,7 @@ command_status_one() {
 
   printf '%s\n' "$status_output"
 
-  if [[ "$status_code" -eq 0 || "$status_output" == "Not logged in" ]]; then
+  if [[ "$status_code" -eq 0 ]] || login_status_is_logged_out "$status_output"; then
     return 0
   fi
 
@@ -703,7 +719,7 @@ json_status_object() {
 
   if [[ "$status_code" -eq 0 ]]; then
     state=ok
-  elif [[ "$status_output" == "Not logged in" ]]; then
+  elif login_status_is_logged_out "$status_output"; then
     state=not_logged_in
   else
     state=error
@@ -911,13 +927,13 @@ command_logs() {
   shift || true
 
   local mode="cat"
-  local log_name="desktop.log"
+  local instance_compat=no
   local lines=50
 
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
       --instance)
-        log_name="desktop-instance.log"
+        instance_compat=yes
         ;;
       --path)
         mode="path"
@@ -941,14 +957,14 @@ command_logs() {
 
   [[ "$lines" =~ ^[0-9]+$ ]] || die "Tail line count must be a non-negative integer."
 
-  local codex_home log_file missing_label
+  local codex_home log_file legacy_log_file missing_label
   codex_home="$(codex_home_for_profile "$profile")"
-  log_file="$codex_home/logs/$log_name"
-  missing_label="$log_name"
-  if [[ "$log_name" == "desktop.log" ]]; then
-    missing_label="desktop log"
-  elif [[ "$log_name" == "desktop-instance.log" ]]; then
-    missing_label="desktop instance log"
+  log_file="$codex_home/logs/desktop.log"
+  legacy_log_file="$codex_home/logs/desktop-instance.log"
+  missing_label="desktop log"
+  if [[ "$instance_compat" == "yes" && ! -f "$log_file" && -f "$legacy_log_file" ]]; then
+    log_file="$legacy_log_file"
+    missing_label="legacy desktop instance log"
   fi
 
   if [[ "$mode" == "path" ]]; then
@@ -1451,8 +1467,8 @@ EOF
 complete -c codex-profile -f
 complete -c codex-profile -n '__fish_is_first_arg' -a 'app cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help'
 complete -c codex-profile -n '__fish_seen_subcommand_from app app-instance cli login init remove status path env use logs' -a '(codex-profile list 2>/dev/null) default personal work'
-complete -c codex-profile -n '__fish_seen_subcommand_from app' -l instance -d 'Run a parallel Codex Desktop clone alongside others (experimental)'
-complete -c codex-profile -n '__fish_seen_subcommand_from app' -l rebuild -d 'Rebuild the app --instance clone (only with --instance)'
+complete -c codex-profile -n '__fish_seen_subcommand_from app' -l instance -d 'Compatibility flag; named ChatGPT windows are already isolated'
+complete -c codex-profile -n '__fish_seen_subcommand_from app' -l rebuild -d 'Compatibility no-op; the signed app is never cloned'
 complete -c codex-profile -n '__fish_seen_subcommand_from clone-config' -a '(codex-profile list 2>/dev/null) default personal work'
 complete -c codex-profile -n '__fish_seen_subcommand_from completions shell-init' -a 'bash zsh fish'
 EOF
@@ -1509,7 +1525,8 @@ EOF
 
 command_doctor() {
   local json=no
-  local codex_cli
+  local app="" executable="" product="" bundle_id="" codex_cli="" cli_source="" cli_version=""
+  local desktop_found=false legacy_clone_found=false
 
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
@@ -1523,20 +1540,40 @@ command_doctor() {
     shift
   done
 
+  if app="$(try_find_desktop_app 2> /dev/null)"; then
+    desktop_found=true
+    executable="$(desktop_executable_path "$app" 2> /dev/null || true)"
+    product="$(desktop_product_name "$app")"
+    bundle_id="$(desktop_bundle_identifier "$app")"
+  fi
+  [[ -d "$CODEX_PROFILE_APP_INSTANCE_ROOT" ]] && legacy_clone_found=true
+
   if [[ "$json" == "yes" ]]; then
-    local desktop_found=false cli_version status_code=0
-    [[ -x "$CODEX_APP_BIN" ]] && desktop_found=true
+    local status_code=0
 
     printf '{"desktop":{"found":%s,"path":' "$desktop_found"
-    json_string "$CODEX_APP_BIN"
+    if [[ "$desktop_found" == "true" ]]; then json_string "$executable"; else printf 'null'; fi
+    printf ',"app_path":'
+    if [[ "$desktop_found" == "true" ]]; then json_string "$app"; else printf 'null'; fi
+    printf ',"product":'
+    if [[ "$desktop_found" == "true" ]]; then json_string "$product"; else printf 'null'; fi
+    printf ',"bundle_id":'
+    if [[ "$desktop_found" == "true" ]]; then json_string "$bundle_id"; else printf 'null'; fi
+    printf ',"scope":"default:stock_chatgpt_session;named:isolated_chatgpt_window","account_identity":"unverified"}'
+    printf ',"legacy_clone_root":{"found":%s,"path":' "$legacy_clone_found"
+    json_string "$CODEX_PROFILE_APP_INSTANCE_ROOT"
     printf '}'
 
     if codex_cli="$(try_find_codex_cli)"; then
-      cli_version="$("$codex_cli" --version 2>&1 || true)"
+      cli_source="$(codex_cli_source "$codex_cli")"
+      cli_version="$(codex_cli_version_string "$codex_cli")"
       printf ',"cli":{"found":true,"path":'
       json_string "$codex_cli"
       printf ',"version":'
       json_string "$cli_version"
+      printf ',"source":'
+      json_string "$cli_source"
+      printf ',"healthy":true,"scope":"codex_only","account_identity":"unverified_against_desktop"'
       printf '},"status":{"skipped":false,"profiles":'
       set +e
       json_emit_status_profiles_array
@@ -1546,7 +1583,7 @@ command_doctor() {
       return "$status_code"
     fi
 
-    printf ',"cli":{"found":false,"path":null,"version":null},"status":{"skipped":true,"reason":'
+    printf ',"cli":{"found":false,"path":null,"version":null,"source":null,"healthy":false,"scope":"codex_only","account_identity":"unverified_against_desktop"},"status":{"skipped":true,"reason":'
     json_string "$(codex_cli_error_message)"
     printf '}}\n'
     return 0
@@ -1555,17 +1592,27 @@ command_doctor() {
   note "Codex profile doctor"
   note ""
 
-  if [[ -x "$CODEX_APP_BIN" ]]; then
-    note "Desktop: $CODEX_APP_BIN"
+  if [[ "$desktop_found" == "true" ]]; then
+    note "Desktop product: $product"
+    note "Desktop app: $app"
+    note "Desktop executable: $executable"
+    note "Desktop bundle ID: ${bundle_id:-unknown}"
   else
-    note "Desktop: missing ($CODEX_APP_BIN)"
+    note "Desktop: missing ($(desktop_app_error_message))"
+  fi
+  note "Desktop scope: default uses the stock ChatGPT session; named profiles isolate the whole ChatGPT window"
+  if [[ "$legacy_clone_found" == "true" ]]; then
+    note "Legacy app clones: found at $CODEX_PROFILE_APP_INSTANCE_ROOT (safe to remove after closing old cloned apps)"
   fi
 
-  if codex_cli="$(find_codex_cli 2> /dev/null)"; then
-    note "CLI: $codex_cli"
-    "$codex_cli" --version || true
+  if codex_cli="$(try_find_codex_cli)"; then
+    cli_source="$(codex_cli_source "$codex_cli")"
+    note "CLI: $codex_cli (source: $cli_source)"
+    note "CLI scope: Codex commands only; Desktop and CLI accounts must be verified separately"
+    "$codex_cli" --version
   else
     note "CLI: missing"
+    note "CLI scope: Codex commands only; Desktop and CLI accounts must be verified separately"
     note ""
     note "Status: skipped"
     return 0
@@ -1577,9 +1624,23 @@ command_doctor() {
 
 main() {
   local command="${1:-help}"
+  local json_command=no arg
   shift || true
 
-  maybe_check_for_update || true
+  case "$command" in
+    status | doctor)
+      for arg in "$@"; do
+        if [[ "$arg" == "--json" || "$arg" == "-j" ]]; then
+          json_command=yes
+          break
+        fi
+      done
+      ;;
+  esac
+
+  if [[ "$json_command" == "no" ]]; then
+    maybe_check_for_update || true
+  fi
 
   case "$command" in
     app)

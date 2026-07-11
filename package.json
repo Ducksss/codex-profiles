@@ -1,7 +1,7 @@
 {
   "name": "codex-profile",
-  "version": "0.6.0",
-  "description": "Switch Codex CLI/Desktop profiles and run experimental parallel Desktop instances.",
+  "version": "0.7.0",
+  "description": "Launch Codex CLI profiles and isolated ChatGPT desktop sessions.",
   "license": "MIT",
   "homepage": "https://ducksss.github.io/codex-profiles/",
   "repository": {
@@ -15,13 +15,13 @@
     "ai-tools",
     "automation",
     "chatgpt",
+    "chatgpt-desktop",
     "codex",
     "codex-account-switcher",
     "codex-cli",
-    "codex-desktop",
-    "codex-home",
     "codex-profiles",
     "developer-tools",
+    "multiple-accounts",
     "openai",
     "openai-codex",
     "productivity",
@@ -36,7 +36,6 @@
     "CHANGELOG.md",
     "docs",
     "LICENSE",
-    "media",
     "README.md",
     "SECURITY.md"
   ],

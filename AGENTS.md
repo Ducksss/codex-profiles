@@ -9,10 +9,11 @@ in this repository. Humans should start with [README.md](README.md).
 
 ## What this project is
 
-`codex-profiles` is a single-file, dependency-free Bash CLI that runs Codex CLI
-and Codex Desktop with isolated `CODEX_HOME` directories, so each account
-(personal, work, school, client) keeps its own auth, config, sessions, plugins,
-caches, and logs. The whole program is [`bin/codex-profile`](bin/codex-profile).
+`codex-profiles` is a single-file, dependency-free Bash CLI for named Codex
+homes and isolated ChatGPT desktop windows. Every profile selects a
+`CODEX_HOME`; named macOS Desktop launches additionally select Electron user
+data for the entire ChatGPT window across Chat, Work, and Codex. The whole
+program is [`bin/codex-profile`](bin/codex-profile).
 
 It is community-maintained and is **not** an official OpenAI project.
 
@@ -20,6 +21,7 @@ It is community-maintained and is **not** an official OpenAI project.
 
 - `bin/codex-profile` — the entire CLI (Bash). Edit this for behavior changes.
 - `test/codex-profile-test.sh` — Bash behavior test suite.
+- `test/package-metadata-test.sh` — release metadata and packaging alias checks.
 - `test/geo-site-test.mjs` — validates the AI-readable `docs/` site (Node, no deps).
 - `docs/` — GitHub Pages site plus `llms.txt`, `robots.txt`, `sitemap.xml`, GEO docs.
 - `Makefile` — `install`, `uninstall`, `lint`, `test`, `npm-package-test`.
@@ -54,9 +56,9 @@ codex-profile init work                  # create the work profile's CODEX_HOME
 codex-profile login work                 # authenticate that profile once
 codex-profile cli work                   # Codex CLI on the work profile
 codex-profile cli work exec "run tests"  # one-shot Codex CLI command
-codex-profile app work ~/Dev/project     # Codex Desktop on a profile (macOS)
-codex-profile app work --instance ~/Dev/p # parallel Desktop window (macOS, experimental)
-codex-profile status                     # read-only profile overview
+codex-profile app default ~/Dev/project  # stock ChatGPT session (macOS)
+codex-profile app work ~/Dev/project     # isolated named ChatGPT window (macOS)
+codex-profile status                     # read-only Codex-local overview
 codex-profile doctor                     # environment diagnostics
 ```
 
@@ -72,10 +74,18 @@ Profile-to-path mapping: `default -> ~/.codex`; any other name `<x> -> ~/.codex-
 - If you change the command surface, update `usage()` in `bin/codex-profile`,
   the README command reference, the shell completion generators, and
   `docs/llms.txt` so all four stay in sync.
-- Bump the version in three places together — `VERSION` in `bin/codex-profile`,
-  `version` in `package.json`, and `softwareVersion` in `docs/index.html`.
-  `test/geo-site-test.mjs` asserts the docs version matches `package.json`.
+- Bump the version together in `bin/codex-profile`, `package.json`, both
+  `package-lock.json` version fields, `docs/index.html`,
+  `packaging/aur/PKGBUILD`, and `packaging/aur/.SRCINFO`. CI and the GEO test
+  enforce this synchronization.
 - Document user-facing changes under `## Unreleased` in `CHANGELOG.md`.
+- Keep the scope contract explicit: `cli`/`login`/`env`/`use` are Codex-only;
+  `app default` preserves stock ChatGPT Desktop state; named `app` launches use
+  matching `CODEX_HOME` and Electron data for the entire ChatGPT window.
+- Desktop code must launch the original signed bundle. Do not reintroduce app
+  clones, metadata patching, ad-hoc signing, global quitting, or broad kills.
+- Keep `--instance`, `--rebuild`, and `app-instance` as deprecated
+  compatibility spellings until a documented breaking release.
 
 ## Outreach ledger
 
@@ -87,10 +97,14 @@ log entry with the exact outcome, reason, and relevant link.
 
 ## Safety boundaries (state these accurately)
 
-- The tool only sets `CODEX_HOME`. It never reads, copies, prints, parses, or
-  migrates `auth.json` tokens.
+- CLI-oriented commands select `CODEX_HOME`; named Desktop launches also select
+  per-profile Electron user data. The tool never reads, copies, prints, parses,
+  compares, or migrates `auth.json` tokens or ChatGPT cookies.
 - `clone-config` copies only an allowlist of non-secret root config files and
   refuses sensitive-looking key names.
-- Profile isolation covers Codex local state, not the operating system. SSH
-  keys, GitHub CLI auth, browser cookies, and other credentials are still shared
-  by the OS user. For strict separation, use separate OS users.
+- `status` is Codex-local. Account equality between CLI and Desktop is not
+  inspected or verified.
+- Profile isolation is local state separation, not an operating-system or
+  server-side ChatGPT boundary. SSH keys, keychains, external CLI credentials,
+  and other state remain shared by the OS user. For strict separation, use
+  separate OS users.

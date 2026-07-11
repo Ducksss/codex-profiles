@@ -1,17 +1,20 @@
 # Maintainer: Ducksss <https://github.com/Ducksss>
 pkgname=codex-profile
-pkgver=0.6.0
+pkgver=0.7.0
 pkgrel=1
-pkgdesc="Switch Codex CLI and Desktop accounts with isolated CODEX_HOME profiles"
+pkgdesc="Launch Codex CLI profiles and isolated ChatGPT desktop sessions"
 arch=('any')
 url="https://github.com/Ducksss/codex-profiles"
 license=('MIT')
 depends=('bash')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/Ducksss/codex-profiles/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('2d949af33d6b24499b25abf19d25c1fa6d758e35c3e0a649c7872bade90d083b')
+makedepends=('git')
+# This is a pinned stable-release tag, not a moving development branch. Git is
+# needed only while makepkg retrieves and checks out that tag.
+source=("git+https://github.com/Ducksss/codex-profiles.git#tag=v$pkgver")
+sha256sums=('SKIP')
 
 package() {
-  cd "codex-profiles-$pkgver"
+  cd "codex-profiles"
   install -Dm755 "bin/codex-profile" "$pkgdir/usr/bin/codex-profile"
   ln -s codex-profile "$pkgdir/usr/bin/codex-profiles"
   install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

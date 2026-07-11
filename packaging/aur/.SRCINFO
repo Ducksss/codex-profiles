@@ -1,12 +1,13 @@
 pkgbase = codex-profile
-	pkgdesc = Switch Codex CLI and Desktop accounts with isolated CODEX_HOME profiles
-	pkgver = 0.6.0
+	pkgdesc = Launch Codex CLI profiles and isolated ChatGPT desktop sessions
+	pkgver = 0.7.0
 	pkgrel = 1
 	url = https://github.com/Ducksss/codex-profiles
 	arch = any
 	license = MIT
 	depends = bash
-	source = codex-profile-0.6.0.tar.gz::https://github.com/Ducksss/codex-profiles/archive/refs/tags/v0.6.0.tar.gz
-	sha256sums = 2d949af33d6b24499b25abf19d25c1fa6d758e35c3e0a649c7872bade90d083b
+	makedepends = git
+	source = git+https://github.com/Ducksss/codex-profiles.git#tag=v0.7.0
+	sha256sums = SKIP
 
 pkgname = codex-profile

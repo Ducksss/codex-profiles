@@ -1,33 +1,26 @@
 name: Release
 
-# Auto-release on code changes. A push to main that touches the shipped script
-# (bin/**) cuts the next patch release (0.4.x). Use the manual "Run workflow"
-# button to force a specific version (e.g. a minor/major bump) or to dry-run.
-#
-# The job commits the version bump with GITHUB_TOKEN; pushes made with that
-# token do not trigger workflows, so the bump commit cannot re-trigger this
-# release (no loop).
+# Releases are deliberate. Prepare and review every version change on main,
+# then dispatch this workflow with that exact tracked version. The workflow
+# validates repository state; it never edits or commits a version bump.
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "bin/**"
   workflow_dispatch:
     inputs:
       version:
-        description: "Exact version to release (e.g. 0.5.0). Leave blank to auto-bump the patch."
-        required: false
-        default: ""
+        description: "Exact tracked version to release (for example, 0.7.0)."
+        required: true
+        type: string
       dry_run:
-        description: "Compute + build only; skip commit, tag, publish, and release."
-        required: false
-        default: "false"
+        description: "Validate and build without tagging or publishing."
+        required: true
+        default: true
+        type: boolean
 
 permissions:
-  contents: write # push the bump commit + tag, create the release
+  contents: write # create the tag and GitHub Release
   id-token: write # npm provenance
+  actions: write # dispatch the Pages workflow after release
 
 concurrency:
   group: release
@@ -35,17 +28,17 @@ concurrency:
 
 jobs:
   release:
-    name: Cut release
+    name: Validate and release
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     env:
-      INPUT_VERSION: ${{ github.event.inputs.version }}
-      DRY_RUN: ${{ github.event.inputs.dry_run }}
+      INPUT_VERSION: ${{ inputs.version }}
+      DRY_RUN: ${{ inputs.dry_run }}
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -55,113 +48,229 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Compute version
-        id: ver
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Validate release source and tracked versions
+        id: release
+        shell: bash
         run: |
           set -euo pipefail
-          if [ -n "${INPUT_VERSION:-}" ]; then
-            next="$INPUT_VERSION"
-          else
-            cur="$(node -p "require('./package.json').version")"
-            IFS=. read -r major minor patch <<< "$cur"
-            next="$major.$minor.$((patch + 1))"
-          fi
-          if ! printf '%s' "$next" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "Computed version '$next' is not X.Y.Z." >&2
+
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Releases must be dispatched from the main branch, not $GITHUB_REF." >&2
             exit 1
           fi
-          if git rev-parse "v$next" >/dev/null 2>&1; then
-            echo "Tag v$next already exists; refusing to re-release." >&2
+
+          version="$INPUT_VERSION"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version '$version' is not an exact X.Y.Z release version." >&2
             exit 1
           fi
-          echo "version=$next" >> "$GITHUB_OUTPUT"
-          echo "date=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
-          echo "Releasing v$next"
 
-      - name: Bump version in all tracked files
-        env:
-          V: ${{ steps.ver.outputs.version }}
+          check_version() {
+            local source="$1"
+            local declared="$2"
+            if [[ "$declared" != "$version" ]]; then
+              printf '%s declares %q; expected %q.\n' "$source" "$declared" "$version" >&2
+              exit 1
+            fi
+          }
+
+          check_version package.json "$(node -p "require('./package.json').version")"
+          check_version package-lock.json "$(node -p "require('./package-lock.json').version")"
+          check_version package-lock-root "$(node -p "require('./package-lock.json').packages[''].version")"
+          check_version bin/codex-profile "$(sed -n 's/^VERSION="\([^"]*\)"/\1/p' bin/codex-profile | head -n 1)"
+          check_version docs/index.html "$(sed -n 's/.*"softwareVersion": "\([^"]*\)".*/\1/p' docs/index.html | head -n 1)"
+          check_version docs-visible-version "$(sed -n 's|.*<span>v\([0-9][^<]*\)</span>.*|\1|p' docs/index.html | head -n 1)"
+          check_version packaging/aur/PKGBUILD "$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD | head -n 1)"
+          check_version packaging/aur/.SRCINFO "$(sed -n 's/^\tpkgver = //p' packaging/aur/.SRCINFO | head -n 1)"
+
+          changelog_version="${version//./\.}"
+          if ! grep -Eq "^## $changelog_version - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then
+            echo "CHANGELOG.md must contain a dated '## $version - YYYY-MM-DD' section before release." >&2
+            exit 1
+          fi
+
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          const lock = require('./package-lock.json');
+          if (pkg.name !== 'codex-profile') {
+            throw new Error(`package name must remain codex-profile, got ${pkg.name}`);
+          }
+          if (lock.name !== pkg.name || lock.packages?.['']?.name !== pkg.name) {
+            throw new Error('package-lock.json package names must match package.json');
+          }
+          for (const command of ['codex-profile', 'codex-profiles']) {
+            if (pkg.bin?.[command] !== 'bin/codex-profile') {
+              throw new Error(`${command} must map to bin/codex-profile`);
+            }
+          }
+          NODE
+
+          grep -F "ln -sf codex-profile \"\$BINDIR/codex-profiles\"" install.sh >/dev/null
+          grep -F "ln -s codex-profile \"\$out/bin/codex-profiles\"" flake.nix >/dev/null
+          grep -F "ln -s codex-profile \"\$pkgdir/usr/bin/codex-profiles\"" packaging/aur/PKGBUILD >/dev/null
+
+          git fetch --no-tags origin main
+          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+            echo "The checked-out commit is not the current origin/main tip." >&2
+            exit 1
+          fi
+
+          tag="v$version"
+          tag_exists=false
+          if git show-ref --verify --quiet "refs/tags/$tag"; then
+            tag_exists=true
+            if [[ "$(git rev-list -n 1 "$tag")" != "$GITHUB_SHA" ]]; then
+              echo "$tag already points to a different commit; refusing to move it." >&2
+              exit 1
+            fi
+          fi
+
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "tag_exists=$tag_exists"
+          } >> "$GITHUB_OUTPUT"
+          echo "Validated tracked release $tag at $GITHUB_SHA."
+
+      - name: Run full verification
         run: |
-          set -euo pipefail
-          npm version "$V" --no-git-tag-version >/dev/null
-          sed -i "s/^VERSION=\"[^\"]*\"/VERSION=\"$V\"/" bin/codex-profile
-          sed -i "s/\"softwareVersion\": \"[^\"]*\"/\"softwareVersion\": \"$V\"/" docs/index.html
-          sed -i "s|<span>v[0-9][0-9.]*</span>|<span>v$V</span>|" docs/index.html
+          make test
+          make lint
+          git diff --exit-code
 
-      - name: Promote CHANGELOG Unreleased section
+      - name: Validate release credentials
+        if: ${{ ! inputs.dry_run }}
+        shell: bash
         env:
-          V: ${{ steps.ver.outputs.version }}
-          D: ${{ steps.ver.outputs.date }}
-        run: |
-          set -euo pipefail
-          awk -v hdr="## $V - $D" '
-            /^## Unreleased/ && !done { print; print ""; print hdr; done=1; next }
-            { print }
-          ' CHANGELOG.md > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
-
-      - name: Verify (make test enforces the version-sync guard)
-        run: make test
-
-      - name: Show release diff
-        run: git --no-pager diff
-
-      - name: Commit, tag, and push
-        if: env.DRY_RUN != 'true'
-        env:
-          V: ${{ steps.ver.outputs.version }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "chore(release): v$V"
-          git tag -a "v$V" -m "codex-profile v$V"
-          git push origin HEAD:main
-          git push origin "v$V"
-
-      - name: Publish to npm
-        if: env.DRY_RUN != 'true'
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Create GitHub Release
-        if: env.DRY_RUN != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          V: ${{ steps.ver.outputs.version }}
-        run: gh release create "v$V" --title "v$V" --generate-notes
-
-      - name: Update Homebrew tap
-        if: env.DRY_RUN != 'true'
-        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
-          V: ${{ steps.ver.outputs.version }}
         run: |
           set -euo pipefail
-          if [ -z "${TAP_TOKEN:-}" ]; then
-            echo "TAP_TOKEN secret not set; skipping Homebrew tap update." >&2
+          [[ -n "${NPM_TOKEN:-}" ]] || { echo "NPM_TOKEN is required." >&2; exit 1; }
+          [[ -n "${TAP_TOKEN:-}" ]] || { echo "TAP_TOKEN is required." >&2; exit 1; }
+
+      - name: Create and push tag
+        if: ${{ ! inputs.dry_run }}
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          TAG_EXISTS: ${{ steps.release.outputs.tag_exists }}
+        run: |
+          set -euo pipefail
+          if [[ "$TAG_EXISTS" == "true" ]]; then
+            echo "$TAG already exists at this commit; continuing the release."
             exit 0
           fi
-          tarball="https://github.com/Ducksss/codex-profiles/archive/refs/tags/v$V.tar.gz"
-          sha="$(curl -fsSL "$tarball" | sha256sum | cut -d ' ' -f 1)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "codex-profile $TAG"
+          git push origin "$TAG"
+
+      - name: Verify tagged Arch package source
+        if: ${{ ! inputs.dry_run }}
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
           tmp="$(mktemp -d)"
-          git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/Ducksss/homebrew-tap.git" "$tmp/tap"
-          formula="$tmp/tap/Formula/codex-profile.rb"
-          sed -i "s|url \".*\"|url \"$tarball\"|" "$formula"
-          sed -i "s|sha256 \".*\"|sha256 \"$sha\"|" "$formula"
-          if git -C "$tmp/tap" diff --quiet; then
-            echo "Homebrew formula already up to date for v$V."
+          trap 'rm -rf "$tmp"' EXIT
+          git clone --branch "$TAG" --depth 1 \
+            https://github.com/Ducksss/codex-profiles.git \
+            "$tmp/codex-profiles"
+          (
+            cd "$tmp"
+            pkgdir="$tmp/pkg"
+            source "$GITHUB_WORKSPACE/packaging/aur/PKGBUILD"
+            package
+          )
+          test -x "$tmp/pkg/usr/bin/codex-profile"
+          test -x "$tmp/pkg/usr/bin/codex-profiles"
+          "$tmp/pkg/usr/bin/codex-profiles" version | grep -E '^codex-profile ' >/dev/null
+
+      - name: Publish to npm
+        if: ${{ ! inputs.dry_run }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          V: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          published="$(npm view "codex-profile@$V" version 2>/dev/null || true)"
+          if [[ "$published" == "$V" ]]; then
+            echo "codex-profile@$V is already published; continuing the release."
+          elif [[ -n "$published" ]]; then
+            echo "Unexpected npm version response: $published" >&2
+            exit 1
           else
-            git -C "$tmp/tap" config user.name "github-actions[bot]"
-            git -C "$tmp/tap" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git -C "$tmp/tap" commit -am "codex-profile $V"
+            npm publish --provenance --access public
+          fi
+
+      - name: Create GitHub Release
+        if: ${{ ! inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub Release $TAG already exists; continuing the release."
+          else
+            gh release create "$TAG" --title "codex-profile $TAG" --generate-notes
+          fi
+
+      - name: Update Homebrew tap
+        if: ${{ ! inputs.dry_run }}
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          V: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          tarball="https://github.com/Ducksss/codex-profiles/archive/refs/tags/v$V.tar.gz"
+          sha="$(curl --retry 3 --retry-all-errors -fsSL "$tarball" | sha256sum | cut -d ' ' -f 1)"
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          git clone --depth 1 \
+            "https://x-access-token:${TAP_TOKEN}@github.com/Ducksss/homebrew-tap.git" \
+            "$tmp/tap"
+          formula="$tmp/tap/Formula/codex-profile.rb"
+          [[ -f "$formula" ]] || { echo "Missing Homebrew formula: $formula" >&2; exit 1; }
+
+          sed -i 's|^  desc ".*"|  desc "Launch Codex CLI profiles and isolated ChatGPT desktop sessions"|' "$formula"
+          sed -i "s|^  url \".*\"|  url \"$tarball\"|" "$formula"
+          sed -i "s|^  sha256 \".*\"|  sha256 \"$sha\"|" "$formula"
+          if ! grep -q 'bin.install_symlink bin/"codex-profile" => "codex-profiles"' "$formula"; then
+            sed -i '/bin.install "bin\/codex-profile"/a\    bin.install_symlink bin/"codex-profile" => "codex-profiles"' "$formula"
+          fi
+          if ! grep -q 'system bin/"codex-profiles", "version"' "$formula"; then
+            sed -i '/system bin\/"codex-profile", "help"/a\    system bin/"codex-profiles", "version"' "$formula"
+          fi
+          ruby -c "$formula"
+
+          git -C "$tmp/tap" config user.name "github-actions[bot]"
+          git -C "$tmp/tap" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$tmp/tap" add -A
+          if git -C "$tmp/tap" diff --cached --quiet; then
+            echo "Homebrew formula already matches v$V."
+          else
+            git -C "$tmp/tap" commit -m "codex-profile $V"
             git -C "$tmp/tap" push
           fi
 
-      - name: Dry-run summary
-        if: env.DRY_RUN == 'true'
+      - name: Deploy release documentation
+        if: ${{ ! inputs.dry_run }}
         env:
-          V: ${{ steps.ver.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"
+
+      - name: Release summary
+        env:
+          V: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
         run: |
-          echo "DRY RUN: would release v$V (commit, tag, npm publish, GitHub Release skipped)."
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "Validated $TAG. Dry run made no release changes." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Released codex-profile $V and dispatched Pages from $TAG." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi

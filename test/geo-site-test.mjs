@@ -176,8 +176,8 @@ assert.ok(
 assert.equal(packageJson.homepage, canonicalUrl);
 
 for (const required of [
-  'actions/upload-pages-artifact@v3',
-  'actions/deploy-pages@v4',
+  'actions/upload-pages-artifact@v5',
+  'actions/deploy-pages@v5',
   'path: docs',
   'pages: write',
   'id-token: write',

@@ -5,7 +5,7 @@
 #
 # Environment:
 #   CODEX_PROFILE_PREFIX   Install prefix (default: $HOME/.local; binaries go in $PREFIX/bin).
-#   CODEX_PROFILE_VERSION  Install a specific tag (e.g. v0.5.0) instead of the latest release.
+#   CODEX_PROFILE_VERSION  Install a specific release tag (including the leading v).
 set -eu
 
 REPO="Ducksss/codex-profiles"

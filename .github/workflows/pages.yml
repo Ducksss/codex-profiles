@@ -1,9 +1,10 @@
 name: Pages
+run-name: Deploy Pages from ${{ github.ref_name }}
 
+# Release dispatches this workflow from the immutable release tag. It can also
+# be run manually for an explicitly selected ref when documentation needs an
+# independent redeploy.
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -21,13 +22,13 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Run GEO site tests
         run: node test/geo-site-test.mjs
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs
 
@@ -48,4 +49,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

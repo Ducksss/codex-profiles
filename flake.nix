@@ -1,5 +1,5 @@
 {
-  description = "Switch Codex CLI and Desktop accounts with isolated CODEX_HOME profiles";
+  description = "Launch Codex CLI profiles and isolated ChatGPT desktop sessions";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -29,7 +29,7 @@
           '';
 
           meta = with pkgs.lib; {
-            description = "Switch Codex CLI and Desktop accounts with isolated CODEX_HOME profiles";
+            description = "Launch Codex CLI profiles and isolated ChatGPT desktop sessions";
             homepage = "https://github.com/Ducksss/codex-profiles";
             license = licenses.mit;
             platforms = platforms.unix;

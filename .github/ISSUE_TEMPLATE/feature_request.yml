@@ -34,3 +34,5 @@ body:
       options:
         - label: This does not require reading, copying, printing, uploading, or rewriting Codex auth tokens.
           required: true
+        - label: This preserves the distinction between Codex-only commands and whole-window ChatGPT Desktop profiles.
+          required: true
