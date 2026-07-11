@@ -76,7 +76,7 @@ grep -F 'ln -s codex-profile "$staged_alias"' install.sh > /dev/null \
 grep -F 'mv "$staged_alias" "$alias"' install.sh > /dev/null \
   || fail "standalone installer does not transactionally install the plural alias"
 # shellcheck disable=SC2016 # fixed strings intentionally contain shell variables
-grep -F '[ -L "$alias" ] && [ "$(readlink "$alias")" = codex-profile ]' install.sh > /dev/null \
+grep -F 'if [ ! -L "$alias" ] || [ "$(readlink "$alias")" != codex-profile ]; then' install.sh > /dev/null \
   || fail "standalone installer does not verify the relative plural alias"
 # shellcheck disable=SC2016 # fixed strings intentionally contain Nix shell variables
 grep -F 'ln -s codex-profile "$out/bin/codex-profiles"' flake.nix > /dev/null \

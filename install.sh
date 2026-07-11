@@ -156,10 +156,12 @@ fi
 mv "$staged_canonical" "$canonical" || err "cannot install $canonical"
 mv "$staged_alias" "$alias" || err "cannot install $alias"
 
-[ -f "$canonical" ] && [ -x "$canonical" ] && [ ! -L "$canonical" ] \
-  || err "installed canonical command is not a regular executable: $canonical"
-[ -L "$alias" ] && [ "$(readlink "$alias")" = codex-profile ] \
-  || err "installed plural command is not the expected relative symlink: $alias"
+if [ ! -f "$canonical" ] || [ ! -x "$canonical" ] || [ -L "$canonical" ]; then
+  err "installed canonical command is not a regular executable: $canonical"
+fi
+if [ ! -L "$alias" ] || [ "$(readlink "$alias")" != codex-profile ]; then
+  err "installed plural command is not the expected relative symlink: $alias"
+fi
 
 installed_version="$(declared_version "$canonical" || true)"
 [ "$installed_version" = "$version" ] \

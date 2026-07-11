@@ -113,7 +113,7 @@ for literal in \
   '# shellcheck disable=SC2016' \
   "grep -F 'ln -s codex-profile \"\$staged_alias\"' install.sh >/dev/null" \
   "grep -F 'mv \"\$staged_alias\" \"\$alias\"' install.sh >/dev/null" \
-  "grep -F '[ -L \"\$alias\" ] && [ \"\$(readlink \"\$alias\")\" = codex-profile ]' install.sh >/dev/null"
+  "grep -F 'if [ ! -L \"\$alias\" ] || [ \"\$(readlink \"\$alias\")\" != codex-profile ]; then' install.sh >/dev/null"
 do
   grep -F -- "$literal" <<< "$source_validation_block" >/dev/null \
     || fail "$source_validation_step is missing transactional installer precondition: $literal"
