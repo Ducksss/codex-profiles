@@ -35,21 +35,44 @@ set -eu
 
 case "${1:-}" in
   pack)
-    exit 0
-    ;;
-  install)
     shift
-    prefix=""
+    destination=""
     while [ "$#" -gt 0 ]; do
-      if [ "$1" = "--prefix" ]; then
-        prefix="$2"
+      if [ "$1" = "--pack-destination" ]; then
+        destination="$2"
         shift 2
       else
         shift
       fi
     done
+    [ -n "$destination" ]
+    : > "$destination/codex-profile-0.7.0.tgz"
+    printf '%s\n' '[{"filename":"codex-profile-0.7.0.tgz"}]'
+    ;;
+  install)
+    shift
+    prefix=""
+    archive=""
+    while [ "$#" -gt 0 ]; do
+      if [ "$1" = "--prefix" ]; then
+        prefix="$2"
+        shift 2
+      elif [ "${1#-}" = "$1" ]; then
+        archive="$1"
+        shift
+      else
+        shift
+      fi
+    done
     [ -n "$prefix" ]
+    [ -f "$archive" ]
+    case "$archive" in
+      *.tgz) ;;
+      *) exit 65 ;;
+    esac
     make install PREFIX="$prefix" >/dev/null
+    mkdir -p "$prefix/lib/node_modules/codex-profile/bin"
+    cp bin/codex-profile "$prefix/lib/node_modules/codex-profile/bin/codex-profile"
     ;;
   *)
     exit 64
@@ -102,20 +125,38 @@ require_mutation_failure() {
   fi
 }
 
+require_print_then_fail_mutation() {
+  local mutated="$tmp_dir/path-smoke-producer.mk"
+  local original replacement
+
+  original=$'\t\toutput="$$(HOME="$$tmp_home" bin/codex-profile path default)"; \\'
+  replacement=$'\t\toutput="$$(printf \'%s\\n\' "$$tmp_home/.codex"; exit 23)"; \\'
+  awk -v original="$original" -v replacement="$replacement" '
+    $0 == original { print replacement; replaced += 1; next }
+    { print }
+    END { if (replaced != 1) exit 42 }
+  ' "$MAKEFILE" > "$mutated" || fail "could not create producer-failure mutation"
+
+  if make -C "$ROOT_DIR" -f "$mutated" path-smoke-test >/dev/null 2>&1; then
+    fail "path-smoke-test masked a producer that printed a match and exited non-zero"
+  fi
+}
+
 for target in path-smoke-test install-smoke-test npm-package-test; do
   require_target_success "$target"
 done
 
 require_mutation_failure \
   path-smoke-test \
-  $'\t\tHOME="$$tmp_home" bin/codex-profile path default | grep -E \'/\\.codex$$\' >/dev/null; \\'
+  $'\t\ttest "$$output" = "$$tmp_home/.codex"; \\'
+require_print_then_fail_mutation
 require_mutation_failure \
   install-smoke-test \
   $'\t\ttest -x "$$tmp_prefix/bin/codex-profile"; \\'
 require_target_success npm-package-test "$fake_npm_dir:$PATH"
 require_mutation_failure \
   npm-package-test \
-  $'\t\t\tnpm pack --dry-run --silent >/dev/null; \\' \
+  $'\t\t\tpack_json="$$(npm pack --json --pack-destination "$$tmp_prefix")"; \\' \
   "$fake_npm_dir:$PATH"
 
 printf '%s\n' 'Makefile smoke tests passed.'
