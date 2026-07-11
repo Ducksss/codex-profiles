@@ -4,8 +4,8 @@ set -euo pipefail
 
 PROGRAM="${0##*/}"
 VERSION="0.6.0"
-CODEX_APP="${CODEX_APP:-/Applications/Codex.app}"
-CODEX_APP_BIN="${CODEX_APP_BIN:-$CODEX_APP/Contents/MacOS/Codex}"
+CODEX_APP="${CODEX_APP:-/Applications/ChatGPT.app}"
+CODEX_APP_BIN="${CODEX_APP_BIN:-$CODEX_APP/Contents/MacOS/ChatGPT}"
 CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-$CODEX_APP/Contents/Resources/codex}"
 CODEX_PROFILE_QUIT_ATTEMPTS="${CODEX_PROFILE_QUIT_ATTEMPTS:-30}"
 CODEX_PROFILE_QUIT_SLEEP="${CODEX_PROFILE_QUIT_SLEEP:-0.5}"
@@ -62,7 +62,7 @@ Profiles:
   any other name  -> ~/.codex-<profile>
 
 Environment:
-  CODEX_APP       Override Codex.app path.
+  CODEX_APP       Override ChatGPT.app path.
   CODEX_APP_BIN   Override Codex Desktop binary path.
   CODEX_CLI       Override Codex CLI binary path.
   CODEX_PROFILE_APP_INSTANCE_ROOT  Override the experimental app --instance clone root.
@@ -154,14 +154,14 @@ ensure_home() {
 }
 
 codex_desktop_running() {
-  pgrep -x Codex > /dev/null 2>&1 && return 0
+  pgrep -x ChatGPT > /dev/null 2>&1 && return 0
   pgrep -f "$CODEX_BUNDLED_CLI app-server" > /dev/null 2>&1 && return 0
   return 1
 }
 
 force_quit_codex_app() {
-  osascript -e 'tell application "Codex" to quit' > /dev/null 2>&1 || true
-  pkill -x Codex > /dev/null 2>&1 || true
+  osascript -e 'tell application "ChatGPT" to quit' > /dev/null 2>&1 || true
+  pkill -x ChatGPT > /dev/null 2>&1 || true
   pkill -f "$CODEX_BUNDLED_CLI app-server" > /dev/null 2>&1 || true
 }
 
@@ -216,7 +216,7 @@ quit_codex_app() {
   fi
 
   note "Quitting existing Codex app..."
-  osascript -e 'tell application "Codex" to quit' > /dev/null 2>&1 || true
+  osascript -e 'tell application "ChatGPT" to quit' > /dev/null 2>&1 || true
 
   for ((attempt = 0; attempt < quit_attempts; attempt++)); do
     if ! codex_desktop_running; then
@@ -353,7 +353,7 @@ app_instance_app_for_profile() {
   local instance_dir
 
   instance_dir="$(app_instance_dir_for_profile "$profile")"
-  printf '%s/Codex %s.app\n' "$instance_dir" "$profile"
+  printf '%s/ChatGPT %s.app\n' "$instance_dir" "$profile"
 }
 
 patch_app_instance_metadata() {
@@ -365,7 +365,7 @@ patch_app_instance_metadata() {
   [[ -f "$plist" ]] || die "Codex app clone is missing Info.plist: $plist"
 
   bundle_id="$(app_instance_bundle_identifier_for_profile "$profile")"
-  display_name="Codex $profile"
+  display_name="ChatGPT $profile"
 
   if ! command -v plutil > /dev/null 2>&1; then
     note "Warning: plutil not found; app instance metadata was not patched."
@@ -402,13 +402,13 @@ app_instance_is_incompatible() {
   command -v plutil > /dev/null 2>&1 || return 1
 
   bundle_name="$(app_instance_plist_value "$app" CFBundleName)" || return 0
-  [[ "$bundle_name" == "Codex" ]] || return 0
+  [[ "$bundle_name" == "ChatGPT" ]] || return 0
 
   expected_bundle_id="$(app_instance_bundle_identifier_for_profile "$profile")"
   bundle_id="$(app_instance_plist_value "$app" CFBundleIdentifier)" || return 0
   [[ "$bundle_id" == "$expected_bundle_id" ]] || return 0
 
-  expected_display_name="Codex $profile"
+  expected_display_name="ChatGPT $profile"
   display_name="$(app_instance_plist_value "$app" CFBundleDisplayName)" || return 0
   [[ "$display_name" == "$expected_display_name" ]] || return 0
 
@@ -421,19 +421,19 @@ create_app_instance_bundle() {
 
   if [[ ! -d "$CODEX_APP" ]]; then
     [[ "$(uname -s)" == "Darwin" ]] || die_macos_only "app --instance"
-    die "Codex.app not found at $CODEX_APP"
+    die "ChatGPT.app not found at $CODEX_APP"
   fi
-  source_bin="$CODEX_APP/Contents/MacOS/Codex"
+  source_bin="$CODEX_APP/Contents/MacOS/ChatGPT"
   [[ -x "$source_bin" ]] || die "Codex Desktop binary not found at $source_bin"
 
   ensure_home "$CODEX_PROFILE_APP_INSTANCE_ROOT"
   instance_dir="$(app_instance_dir_for_profile "$profile")"
   ensure_home "$instance_dir"
   instance_app="$(app_instance_app_for_profile "$profile")"
-  tmp_app="$instance_dir/.Codex $profile.app.tmp.$$"
+  tmp_app="$instance_dir/.ChatGPT $profile.app.tmp.$$"
 
   rm -rf -- "$tmp_app"
-  cp -R "$CODEX_APP" "$tmp_app" || die "Cannot copy Codex.app to app instance: $tmp_app"
+  cp -R "$CODEX_APP" "$tmp_app" || die "Cannot copy ChatGPT.app to app instance: $tmp_app"
   patch_app_instance_metadata "$profile" "$tmp_app"
 
   if [[ -e "$instance_app" ]]; then
@@ -449,7 +449,7 @@ ensure_app_instance_bundle() {
   local instance_app instance_bin
 
   instance_app="$(app_instance_app_for_profile "$profile")"
-  instance_bin="$instance_app/Contents/MacOS/Codex"
+  instance_bin="$instance_app/Contents/MacOS/ChatGPT"
 
   if [[ "$rebuild" == "yes" ]]; then
     note "Rebuilding app instance for $profile"
@@ -488,7 +488,7 @@ run_app_instance() {
   ensure_app_instance_bundle "$profile" "$rebuild"
 
   instance_app="$(app_instance_app_for_profile "$profile")"
-  instance_bin="$instance_app/Contents/MacOS/Codex"
+  instance_bin="$instance_app/Contents/MacOS/ChatGPT"
   [[ -x "$instance_bin" ]] || die "Codex app instance binary not found at $instance_bin"
   command -v open > /dev/null 2>&1 || die "macOS open command not found; app --instance is macOS-only."
 
