@@ -12,6 +12,16 @@ and this project follows semantic versioning for tagged releases.
 - Clarified current product copy, CLI diagnostics, and package metadata to
   describe local-state separation without implying a verified account or
   security boundary.
+- Expanded the default release dry run to rehearse the standalone installer,
+  npm package, Homebrew helper, and pinned AUR package paths. Live releases now
+  require a strict, sanitized signed-app version/bundle attestation and verify
+  the published npm aliases with bounded registry retries, the exact GitHub
+  Release tag, and a newly dispatched Pages run and version; external AUR
+  publication remains a maintainer action.
+- Split default release verification into a credentialless, read-only job and
+  live publication into a separately gated write job that revalidates
+  `origin/main` and remote tag state. Registry, tag, and GitHub Release lookups
+  now fail closed while safely accepting only exact-version concurrent results.
 
 ## 0.7.0 - 2026-07-11
 

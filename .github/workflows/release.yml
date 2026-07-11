@@ -16,31 +16,43 @@ on:
         required: true
         default: true
         type: boolean
+      desktop_smoke_attestation:
+        description: "Live release only: tested ChatGPT version and bundle ID; no account data."
+        required: false
+        type: string
 
 permissions:
-  contents: write # create the tag and GitHub Release
-  id-token: write # npm provenance
-  actions: write # dispatch the Pages workflow after release
+  contents: read
 
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Validate and release
+  verify:
+    name: Verify release inputs and artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      commit: ${{ steps.release.outputs.commit }}
 
     env:
       INPUT_VERSION: ${{ inputs.version }}
       DRY_RUN: ${{ inputs.dry_run }}
+      DESKTOP_SMOKE_ATTESTATION: ${{ inputs.desktop_smoke_attestation }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -60,6 +72,34 @@ jobs:
           if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
             echo "Releases must be dispatched from the main branch, not $GITHUB_REF." >&2
             exit 1
+          fi
+
+          if [[ "$DRY_RUN" != "true" ]]; then
+            [[ -n "$DESKTOP_SMOKE_ATTESTATION" ]] || {
+              echo "Signed-app smoke attestation is required for a live release." >&2
+              exit 1
+            }
+            [[ "$DESKTOP_SMOKE_ATTESTATION" == *ChatGPT* ]] || {
+              echo "Signed-app smoke attestation must contain the tested ChatGPT version." >&2
+              exit 1
+            }
+            [[ "$DESKTOP_SMOKE_ATTESTATION" == *com.openai.* ]] || {
+              echo "Signed-app smoke attestation must contain the tested bundle ID beginning with com.openai." >&2
+              exit 1
+            }
+            attestation_pattern='^ChatGPT version [0-9]+\.[0-9]+(\.[0-9]+)?; bundle ID com\.openai\.[A-Za-z0-9]+([.-][A-Za-z0-9]+)*$'
+            if ! [[ "$DESKTOP_SMOKE_ATTESTATION" =~ $attestation_pattern ]]; then
+              echo "Signed-app smoke attestation must exactly match: ChatGPT version X.Y[.Z]; bundle ID com.openai.<identifier>." >&2
+              exit 1
+            fi
+
+            sanitized_attestation="$(
+              printf '%s' "$DESKTOP_SMOKE_ATTESTATION" \
+                | tr '\r\n' '  ' \
+                | sed 's/[[:cntrl:]]//g; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
+            )"
+            printf 'Signed-app smoke attestation: <code>%s</code>\n' \
+              "$sanitized_attestation" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           version="$INPUT_VERSION"
@@ -132,6 +172,7 @@ jobs:
             echo "version=$version"
             echo "tag=$tag"
             echo "tag_exists=$tag_exists"
+            echo "commit=$GITHUB_SHA"
           } >> "$GITHUB_OUTPUT"
           echo "Validated tracked release $tag at $GITHUB_SHA."
 
@@ -139,7 +180,111 @@ jobs:
         run: |
           make test
           make lint
+          bash test/install-script-test.sh
+          bash test/release-helper-test.sh
+          bash test/package-metadata-test.sh
+          make npm-package-test
           git diff --exit-code
+          git diff --cached --exit-code
+          worktree_status="$(git status --porcelain=v1 --untracked-files=all)"
+          [[ -z "$worktree_status" ]] || {
+            echo "Release verification left tracked or untracked changes:" >&2
+            printf '%s\n' "$worktree_status" >&2
+            exit 1
+          }
+
+      - name: Verification summary
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "Validated $TAG. Dry run made no release changes." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Validated $TAG for live publication." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+  publish:
+    name: Publish and verify release
+    if: ${{ ! inputs.dry_run }}
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    permissions:
+      contents: write # create the tag and GitHub Release
+      id-token: write # npm provenance
+      actions: write # dispatch the Pages workflow after release
+
+    steps:
+      - name: Check out verified release
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Validate live release source
+        id: live
+        shell: bash
+        env:
+          TAG: ${{ needs.verify.outputs.tag }}
+          V: ${{ needs.verify.outputs.version }}
+          VERIFIED_SHA: ${{ needs.verify.outputs.commit }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+            echo "Live releases must run from main, not $GITHUB_REF." >&2
+            exit 1
+          }
+          [[ "$GITHUB_SHA" == "$VERIFIED_SHA" ]] || {
+            echo "Workflow commit $GITHUB_SHA changed after verification of $VERIFIED_SHA." >&2
+            exit 1
+          }
+          [[ "$(git rev-parse HEAD)" == "$VERIFIED_SHA" ]] || {
+            echo "Publish checkout does not match verified commit $VERIFIED_SHA." >&2
+            exit 1
+          }
+          [[ "$TAG" == "v$V" ]] || {
+            echo "Verified tag $TAG does not match version $V." >&2
+            exit 1
+          }
+
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$VERIFIED_SHA" ]] || {
+            echo "origin/main moved after verification; refusing to publish $TAG." >&2
+            exit 1
+          }
+
+          tag_exists=false
+          tag_error="$(mktemp)"
+          trap 'rm -f "$tag_error"' EXIT
+          set +e
+          git ls-remote --exit-code --tags origin "refs/tags/$TAG" \
+            > /dev/null 2> "$tag_error"
+          tag_status=$?
+          set -e
+          case "$tag_status" in
+            0)
+              tag_exists=true
+              git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+              [[ "$(git rev-list -n 1 "$TAG")" == "$VERIFIED_SHA" ]] || {
+                echo "$TAG exists but does not point to verified commit $VERIFIED_SHA." >&2
+                exit 1
+              }
+              ;;
+            2)
+              ;;
+            *)
+              cat "$tag_error" >&2
+              echo "Could not establish whether $TAG already exists." >&2
+              exit 1
+              ;;
+          esac
+          echo "tag_exists=$tag_exists" >> "$GITHUB_OUTPUT"
 
       - name: Validate release credentials
         if: ${{ ! inputs.dry_run }}
@@ -155,8 +300,9 @@ jobs:
       - name: Create and push tag
         if: ${{ ! inputs.dry_run }}
         env:
-          TAG: ${{ steps.release.outputs.tag }}
-          TAG_EXISTS: ${{ steps.release.outputs.tag_exists }}
+          TAG: ${{ needs.verify.outputs.tag }}
+          TAG_EXISTS: ${{ steps.live.outputs.tag_exists }}
+          VERIFIED_SHA: ${{ needs.verify.outputs.commit }}
         run: |
           set -euo pipefail
           if [[ "$TAG_EXISTS" == "true" ]]; then
@@ -166,12 +312,42 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$TAG" -m "codex-profile $TAG"
-          git push origin "$TAG"
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          push_error="$tmp/tag-push.err"
+          if git push origin "$TAG" 2> "$push_error"; then
+            exit 0
+          fi
 
-      - name: Verify tagged Arch package source
+          tag_error="$tmp/tag-lookup.err"
+          set +e
+          git ls-remote --exit-code --tags origin "refs/tags/$TAG" \
+            > /dev/null 2> "$tag_error"
+          tag_status=$?
+          set -e
+          tag_published_after_failure=false
+          if [[ "$tag_status" -eq 0 ]]; then
+            remote_tag_ref="refs/codex-profile-release-check/$TAG"
+            git fetch --no-tags --force origin \
+              "refs/tags/$TAG:$remote_tag_ref"
+            remote_tag_sha="$(git rev-list -n 1 "$remote_tag_ref")"
+            git update-ref -d "$remote_tag_ref"
+            if [[ "$remote_tag_sha" == "$VERIFIED_SHA" ]]; then
+              tag_published_after_failure=true
+            fi
+          fi
+          [[ "$tag_published_after_failure" == "true" ]] || {
+            cat "$push_error" >&2
+            cat "$tag_error" >&2
+            echo "Could not publish or verify $TAG at $VERIFIED_SHA." >&2
+            exit 1
+          }
+          echo "$TAG was published concurrently; continuing the release."
+
+      - name: Verify tagged AUR release files
         if: ${{ ! inputs.dry_run }}
         env:
-          TAG: ${{ steps.release.outputs.tag }}
+          TAG: ${{ needs.verify.outputs.tag }}
         run: |
           set -euo pipefail
           tmp="$(mktemp -d)"
@@ -207,37 +383,182 @@ jobs:
         if: ${{ ! inputs.dry_run }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          V: ${{ steps.release.outputs.version }}
+          V: ${{ needs.verify.outputs.version }}
         run: |
           set -euo pipefail
-          published="$(npm view "codex-profile@$V" version 2>/dev/null || true)"
-          if [[ "$published" == "$V" ]]; then
-            echo "codex-profile@$V is already published; continuing the release."
-          elif [[ -n "$published" ]]; then
-            echo "Unexpected npm version response: $published" >&2
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          versions_file="$tmp/npm-versions.json"
+          lookup_error="$tmp/npm-lookup.err"
+          lookup_npm_membership() {
+            npm view codex-profile versions --json > "$versions_file" 2> "$lookup_error" \
+              || return 1
+            node - "$V" "$versions_file" 2>> "$lookup_error" <<'NODE'
+          const fs = require('fs');
+          const [, , version, file] = process.argv;
+          const versions = JSON.parse(fs.readFileSync(file, 'utf8'));
+          if (!Array.isArray(versions) || versions.some((item) => typeof item !== 'string')) {
+            throw new Error('npm versions response must be an array of strings');
+          }
+          process.stdout.write(versions.includes(version) ? 'present' : 'absent');
+          NODE
+          }
+
+          npm_lookup_succeeded=false
+          membership=""
+          for attempt in {1..5}; do
+            : > "$lookup_error"
+            if membership="$(lookup_npm_membership)"; then
+              npm_lookup_succeeded=true
+              break
+            fi
+            if [[ "$attempt" -lt 5 ]]; then
+              sleep "$((attempt * 2))"
+            fi
+          done
+          [[ "$npm_lookup_succeeded" == "true" ]] || {
+            cat "$lookup_error" >&2
+            echo "Could not establish whether codex-profile@$V is published." >&2
             exit 1
+          }
+
+          if [[ "$membership" == "present" ]]; then
+            echo "codex-profile@$V is already published; continuing the release."
           else
-            npm publish --provenance --access public
+            publish_error="$tmp/npm-publish.err"
+            if npm publish --provenance --access public 2> "$publish_error"; then
+              :
+            else
+              npm_published_after_failure=false
+              for attempt in {1..5}; do
+                : > "$lookup_error"
+                if membership="$(lookup_npm_membership)" \
+                  && [[ "$membership" == "present" ]]; then
+                  npm_published_after_failure=true
+                  break
+                fi
+                if [[ "$attempt" -lt 5 ]]; then
+                  sleep "$((attempt * 2))"
+                fi
+              done
+              [[ "$npm_published_after_failure" == "true" ]] || {
+                cat "$publish_error" >&2
+                cat "$lookup_error" >&2
+                echo "Could not publish or verify codex-profile@$V." >&2
+                exit 1
+              }
+              echo "codex-profile@$V was published concurrently; continuing the release."
+            fi
           fi
+
+      - name: Verify published npm package
+        if: ${{ ! inputs.dry_run }}
+        env:
+          V: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          prefix="$tmp/prefix"
+          cache="$tmp/npm-cache"
+          npm_installed=false
+          for attempt in {1..10}; do
+            if npm install -g --prefix "$prefix" --cache "$cache" "codex-profile@$V"; then
+              npm_installed=true
+              break
+            fi
+            rm -rf "$prefix"
+            if [[ "$attempt" -lt 10 ]]; then
+              sleep "$((attempt * 2))"
+            fi
+          done
+          [[ "$npm_installed" == "true" ]] || {
+            echo "codex-profile@$V was not installable after 10 attempts." >&2
+            exit 1
+          }
+          "$prefix/bin/codex-profile" help >/dev/null
+          "$prefix/bin/codex-profile" version | grep -Fx "codex-profile $V" >/dev/null
+          "$prefix/bin/codex-profiles" help >/dev/null
+          "$prefix/bin/codex-profiles" version | grep -Fx "codex-profile $V" >/dev/null
 
       - name: Create GitHub Release
         if: ${{ ! inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.release.outputs.tag }}
+          TAG: ${{ needs.verify.outputs.tag }}
         run: |
           set -euo pipefail
-          if gh release view "$TAG" >/dev/null 2>&1; then
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          release_tags="$tmp/release-tags"
+          lookup_error="$tmp/release-lookup.err"
+          release_lookup_succeeded=false
+          for attempt in {1..5}; do
+            : > "$lookup_error"
+            if gh api --paginate \
+              "/repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq '.[].tag_name' > "$release_tags" 2> "$lookup_error"; then
+              release_lookup_succeeded=true
+              break
+            fi
+            if [[ "$attempt" -lt 5 ]]; then
+              sleep "$((attempt * 2))"
+            fi
+          done
+          [[ "$release_lookup_succeeded" == "true" ]] || {
+            cat "$lookup_error" >&2
+            echo "Could not establish whether GitHub Release $TAG exists." >&2
+            exit 1
+          }
+
+          if grep -Fx "$TAG" "$release_tags" >/dev/null; then
             echo "GitHub Release $TAG already exists; continuing the release."
           else
-            gh release create "$TAG" --title "codex-profile $TAG" --generate-notes
+            create_error="$tmp/release-create.err"
+            if gh release create "$TAG" --title "codex-profile $TAG" --generate-notes \
+              2> "$create_error"; then
+              :
+            else
+              release_verified_after_failure=false
+              for attempt in {1..5}; do
+                if verified_tag="$(
+                  gh release view "$TAG" --json tagName --jq '.tagName' \
+                    2>> "$create_error"
+                )" && [[ "$verified_tag" == "$TAG" ]]; then
+                  release_verified_after_failure=true
+                  break
+                fi
+                if [[ "$attempt" -lt 5 ]]; then
+                  sleep "$((attempt * 2))"
+                fi
+              done
+              [[ "$release_verified_after_failure" == "true" ]] || {
+                cat "$create_error" >&2
+                echo "Could not create or verify GitHub Release $TAG." >&2
+                exit 1
+              }
+              echo "GitHub Release $TAG was created concurrently; continuing the release."
+            fi
           fi
+
+      - name: Verify GitHub Release
+        if: ${{ ! inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.verify.outputs.tag }}
+        run: |
+          set -euo pipefail
+          released_tag="$(gh release view "$TAG" --json tagName --jq '.tagName')"
+          [[ "$released_tag" == "$TAG" ]] || {
+            echo "GitHub Release reported $released_tag; expected $TAG." >&2
+            exit 1
+          }
 
       - name: Update Homebrew tap
         if: ${{ ! inputs.dry_run }}
         env:
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
-          V: ${{ steps.release.outputs.version }}
+          V: ${{ needs.verify.outputs.version }}
         run: |
           set -euo pipefail
           tarball="https://github.com/Ducksss/codex-profiles/archive/refs/tags/v$V.tar.gz"
@@ -261,20 +582,51 @@ jobs:
             git -C "$tmp/tap" push
           fi
 
-      - name: Deploy release documentation
+      - name: Deploy and verify release documentation
         if: ${{ ! inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.release.outputs.tag }}
-        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"
+          TAG: ${{ needs.verify.outputs.tag }}
+          V: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          pages_correlation="release-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          pages_run_title="Deploy Pages from $TAG ($pages_correlation)"
+          gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG" \
+            -f release_correlation="$pages_correlation"
+          run_id=""
+          for attempt in {1..30}; do
+            run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow pages.yml \
+              --commit "$GITHUB_SHA" --event workflow_dispatch --limit 20 \
+              --json databaseId,displayTitle \
+              --jq "map(select(.displayTitle == \"$pages_run_title\"))[0].databaseId // empty")"
+            [[ -z "$run_id" ]] || break
+            sleep 2
+          done
+          [[ -n "$run_id" ]] || {
+            echo "Pages run was not created for $TAG." >&2
+            exit 1
+          }
+          gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status
+
+          site_url="https://ducksss.github.io/codex-profiles/"
+          deployed=false
+          for attempt in {1..30}; do
+            if curl -fsSL "$site_url" | grep -F "<span>v$V</span>" >/dev/null; then
+              deployed=true
+              break
+            fi
+            sleep 2
+          done
+          [[ "$deployed" == "true" ]] || {
+            echo "Pages did not report the exact visible v$V marker at $site_url." >&2
+            exit 1
+          }
+          echo "Verified deployed documentation v$V at $site_url."
 
       - name: Release summary
         env:
-          V: ${{ steps.release.outputs.version }}
-          TAG: ${{ steps.release.outputs.tag }}
+          V: ${{ needs.verify.outputs.version }}
+          TAG: ${{ needs.verify.outputs.tag }}
         run: |
-          if [[ "$DRY_RUN" == "true" ]]; then
-            echo "Validated $TAG. Dry run made no release changes." | tee -a "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Released codex-profile $V and dispatched Pages from $TAG." | tee -a "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "Released codex-profile $V and verified Pages from $TAG." | tee -a "$GITHUB_STEP_SUMMARY"

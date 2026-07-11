@@ -54,7 +54,8 @@ Automated tests should use disposable fake app bundles and temporary homes.
 They must assert exact arguments and environment without opening or modifying a
 real installed app.
 
-Before release, test the current signed ChatGPT app with non-sensitive accounts:
+The following six-case matrix is required before every live release. Test the
+current signed ChatGPT app with non-sensitive accounts:
 
 1. Confirm `app default` keeps the existing stock session.
 2. Confirm a named profile persists across relaunches.
@@ -66,6 +67,48 @@ Before release, test the current signed ChatGPT app with non-sensitive accounts:
 
 Never publish screenshots, logs, account names, histories, or tokens from this
 test without explicit sanitization.
+
+## Release rehearsal and attestation
+
+Dispatch the `Release` workflow from the current `main` commit with the exact
+tracked version. Its default `dry_run: true` path requires no Desktop
+attestation and makes no tag, registry, release, tap, or Pages changes. The
+always-run rehearsal executes the full suite and lint, the standalone installer
+against local fixtures, the Homebrew formula helper test, the pinned AUR
+metadata/package test, the npm tarball install smoke test, and a final clean
+check covering unstaged, staged, and untracked files. This verification job has
+read-only repository permissions, and its checkout does not persist a GitHub
+credential.
+
+Only after the six cases above pass may a maintainer dispatch with
+`dry_run: false`. The `desktop_smoke_attestation` value may contain exactly two
+public app facts, in this form:
+
+```text
+ChatGPT version 1.2026.168; bundle ID com.openai.codex
+```
+
+Substitute the installed public values. The version must have two or three
+dot-separated numeric components. The bundle ID must begin `com.openai.` and
+use only alphanumeric segments separated by dots or hyphens. Leading or trailing
+whitespace, newlines, and extra text are rejected. Do not add an account name or
+identifier, email address, screenshot, token, cookie, history, log, private
+path, or other account data. The workflow converts the validated value to a
+single escaped summary line and rejects a missing or malformed attestation
+before any live release step.
+
+The separate live-only job receives the write permissions. Before its first
+external mutation, it checks out the verified commit again and revalidates the
+current `origin/main` tip and exact remote tag state; stale verification outputs
+cannot authorize a release after either has moved.
+
+After publication, the workflow retries npm installation with bounded backoff
+into a fresh prefix and checks `help` and `version` through both command aliases.
+It then verifies the exact GitHub Release tag, requires a newly created Pages
+run from that immutable tag to succeed, and polls the public site for the exact
+visible version. Homebrew formula validation completes before the tap push.
+Tracked AUR metadata and tagged files are validated fail-closed here, but
+publication to the external AUR repository remains a maintainer action.
 
 ## Pull requests
 

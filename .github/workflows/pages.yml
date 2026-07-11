@@ -1,11 +1,16 @@
 name: Pages
-run-name: Deploy Pages from ${{ github.ref_name }}
+run-name: Deploy Pages from ${{ github.ref_name }} (${{ inputs.release_correlation || 'manual' }})
 
 # Release dispatches this workflow from the immutable release tag. It can also
 # be run manually for an explicitly selected ref when documentation needs an
 # independent redeploy.
 on:
   workflow_dispatch:
+    inputs:
+      release_correlation:
+        description: "Optional release correlation ID; no account or private data."
+        required: false
+        type: string
 
 permissions:
   contents: read

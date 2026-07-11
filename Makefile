@@ -12,16 +12,20 @@ uninstall:
 	rm -f "$(BINDIR)/codex-profile" "$(BINDIR)/codex-profiles"
 
 lint:
-	shellcheck bin/codex-profile scripts/update-homebrew-formula test/codex-profile-test.sh test/makefile-smoke-test.sh test/package-metadata-test.sh test/release-helper-test.sh install.sh
+	shellcheck bin/codex-profile scripts/update-homebrew-formula test/codex-profile-test.sh test/install-script-test.sh test/makefile-smoke-test.sh test/package-metadata-test.sh test/release-helper-test.sh test/release-workflow-test.sh install.sh
 
 test:
 	bash -n bin/codex-profile
 	bash -n scripts/update-homebrew-formula
 	bash -n test/codex-profile-test.sh
+	bash -n test/install-script-test.sh
 	bash -n test/makefile-smoke-test.sh
 	bash -n test/package-metadata-test.sh
 	bash -n test/release-helper-test.sh
+	bash -n test/release-workflow-test.sh
 	sh -n install.sh
+	bash test/install-script-test.sh
+	bash test/release-workflow-test.sh
 	node test/geo-site-test.mjs
 	bash test/package-metadata-test.sh
 	bash test/release-helper-test.sh

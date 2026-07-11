@@ -92,6 +92,46 @@ npm install -g codex-profile
 codex-profile doctor
 ```
 
+## Release Gate
+
+Before a live release, complete the current signed-app matrix:
+
+1. `app default` preserves the existing stock session.
+2. A named profile persists across relaunches.
+3. Two different names run concurrently without local-state crossover.
+4. Chat, Work, and Codex stay in the same named window context.
+5. CLI commands do not switch any open Desktop window.
+6. The installed signed application remains byte-for-byte unchanged.
+
+Run the `Release` workflow with its default `dry_run: true` first. That path
+rehearses the complete behavior/lint suite, standalone fixture installer,
+Homebrew formula transformation, pinned AUR metadata and package, npm tarball
+installation, and complete clean-tree check. It runs with read-only repository
+permissions and no persisted checkout credential. It never tags, publishes,
+pushes a tap, creates a GitHub Release, or deploys Pages.
+
+For `dry_run: false`, the only permitted
+`desktop_smoke_attestation` contents are the public app version and bundle ID,
+formatted exactly as:
+
+```text
+ChatGPT version 1.2026.168; bundle ID com.openai.codex
+```
+
+Substitute the installed public values. The version must have two or three
+dot-separated numeric components; the bundle ID must start with `com.openai.`
+and contain only safe alphanumeric, dot, or hyphen segments. Whitespace around
+the value, newlines, and any extra text are rejected. Never include account
+names or identifiers, email addresses, screenshots, tokens, cookies, histories,
+logs, or private paths. A live run refuses missing or malformed evidence. It
+then starts a separate write-capable job, rechecks the verified commit against
+the current `origin/main` and remote tag, retries the published npm version with
+bounded backoff in a fresh prefix, verifies both command aliases and the exact
+GitHub Release tag, checks the tagged AUR files and Homebrew formula before tap
+push, and requires a newly created immutable-tag Pages run plus its visible site
+version. This repository validates AUR metadata, but external AUR publication
+remains a maintainer action.
+
 ## Channel Copy
 
 Do not publish this copy until the v0.7.0 release gate passes. The word `work`

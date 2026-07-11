@@ -1,0 +1,719 @@
+#!/usr/bin/env bash
+
+# Fixed strings below intentionally assert unevaluated workflow expressions.
+# shellcheck disable=SC2016
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORKFLOW="$ROOT_DIR/.github/workflows/release.yml"
+PAGES_WORKFLOW="$ROOT_DIR/.github/workflows/pages.yml"
+MAKEFILE="$ROOT_DIR/Makefile"
+
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
+
+fail() {
+  printf 'FAIL: %s\n' "$*" >&2
+  exit 1
+}
+
+require_literal() {
+  local literal="$1"
+
+  grep -F -- "$literal" "$WORKFLOW" >/dev/null \
+    || fail "release workflow is missing: $literal"
+}
+
+step_block() {
+  local step_name="$1"
+
+  awk -v header="      - name: $step_name" '
+    $0 == header {
+      found = 1
+    }
+    found && printed && /^      - name: / {
+      exit
+    }
+    found {
+      print
+      printed = 1
+    }
+  ' "$WORKFLOW"
+}
+
+step_script() {
+  local step_name="$1"
+
+  step_block "$step_name" | awk '
+    script {
+      sub(/^          /, "")
+      print
+    }
+    /^        run: \|$/ {
+      script = 1
+    }
+  '
+}
+
+job_block() {
+  local job_name="$1"
+
+  awk -v header="  $job_name:" '
+    $0 == header {
+      found = 1
+    }
+    found && printed && /^  [A-Za-z0-9_-]+:$/ {
+      exit
+    }
+    found {
+      print
+      printed = 1
+    }
+  ' "$WORKFLOW"
+}
+
+require_step_literal() {
+  local step_name="$1"
+  local literal="$2"
+  local block
+
+  block="$(step_block "$step_name")"
+  [[ -n "$block" ]] || fail "release workflow is missing step: $step_name"
+  grep -F -- "$literal" <<< "$block" >/dev/null \
+    || fail "$step_name is missing: $literal"
+}
+
+require_live_only_step() {
+  local step_name="$1"
+
+  require_step_literal "$step_name" 'if: ${{ ! inputs.dry_run }}'
+}
+
+line_number() {
+  local literal="$1"
+  local line
+
+  line="$(grep -Fn -- "$literal" "$WORKFLOW" | head -n 1 | cut -d: -f1 || true)"
+  [[ -n "$line" ]] || fail "release workflow is missing: $literal"
+  printf '%s\n' "$line"
+}
+
+verify_job="$(job_block verify)"
+publish_job="$(job_block publish)"
+[[ -n "$verify_job" ]] || fail "release workflow is missing the read-only verify job"
+[[ -n "$publish_job" ]] || fail "release workflow is missing the live-only publish job"
+
+workflow_header="$(sed '/^jobs:/q' "$WORKFLOW")"
+grep -F 'contents: read' <<< "$workflow_header" >/dev/null \
+  || fail "release workflow must default to read-only contents permission"
+if grep -Eq '^[[:space:]]+(contents: write|id-token: write|actions: write)' \
+  <<< "$workflow_header"; then
+  fail "release workflow must not grant top-level write permissions"
+fi
+
+for literal in \
+  'permissions:' \
+  'contents: read' \
+  'persist-credentials: false' \
+  'outputs:'
+do
+  grep -F -- "$literal" <<< "$verify_job" >/dev/null \
+    || fail "verify job is missing read-only contract: $literal"
+done
+if grep -Eq '^[[:space:]]+(contents: write|id-token: write|actions: write)' <<< "$verify_job"; then
+  fail "verify job must never receive a write-capable token"
+fi
+
+for literal in \
+  'needs: verify' \
+  'if: ${{ ! inputs.dry_run }}' \
+  'contents: write' \
+  'id-token: write' \
+  'actions: write'
+do
+  grep -F -- "$literal" <<< "$publish_job" >/dev/null \
+    || fail "publish job is missing live-only permission contract: $literal"
+done
+
+release_timeout="$(
+  sed -n 's/^    timeout-minutes: \([0-9][0-9]*\)$/\1/p' <<< "$publish_job" | head -n 1
+)"
+[[ "$release_timeout" =~ ^[0-9]+$ && "$release_timeout" -ge 30 ]] \
+  || fail "release job timeout must accommodate publication and watched Pages deployment"
+
+for literal in \
+  desktop_smoke_attestation \
+  'ChatGPT version' \
+  'bundle ID' \
+  'Signed-app smoke attestation is required for a live release' \
+  'npm install -g --prefix' \
+  'gh release view' \
+  'scripts/update-homebrew-formula' \
+  'Verify tagged AUR release files'
+do
+  require_literal "$literal"
+done
+
+require_literal 'description: "Live release only: tested ChatGPT version and bundle ID; no account data."'
+require_literal 'DESKTOP_SMOKE_ATTESTATION: ${{ inputs.desktop_smoke_attestation }}'
+require_literal '[[ "$DRY_RUN" != "true" ]]'
+require_literal '[[ "$DESKTOP_SMOKE_ATTESTATION" == *ChatGPT* ]]'
+require_literal '[[ "$DESKTOP_SMOKE_ATTESTATION" == *com.openai.* ]]'
+require_literal '[[ "$DESKTOP_SMOKE_ATTESTATION" =~ $attestation_pattern ]]'
+require_literal 'Signed-app smoke attestation:'
+require_literal "| tr '\\r\\n' '  '"
+require_literal "sed 's/[[:cntrl:]]//g; s/&/\\&amp;/g; s/</\\&lt;/g; s/>/\\&gt;/g'"
+
+attestation_pattern="$(
+  sed -n "s/^[[:space:]]*attestation_pattern='\\(.*\\)'$/\\1/p" "$WORKFLOW"
+)"
+[[ -n "$attestation_pattern" ]] \
+  || fail "release workflow is missing an anchored attestation pattern"
+
+valid_attestation='ChatGPT version 1.2026.168; bundle ID com.openai.codex'
+[[ "$valid_attestation" =~ $attestation_pattern ]] \
+  || fail "attestation pattern rejected the documented schema"
+short_valid_attestation='ChatGPT version 1.2026; bundle ID com.openai.codex'
+[[ "$short_valid_attestation" =~ $attestation_pattern ]] \
+  || fail "attestation pattern rejected a two-component app version"
+
+invalid_attestations=(
+  'ChatGPT version 1; bundle ID com.openai.codex'
+  'ChatGPT version 1.2026.168.1; bundle ID com.openai.codex'
+  'ChatGPT version 1.2026.168; bundle ID org.example.codex'
+  'ChatGPT version 1.2026.168; bundle ID com.openai.codex; account alice@example.com'
+  $'ChatGPT version 1.2026.168; bundle ID com.openai.codex\naccount alice@example.com'
+  $'ChatGPT version 1.2026.168; bundle ID com.openai.codex\n'
+  'prefix ChatGPT version 1.2026.168; bundle ID com.openai.codex'
+  'ChatGPT version 1.2026.168; bundle ID com.openai.codex '
+)
+for invalid_attestation in "${invalid_attestations[@]}"; do
+  if [[ "$invalid_attestation" =~ $attestation_pattern ]]; then
+    fail "attestation pattern accepted prohibited extra or malformed content"
+  fi
+done
+
+verification_step="Run full verification"
+verification_block="$(step_block "$verification_step")"
+[[ -n "$verification_block" ]] || fail "release workflow is missing step: $verification_step"
+if grep -F 'if:' <<< "$verification_block" >/dev/null; then
+  fail "$verification_step must run for both dry and live releases"
+fi
+
+verification_commands=(
+  'make test'
+  'make lint'
+  'bash test/install-script-test.sh'
+  'bash test/release-helper-test.sh'
+  'bash test/package-metadata-test.sh'
+  'make npm-package-test'
+  'git diff --exit-code'
+  'git diff --cached --exit-code'
+  'git status --porcelain=v1 --untracked-files=all'
+)
+for command in "${verification_commands[@]}"; do
+  grep -F -- "$command" <<< "$verification_block" >/dev/null \
+    || fail "$verification_step is missing: $command"
+done
+
+first_live_line="$(line_number 'if: ${{ ! inputs.dry_run }}')"
+verification_line="$(line_number '      - name: Run full verification')"
+[[ "$verification_line" -lt "$first_live_line" ]] \
+  || fail "dry-run verification must finish before the first live-only step"
+
+live_validation_block="$(step_block "Validate live release source")"
+for literal in \
+  'VERIFIED_SHA: ${{ needs.verify.outputs.commit }}' \
+  'git fetch --no-tags origin main' \
+  'git ls-remote --exit-code --tags origin "refs/tags/$TAG"' \
+  'git rev-list -n 1 "$TAG"' \
+  'tag_exists=' \
+  'tag_exists=$tag_exists'
+do
+  grep -F -- "$literal" <<< "$live_validation_block" >/dev/null \
+    || fail "live release source revalidation is missing: $literal"
+done
+
+live_validation_line="$(line_number '      - name: Validate live release source')"
+tag_creation_line="$(line_number '      - name: Create and push tag')"
+[[ "$live_validation_line" -lt "$tag_creation_line" ]] \
+  || fail "live source/tag state must be revalidated immediately before mutation"
+
+tag_publish_block="$(step_block "Create and push tag")"
+for literal in \
+  'VERIFIED_SHA: ${{ needs.verify.outputs.commit }}' \
+  'tag_published_after_failure=true' \
+  'git ls-remote --exit-code --tags origin "refs/tags/$TAG"' \
+  'git rev-list -n 1 "$remote_tag_ref"'
+do
+  grep -F -- "$literal" <<< "$tag_publish_block" >/dev/null \
+    || fail "Create and push tag is missing race recovery contract: $literal"
+done
+
+tag_fake_bin="$tmp_dir/tag-fake-bin"
+mkdir -p "$tag_fake_bin"
+cat > "$tag_fake_bin/git" <<'FAKE_GIT'
+#!/bin/sh
+
+set -eu
+
+printf '%s:%s\n' "${1:-}" "$*" >> "$RELEASE_WORKFLOW_TEST_LOG"
+case "${1:-}" in
+  config|tag|update-ref)
+    ;;
+  push)
+    [ "$FAKE_TAG_SCENARIO" = "success" ] && exit 0
+    printf '%s\n' 'simulated push failure' >&2
+    exit 1
+    ;;
+  ls-remote)
+    [ "$FAKE_TAG_SCENARIO" != "transient" ] || exit 128
+    printf '%s\n' 'remote tag exists'
+    ;;
+  fetch)
+    ;;
+  rev-list)
+    if [ "$FAKE_TAG_SCENARIO" = "race_same" ]; then
+      printf '%s\n' "$VERIFIED_SHA"
+    else
+      printf '%s\n' 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+    fi
+    ;;
+  *)
+    printf 'unexpected git invocation: %s\n' "$*" >&2
+    exit 64
+    ;;
+esac
+FAKE_GIT
+chmod 755 "$tag_fake_bin/git"
+
+tag_publish_script="$(step_script "Create and push tag")"
+require_tag_publish_scenario() {
+  local scenario="$1"
+  local tag_exists="$2"
+  local expected_status="$3"
+  local expected_pushes="$4"
+  local expected_lookups="$5"
+  local log="$tmp_dir/tag-$scenario.log"
+  local status
+  local actual
+
+  : > "$log"
+  set +e
+  PATH="$tag_fake_bin:$PATH" \
+    RELEASE_WORKFLOW_TEST_LOG="$log" \
+    FAKE_TAG_SCENARIO="$scenario" \
+    TAG="v0.7.0" \
+    TAG_EXISTS="$tag_exists" \
+    VERIFIED_SHA="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
+    bash -c "$tag_publish_script" >"$tmp_dir/tag-$scenario.out" 2>&1
+  status=$?
+  set -e
+
+  if [[ "$expected_status" == "success" ]]; then
+    [[ "$status" -eq 0 ]] || fail "tag $scenario path unexpectedly failed"
+  else
+    [[ "$status" -ne 0 ]] || fail "tag $scenario path unexpectedly succeeded"
+  fi
+  actual="$(grep -c '^push:' "$log" || true)"
+  [[ "$actual" -eq "$expected_pushes" ]] \
+    || fail "tag $scenario pushed $actual time(s); expected $expected_pushes"
+  actual="$(grep -c '^ls-remote:' "$log" || true)"
+  [[ "$actual" -eq "$expected_lookups" ]] \
+    || fail "tag $scenario rechecked remote $actual time(s); expected $expected_lookups"
+}
+
+require_tag_publish_scenario existing true success 0 0
+require_tag_publish_scenario success false success 1 0
+require_tag_publish_scenario race_same false success 1 1
+require_tag_publish_scenario race_different false failure 1 1
+require_tag_publish_scenario transient false failure 1 1
+
+publish_line="$(line_number 'npm publish --provenance --access public')"
+npm_verify_line="$(line_number '      - name: Verify published npm package')"
+[[ "$publish_line" -lt "$npm_verify_line" ]] \
+  || fail "npm verification must run after npm publication"
+
+release_create_line="$(line_number 'gh release create "$TAG"')"
+release_verify_line="$(line_number '      - name: Verify GitHub Release')"
+[[ "$release_create_line" -lt "$release_verify_line" ]] \
+  || fail "GitHub Release verification must run after release creation"
+require_step_literal "Verify GitHub Release" 'gh release view "$TAG"'
+
+npm_verification_block="$(step_block "Verify published npm package")"
+for literal in \
+  'for attempt in {1..10}; do' \
+  'if npm install -g --prefix' \
+  'npm_installed=true' \
+  'sleep "$((attempt * 2))"' \
+  '[[ "$npm_installed" == "true" ]]'
+do
+  grep -F -- "$literal" <<< "$npm_verification_block" >/dev/null \
+    || fail "Verify published npm package is missing retry contract: $literal"
+done
+
+npm_publish_block="$(step_block "Publish to npm")"
+for literal in \
+  'for attempt in {1..5}; do' \
+  'npm view codex-profile versions --json' \
+  'versions.includes(version)' \
+  'npm_lookup_succeeded=true' \
+  '[[ "$npm_lookup_succeeded" == "true" ]]' \
+  'npm_published_after_failure=true' \
+  'npm publish --provenance --access public'
+do
+  grep -F -- "$literal" <<< "$npm_publish_block" >/dev/null \
+    || fail "Publish to npm is missing fail-closed lookup contract: $literal"
+done
+
+npm_fake_bin="$tmp_dir/npm-fake-bin"
+mkdir -p "$npm_fake_bin"
+cat > "$npm_fake_bin/npm" <<'FAKE_NPM'
+#!/bin/sh
+
+set -eu
+
+case "${1:-}" in
+  view)
+    printf '%s\n' 'view' >> "$RELEASE_WORKFLOW_TEST_LOG"
+    case "$FAKE_NPM_SCENARIO" in
+      present) printf '%s\n' '["0.6.0", "0.7.0"]' ;;
+      absent) printf '%s\n' '["0.6.0"]' ;;
+      race)
+        view_count="$(grep -Fxc 'view' "$RELEASE_WORKFLOW_TEST_LOG")"
+        if [ "$view_count" -eq 1 ]; then
+          printf '%s\n' '["0.6.0"]'
+        else
+          printf '%s\n' '["0.6.0", "0.7.0"]'
+        fi
+        ;;
+      malformed) printf '%s\n' '{"unexpected":true}' ;;
+      transient)
+        printf '%s\n' 'npm error code E503' >&2
+        exit 1
+        ;;
+      *) exit 64 ;;
+    esac
+    ;;
+  publish)
+    printf '%s\n' 'publish' >> "$RELEASE_WORKFLOW_TEST_LOG"
+    [ "$FAKE_NPM_SCENARIO" != "race" ] || exit 1
+    ;;
+  *)
+    printf 'unexpected npm invocation: %s\n' "$*" >&2
+    exit 64
+    ;;
+esac
+FAKE_NPM
+
+cat > "$npm_fake_bin/sleep" <<'FAKE_SLEEP'
+#!/bin/sh
+
+printf '%s\n' 'sleep' >> "$RELEASE_WORKFLOW_TEST_LOG"
+FAKE_SLEEP
+chmod 755 "$npm_fake_bin/npm" "$npm_fake_bin/sleep"
+
+npm_publish_script="$(step_script "Publish to npm")"
+require_npm_publish_scenario() {
+  local scenario="$1"
+  local expected_status="$2"
+  local expected_views="$3"
+  local expected_publishes="$4"
+  local expected_sleeps="$5"
+  local log="$tmp_dir/npm-$scenario.log"
+  local status
+  local actual
+
+  : > "$log"
+  set +e
+  PATH="$npm_fake_bin:$PATH" \
+    RELEASE_WORKFLOW_TEST_LOG="$log" \
+    FAKE_NPM_SCENARIO="$scenario" \
+    V="0.7.0" \
+    bash -c "$npm_publish_script" >"$tmp_dir/npm-$scenario.out" 2>&1
+  status=$?
+  set -e
+
+  if [[ "$expected_status" == "success" ]]; then
+    [[ "$status" -eq 0 ]] || fail "npm $scenario lookup unexpectedly failed"
+  else
+    [[ "$status" -ne 0 ]] || fail "npm $scenario lookup unexpectedly succeeded"
+  fi
+
+  actual="$(grep -Fxc 'view' "$log" || true)"
+  [[ "$actual" -eq "$expected_views" ]] \
+    || fail "npm $scenario lookup ran $actual time(s); expected $expected_views"
+  actual="$(grep -Fxc 'publish' "$log" || true)"
+  [[ "$actual" -eq "$expected_publishes" ]] \
+    || fail "npm $scenario published $actual time(s); expected $expected_publishes"
+  actual="$(grep -Fxc 'sleep' "$log" || true)"
+  [[ "$actual" -eq "$expected_sleeps" ]] \
+    || fail "npm $scenario backoff ran $actual time(s); expected $expected_sleeps"
+}
+
+require_npm_publish_scenario present success 1 0 0
+require_npm_publish_scenario absent success 1 1 0
+require_npm_publish_scenario transient failure 5 0 4
+require_npm_publish_scenario malformed failure 5 0 4
+require_npm_publish_scenario race success 2 1 0
+
+github_release_block="$(step_block "Create GitHub Release")"
+for literal in \
+  'for attempt in {1..5}; do' \
+  'gh api --paginate' \
+  'releases?per_page=100' \
+  'release_lookup_succeeded=true' \
+  '[[ "$release_lookup_succeeded" == "true" ]]' \
+  'grep -Fx "$TAG"' \
+  'gh release create "$TAG"' \
+  'release_verified_after_failure=true' \
+  'gh release view "$TAG" --json tagName'
+do
+  grep -F -- "$literal" <<< "$github_release_block" >/dev/null \
+    || fail "Create GitHub Release is missing fail-closed lookup contract: $literal"
+done
+
+release_fake_bin="$tmp_dir/release-fake-bin"
+mkdir -p "$release_fake_bin"
+cat > "$release_fake_bin/gh" <<'FAKE_GH_RELEASE'
+#!/bin/sh
+
+set -eu
+
+command="${1:-}:${2:-}"
+case "$command" in
+  api:--paginate)
+    printf '%s\n' 'lookup' >> "$RELEASE_WORKFLOW_TEST_LOG"
+    case "$FAKE_GH_RELEASE_SCENARIO" in
+      present) printf '%s\n' 'v0.6.0' 'v0.7.0' ;;
+      absent|race) printf '%s\n' 'v0.6.0' ;;
+      transient)
+        printf '%s\n' 'HTTP 503: service unavailable' >&2
+        exit 1
+        ;;
+      *) exit 64 ;;
+    esac
+    ;;
+  release:create)
+    printf '%s\n' 'create' >> "$RELEASE_WORKFLOW_TEST_LOG"
+    [ "$FAKE_GH_RELEASE_SCENARIO" != "race" ] || exit 1
+    ;;
+  release:view)
+    printf '%s\n' 'view' >> "$RELEASE_WORKFLOW_TEST_LOG"
+    [ "$FAKE_GH_RELEASE_SCENARIO" = "race" ] || exit 1
+    view_count="$(grep -Fxc 'view' "$RELEASE_WORKFLOW_TEST_LOG")"
+    [ "$view_count" -ge 3 ] || exit 1
+    printf '%s\n' 'v0.7.0'
+    ;;
+  *)
+    printf 'unexpected gh invocation: %s\n' "$*" >&2
+    exit 64
+    ;;
+esac
+FAKE_GH_RELEASE
+
+cat > "$release_fake_bin/sleep" <<'FAKE_SLEEP'
+#!/bin/sh
+
+printf '%s\n' 'sleep' >> "$RELEASE_WORKFLOW_TEST_LOG"
+FAKE_SLEEP
+chmod 755 "$release_fake_bin/gh" "$release_fake_bin/sleep"
+
+github_release_script="$(step_script "Create GitHub Release")"
+require_github_release_scenario() {
+  local scenario="$1"
+  local expected_status="$2"
+  local expected_lookups="$3"
+  local expected_creates="$4"
+  local expected_sleeps="$5"
+  local expected_views="$6"
+  local log="$tmp_dir/release-$scenario.log"
+  local status
+  local actual
+
+  : > "$log"
+  set +e
+  PATH="$release_fake_bin:$PATH" \
+    RELEASE_WORKFLOW_TEST_LOG="$log" \
+    FAKE_GH_RELEASE_SCENARIO="$scenario" \
+    GITHUB_REPOSITORY="Ducksss/codex-profiles" \
+    TAG="v0.7.0" \
+    bash -c "$github_release_script" >"$tmp_dir/release-$scenario.out" 2>&1
+  status=$?
+  set -e
+
+  if [[ "$expected_status" == "success" ]]; then
+    [[ "$status" -eq 0 ]] || fail "GitHub Release $scenario lookup unexpectedly failed"
+  else
+    [[ "$status" -ne 0 ]] || fail "GitHub Release $scenario lookup unexpectedly succeeded"
+  fi
+
+  actual="$(grep -Fxc 'lookup' "$log" || true)"
+  [[ "$actual" -eq "$expected_lookups" ]] \
+    || fail "GitHub Release $scenario lookup ran $actual time(s); expected $expected_lookups"
+  actual="$(grep -Fxc 'create' "$log" || true)"
+  [[ "$actual" -eq "$expected_creates" ]] \
+    || fail "GitHub Release $scenario create ran $actual time(s); expected $expected_creates"
+  actual="$(grep -Fxc 'sleep' "$log" || true)"
+  [[ "$actual" -eq "$expected_sleeps" ]] \
+    || fail "GitHub Release $scenario backoff ran $actual time(s); expected $expected_sleeps"
+  actual="$(grep -Fxc 'view' "$log" || true)"
+  [[ "$actual" -eq "$expected_views" ]] \
+    || fail "GitHub Release $scenario verification ran $actual time(s); expected $expected_views"
+}
+
+require_github_release_scenario present success 1 0 0 0
+require_github_release_scenario absent success 1 1 0 0
+require_github_release_scenario transient failure 5 0 4 0
+require_github_release_scenario race success 1 1 2 3
+
+for step_name in \
+  'Validate release credentials' \
+  'Create and push tag' \
+  'Verify tagged AUR release files' \
+  'Publish to npm' \
+  'Verify published npm package' \
+  'Create GitHub Release' \
+  'Verify GitHub Release' \
+  'Update Homebrew tap' \
+  'Deploy and verify release documentation'
+do
+  require_live_only_step "$step_name"
+done
+
+require_literal 'gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"'
+require_literal 'for attempt in {1..30}; do'
+require_literal 'gh run list --repo "$GITHUB_REPOSITORY" --workflow pages.yml'
+require_literal '--commit "$GITHUB_SHA" --event workflow_dispatch --limit 20'
+require_literal 'gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status'
+require_literal 'https://ducksss.github.io/codex-profiles/'
+require_literal '<span>v$V</span>'
+
+pages_block="$(step_block "Deploy and verify release documentation")"
+for literal in \
+  'pages_correlation="release-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"' \
+  'pages_run_title="Deploy Pages from $TAG ($pages_correlation)"' \
+  '-f release_correlation="$pages_correlation"' \
+  '--json databaseId,displayTitle' \
+  'select(.displayTitle == \"$pages_run_title\")'
+do
+  grep -F -- "$literal" <<< "$pages_block" >/dev/null \
+    || fail "Pages verification is missing exact correlation contract: $literal"
+done
+
+correlation_line="$(grep -Fn 'pages_correlation=' <<< "$pages_block" | cut -d: -f1)"
+dispatch_line="$(grep -Fn 'gh workflow run pages.yml' <<< "$pages_block" | cut -d: -f1)"
+[[ "$correlation_line" -lt "$dispatch_line" ]] \
+  || fail "Pages verification must define its unique correlation before dispatch"
+
+for literal in \
+  'release_correlation:' \
+  '${{ inputs.release_correlation' \
+  'type: string'
+do
+  grep -F -- "$literal" "$PAGES_WORKFLOW" >/dev/null \
+    || fail "Pages workflow is missing release correlation contract: $literal"
+done
+
+fake_bin="$tmp_dir/fake-bin"
+tool_log="$tmp_dir/tool.log"
+mkdir -p "$fake_bin"
+
+cat > "$fake_bin/gh" <<'FAKE_GH'
+#!/bin/sh
+
+set -eu
+
+command="${1:-}:${2:-}"
+case "$command" in
+  workflow:run)
+    printf 'workflow:%s\n' "$*" >> "$RELEASE_WORKFLOW_TEST_LOG"
+    ;;
+  run:list)
+    printf 'list:%s\n' "$*" >> "$RELEASE_WORKFLOW_TEST_LOG"
+    case "$*" in
+      *release-42-3*) printf '%s\n' '333' ;;
+      *) printf '%s\n' '222' ;;
+    esac
+    ;;
+  run:watch)
+    printf 'watch:%s\n' "${3:-}" >> "$RELEASE_WORKFLOW_TEST_LOG"
+    ;;
+  *)
+    printf 'unexpected gh invocation: %s\n' "$*" >&2
+    exit 64
+    ;;
+esac
+FAKE_GH
+
+cat > "$fake_bin/curl" <<'FAKE_CURL'
+#!/bin/sh
+
+printf '%s\n' '<span>v0.7.0</span>'
+FAKE_CURL
+
+cat > "$fake_bin/sleep" <<'FAKE_SLEEP'
+#!/bin/sh
+
+exit 0
+FAKE_SLEEP
+chmod 755 "$fake_bin/gh" "$fake_bin/curl" "$fake_bin/sleep"
+
+PATH="$fake_bin:$PATH" \
+  RELEASE_WORKFLOW_TEST_LOG="$tool_log" \
+  GITHUB_REPOSITORY="Ducksss/codex-profiles" \
+  GITHUB_SHA="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
+  GITHUB_RUN_ID="42" \
+  GITHUB_RUN_ATTEMPT="3" \
+  TAG="v0.7.0" \
+  V="0.7.0" \
+  bash -c "$(step_script "Deploy and verify release documentation")" >/dev/null
+
+grep -Fx \
+  'workflow:workflow run pages.yml --repo Ducksss/codex-profiles --ref v0.7.0 -f release_correlation=release-42-3' \
+  "$tool_log" >/dev/null \
+  || fail "Pages dispatch did not pass its unique release correlation"
+grep -Fx 'watch:333' "$tool_log" >/dev/null \
+  || fail "Pages verification did not select the exactly correlated run"
+if grep -Eq '^watch:(111|222)$' "$tool_log"; then
+  fail "Pages verification selected a pre-existing or racing same-commit run"
+fi
+
+poll_count="$(grep -Fxc '          for attempt in {1..30}; do' "$WORKFLOW" || true)"
+[[ "$poll_count" -eq 2 ]] \
+  || fail "release workflow must bound both Pages run and deployed-version polling"
+
+shell_steps=(
+  'Validate release source and tracked versions'
+  'Run full verification'
+  'Verification summary'
+  'Validate live release source'
+  'Validate release credentials'
+  'Create and push tag'
+  'Verify tagged AUR release files'
+  'Publish to npm'
+  'Verify published npm package'
+  'Create GitHub Release'
+  'Verify GitHub Release'
+  'Update Homebrew tap'
+  'Deploy and verify release documentation'
+  'Release summary'
+)
+for step_name in "${shell_steps[@]}"; do
+  script="$(step_script "$step_name")"
+  [[ -n "$script" ]] || fail "release workflow step has no block script: $step_name"
+  bash -n <<< "$script" \
+    || fail "release workflow step has invalid Bash syntax: $step_name"
+done
+
+for test_file in test/install-script-test.sh test/release-workflow-test.sh; do
+  grep -E "^\\tshellcheck .*${test_file//./\\.}" "$MAKEFILE" >/dev/null \
+    || fail "Makefile lint does not cover $test_file"
+  grep -Fx $'\t'bash' -n '"$test_file" "$MAKEFILE" >/dev/null \
+    || fail "Makefile test does not syntax-check $test_file"
+  grep -Fx $'\t'bash' '"$test_file" "$MAKEFILE" >/dev/null \
+    || fail "Makefile test does not execute $test_file"
+done
+
+printf '%s\n' 'Release workflow contract tests passed.'
