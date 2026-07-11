@@ -6,8 +6,9 @@ pkgbase = codex-profile
 	arch = any
 	license = MIT
 	depends = bash
-	makedepends = git
-	source = git+https://github.com/Ducksss/codex-profiles.git#tag=v0.7.0
-	sha256sums = SKIP
+	source = codex-profile-0.7.0::https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.7.0/bin/codex-profile
+	source = LICENSE-0.7.0::https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.7.0/LICENSE
+	sha256sums = 837f484c8066af3cbd09745a443c60774b8d6a1b806401b99215ec36f8002fff
+	sha256sums = 9ff3b3e5b6a234802d746443539abda82c35d1581a98249b40636dd5acff4364
 
 pkgname = codex-profile

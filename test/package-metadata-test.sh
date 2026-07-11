@@ -18,6 +18,14 @@ assert_equals() {
   [[ "$actual" == "$expected" ]] || fail "$label is '$actual'; expected '$expected'"
 }
 
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
 version="$(node -p "require('./package.json').version")"
 assert_equals "package-lock version" "$version" "$(node -p "require('./package-lock.json').version")"
 assert_equals "package-lock root version" "$version" "$(node -p "require('./package-lock.json').packages[''].version")"
@@ -71,10 +79,44 @@ grep -F 'ln -s codex-profile "$out/bin/codex-profiles"' flake.nix > /dev/null \
 grep -F 'ln -s codex-profile "$pkgdir/usr/bin/codex-profiles"' packaging/aur/PKGBUILD > /dev/null \
   || fail "Arch package does not create the plural alias"
 
+cli_sha256="$(sha256_file bin/codex-profile)"
+license_sha256="$(sha256_file LICENSE)"
+script_source="codex-profile-$version::https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/bin/codex-profile"
+license_source="LICENSE-$version::https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/LICENSE"
+
+(
+  source=()
+  sha256sums=()
+  # shellcheck source=../packaging/aur/PKGBUILD disable=SC1091
+  source packaging/aur/PKGBUILD
+  [[ "${source[*]}" != *'git+'* ]] || fail "AUR source must not use VCS checkout"
+  [[ "${sha256sums[*]}" != *'SKIP'* ]] || fail "AUR source checksums must not be skipped"
+  [[ "${#source[@]}" -eq 2 && "${#sha256sums[@]}" -eq 2 ]] || fail "AUR must pin script and license"
+  [[ "${source[0]}" == "$script_source" ]] || fail "AUR script source mismatch"
+  [[ "${source[1]}" == "$license_source" ]] || fail "AUR license source mismatch"
+  [[ "${sha256sums[0]}" == "$cli_sha256" ]] || fail "CLI checksum mismatch"
+  [[ "${sha256sums[1]}" == "$license_sha256" ]] || fail "license checksum mismatch"
+)
+
+assert_equals ".SRCINFO source count" "2" "$(grep -c $'^\tsource = ' packaging/aur/.SRCINFO)"
+assert_equals ".SRCINFO checksum count" "2" "$(grep -c $'^\tsha256sums = ' packaging/aur/.SRCINFO)"
+grep -F $'\tsource = '"$script_source" packaging/aur/.SRCINFO > /dev/null \
+  || fail ".SRCINFO script source mismatch"
+grep -F $'\tsource = '"$license_source" packaging/aur/.SRCINFO > /dev/null \
+  || fail ".SRCINFO license source mismatch"
+grep -F $'\tsha256sums = '"$cli_sha256" packaging/aur/.SRCINFO > /dev/null \
+  || fail ".SRCINFO CLI checksum mismatch"
+grep -F $'\tsha256sums = '"$license_sha256" packaging/aur/.SRCINFO > /dev/null \
+  || fail ".SRCINFO license checksum mismatch"
+if grep -F $'\tmakedepends = git' packaging/aur/.SRCINFO > /dev/null; then
+  fail ".SRCINFO must not require git"
+fi
+
 if install --version 2> /dev/null | grep -q 'GNU coreutils'; then
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
-  ln -s "$ROOT_DIR" "$tmp/codex-profiles"
+  cp "$ROOT_DIR/bin/codex-profile" "$tmp/codex-profile-$version"
+  cp "$ROOT_DIR/LICENSE" "$tmp/LICENSE-$version"
   (
     cd "$tmp"
     # shellcheck disable=SC2034 # consumed by the sourced PKGBUILD package() function

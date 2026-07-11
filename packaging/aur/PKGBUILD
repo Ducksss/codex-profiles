@@ -7,15 +7,17 @@ arch=('any')
 url="https://github.com/Ducksss/codex-profiles"
 license=('MIT')
 depends=('bash')
-makedepends=('git')
-# This is a pinned stable-release tag, not a moving development branch. Git is
-# needed only while makepkg retrieves and checks out that tag.
-source=("git+https://github.com/Ducksss/codex-profiles.git#tag=v$pkgver")
-sha256sums=('SKIP')
+source=(
+  "codex-profile-$pkgver::https://raw.githubusercontent.com/Ducksss/codex-profiles/v$pkgver/bin/codex-profile"
+  "LICENSE-$pkgver::https://raw.githubusercontent.com/Ducksss/codex-profiles/v$pkgver/LICENSE"
+)
+sha256sums=(
+  '837f484c8066af3cbd09745a443c60774b8d6a1b806401b99215ec36f8002fff'
+  '9ff3b3e5b6a234802d746443539abda82c35d1581a98249b40636dd5acff4364'
+)
 
 package() {
-  cd "codex-profiles"
-  install -Dm755 "bin/codex-profile" "$pkgdir/usr/bin/codex-profile"
+  install -Dm755 "codex-profile-$pkgver" "$pkgdir/usr/bin/codex-profile"
   ln -s codex-profile "$pkgdir/usr/bin/codex-profiles"
-  install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "LICENSE-$pkgver" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
