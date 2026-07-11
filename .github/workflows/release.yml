@@ -248,17 +248,7 @@ jobs:
             "https://x-access-token:${TAP_TOKEN}@github.com/Ducksss/homebrew-tap.git" \
             "$tmp/tap"
           formula="$tmp/tap/Formula/codex-profile.rb"
-          [[ -f "$formula" ]] || { echo "Missing Homebrew formula: $formula" >&2; exit 1; }
-
-          sed -i 's|^  desc ".*"|  desc "Named Codex CLI profiles with separate local ChatGPT desktop state"|' "$formula"
-          sed -i "s|^  url \".*\"|  url \"$tarball\"|" "$formula"
-          sed -i "s|^  sha256 \".*\"|  sha256 \"$sha\"|" "$formula"
-          if ! grep -q 'bin.install_symlink bin/"codex-profile" => "codex-profiles"' "$formula"; then
-            sed -i '/bin.install "bin\/codex-profile"/a\    bin.install_symlink bin/"codex-profile" => "codex-profiles"' "$formula"
-          fi
-          if ! grep -q 'system bin/"codex-profiles", "version"' "$formula"; then
-            sed -i '/system bin\/"codex-profile", "help"/a\    system bin/"codex-profiles", "version"' "$formula"
-          fi
+          scripts/update-homebrew-formula "$formula" "$V" "$sha"
           ruby -c "$formula"
 
           git -C "$tmp/tap" config user.name "github-actions[bot]"

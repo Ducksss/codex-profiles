@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+formula="${1:-}"
+version="${2:-}"
+sha="${3:-}"
+[[ -f "$formula" ]] || { printf 'Missing Homebrew formula: %s\n' "$formula" >&2; exit 1; }
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { printf 'Invalid release version: %s\n' "$version" >&2; exit 1; }
+[[ "$sha" =~ ^[0-9a-f]{64}$ ]] || { printf 'Invalid SHA-256: %s\n' "$sha" >&2; exit 1; }
+
+description='Named Codex CLI profiles with separate local ChatGPT desktop state'
+tarball="https://github.com/Ducksss/codex-profiles/archive/refs/tags/v$version.tar.gz"
+primary_install='    bin.install "bin/codex-profile"'
+alias_install='    bin.install_symlink bin/"codex-profile" => "codex-profiles"'
+primary_test='    system bin/"codex-profile", "help"'
+alias_test='    system bin/"codex-profiles", "version"'
+expected_desc="  desc \"$description\""
+expected_url="  url \"$tarball\""
+expected_sha="  sha256 \"$sha\""
+
+missing_anchor() {
+  printf 'Missing Homebrew formula anchor: %s\n' "$1" >&2
+  exit 1
+}
+
+duplicate_anchor() {
+  printf 'Duplicate Homebrew formula anchor: %s\n' "$1" >&2
+  exit 1
+}
+
+count_regex_lines() {
+  local file="$1"
+  local pattern="$2"
+
+  awk -v pattern="$pattern" '$0 ~ pattern { count++ } END { print count + 0 }' "$file"
+}
+
+count_exact_lines() {
+  local file="$1"
+  local expected="$2"
+
+  awk -v expected="$expected" '$0 == expected { count++ } END { print count + 0 }' "$file"
+}
+
+require_one_anchor() {
+  local label="$1"
+  local count="$2"
+
+  [[ "$count" -ne 0 ]] || missing_anchor "$label"
+  [[ "$count" -eq 1 ]] || duplicate_anchor "$label"
+}
+
+reject_duplicate_anchor() {
+  local label="$1"
+  local count="$2"
+
+  [[ "$count" -le 1 ]] || duplicate_anchor "$label"
+}
+
+desc_count="$(count_regex_lines "$formula" '^  desc "[^"]+"$')"
+url_count="$(count_regex_lines "$formula" '^  url "[^"]+"$')"
+sha_count="$(count_regex_lines "$formula" '^  sha256 "[0-9a-f]{64}"$')"
+primary_install_count="$(count_exact_lines "$formula" "$primary_install")"
+primary_test_count="$(count_exact_lines "$formula" "$primary_test")"
+alias_install_count="$(count_exact_lines "$formula" "$alias_install")"
+alias_test_count="$(count_exact_lines "$formula" "$alias_test")"
+
+require_one_anchor desc "$desc_count"
+require_one_anchor url "$url_count"
+require_one_anchor sha256 "$sha_count"
+require_one_anchor primary-install "$primary_install_count"
+require_one_anchor primary-test "$primary_test_count"
+reject_duplicate_anchor alias-install "$alias_install_count"
+reject_duplicate_anchor alias-test "$alias_test_count"
+
+add_alias_install=$((1 - alias_install_count))
+add_alias_test=$((1 - alias_test_count))
+
+tmp=''
+cleanup() {
+  [[ -z "$tmp" ]] || rm -f "$tmp"
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
+tmp="$(mktemp "${formula}.tmp.XXXXXX")"
+
+awk \
+  -v expected_desc="$expected_desc" \
+  -v expected_url="$expected_url" \
+  -v expected_sha="$expected_sha" \
+  -v primary_install="$primary_install" \
+  -v alias_install="$alias_install" \
+  -v primary_test="$primary_test" \
+  -v alias_test="$alias_test" \
+  -v add_alias_install="$add_alias_install" \
+  -v add_alias_test="$add_alias_test" '
+    /^  desc "[^"]+"$/ {
+      print expected_desc
+      next
+    }
+    /^  url "[^"]+"$/ {
+      print expected_url
+      next
+    }
+    /^  sha256 "[0-9a-f]{64}"$/ {
+      print expected_sha
+      next
+    }
+    {
+      print
+      if (add_alias_install && $0 == primary_install) {
+        print alias_install
+      }
+      if (add_alias_test && $0 == primary_test) {
+        print alias_test
+      }
+    }
+  ' "$formula" > "$tmp"
+
+assert_final_count() {
+  local label="$1"
+  local expected="$2"
+  local count
+
+  count="$(count_exact_lines "$tmp" "$expected")"
+  [[ "$count" -eq 1 ]] || {
+    printf 'Invalid Homebrew formula postcondition: %s count is %s, expected 1\n' \
+      "$label" "$count" >&2
+    exit 1
+  }
+}
+
+assert_final_count desc "$expected_desc"
+assert_final_count url "$expected_url"
+assert_final_count sha256 "$expected_sha"
+assert_final_count primary-install "$primary_install"
+assert_final_count primary-test "$primary_test"
+assert_final_count alias-install "$alias_install"
+assert_final_count alias-test "$alias_test"
+
+mv "$tmp" "$formula"
+tmp=''
