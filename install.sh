@@ -5,7 +5,7 @@
 #
 # Environment:
 #   CODEX_PROFILE_PREFIX   Install prefix (default: $HOME/.local; binaries go in $PREFIX/bin).
-#   CODEX_PROFILE_VERSION  Install a specific release tag (including the leading v).
+#   CODEX_PROFILE_VERSION  Install an exact release tag in vX.Y.Z form.
 set -eu
 
 REPO="Ducksss/codex-profiles"
@@ -14,6 +14,23 @@ BINDIR="$PREFIX/bin"
 
 say() { printf '%s\n' "$*"; }
 err() { printf 'install: %s\n' "$*" >&2; exit 1; }
+
+valid_release_tag() {
+  printf '%s\n' "$1" | LC_ALL=C grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
+}
+
+path_exists() {
+  [ -e "$1" ] || [ -L "$1" ]
+}
+
+declared_version() {
+  version_file="$1"
+  assignment_count="$(grep -c '^VERSION=' "$version_file" || true)"
+  [ "$assignment_count" -eq 1 ] || return 1
+
+  sed -n 's/^VERSION="\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)"$/\1/p' \
+    "$version_file"
+}
 
 if command -v curl > /dev/null 2>&1; then
   dl() { curl -fsSL "$1"; }
@@ -31,20 +48,124 @@ if [ -z "$tag" ]; then
     | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
   [ -n "$tag" ] || err "could not determine the latest release"
 fi
+valid_release_tag "$tag" || err "invalid release tag '$tag'; expected vX.Y.Z"
+
+version="${tag#v}"
 
 url="https://raw.githubusercontent.com/$REPO/$tag/bin/codex-profile"
 say "Installing codex-profile $tag to $BINDIR"
 
 mkdir -p "$BINDIR" || err "cannot create $BINDIR"
-tmp="$(mktemp)" || err "cannot create a temporary file"
-trap 'rm -f "$tmp"' EXIT
-dl "$url" > "$tmp" || err "download failed: $url"
-head -n 1 "$tmp" | grep -q '^#!/usr/bin/env bash' || err "downloaded file does not look like codex-profile"
+canonical="$BINDIR/codex-profile"
+alias="$BINDIR/codex-profiles"
 
-chmod 755 "$tmp"
-mv "$tmp" "$BINDIR/codex-profile" || err "cannot install to $BINDIR"
-trap - EXIT
-ln -sf codex-profile "$BINDIR/codex-profiles"
+[ ! -d "$canonical" ] || err "refusing directory destination: $canonical"
+[ ! -d "$alias" ] || err "refusing directory destination: $alias"
+
+transaction="$(mktemp -d "$BINDIR/.codex-profile-install.XXXXXX")" \
+  || err "cannot create a transaction directory in $BINDIR"
+staged_canonical="$transaction/codex-profile"
+staged_alias="$transaction/codex-profiles"
+saved_canonical="$transaction/original-codex-profile"
+saved_alias="$transaction/original-codex-profiles"
+canonical_saved=no
+alias_saved=no
+canonical_installed=no
+alias_installed=no
+committed=no
+
+remove_install_path() {
+  remove_path="$1"
+  path_exists "$remove_path" || return 0
+  [ ! -d "$remove_path" ] || return 1
+  rm -f "$remove_path"
+}
+
+cleanup_transaction() {
+  cleanup_status=$?
+  trap - 0 HUP INT TERM
+  set +e
+  rollback_failed=no
+
+  if [ "$committed" != yes ]; then
+    if [ "$alias_saved" = yes ] || [ "$alias_installed" = yes ]; then
+      remove_install_path "$alias" || rollback_failed=yes
+    fi
+    if [ "$canonical_saved" = yes ] || [ "$canonical_installed" = yes ]; then
+      remove_install_path "$canonical" || rollback_failed=yes
+    fi
+
+    if [ "$canonical_saved" = yes ]; then
+      mv "$saved_canonical" "$canonical" || rollback_failed=yes
+    fi
+    if [ "$alias_saved" = yes ]; then
+      mv "$saved_alias" "$alias" || rollback_failed=yes
+    fi
+  fi
+
+  if [ "$rollback_failed" = no ]; then
+    rm -rf "$transaction"
+  else
+    printf 'install: rollback failed; recovery files remain in %s\n' \
+      "$transaction" >&2
+    [ "$cleanup_status" -ne 0 ] || cleanup_status=1
+  fi
+
+  exit "$cleanup_status"
+}
+
+trap cleanup_transaction 0
+trap 'exit 1' HUP INT TERM
+
+dl "$url" > "$staged_canonical" || err "download failed: $url"
+head -n 1 "$staged_canonical" | grep -q '^#!/usr/bin/env bash' \
+  || err "downloaded file does not look like codex-profile"
+
+payload_version="$(declared_version "$staged_canonical" || true)"
+[ -n "$payload_version" ] \
+  || err "downloaded file must contain exactly one static VERSION assignment"
+[ "$payload_version" = "$version" ] \
+  || err "downloaded version $payload_version does not match release $tag"
+
+chmod 755 "$staged_canonical" || err "cannot make downloaded command executable"
+ln -s codex-profile "$staged_alias" || err "cannot stage codex-profiles alias"
+
+if path_exists "$canonical"; then
+  mv "$canonical" "$saved_canonical" || err "cannot preserve existing $canonical"
+  canonical_saved=yes
+fi
+if path_exists "$alias"; then
+  mv "$alias" "$saved_alias" || err "cannot preserve existing $alias"
+  alias_saved=yes
+fi
+
+mv "$staged_canonical" "$canonical" || err "cannot install $canonical"
+canonical_installed=yes
+mv "$staged_alias" "$alias" || err "cannot install $alias"
+alias_installed=yes
+
+[ -f "$canonical" ] && [ -x "$canonical" ] && [ ! -L "$canonical" ] \
+  || err "installed canonical command is not a regular executable: $canonical"
+[ -L "$alias" ] && [ "$(readlink "$alias")" = codex-profile ] \
+  || err "installed plural command is not the expected relative symlink: $alias"
+
+installed_version="$(declared_version "$canonical" || true)"
+[ "$installed_version" = "$version" ] \
+  || err "installed canonical command does not declare version $version"
+expected_output="codex-profile $version"
+canonical_output="$("$canonical" version 2>&1)" \
+  || err "installed canonical command failed its version check"
+[ "$canonical_output" = "$expected_output" ] \
+  || err "installed canonical command reported '$canonical_output'; expected '$expected_output'"
+alias_output="$("$alias" version 2>&1)" \
+  || err "installed plural command failed its version check"
+[ "$alias_output" = "$expected_output" ] \
+  || err "installed plural command reported '$alias_output'; expected '$expected_output'"
+
+committed=yes
+rm -rf "$transaction" || err "cannot remove completed transaction: $transaction"
+transaction=""
+trap - 0 HUP INT TERM
 
 say "Installed $BINDIR/codex-profile (and codex-profiles alias)"
 case ":$PATH:" in

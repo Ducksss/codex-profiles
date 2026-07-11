@@ -22,6 +22,9 @@ and this project follows semantic versioning for tagged releases.
   live publication into a separately gated write job that revalidates
   `origin/main` and remote tag state. Registry, tag, and GitHub Release lookups
   now fail closed while safely accepting only exact-version concurrent results.
+- Made the standalone installer validate exact release tags and payload
+  versions, then replace both installed command aliases transactionally with
+  rollback if any late install or verification step fails.
 
 ## 0.7.0 - 2026-07-11
 
