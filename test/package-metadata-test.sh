@@ -70,11 +70,38 @@ grep -Eq "^## $changelog_version - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md \
   || fail "CHANGELOG.md has no dated $version release section"
 
 # shellcheck disable=SC2016 # fixed strings intentionally contain shell variables
-grep -F 'ln -sf codex-profile "$BINDIR/codex-profiles"' install.sh > /dev/null \
-  || fail "standalone installer does not create the plural alias"
+grep -F 'ln -s codex-profile "$staged_alias"' install.sh > /dev/null \
+  || fail "standalone installer does not stage a relative plural alias"
+# shellcheck disable=SC2016 # fixed strings intentionally contain shell variables
+grep -F 'mv "$staged_alias" "$alias"' install.sh > /dev/null \
+  || fail "standalone installer does not transactionally install the plural alias"
+# shellcheck disable=SC2016 # fixed strings intentionally contain shell variables
+grep -F '[ -L "$alias" ] && [ "$(readlink "$alias")" = codex-profile ]' install.sh > /dev/null \
+  || fail "standalone installer does not verify the relative plural alias"
 # shellcheck disable=SC2016 # fixed strings intentionally contain Nix shell variables
 grep -F 'ln -s codex-profile "$out/bin/codex-profiles"' flake.nix > /dev/null \
   || fail "Nix package does not create the plural alias"
+[[ -f flake.lock ]] || fail "Nix flake inputs must be locked"
+node - <<'NODE'
+const fs = require('fs');
+const lock = JSON.parse(fs.readFileSync('flake.lock', 'utf8'));
+if (lock.version !== 7 || lock.root !== 'root') {
+  throw new Error('flake.lock must use the current lock schema and root node');
+}
+for (const name of ['nixpkgs', 'flake-utils', 'systems']) {
+  const input = lock.nodes?.[name]?.locked;
+  if (!input || !/^[0-9a-f]{40}$/.test(input.rev ?? '')) {
+    throw new Error(`${name} must resolve to an immutable 40-hex revision`);
+  }
+  if (!/^sha256-[A-Za-z0-9+/]+=*$/.test(input.narHash ?? '')) {
+    throw new Error(`${name} must include a NAR integrity hash`);
+  }
+}
+NODE
+grep -F 'nix build .# --no-update-lock-file --print-build-logs' .github/workflows/ci.yml > /dev/null \
+  || fail "Nix CI must build the committed lock without updating it"
+grep -F 'git diff --exit-code -- flake.lock' .github/workflows/ci.yml > /dev/null \
+  || fail "Nix CI must verify that the lockfile remained unchanged"
 # shellcheck disable=SC2016 # fixed strings intentionally contain PKGBUILD variables
 grep -F 'ln -s codex-profile "$pkgdir/usr/bin/codex-profiles"' packaging/aur/PKGBUILD > /dev/null \
   || fail "Arch package does not create the plural alias"
