@@ -118,6 +118,45 @@ require_duplicate_anchor_failure() {
     || fail "formula was mutated before the duplicate $label anchor was reported"
 }
 
+require_misplaced_anchor_failure() {
+  local label="$1"
+  local moved_line="$2"
+  local wrong_block_start="$3"
+  local formula="$tmp_dir/misplaced-$label.rb"
+  local rewritten="$formula.rewritten"
+  local before="$formula.before"
+  local output
+  local status
+
+  write_valid_formula "$formula"
+  "$HELPER" "$formula" "$VERSION" "$SHA"
+  awk -v moved_line="$moved_line" -v wrong_block_start="$wrong_block_start" '
+    $0 == moved_line { found += 1; next }
+    {
+      print
+      if ($0 == wrong_block_start) {
+        print moved_line
+        inserted += 1
+      }
+    }
+    END {
+      if (found != 1 || inserted != 1) exit 42
+    }
+  ' "$formula" > "$rewritten" || fail "could not move $label into the wrong block"
+  mv "$rewritten" "$formula"
+  cp "$formula" "$before"
+
+  set +e
+  output="$("$HELPER" "$formula" "$VERSION" "$SHA" 2>&1)"
+  status=$?
+  set -e
+
+  [[ "$status" -ne 0 ]] || fail "misplaced $label anchor unexpectedly succeeded"
+  assert_output_equals "Misplaced Homebrew formula anchor: $label" "$output"
+  cmp -s "$before" "$formula" \
+    || fail "formula was mutated before the misplaced $label anchor was reported"
+}
+
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
@@ -205,6 +244,23 @@ require_duplicate_anchor_failure \
   '    system bin/"codex-profile", "help"' \
   '    system bin/"codex-profiles", "version"' \
   2
+
+require_misplaced_anchor_failure \
+  primary-install \
+  '    bin.install "bin/codex-profile"' \
+  '  test do'
+require_misplaced_anchor_failure \
+  alias-install \
+  '    bin.install_symlink bin/"codex-profile" => "codex-profiles"' \
+  '  test do'
+require_misplaced_anchor_failure \
+  primary-test \
+  '    system bin/"codex-profile", "help"' \
+  '  def install'
+require_misplaced_anchor_failure \
+  alias-test \
+  '    system bin/"codex-profiles", "version"' \
+  '  def install'
 
 invalid_formula="$tmp_dir/invalid-input.rb"
 invalid_before="$tmp_dir/invalid-input.before"

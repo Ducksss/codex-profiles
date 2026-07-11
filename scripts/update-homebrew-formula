@@ -28,6 +28,11 @@ duplicate_anchor() {
   exit 1
 }
 
+misplaced_anchor() {
+  printf 'Misplaced Homebrew formula anchor: %s\n' "$1" >&2
+  exit 1
+}
+
 count_regex_lines() {
   local file="$1"
   local pattern="$2"
@@ -40,6 +45,33 @@ count_exact_lines() {
   local expected="$2"
 
   awk -v expected="$expected" '$0 == expected { count++ } END { print count + 0 }' "$file"
+}
+
+count_exact_lines_in_block() {
+  local file="$1"
+  local block_start="$2"
+  local expected="$3"
+
+  awk -v block_start="$block_start" -v expected="$expected" '
+    $0 == block_start {
+      starts++
+      in_block = 1
+      next
+    }
+    in_block && $0 == "  end" {
+      ends++
+      in_block = 0
+      next
+    }
+    in_block && $0 == expected { count++ }
+    END {
+      if (starts != 1 || ends != 1 || in_block) {
+        print -1
+      } else {
+        print count + 0
+      }
+    }
+  ' "$file"
 }
 
 require_one_anchor() {
@@ -57,6 +89,14 @@ reject_duplicate_anchor() {
   [[ "$count" -le 1 ]] || duplicate_anchor "$label"
 }
 
+require_anchor_scope() {
+  local label="$1"
+  local global_count="$2"
+  local block_count="$3"
+
+  [[ "$block_count" -eq "$global_count" ]] || misplaced_anchor "$label"
+}
+
 desc_count="$(count_regex_lines "$formula" '^  desc "[^"]+"$')"
 url_count="$(count_regex_lines "$formula" '^  url "[^"]+"$')"
 sha_count="$(count_regex_lines "$formula" '^  sha256 "[0-9a-f]{64}"$')"
@@ -64,6 +104,10 @@ primary_install_count="$(count_exact_lines "$formula" "$primary_install")"
 primary_test_count="$(count_exact_lines "$formula" "$primary_test")"
 alias_install_count="$(count_exact_lines "$formula" "$alias_install")"
 alias_test_count="$(count_exact_lines "$formula" "$alias_test")"
+primary_install_block_count="$(count_exact_lines_in_block "$formula" '  def install' "$primary_install")"
+alias_install_block_count="$(count_exact_lines_in_block "$formula" '  def install' "$alias_install")"
+primary_test_block_count="$(count_exact_lines_in_block "$formula" '  test do' "$primary_test")"
+alias_test_block_count="$(count_exact_lines_in_block "$formula" '  test do' "$alias_test")"
 
 require_one_anchor desc "$desc_count"
 require_one_anchor url "$url_count"
@@ -72,6 +116,10 @@ require_one_anchor primary-install "$primary_install_count"
 require_one_anchor primary-test "$primary_test_count"
 reject_duplicate_anchor alias-install "$alias_install_count"
 reject_duplicate_anchor alias-test "$alias_test_count"
+require_anchor_scope primary-install "$primary_install_count" "$primary_install_block_count"
+require_anchor_scope alias-install "$alias_install_count" "$alias_install_block_count"
+require_anchor_scope primary-test "$primary_test_count" "$primary_test_block_count"
+require_anchor_scope alias-test "$alias_test_count" "$alias_test_block_count"
 
 add_alias_install=$((1 - alias_install_count))
 add_alias_test=$((1 - alias_test_count))
@@ -137,6 +185,25 @@ assert_final_count primary-install "$primary_install"
 assert_final_count primary-test "$primary_test"
 assert_final_count alias-install "$alias_install"
 assert_final_count alias-test "$alias_test"
+
+assert_final_scope() {
+  local label="$1"
+  local block_start="$2"
+  local expected="$3"
+  local count
+
+  count="$(count_exact_lines_in_block "$tmp" "$block_start" "$expected")"
+  [[ "$count" -eq 1 ]] || {
+    printf 'Invalid Homebrew formula postcondition: %s is outside its required block\n' \
+      "$label" >&2
+    exit 1
+  }
+}
+
+assert_final_scope primary-install '  def install' "$primary_install"
+assert_final_scope alias-install '  def install' "$alias_install"
+assert_final_scope primary-test '  test do' "$primary_test"
+assert_final_scope alias-test '  test do' "$alias_test"
 
 mv "$tmp" "$formula"
 tmp=''
