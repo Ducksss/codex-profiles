@@ -13,11 +13,13 @@ the target's contribution rules allow it.
 ## Project Context
 
 `codex-profiles` is a small Bash tool for named Codex homes and, on macOS,
-named local ChatGPT desktop windows. `cli`, `login`, `env`, and `use` are
-Codex-only. Named `app` launches select matching `CODEX_HOME` and Electron data
-for the whole ChatGPT window across Chat, Work, and Codex; `app default`
-preserves the stock session. It avoids copying auth files or modifying the
-signed app, supports macOS/Linux CLI workflows, and installs with:
+named ChatGPT windows with separate local state. `cli`, `login`, `env`, and
+`use` are Codex-only. Named `app` launches select matching `CODEX_HOME` and
+Electron data for the whole ChatGPT window across Chat, Work, and Codex;
+`app default` preserves the stock session. Local-state separation is not an
+account, OS, or server-side boundary. The tool avoids copying auth files or
+modifying the signed app, supports macOS/Linux CLI workflows, and installs
+with:
 
 ```sh
 brew install Ducksss/tap/codex-profile
@@ -182,9 +184,9 @@ there is no reply.
 Use this as a starting point and tailor it to the target repository:
 
 ````md
-Adds codex-profiles, a small Bash utility for named Codex homes and isolated
-local ChatGPT desktop windows. Named app launches apply across Chat, Work, and
-Codex; CLI commands remain Codex-only.
+Adds codex-profiles, a small Bash utility for named Codex homes and named
+ChatGPT windows with separate local state. Named app launches apply across
+Chat, Work, and Codex; CLI commands remain Codex-only.
 
 I think it fits this list because [specific reason tied to the target
 repository's scope or section].

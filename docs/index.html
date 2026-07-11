@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>codex-profiles - Named Codex homes and ChatGPT desktop windows</title>
-  <meta name="description" content="codex-profiles selects named CODEX_HOME directories for Codex and isolated local ChatGPT desktop windows on macOS, without copying authentication files.">
+  <meta name="description" content="codex-profiles selects named CODEX_HOME directories for Codex and named ChatGPT windows with separate local state on macOS, without copying authentication files.">
   <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
   <link rel="canonical" href="https://ducksss.github.io/codex-profiles/">
   <link rel="license" href="https://github.com/Ducksss/codex-profiles/blob/main/LICENSE">
   <meta property="og:type" content="website">
   <meta property="og:title" content="codex-profiles - Named Codex homes and ChatGPT desktop windows">
-  <meta property="og:description" content="Select separate Codex homes and named whole-window ChatGPT desktop contexts without copying authentication files.">
+  <meta property="og:description" content="Select named Codex homes and named ChatGPT windows with separate local state without copying authentication files.">
   <meta property="og:url" content="https://ducksss.github.io/codex-profiles/">
   <meta name="twitter:card" content="summary">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,7 +46,7 @@
       "name": "codex-profiles",
       "alternateName": "codex-profile",
       "url": "https://ducksss.github.io/codex-profiles/",
-      "description": "codex-profiles is a dependency-free Bash CLI for named Codex homes and isolated local ChatGPT desktop windows.",
+      "description": "codex-profiles is a dependency-free Bash CLI for named Codex homes and named ChatGPT windows with separate local state.",
       "applicationCategory": "DeveloperApplication",
       "applicationSubCategory": "Command-line tool",
       "operatingSystem": [
@@ -66,7 +66,7 @@
         "Named CODEX_HOME directories per profile",
         "Codex CLI command and login passthrough",
         "Stock ChatGPT desktop session through app default",
-        "Named whole-window ChatGPT desktop contexts",
+        "Named ChatGPT windows with separate local state",
         "Parallel named Desktop windows without app cloning or re-signing",
         "Read-only profile status and doctor diagnostics",
         "Safe non-secret config cloning",
@@ -119,7 +119,7 @@
           "name": "What is codex-profiles?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "codex-profiles is a Bash command that selects named CODEX_HOME directories and, on macOS, named local ChatGPT desktop windows."
+            "text": "codex-profiles is a Bash command that selects named CODEX_HOME directories and, on macOS, named ChatGPT windows with separate local state."
           }
         },
         {
@@ -127,7 +127,7 @@
           "name": "Does a named Desktop profile affect only Codex mode?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "No. A named app launch selects local Electron data for the whole ChatGPT window and a matching CODEX_HOME for Codex. The boundary applies across Chat, Work, and Codex, but account identity remains unverified."
+            "text": "No. A named app launch selects separate Electron state for the whole ChatGPT window and a matching CODEX_HOME for Codex. The boundary applies across Chat, Work, and Codex, but account identity remains unverified."
           }
         },
         {
@@ -175,7 +175,7 @@
           "name": "Can multiple named ChatGPT windows run at once?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. Different names use different local Electron data and can run side by side, while app default keeps the ordinary stock ChatGPT session."
+            "text": "Yes. Different names use separate local Electron state and can run side by side, while app default keeps the ordinary stock ChatGPT session."
           }
         }
       ]
@@ -646,7 +646,7 @@
       <div class="hero-lede">
         <p class="eyebrow">Codex homes · ChatGPT desktop windows</p>
         <h1 class="wordmark">codex&#8209;profiles<span class="caret" aria-hidden="true">_</span></h1>
-        <p class="hero-copy">Select named <strong>CODEX_HOME directories</strong> for Codex and isolated local ChatGPT desktop windows — without copying authentication files.</p>
+        <p class="hero-copy">Select named <strong>CODEX_HOME directories</strong> for Codex and named ChatGPT windows with separate local state — without copying authentication files.</p>
         <nav class="actions" aria-label="Primary links">
           <a class="button primary" href="https://github.com/Ducksss/codex-profiles">View on GitHub</a>
           <a class="button ghost" href="https://www.npmjs.com/package/codex-profile">npm package</a>
@@ -680,7 +680,7 @@
       <div class="section-head">
         <p class="eyebrow">What it is</p>
         <h2 id="answer">Direct answer</h2>
-        <p class="lede">codex-profiles is a dependency-free Bash CLI for named Codex homes and, on macOS, named local ChatGPT desktop windows. It keeps Codex-only commands separate from whole-window Desktop launches and never copies authentication files.</p>
+        <p class="lede">codex-profiles is a dependency-free Bash CLI for named Codex homes and, on macOS, named ChatGPT windows with separate local state. It keeps Codex-only commands separate from whole-window Desktop launches and never copies authentication files.</p>
       </div>
       <div class="command" aria-label="Install commands">
         <pre><code>npm install -g codex-profile
@@ -698,7 +698,7 @@ codex-profile doctor</code></pre>
 
       <div class="graph-shell">
         <div class="graph-toolbar">
-          <div class="seg" role="group" aria-label="Isolation model">
+          <div class="seg" role="group" aria-label="Local-state model">
             <button id="mode-isolated" type="button" aria-pressed="true"><span class="k">$</span>codex-profile</button>
             <button id="mode-shared" class="danger" type="button" aria-pressed="false"><span class="k">~</span>swap auth.json</button>
           </div>
@@ -709,7 +709,7 @@ codex-profile doctor</code></pre>
           <div class="badge-shared">⚠ one shared ~/.codex — state bleeds between accounts</div>
           <div class="tip" id="graph-tip"></div>
           <div class="graph-fallback" id="graph-fallback">
-            <h3>Profile isolation at a glance</h3>
+            <h3>Local-state separation at a glance</h3>
             <p>One operating-system user can select multiple local Codex homes:</p>
             <ul>
               <li><code>default</code> &rarr; <code>~/.codex</code></li>
@@ -717,7 +717,7 @@ codex-profile doctor</code></pre>
               <li><code>personal</code> &rarr; <code>~/.codex-personal</code></li>
               <li><code>edu</code> &rarr; <code>~/.codex-edu</code></li>
             </ul>
-            <p>Each named Desktop profile additionally uses <code>~/.codex-&lt;name&gt;/electron-user-data</code>. This is local state separation, not an OS sandbox or server-side ChatGPT workspace boundary.</p>
+            <p>Each named Desktop profile additionally uses <code>~/.codex-&lt;name&gt;/electron-user-data</code>. Local-state separation is not an account, OS, or server-side boundary.</p>
           </div>
         </div>
       </div>
@@ -731,7 +731,7 @@ codex-profile doctor</code></pre>
       <div class="grid">
         <article class="item">
           <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h18"/></svg></span>
-          <strong>Profile isolation</strong>
+          <strong>Local-state separation</strong>
           <p>Each profile maps to its own Codex home, such as default to ~/.codex and work to ~/.codex-work.</p>
         </article>
         <article class="item">
@@ -742,7 +742,7 @@ codex-profile doctor</code></pre>
         <article class="item">
           <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="9" height="9" rx="1.5"/><rect x="12" y="12" width="9" height="9" rx="1.5"/></svg></span>
           <strong>Whole-window Desktop contexts</strong>
-          <p>Named app launches select Electron context for the whole ChatGPT window and matching CODEX_HOME state for Codex; account identity remains unverified.</p>
+          <p>Named app launches select separate Electron state for the whole ChatGPT window and matching CODEX_HOME state for Codex; account identity remains unverified.</p>
         </article>
         <article class="item">
           <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
@@ -803,7 +803,7 @@ codex-profile doctor</code></pre>
               </tr>
               <tr>
                 <td>Purpose</td>
-                <td>Select named Codex homes and named local ChatGPT desktop windows without copying auth tokens</td>
+                <td>Select named Codex homes and named ChatGPT windows with separate local state without copying auth tokens</td>
               </tr>
               <tr>
                 <td>Account comparison</td>
@@ -835,11 +835,11 @@ codex-profile doctor</code></pre>
       <div class="faq-list">
         <article>
           <h3>What is codex-profiles?</h3>
-          <p>codex-profiles is a Bash command that selects named CODEX_HOME directories and, on macOS, named local ChatGPT desktop windows.</p>
+          <p>codex-profiles is a Bash command that selects named CODEX_HOME directories and, on macOS, named ChatGPT windows with separate local state.</p>
         </article>
         <article>
           <h3>Does a named Desktop profile affect only Codex mode?</h3>
-          <p>No. A named app launch selects local Electron data for the whole ChatGPT window and a matching <code>CODEX_HOME</code> for Codex. The boundary applies across Chat, Work, and Codex, but account identity remains unverified.</p>
+          <p>No. A named app launch selects separate Electron state for the whole ChatGPT window and a matching <code>CODEX_HOME</code> for Codex. The boundary applies across Chat, Work, and Codex, but account identity remains unverified.</p>
         </article>
         <article>
           <h3>What does app default do?</h3>
@@ -863,7 +863,7 @@ codex-profile doctor</code></pre>
         </article>
         <article>
           <h3>Can multiple named ChatGPT windows run at once?</h3>
-          <p>Yes. Different names use different local Electron data and can run side by side, while app default keeps the ordinary stock ChatGPT session.</p>
+          <p>Yes. Different names use separate local Electron state and can run side by side, while app default keeps the ordinary stock ChatGPT session.</p>
         </article>
       </div>
     </section>
@@ -872,7 +872,7 @@ codex-profile doctor</code></pre>
       <div class="section-head">
         <p class="eyebrow">Trust</p>
         <h2 id="trust">Trust and methodology</h2>
-        <p class="lede">The project avoids token copying and documents separate Codex-local and Desktop boundaries. Neither boundary is an operating-system sandbox or a promise about server-side ChatGPT data.</p>
+        <p class="lede">The project avoids token copying and documents separate Codex-local and Desktop state. Local-state separation is not an account, OS, or server-side boundary.</p>
       </div>
       <div class="grid">
         <article class="item">

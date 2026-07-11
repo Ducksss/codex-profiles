@@ -516,7 +516,7 @@ FAKE_OPEN
   chmod 755 "$fake_bin/open"
 }
 
-test_app_named_profile_isolates_the_whole_chatgpt_window() {
+test_app_named_profile_uses_separate_local_state_for_the_whole_chatgpt_window() {
   local tmp chatgpt_app ignored_app fake_bin tool_log profile_home user_data_dir log_file
   tmp="$(mktemp -d)"
   chatgpt_app="$tmp/Application Support/ChatGPT.app"
@@ -536,16 +536,17 @@ test_app_named_profile_isolates_the_whole_chatgpt_window() {
 
   assert_status 0
   assert_contains "Launching ChatGPT for profile personal"
-  assert_contains "Desktop scope: isolated ChatGPT window (Chat, Work, and Codex)"
+  assert_contains "Desktop scope: separate Electron state for this named ChatGPT window (separate local state across Chat, Work, and Codex)"
+  assert_not_contains "isolated ChatGPT window"
   assert_contains "Electron user data: $user_data_dir"
   assert_contains "Log: $log_file"
-  [[ -d "$user_data_dir" ]] || fail "named app profile did not create isolated Electron user data"
+  [[ -d "$user_data_dir" ]] || fail "named app profile did not create separate Electron user data"
   [[ "$(mode_of "$profile_home")" == "700" ]] || fail "named app profile home is not private"
   [[ "$(mode_of "$user_data_dir")" == "700" ]] || fail "named app user data is not private"
   [[ "$(mode_of "$log_file")" == "600" ]] || fail "named app desktop log is not private"
   grep -Fqx "MESSAGE=named ChatGPT launch" "$log_file" || fail "named profile did not launch ChatGPT.app"
   grep -Fqx "CODEX_HOME=$profile_home" "$log_file" || fail "named profile did not pass CODEX_HOME"
-  grep -Fqx "ARGS=--user-data-dir=$user_data_dir" "$log_file" || fail "named profile did not isolate the whole ChatGPT window"
+  grep -Fqx "ARGS=--user-data-dir=$user_data_dir" "$log_file" || fail "named profile did not select separate Electron state"
   grep -Fqx "open -a $chatgpt_app files=$tmp/work space args=--user-data-dir=$user_data_dir" "$tool_log" || fail "named profile used the wrong open invocation"
   ! grep -q '^forbidden tool ' "$tool_log" || fail "named app launch mutated or stopped another app"
   ! grep -q '^bundled codex called:' "$tool_log" || fail "Desktop launch delegated back through codex app"
@@ -574,8 +575,8 @@ test_app_default_reuses_the_stock_chatgpt_session() {
   grep -Fqx "MESSAGE=default ChatGPT launch" "$log_file" || fail "default profile did not launch ChatGPT.app"
   grep -Fqx "CODEX_HOME=$profile_home" "$log_file" || fail "default profile did not pass CODEX_HOME"
   grep -Fqx "ARGS=" "$log_file" || fail "default profile unexpectedly changed ChatGPT browser state"
-  grep -Fqx "open -a $chatgpt_app files=$tmp/workspace args=" "$tool_log" || fail "default profile passed an isolated user-data directory"
-  [[ ! -e "$profile_home/electron-user-data" ]] || fail "default app profile created isolated Electron user data"
+  grep -Fqx "open -a $chatgpt_app files=$tmp/workspace args=" "$tool_log" || fail "default profile passed a named user-data directory"
+  [[ ! -e "$profile_home/electron-user-data" ]] || fail "default app profile created named Electron user data"
 
   rm -rf "$tmp"
 }
@@ -1303,7 +1304,9 @@ FAKE_CODEX
   assert_contains "Desktop app: $chatgpt_app"
   assert_contains "Desktop executable: $executable"
   assert_contains "Desktop bundle ID: com.openai.codex"
-  assert_contains "Desktop scope: default uses the stock ChatGPT session; named profiles isolate the whole ChatGPT window"
+  assert_contains "Desktop scope: default uses the stock ChatGPT session; named ChatGPT windows use separate local state"
+  assert_not_contains "isolated ChatGPT window"
+  assert_contains "Boundary: local-state separation is not an account, OS, or server-side boundary"
   assert_contains "CLI: $fake_codex (source: CODEX_CLI)"
   assert_contains "CLI scope: Codex commands only; Desktop and CLI accounts must be verified separately"
   assert_contains "fake-codex 1.0"
@@ -1318,7 +1321,7 @@ FAKE_CODEX
   assert_contains '"app_path":"'"$chatgpt_app"'"'
   assert_contains '"product":"ChatGPT"'
   assert_contains '"bundle_id":"com.openai.codex"'
-  assert_contains '"scope":"default:stock_chatgpt_session;named:isolated_chatgpt_window"'
+  assert_contains '"scope":"default:stock_chatgpt_session;named:separate_local_state"'
   assert_contains '"account_identity":"unverified"'
   assert_contains '"cli":{"found":true'
   assert_contains '"source":"CODEX_CLI"'
@@ -1728,7 +1731,7 @@ test_status_all_reports_missing_default_without_creating_it
 test_status_reports_arbitrary_discovered_profiles_and_skips_invalid_dirs
 test_status_treats_not_logged_in_as_normal_status
 test_status_propagates_unexpected_cli_failure
-test_app_named_profile_isolates_the_whole_chatgpt_window
+test_app_named_profile_uses_separate_local_state_for_the_whole_chatgpt_window
 test_app_default_reuses_the_stock_chatgpt_session
 test_app_legacy_instance_flags_use_the_same_signed_app_launcher
 test_app_rebuild_is_accepted_as_a_compatibility_noop

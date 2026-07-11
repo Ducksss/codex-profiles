@@ -2,7 +2,7 @@
 pkgname=codex-profile
 pkgver=0.7.0
 pkgrel=1
-pkgdesc="Launch Codex CLI profiles and isolated ChatGPT desktop sessions"
+pkgdesc="Named Codex CLI profiles with separate local ChatGPT desktop state"
 arch=('any')
 url="https://github.com/Ducksss/codex-profiles"
 license=('MIT')

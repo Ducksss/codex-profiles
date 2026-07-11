@@ -1,5 +1,5 @@
 pkgbase = codex-profile
-	pkgdesc = Launch Codex CLI profiles and isolated ChatGPT desktop sessions
+	pkgdesc = Named Codex CLI profiles with separate local ChatGPT desktop state
 	pkgver = 0.7.0
 	pkgrel = 1
 	url = https://github.com/Ducksss/codex-profiles

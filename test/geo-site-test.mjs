@@ -28,8 +28,20 @@ const sitemap = read('docs/sitemap.xml');
 const llms = read('docs/llms.txt');
 const audit = read('docs/geo-audit.md');
 const measurement = read('docs/geo-measurement.md');
+const agentsGuide = read('AGENTS.md');
+const distributionAgent = read('agent.md');
+const securityPolicy = read('SECURITY.md');
 const pagesWorkflow = read('.github/workflows/pages.yml');
 const packageJson = JSON.parse(read('package.json'));
+
+const descriptionMatch = html.match(/<meta name="description" content="([^"]+)">/);
+assert.ok(descriptionMatch, 'homepage should include a meta description');
+const pageDescription = descriptionMatch[1];
+assertContains(
+  pageDescription,
+  'separate local state',
+  'homepage meta description'
+);
 
 assert.ok(statSync(siteRoot).isDirectory(), 'docs site root should exist');
 assert.ok(fileExists('docs/index.html'), 'docs/index.html should exist');
@@ -90,6 +102,46 @@ assert.equal(app.url, canonicalUrl);
 assert.equal(app.codeRepository, 'https://github.com/Ducksss/codex-profiles');
 assert.equal(app.downloadUrl, 'https://www.npmjs.com/package/codex-profile');
 assert.equal(app.softwareVersion, packageJson.version);
+assertContains(
+  app.description,
+  'separate local state',
+  'SoftwareApplication description'
+);
+
+for (const [label, summary] of [
+  ['homepage meta description', pageDescription],
+  ['SoftwareApplication description', app.description],
+  ['package description', packageJson.description],
+]) {
+  assert.doesNotMatch(
+    summary,
+    /isolated local ChatGPT|isolated ChatGPT desktop sessions|account isolation/i,
+    `${label} must describe local-state separation without an account-isolation claim`
+  );
+}
+
+for (const [label, guidance] of [
+  ['AGENTS.md', agentsGuide],
+  ['agent.md', distributionAgent],
+  ['SECURITY.md', securityPolicy],
+]) {
+  const normalizedGuidance = guidance.replace(/\s+/g, ' ');
+  assertContains(
+    normalizedGuidance,
+    'named ChatGPT windows with separate local state',
+    label
+  );
+  assertContains(
+    normalizedGuidance,
+    'Local-state separation is not an account, OS, or server-side boundary.',
+    label
+  );
+  assert.doesNotMatch(
+    normalizedGuidance,
+    /isolated\s+(?:local\s+)?ChatGPT desktop windows|named local ChatGPT desktop windows|account separation matters|local identity boundary|isolation boundary|profile isolation/i,
+    `${label} must not imply verified account or identity isolation`
+  );
+}
 
 // The CLI script hardcodes its own VERSION (it ships without package.json), so
 // guard against release drift: script VERSION must match package.json, which in

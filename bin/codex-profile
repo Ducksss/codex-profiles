@@ -14,7 +14,7 @@ CODEX_PROFILE_UPGRADE_REF="${CODEX_PROFILE_UPGRADE_REF:-main}"
 
 usage() {
   cat <<EOF
-$PROGRAM - run Codex with isolated CODEX_HOME profiles
+$PROGRAM - select named Codex homes and ChatGPT windows with separate local state
 
 Usage:
   $PROGRAM app <profile> [--instance] [--rebuild] [workspace]
@@ -52,10 +52,14 @@ Examples:
 
 Desktop (app):
   default         Launch the stock ChatGPT session with CODEX_HOME=~/.codex.
-  named profile   Isolate the whole ChatGPT window (Chat, Work, and Codex) with
-                  a profile-specific Electron user-data directory.
-  --instance      Compatibility flag; named profiles are already isolated.
-  --rebuild       Compatibility flag; app bundles are never cloned or rebuilt.
+  named profile   Launch a named ChatGPT window with separate local state across
+                  Chat, Work, and Codex, using profile-specific Electron data.
+
+Deprecated compatibility:
+  app-instance    Alias for app; no separate launch mode is created.
+  --instance      Accepted by app and logs; named windows already use separate
+                  local state.
+  --rebuild       Accepted by app; app bundles are never cloned or rebuilt.
 
 Profiles:
   default         -> ~/.codex
@@ -442,7 +446,7 @@ command_app() {
   [[ "$workspace_set" == yes ]] || workspace="$PWD"
 
   if [[ "$instance" == yes ]]; then
-    note "Compatibility: --instance is no longer needed; named profiles already launch isolated ChatGPT windows."
+    note "Compatibility: --instance is no longer needed; named ChatGPT windows already use separate local state."
   fi
   if [[ "$rebuild" == yes ]]; then
     note "Compatibility: --rebuild no longer rebuilds an app clone; the original signed app is always used."
@@ -490,7 +494,7 @@ run_desktop_app() {
   if [[ "$profile" == "default" ]]; then
     note "Desktop scope: stock ChatGPT session"
   else
-    note "Desktop scope: isolated ChatGPT window (Chat, Work, and Codex)"
+    note "Desktop scope: separate Electron state for this named ChatGPT window (separate local state across Chat, Work, and Codex)"
     note "Electron user data: $user_data_dir"
   fi
   note "Log: $log_file"
@@ -504,10 +508,10 @@ run_desktop_app() {
   fi
 }
 
-# Deprecated compatibility alias. The original signed app and the same
-# profile-isolated launcher are used; no app bundle is copied or re-signed.
+# Deprecated compatibility alias. The original signed app and the same named
+# local-state launcher are used; no app bundle is copied or re-signed.
 command_app_instance() {
-  note "Compatibility: app-instance is now an alias for app; named profiles already launch isolated ChatGPT windows."
+  note "Compatibility: app-instance is now an alias for app; named ChatGPT windows already use separate local state."
   command_app --instance "$@"
 }
 
@@ -1467,7 +1471,7 @@ EOF
 complete -c codex-profile -f
 complete -c codex-profile -n '__fish_is_first_arg' -a 'app cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help'
 complete -c codex-profile -n '__fish_seen_subcommand_from app app-instance cli login init remove status path env use logs' -a '(codex-profile list 2>/dev/null) default personal work'
-complete -c codex-profile -n '__fish_seen_subcommand_from app' -l instance -d 'Compatibility flag; named ChatGPT windows are already isolated'
+complete -c codex-profile -n '__fish_seen_subcommand_from app' -l instance -d 'Compatibility flag; named ChatGPT windows already use separate local state'
 complete -c codex-profile -n '__fish_seen_subcommand_from app' -l rebuild -d 'Compatibility no-op; the signed app is never cloned'
 complete -c codex-profile -n '__fish_seen_subcommand_from clone-config' -a '(codex-profile list 2>/dev/null) default personal work'
 complete -c codex-profile -n '__fish_seen_subcommand_from completions shell-init' -a 'bash zsh fish'
@@ -1559,7 +1563,7 @@ command_doctor() {
     if [[ "$desktop_found" == "true" ]]; then json_string "$product"; else printf 'null'; fi
     printf ',"bundle_id":'
     if [[ "$desktop_found" == "true" ]]; then json_string "$bundle_id"; else printf 'null'; fi
-    printf ',"scope":"default:stock_chatgpt_session;named:isolated_chatgpt_window","account_identity":"unverified"}'
+    printf ',"scope":"default:stock_chatgpt_session;named:separate_local_state","account_identity":"unverified"}'
     printf ',"legacy_clone_root":{"found":%s,"path":' "$legacy_clone_found"
     json_string "$CODEX_PROFILE_APP_INSTANCE_ROOT"
     printf '}'
@@ -1600,7 +1604,8 @@ command_doctor() {
   else
     note "Desktop: missing ($(desktop_app_error_message))"
   fi
-  note "Desktop scope: default uses the stock ChatGPT session; named profiles isolate the whole ChatGPT window"
+  note "Desktop scope: default uses the stock ChatGPT session; named ChatGPT windows use separate local state"
+  note "Boundary: local-state separation is not an account, OS, or server-side boundary"
   if [[ "$legacy_clone_found" == "true" ]]; then
     note "Legacy app clones: found at $CODEX_PROFILE_APP_INSTANCE_ROOT (safe to remove after closing old cloned apps)"
   fi

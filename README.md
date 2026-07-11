@@ -1,6 +1,7 @@
 # codex-profiles
 
-Named Codex homes and isolated ChatGPT desktop windows, without copying tokens.
+Named Codex homes and ChatGPT windows with separate local state, without
+copying tokens.
 
 [![CI](https://github.com/Ducksss/codex-profiles/actions/workflows/ci.yml/badge.svg)](https://github.com/Ducksss/codex-profiles/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/Ducksss/codex-profiles?sort=semver)](https://github.com/Ducksss/codex-profiles/releases)
@@ -23,7 +24,7 @@ Electron user data for the whole launched ChatGPT window.
 codex-profile cli personal                     # Codex CLI on personal
 codex-profile cli work exec "review this repo" # one-shot Codex CLI on work
 codex-profile app default ~/Dev/app             # stock ChatGPT session
-codex-profile app work ~/Dev/client             # isolated work ChatGPT window
+codex-profile app work ~/Dev/client             # named work ChatGPT window
 ```
 
 The project keeps its existing name and commands. Version 0.7 adapts the
@@ -52,6 +53,8 @@ Account equality is deliberately **unverified**. The tool does not inspect
 tokens, account identifiers, cookies, or private application data. If you want
 the CLI and Desktop window to use the same account, authenticate both in that
 profile and verify the visible account yourself.
+
+Local-state separation is not an account, OS, or server-side boundary.
 
 ## Install
 
@@ -115,7 +118,8 @@ codex-profile cli personal
 codex-profile cli work exec "run tests and summarize failures"
 ```
 
-On macOS, open the stock ChatGPT session or an isolated named window:
+On macOS, open the stock ChatGPT session or a named window with separate local
+state:
 
 ```sh
 codex-profile app default ~/Dev/main-project
@@ -152,9 +156,10 @@ For a named Desktop launch, local Electron data lives below that profile home:
 ~/.codex-<name>/electron-user-data
 ```
 
-The directory is a local Desktop boundary, not a new operating-system user or
-a server-side ChatGPT workspace. Profile names must begin with a letter or
-number and may then contain letters, numbers, dots, dashes, or underscores.
+The directory supplies separate Electron state for that named ChatGPT window.
+Local-state separation is not an account, OS, or server-side boundary. Profile
+names must begin with a letter or number and may then contain letters, numbers,
+dots, dashes, or underscores.
 
 Inspect a path without creating or launching anything:
 
@@ -208,6 +213,8 @@ codex-profile app work ~/Dev/work-app
   Account identity still must be verified in the relevant UI.
 - Opening a named window never quits the stock window or another profile.
 
+#### Deprecated compatibility spellings
+
 The older spellings remain accepted for compatibility:
 
 ```sh
@@ -216,10 +223,10 @@ codex-profile app work --instance --rebuild ~/Dev/work-app
 codex-profile app-instance work ~/Dev/work-app
 ```
 
-Named launches are already isolated and parallel-capable, so `--instance` and
-`app-instance` now mean the ordinary named launch. `--rebuild` is accepted as a
-deprecated no-op because no app clone exists to rebuild. New scripts should use
-`codex-profile app <name> [workspace]`.
+Named launches already use separate local state and can run in parallel, so
+`--instance` and `app-instance` now mean the ordinary named launch. `--rebuild`
+is accepted as a deprecated no-op because no app clone exists to rebuild. New
+scripts should use `codex-profile app <name> [workspace]`.
 
 ### Read Desktop logs
 
@@ -316,7 +323,7 @@ For Bash, save the output as
 ## Command reference
 
 ```text
-codex-profile app <profile> [--instance] [--rebuild] [workspace]
+codex-profile app <profile> [workspace]
 codex-profile cli <profile> [codex-args...]
 codex-profile login <profile> [codex-login-args...]
 codex-profile init <profile>
@@ -326,7 +333,7 @@ codex-profile status --json [profile]
 codex-profile path <profile>
 codex-profile env <profile> [--shell <bash|zsh|fish>]
 codex-profile use <profile>
-codex-profile logs <profile> [--instance] [--path|--tail [lines]]
+codex-profile logs <profile> [--path|--tail [lines]]
 codex-profile clone-config <source-profile> <target-profile> [--force]
 codex-profile list
 codex-profile doctor [--json]
@@ -337,8 +344,17 @@ codex-profile version
 codex-profile --version
 ```
 
-`codex-profile app-instance <profile> [--rebuild] [workspace]` is a deprecated
-compatibility alias.
+### Deprecated compatibility spellings
+
+```text
+codex-profile app <profile> --instance [workspace]
+codex-profile app <profile> --instance --rebuild [workspace]
+codex-profile app-instance <profile> [--rebuild] [workspace]
+codex-profile logs <profile> --instance [--path|--tail [lines]]
+```
+
+These spellings remain accepted for older scripts but do not select a different
+launch or log mode.
 
 ## Environment overrides
 
@@ -364,7 +380,7 @@ v0.7 does not create or modify app clones.
 For Desktop launches, unset `CODEX_ACCESS_TOKEN`. The launcher refuses that
 inherited access-token override so the selected window—not a shell credential—
 controls sign-in. Provider credentials remain shared shell/OS state and are
-outside this wrapper's isolation boundary.
+outside the local state selected by this wrapper.
 
 ## CLI discovery
 
@@ -402,7 +418,7 @@ directory; it never copies or re-signs an application bundle.
 
 ## Security and privacy model
 
-The project separates local state; it is not a sandbox.
+Local-state separation is not an account, OS, or server-side boundary.
 
 | Selected per Codex home | Selected per named ChatGPT window | Still shared or outside this project's control |
 | --- | --- | --- |
@@ -493,8 +509,8 @@ make lint
 ```
 
 The suite covers syntax, profile mapping, CLI passthrough and discovery,
-Desktop launch isolation, compatibility spellings, status/doctor behavior,
-install paths, packaging, and the AI-readable Pages layer.
+Desktop local-state separation, compatibility spellings, status/doctor
+behavior, install paths, packaging, and the AI-readable Pages layer.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution requirements and
 [Discussion #1](https://github.com/Ducksss/codex-profiles/discussions/1) for

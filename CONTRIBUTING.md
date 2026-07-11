@@ -8,13 +8,11 @@ Thanks for helping improve `codex-profiles`.
 git clone https://github.com/Ducksss/codex-profiles.git
 cd codex-profiles
 make test
-```
-
-Optional shell linting requires ShellCheck:
-
-```sh
 make lint
 ```
+
+`make lint` is required unless the environment lacks ShellCheck. If ShellCheck
+is unavailable, state that explicitly in the pull request.
 
 ## Product contract
 
@@ -23,9 +21,10 @@ Changes must preserve the distinction between two scopes:
 - `cli`, `login`, `env`, and `use` select Codex-local state through
   `CODEX_HOME`. They do not switch ChatGPT Desktop.
 - `app default` preserves the stock ChatGPT session and uses `~/.codex`.
-- A named `app <profile>` launch uses matching `CODEX_HOME` and Electron user
-  data for the entire ChatGPT window across Chat, Work, and Codex.
+- A named `app <profile>` launch uses matching `CODEX_HOME` and separate
+  Electron state for that named ChatGPT window across Chat, Work, and Codex.
 - The tool does not inspect or claim equality between CLI and Desktop accounts.
+- Local-state separation is not an account, OS, or server-side boundary.
 
 The Desktop launcher must use the original signed application. Do not add app
 cloning, bundle patching, ad-hoc signing, global app quitting, broad process
@@ -39,8 +38,8 @@ killing, token copying, or cookie migration.
 - Preserve `default -> ~/.codex` and `<name> -> ~/.codex-<name>`.
 - Treat `--instance`, `--rebuild`, and `app-instance` as compatibility
   spellings, not distinct launch modes.
-- Do not read, copy, print, upload, rewrite, compare, or migrate authentication
-  tokens or account identifiers.
+- Do not read, copy, print, parse, upload, compare, or migrate authentication
+  tokens or ChatGPT cookies. Do not inspect or compare account identifiers.
 - Keep human and JSON output explicit about whether a fact concerns Codex-local
   state or a ChatGPT Desktop window.
 - Add regression tests for every observable behavior change.

@@ -1,7 +1,7 @@
 {
   "name": "codex-profile",
   "version": "0.7.0",
-  "description": "Launch Codex CLI profiles and isolated ChatGPT desktop sessions.",
+  "description": "Named Codex CLI profiles with separate local ChatGPT desktop state.",
   "license": "MIT",
   "homepage": "https://ducksss.github.io/codex-profiles/",
   "repository": {
@@ -17,11 +17,11 @@
     "chatgpt",
     "chatgpt-desktop",
     "codex",
-    "codex-account-switcher",
     "codex-cli",
     "codex-profiles",
     "developer-tools",
-    "multiple-accounts",
+    "local-state",
+    "named-profiles",
     "openai",
     "openai-codex",
     "productivity",

@@ -3,7 +3,7 @@
 ## Supported versions
 
 Security fixes are made on `main` and included in the next tagged release.
-Use the newest release when account separation matters.
+Use the newest release when relying on separate local state.
 
 ## Reporting a vulnerability
 
@@ -20,16 +20,18 @@ cookies, connector credentials, private logs, or account identifiers.
 
 ## Local-state boundaries
 
-`codex-profiles` provides two related but different local boundaries:
+`codex-profiles` selects two related but different kinds of local state:
 
 1. Every profile selects a `CODEX_HOME`: `default` maps to `~/.codex`; any
    other valid name maps to `~/.codex-<name>`. Codex CLI, login, shell
    activation, and the desktop app-server use that directory.
-2. On macOS, a named `app` launch also selects
-   `~/.codex-<name>/electron-user-data`. This local Electron directory applies
-   to the whole launched ChatGPT window, including Chat, Work, and Codex modes.
-   `app default` deliberately omits that override and preserves the stock
-   ChatGPT Desktop session.
+2. On macOS, named `app` launches create named ChatGPT windows with separate
+   local state by selecting `~/.codex-<name>/electron-user-data`. This local
+   Electron directory applies to the whole launched window, including Chat,
+   Work, and Codex modes. `app default` deliberately omits that override and
+   preserves the stock ChatGPT Desktop session.
+
+Local-state separation is not an account, OS, or server-side boundary.
 
 The launcher uses the original signed ChatGPT (or legacy Codex) application.
 It does not clone, patch, re-sign, replace, quit, or kill the installed app.
@@ -37,11 +39,11 @@ Compatibility spellings such as `--instance`, `--rebuild`, and `app-instance`
 do not restore the old clone behavior.
 
 Desktop launch refuses an inherited `CODEX_ACCESS_TOKEN`. This prevents a
-shell access token from silently overriding the local identity boundary
-selected for the window. Unset it before `app`; Codex-only `cli` and `login`
-commands remain available for explicit access-token workflows. Provider/API
-credentials are shared shell or operating-system state outside this wrapper's
-isolation boundary.
+shell access token from silently overriding the authentication used by the
+launched window. Unset it before `app`; Codex-only `cli` and `login` commands
+remain available for explicit access-token workflows. Provider/API credentials
+are shared shell or operating-system state outside the local state selected by
+this wrapper.
 
 ## What the project does not verify
 

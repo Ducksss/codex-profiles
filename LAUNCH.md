@@ -25,15 +25,15 @@ public feedback loops.
 
 One-line pitch:
 
-> Use named Codex homes and isolated local ChatGPT desktop windows, without
+> Use named Codex homes and ChatGPT windows with separate local state, without
 > copying token files or modifying the signed app.
 
 Best audience:
 
-- Developers using Codex across work, personal, education, or client accounts.
+- Developers using Codex across work, personal, education, or client contexts.
 - ChatGPT desktop users who need named local windows across Chat, Work, and
   Codex, with matching Codex homes.
-- CLI users who already understand why state isolation matters.
+- CLI users who already understand why local-state separation matters.
 
 Avoid positioning it as:
 
@@ -126,13 +126,14 @@ authenticate separately; the tool does not inspect whether they match.
 
 It is MIT-licensed, dependency-free, and tested on macOS + Ubuntu. It is not an
 official OpenAI project, OS sandbox, or server-side workspace switcher.
+Local-state separation is not an account, OS, or server-side boundary.
 ```
 
 OpenAI Developer Community post:
 
 ```text
 I made a tiny open-source helper for anyone using Codex and ChatGPT Desktop
-with multiple accounts or contexts:
+across work, personal, education, or client contexts:
 codex-profiles.
 
 Instead of copying auth.json around, it selects a named CODEX_HOME for Codex.
@@ -161,8 +162,8 @@ Named Codex homes and ChatGPT desktop windows without token copying
 Short social post:
 
 ```text
-Built codex-profiles: a tiny Bash wrapper for named Codex homes and isolated
-local ChatGPT desktop windows.
+Built codex-profiles: a tiny Bash wrapper for named Codex homes and ChatGPT
+windows with separate local state.
 
 No token copying or app re-signing. CLI commands remain Codex-only; named app
 launches apply across Chat, Work, and Codex in that window.
@@ -182,9 +183,9 @@ Product Hunt first comment:
 
 ```text
 codex-profiles is a small open-source tool for developers who use Codex and
-ChatGPT Desktop across multiple accounts or contexts. Each name selects a
-CODEX_HOME; on macOS, a named app launch also selects local Electron data for
-the whole ChatGPT window.
+ChatGPT Desktop across work, personal, education, or client contexts. Each name
+selects a CODEX_HOME; on macOS, a named app launch also selects local Electron
+data for the whole ChatGPT window.
 
 The design goal is boring and inspectable: no token parsing, no token copying,
 no app clones or re-signing, and no runtime dependencies. `app default` keeps

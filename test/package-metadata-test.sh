@@ -45,6 +45,18 @@ if (pkg.files.some((entry) => entry === 'media' || entry.startsWith('media/'))) 
 }
 NODE
 
+node - <<'NODE'
+const pkg = require('./package.json');
+for (const keyword of ['codex-account-switcher', 'multiple-accounts']) {
+  if (pkg.keywords.includes(keyword)) {
+    throw new Error(`unverified account-switching keyword must be removed: ${keyword}`);
+  }
+}
+if (!pkg.description.includes('separate local ChatGPT desktop state')) {
+  throw new Error('package description must state the local-state boundary');
+}
+NODE
+
 changelog_version="${version//./\.}"
 grep -Eq "^## $changelog_version - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md \
   || fail "CHANGELOG.md has no dated $version release section"

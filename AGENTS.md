@@ -10,10 +10,10 @@ in this repository. Humans should start with [README.md](README.md).
 ## What this project is
 
 `codex-profiles` is a single-file, dependency-free Bash CLI for named Codex
-homes and isolated ChatGPT desktop windows. Every profile selects a
-`CODEX_HOME`; named macOS Desktop launches additionally select Electron user
-data for the entire ChatGPT window across Chat, Work, and Codex. The whole
-program is [`bin/codex-profile`](bin/codex-profile).
+homes and named ChatGPT windows with separate local state. Every profile
+selects a `CODEX_HOME`; named macOS Desktop launches additionally select
+Electron user data for the entire ChatGPT window across Chat, Work, and Codex.
+The whole program is [`bin/codex-profile`](bin/codex-profile).
 
 It is community-maintained and is **not** an official OpenAI project.
 
@@ -57,7 +57,7 @@ codex-profile login work                 # authenticate that profile once
 codex-profile cli work                   # Codex CLI on the work profile
 codex-profile cli work exec "run tests"  # one-shot Codex CLI command
 codex-profile app default ~/Dev/project  # stock ChatGPT session (macOS)
-codex-profile app work ~/Dev/project     # isolated named ChatGPT window (macOS)
+codex-profile app work ~/Dev/project     # named ChatGPT window with separate local state
 codex-profile status                     # read-only Codex-local overview
 codex-profile doctor                     # environment diagnostics
 ```
@@ -104,7 +104,6 @@ log entry with the exact outcome, reason, and relevant link.
   refuses sensitive-looking key names.
 - `status` is Codex-local. Account equality between CLI and Desktop is not
   inspected or verified.
-- Profile isolation is local state separation, not an operating-system or
-  server-side ChatGPT boundary. SSH keys, keychains, external CLI credentials,
-  and other state remain shared by the OS user. For strict separation, use
-  separate OS users.
+- Local-state separation is not an account, OS, or server-side boundary. SSH
+  keys, keychains, external CLI credentials, and other state remain shared by
+  the OS user. For strict separation, use separate OS users.

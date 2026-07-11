@@ -65,8 +65,9 @@ body:
       label: Affected scope
       description: Which surface shows the problem?
       options:
-        - Codex CLI or CODEX_HOME
-        - ChatGPT Desktop window
+        - Codex CLI / CODEX_HOME
+        - "`app default`"
+        - "Named Desktop profile (`app <name>`)"
         - Both or unsure
     validations:
       required: true
@@ -75,7 +76,7 @@ body:
     id: desktop
     attributes:
       label: Desktop app version
-      description: Required for app-launch issues; do not include account details.
+      description: For app-launch issues, provide the Desktop app version; do not include account details.
       placeholder: ChatGPT 26.x (bundle ID if shown by doctor)
 
   - type: textarea

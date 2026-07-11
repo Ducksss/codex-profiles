@@ -7,6 +7,12 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Changed
+
+- Clarified current product copy, CLI diagnostics, and package metadata to
+  describe local-state separation without implying a verified account or
+  security boundary.
+
 ## 0.7.0 - 2026-07-11
 
 ### Added
