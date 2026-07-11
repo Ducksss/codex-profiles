@@ -710,6 +710,29 @@ test_legacy_codex_app_bin_locates_its_signed_app_bundle() {
   rm -rf "$tmp"
 }
 
+test_legacy_codex_app_bin_rejects_a_different_executable_in_the_bundle() {
+  local tmp chatgpt_app fake_bin tool_log wrong_executable
+  tmp="$(mktemp -d)"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  wrong_executable="$chatgpt_app/Contents/MacOS/wrong-name"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "must not launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
+  printf '#!/bin/sh\nexit 0\n' > "$wrong_executable"
+  chmod 755 "$wrong_executable"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CODEX_APP_BIN="$wrong_executable" "$SCRIPT" app default "$tmp/workspace"
+
+  assert_status 1
+  assert_contains "CODEX_APP_BIN must be an executable inside a usable .app bundle"
+  [[ ! -e "$tool_log" ]] || ! grep -q '^open ' "$tool_log" \
+    || fail "mismatched CODEX_APP_BIN launched the bundle's declared executable"
+
+  rm -rf "$tmp"
+}
+
 test_invalid_chatgpt_app_override_does_not_fall_back_silently() {
   local tmp fallback_app fake_bin tool_log
   tmp="$(mktemp -d)"
@@ -1056,7 +1079,8 @@ test_completions_generate_shell_scripts() {
   run_cmd "$SCRIPT" completions bash
 
   assert_status 0
-  assert_contains "complete -F _codex_profile codex-profile"
+  assert_contains "complete -F _codex_profile codex-profile codex-profiles"
+  assert_contains 'compgen -W "app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help"'
   assert_contains "clone-config"
   assert_contains "upgrade"
   assert_contains "--instance"
@@ -1068,7 +1092,8 @@ test_completions_generate_shell_scripts() {
   run_cmd "$SCRIPT" completions zsh
 
   assert_status 0
-  assert_contains "#compdef codex-profile"
+  assert_contains "#compdef codex-profile codex-profiles"
+  assert_contains "app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help"
   assert_contains "logs"
   assert_contains "upgrade"
   assert_contains "--instance"
@@ -1078,7 +1103,9 @@ test_completions_generate_shell_scripts() {
   run_cmd "$SCRIPT" completions fish
 
   assert_status 0
-  assert_contains "complete -c codex-profile"
+  assert_contains "for codex_profile_command in codex-profile codex-profiles"
+  assert_contains "complete -c \$codex_profile_command"
+  assert_contains "-a 'app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help'"
   assert_contains "remove"
   assert_contains "upgrade"
   assert_contains "-l instance"
@@ -1738,6 +1765,7 @@ test_app_rebuild_is_accepted_as_a_compatibility_noop
 test_cli_falls_back_to_the_bundled_cli_when_path_codex_is_broken
 test_healthy_path_cli_keeps_priority_over_the_bundled_cli
 test_legacy_codex_app_bin_locates_its_signed_app_bundle
+test_legacy_codex_app_bin_rejects_a_different_executable_in_the_bundle
 test_invalid_chatgpt_app_override_does_not_fall_back_silently
 test_explicit_codex_cli_must_be_healthy
 test_app_refuses_access_token_override
