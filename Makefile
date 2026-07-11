@@ -5,8 +5,15 @@ BINDIR ?= $(PREFIX)/bin
 
 install:
 	install -d "$(BINDIR)"
+	test ! -d "$(BINDIR)/codex-profile"
+	test ! -L "$(BINDIR)/codex-profile"
+	test ! -d "$(BINDIR)/codex-profiles"
 	install -m 755 bin/codex-profile "$(BINDIR)/codex-profile"
-	ln -sf codex-profile "$(BINDIR)/codex-profiles"
+	ln -sfn codex-profile "$(BINDIR)/codex-profiles"
+	test -f "$(BINDIR)/codex-profile"
+	test -x "$(BINDIR)/codex-profile"
+	test -L "$(BINDIR)/codex-profiles"
+	test "$$(readlink "$(BINDIR)/codex-profiles")" = codex-profile
 
 uninstall:
 	rm -f "$(BINDIR)/codex-profile" "$(BINDIR)/codex-profiles"

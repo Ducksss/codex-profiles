@@ -26,6 +26,15 @@ and this project follows semantic versioning for tagged releases.
   versions, then replace both installed command aliases transactionally with
   rollback if any late install or verification step fails.
 
+### Fixed
+
+- Made source installs refuse command-directory and canonical-symlink
+  destinations, verify both installed aliases, and smoke-test updates without
+  masking producer failures.
+- Restored deprecated `app-instance` discovery in all shell completions,
+  registered completions for both executable aliases, and rejected legacy
+  `CODEX_APP_BIN` values that do not name the bundle's declared executable.
+
 ## 0.7.0 - 2026-07-11
 
 ### Added

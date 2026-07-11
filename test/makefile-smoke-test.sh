@@ -142,6 +142,67 @@ require_print_then_fail_mutation() {
   fi
 }
 
+require_install_destination_safety() {
+  local prefix before
+
+  prefix="$tmp_dir/install-canonical-directory"
+  mkdir -p "$prefix/bin/codex-profile"
+  if make -C "$ROOT_DIR" -f "$MAKEFILE" install PREFIX="$prefix" >/dev/null 2>&1; then
+    fail "make install accepted a canonical command directory"
+  fi
+  [[ -d "$prefix/bin/codex-profile" ]] \
+    || fail "make install removed the canonical command directory"
+  [[ -z "$(find "$prefix/bin/codex-profile" -mindepth 1 -print -quit)" ]] \
+    || fail "make install wrote inside the canonical command directory"
+  [[ ! -e "$prefix/bin/codex-profiles" && ! -L "$prefix/bin/codex-profiles" ]] \
+    || fail "make install created an alias after rejecting the canonical directory"
+
+  prefix="$tmp_dir/install-canonical-symlink"
+  before="$tmp_dir/install-canonical-symlink.before"
+  mkdir -p "$prefix/bin"
+  printf '%s\n' 'preserve this symlink target' > "$prefix/original-command"
+  cp "$prefix/original-command" "$before"
+  ln -s ../original-command "$prefix/bin/codex-profile"
+  if make -C "$ROOT_DIR" -f "$MAKEFILE" install PREFIX="$prefix" >/dev/null 2>&1; then
+    fail "make install accepted a canonical command symlink"
+  fi
+  [[ -L "$prefix/bin/codex-profile" ]] \
+    || fail "make install replaced the canonical command symlink"
+  [[ "$(readlink "$prefix/bin/codex-profile")" == ../original-command ]] \
+    || fail "make install changed the canonical command symlink target"
+  cmp -s "$before" "$prefix/original-command" \
+    || fail "make install mutated the canonical symlink target before refusing it"
+  [[ ! -e "$prefix/bin/codex-profiles" && ! -L "$prefix/bin/codex-profiles" ]] \
+    || fail "make install created an alias after rejecting the canonical symlink"
+
+  prefix="$tmp_dir/install-alias-directory"
+  before="$tmp_dir/install-alias-directory.before"
+  mkdir -p "$prefix/bin/codex-profiles"
+  printf '%s\n' 'preserve this existing canonical command' > "$prefix/bin/codex-profile"
+  cp "$prefix/bin/codex-profile" "$before"
+  if make -C "$ROOT_DIR" -f "$MAKEFILE" install PREFIX="$prefix" >/dev/null 2>&1; then
+    fail "make install accepted a plural command directory"
+  fi
+  cmp -s "$before" "$prefix/bin/codex-profile" \
+    || fail "make install mutated the canonical command before rejecting the alias directory"
+  [[ -d "$prefix/bin/codex-profiles" ]] \
+    || fail "make install removed the plural command directory"
+  [[ -z "$(find "$prefix/bin/codex-profiles" -mindepth 1 -print -quit)" ]] \
+    || fail "make install wrote inside the plural command directory"
+
+  prefix="$tmp_dir/install-existing-files"
+  mkdir -p "$prefix/bin"
+  printf '%s\n' 'old command' > "$prefix/bin/codex-profile"
+  ln -s old-target "$prefix/bin/codex-profiles"
+  make -C "$ROOT_DIR" -f "$MAKEFILE" install PREFIX="$prefix" >/dev/null
+  cmp -s "$ROOT_DIR/bin/codex-profile" "$prefix/bin/codex-profile" \
+    || fail "make install did not replace an existing regular command"
+  [[ -L "$prefix/bin/codex-profiles" ]] \
+    || fail "make install did not replace the existing alias symlink"
+  [[ "$(readlink "$prefix/bin/codex-profiles")" == codex-profile ]] \
+    || fail "make install did not create the expected relative alias"
+}
+
 for target in path-smoke-test install-smoke-test npm-package-test; do
   require_target_success "$target"
 done
@@ -150,6 +211,7 @@ require_mutation_failure \
   path-smoke-test \
   $'\t\ttest "$$output" = "$$tmp_home/.codex"; \\'
 require_print_then_fail_mutation
+require_install_destination_safety
 require_mutation_failure \
   install-smoke-test \
   $'\t\ttest -x "$$tmp_prefix/bin/codex-profile"; \\'
