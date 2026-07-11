@@ -8,6 +8,7 @@ VERSION="0.7.0"
 ORIGINAL_PATH="$PATH"
 REAL_LN="$(command -v ln)"
 REAL_MV="$(command -v mv)"
+REAL_RM="$(command -v rm)"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -188,7 +189,14 @@ if [ -n "${INSTALL_TEST_FAIL_MV_DEST:-}" ] \
   printf 'forced mv failure for %s\n' "$destination" >&2
   exit 73
 fi
-exec "$INSTALL_TEST_REAL_MV" "$@"
+"$INSTALL_TEST_REAL_MV" "$@"
+if [ -n "${INSTALL_TEST_SIGNAL_AFTER_MV_DEST:-}" ] \
+  && [ "${destination##*/}" = "$INSTALL_TEST_SIGNAL_AFTER_MV_DEST" ] \
+  && [ ! -e "$INSTALL_TEST_SIGNAL_MARKER" ]; then
+  : > "$INSTALL_TEST_SIGNAL_MARKER"
+  kill -TERM "$PPID"
+  sleep 1
+fi
 FAKE_MV
 
 cat > "$fake_bin/ln" <<'FAKE_LN'
@@ -203,17 +211,39 @@ fi
 exec "$INSTALL_TEST_REAL_LN" "$@"
 FAKE_LN
 
-chmod 755 "$fake_bin/curl" "$fake_bin/wget" "$fake_bin/mv" "$fake_bin/ln"
+cat > "$fake_bin/rm" <<'FAKE_RM'
+#!/bin/sh
+set -eu
+destination=""
+for argument do
+  destination="$argument"
+done
+"$INSTALL_TEST_REAL_RM" "$@"
+if [ "${INSTALL_TEST_SIGNAL_AFTER_COMMIT:-}" = "yes" ] \
+  && [ ! -e "$INSTALL_TEST_SIGNAL_MARKER" ]; then
+  case "$destination" in
+    */.codex-profile-install.*)
+      : > "$INSTALL_TEST_SIGNAL_MARKER"
+      kill -TERM "$PPID"
+      sleep 1
+      ;;
+  esac
+fi
+FAKE_RM
+
+chmod 755 \
+  "$fake_bin/curl" "$fake_bin/wget" "$fake_bin/mv" "$fake_bin/ln" "$fake_bin/rm"
 
 wget_bin="$tmp_dir/forced-wget-bin"
 mkdir -p "$wget_bin"
-for tool in bash cat chmod grep head mkdir mktemp readlink rm sed sh; do
+for tool in bash cat chmod grep head mkdir mktemp readlink sed sh; do
   tool_path="$(command -v "$tool")"
   "$REAL_LN" -s "$tool_path" "$wget_bin/$tool"
 done
 "$REAL_LN" -s "$fake_bin/wget" "$wget_bin/wget"
 "$REAL_LN" -s "$fake_bin/mv" "$wget_bin/mv"
 "$REAL_LN" -s "$fake_bin/ln" "$wget_bin/ln"
+"$REAL_LN" -s "$fake_bin/rm" "$wget_bin/rm"
 
 run_installer() {
   local prefix="$1"
@@ -224,6 +254,8 @@ run_installer() {
   local fail_mv_dest="${6:-}"
   local fail_ln="${7:-no}"
   local case_state="$8"
+  local signal_after_mv_dest="${9:-}"
+  local signal_after_commit="${10:-no}"
 
   mkdir -p "$case_state"
   : > "$case_state/transport.log"
@@ -241,8 +273,12 @@ run_installer() {
       INSTALL_TEST_FAIL_MV_DEST="$fail_mv_dest" \
       INSTALL_TEST_FAIL_LN="$fail_ln" \
       INSTALL_TEST_FAILURE_MARKER="$case_state/failure.marker" \
+      INSTALL_TEST_SIGNAL_AFTER_MV_DEST="$signal_after_mv_dest" \
+      INSTALL_TEST_SIGNAL_AFTER_COMMIT="$signal_after_commit" \
+      INSTALL_TEST_SIGNAL_MARKER="$case_state/signal.marker" \
       INSTALL_TEST_REAL_MV="$REAL_MV" \
       INSTALL_TEST_REAL_LN="$REAL_LN" \
+      INSTALL_TEST_REAL_RM="$REAL_RM" \
       sh "$INSTALLER" 2>&1
   )"
   status=$?
@@ -392,5 +428,49 @@ run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "v$VERSIO
   "$fake_bin:$ORIGINAL_PATH" codex-profiles no "$case_dir/state"
 assert_failure "forced late alias mv failure"
 assert_existing_install_unchanged "$prefix" "$case_dir/canonical.before" previous-codex
+
+# Signals delivered immediately after each successful rename must observe the
+# move that already happened and restore an existing install byte-for-byte.
+for signal_destination in \
+  original-codex-profile original-codex-profiles codex-profile codex-profiles
+do
+  case_dir="$tmp_dir/case-signal-existing-$signal_destination"
+  prefix="$case_dir/prefix"
+  prepare_existing_install "$prefix" "$fixture_dir/codex-profile-0.6.0" previous-codex
+  cp "$prefix/bin/codex-profile" "$case_dir/canonical.before"
+  run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "v$VERSION" \
+    "$fake_bin:$ORIGINAL_PATH" "" no "$case_dir/state" "$signal_destination"
+  assert_failure "TERM after $signal_destination move with existing install"
+  [[ -e "$case_dir/state/signal.marker" ]] \
+    || fail "TERM injection after $signal_destination did not run"
+  assert_existing_install_unchanged "$prefix" "$case_dir/canonical.before" previous-codex
+done
+
+# Fresh installs have no backup moves, but either install move can still be
+# interrupted before the next shell assignment records it.
+for signal_destination in codex-profile codex-profiles; do
+  case_dir="$tmp_dir/case-signal-fresh-$signal_destination"
+  prefix="$case_dir/prefix"
+  run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "v$VERSION" \
+    "$fake_bin:$ORIGINAL_PATH" "" no "$case_dir/state" "$signal_destination"
+  assert_failure "TERM after $signal_destination move with fresh install"
+  [[ -e "$case_dir/state/signal.marker" ]] \
+    || fail "fresh TERM injection after $signal_destination did not run"
+  assert_path_absent "$prefix/bin/codex-profile"
+  assert_path_absent "$prefix/bin/codex-profiles"
+  assert_no_transaction_residue "$prefix/bin"
+done
+
+# Once both installed paths have passed their postconditions and the commit
+# marker is set, a signal during transaction cleanup must leave that valid
+# committed install in place even though the interrupted process exits nonzero.
+case_dir="$tmp_dir/case-signal-after-commit"
+prefix="$case_dir/prefix"
+prepare_existing_install "$prefix" "$fixture_dir/codex-profile-0.6.0" previous-codex
+run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "v$VERSION" \
+  "$fake_bin:$ORIGINAL_PATH" "" no "$case_dir/state" "" yes
+assert_failure "TERM after commit"
+[[ -e "$case_dir/state/signal.marker" ]] || fail "post-commit TERM injection did not run"
+assert_installed "$prefix" "$fixture_dir/codex-profile-0.7.0" "$VERSION"
 
 printf '%s\n' 'Standalone installer tests passed.'

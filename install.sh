@@ -62,16 +62,21 @@ alias="$BINDIR/codex-profiles"
 [ ! -d "$canonical" ] || err "refusing directory destination: $canonical"
 [ ! -d "$alias" ] || err "refusing directory destination: $alias"
 
+canonical_existed=no
+alias_existed=no
+if path_exists "$canonical"; then
+  canonical_existed=yes
+fi
+if path_exists "$alias"; then
+  alias_existed=yes
+fi
+
 transaction="$(mktemp -d "$BINDIR/.codex-profile-install.XXXXXX")" \
   || err "cannot create a transaction directory in $BINDIR"
 staged_canonical="$transaction/codex-profile"
 staged_alias="$transaction/codex-profiles"
 saved_canonical="$transaction/original-codex-profile"
 saved_alias="$transaction/original-codex-profiles"
-canonical_saved=no
-alias_saved=no
-canonical_installed=no
-alias_installed=no
 committed=no
 
 remove_install_path() {
@@ -81,31 +86,42 @@ remove_install_path() {
   rm -f "$remove_path"
 }
 
+rollback_install_path() {
+  rollback_path="$1"
+  rollback_saved_path="$2"
+  rollback_had_original="$3"
+
+  if [ "$rollback_had_original" = yes ]; then
+    if path_exists "$rollback_saved_path"; then
+      remove_install_path "$rollback_path" || return 1
+      mv "$rollback_saved_path" "$rollback_path"
+    else
+      path_exists "$rollback_path"
+    fi
+  else
+    remove_install_path "$rollback_path"
+  fi
+}
+
 cleanup_transaction() {
   cleanup_status=$?
-  trap - 0 HUP INT TERM
+  trap - 0
+  trap '' HUP INT TERM
   set +e
   rollback_failed=no
 
   if [ "$committed" != yes ]; then
-    if [ "$alias_saved" = yes ] || [ "$alias_installed" = yes ]; then
-      remove_install_path "$alias" || rollback_failed=yes
-    fi
-    if [ "$canonical_saved" = yes ] || [ "$canonical_installed" = yes ]; then
-      remove_install_path "$canonical" || rollback_failed=yes
-    fi
-
-    if [ "$canonical_saved" = yes ]; then
-      mv "$saved_canonical" "$canonical" || rollback_failed=yes
-    fi
-    if [ "$alias_saved" = yes ]; then
-      mv "$saved_alias" "$alias" || rollback_failed=yes
-    fi
+    rollback_install_path "$canonical" "$saved_canonical" "$canonical_existed" \
+      || rollback_failed=yes
+    rollback_install_path "$alias" "$saved_alias" "$alias_existed" \
+      || rollback_failed=yes
   fi
 
-  if [ "$rollback_failed" = no ]; then
-    rm -rf "$transaction"
-  else
+  if [ "$rollback_failed" = no ] && [ -n "${transaction:-}" ]; then
+    rm -rf "$transaction" || rollback_failed=yes
+  fi
+
+  if [ "$rollback_failed" = yes ]; then
     printf 'install: rollback failed; recovery files remain in %s\n' \
       "$transaction" >&2
     [ "$cleanup_status" -ne 0 ] || cleanup_status=1
@@ -132,17 +148,13 @@ ln -s codex-profile "$staged_alias" || err "cannot stage codex-profiles alias"
 
 if path_exists "$canonical"; then
   mv "$canonical" "$saved_canonical" || err "cannot preserve existing $canonical"
-  canonical_saved=yes
 fi
 if path_exists "$alias"; then
   mv "$alias" "$saved_alias" || err "cannot preserve existing $alias"
-  alias_saved=yes
 fi
 
 mv "$staged_canonical" "$canonical" || err "cannot install $canonical"
-canonical_installed=yes
 mv "$staged_alias" "$alias" || err "cannot install $alias"
-alias_installed=yes
 
 [ -f "$canonical" ] && [ -x "$canonical" ] && [ ! -L "$canonical" ] \
   || err "installed canonical command is not a regular executable: $canonical"
