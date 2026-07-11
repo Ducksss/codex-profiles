@@ -148,7 +148,12 @@ jobs:
           }
           NODE
 
-          grep -F "ln -sf codex-profile \"\$BINDIR/codex-profiles\"" install.sh >/dev/null
+          # shellcheck disable=SC2016
+          grep -F 'ln -s codex-profile "$staged_alias"' install.sh >/dev/null
+          # shellcheck disable=SC2016
+          grep -F 'mv "$staged_alias" "$alias"' install.sh >/dev/null
+          # shellcheck disable=SC2016
+          grep -F '[ -L "$alias" ] && [ "$(readlink "$alias")" = codex-profile ]' install.sh >/dev/null
           grep -F "ln -s codex-profile \"\$out/bin/codex-profiles\"" flake.nix >/dev/null
           grep -F "ln -s codex-profile \"\$pkgdir/usr/bin/codex-profiles\"" packaging/aur/PKGBUILD >/dev/null
 
@@ -725,7 +730,7 @@ jobs:
           gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG" \
             -f release_correlation="$pages_correlation"
           run_id=""
-          for attempt in {1..30}; do
+          for _attempt in {1..30}; do
             run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow pages.yml \
               --commit "$GITHUB_SHA" --event workflow_dispatch --limit 20 \
               --json databaseId,displayTitle \
@@ -741,7 +746,7 @@ jobs:
 
           site_url="https://ducksss.github.io/codex-profiles/"
           deployed=false
-          for attempt in {1..30}; do
+          for _attempt in {1..30}; do
             if curl -fsSL "$site_url" | grep -F "<span>v$V</span>" >/dev/null; then
               deployed=true
               break

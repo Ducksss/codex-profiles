@@ -104,6 +104,32 @@ require_live_only_step() {
   require_step_literal "$step_name" 'if: ${{ ! inputs.dry_run }}'
 }
 
+source_validation_step="Validate release source and tracked versions"
+source_validation_block="$(step_block "$source_validation_step")"
+[[ -n "$source_validation_block" ]] \
+  || fail "release workflow is missing step: $source_validation_step"
+
+for literal in \
+  '# shellcheck disable=SC2016' \
+  "grep -F 'ln -s codex-profile \"\$staged_alias\"' install.sh >/dev/null" \
+  "grep -F 'mv \"\$staged_alias\" \"\$alias\"' install.sh >/dev/null" \
+  "grep -F '[ -L \"\$alias\" ] && [ \"\$(readlink \"\$alias\")\" = codex-profile ]' install.sh >/dev/null"
+do
+  grep -F -- "$literal" <<< "$source_validation_block" >/dev/null \
+    || fail "$source_validation_step is missing transactional installer precondition: $literal"
+done
+
+installer_shellcheck_disable_count="$(
+  grep -Fxc '          # shellcheck disable=SC2016' <<< "$source_validation_block" || true
+)"
+[[ "$installer_shellcheck_disable_count" -eq 3 ]] \
+  || fail "$source_validation_step must mark all three literal installer checks as intentional"
+
+if grep -F 'ln -sf codex-profile \"\$BINDIR/codex-profiles\"' \
+  <<< "$source_validation_block" >/dev/null; then
+  fail "$source_validation_step still requires the removed non-transactional installer alias"
+fi
+
 line_number() {
   local literal="$1"
   local line
@@ -761,7 +787,7 @@ do
 done
 
 require_literal 'gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"'
-require_literal 'for attempt in {1..30}; do'
+require_literal 'for _attempt in {1..30}; do'
 require_literal 'gh run list --repo "$GITHUB_REPOSITORY" --workflow pages.yml'
 require_literal '--commit "$GITHUB_SHA" --event workflow_dispatch --limit 20'
 require_literal 'gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status'
@@ -858,7 +884,7 @@ if grep -Eq '^watch:(111|222)$' "$tool_log"; then
   fail "Pages verification selected a pre-existing or racing same-commit run"
 fi
 
-poll_count="$(grep -Fxc '          for attempt in {1..30}; do' "$WORKFLOW" || true)"
+poll_count="$(grep -Fxc '          for _attempt in {1..30}; do' "$WORKFLOW" || true)"
 [[ "$poll_count" -eq 2 ]] \
   || fail "release workflow must bound both Pages run and deployed-version polling"
 
