@@ -912,7 +912,10 @@ for step_name in "${shell_steps[@]}"; do
 done
 
 for test_file in test/install-script-test.sh test/release-workflow-test.sh; do
-  grep -E "^\\tshellcheck .*${test_file//./\\.}" "$MAKEFILE" >/dev/null \
+  awk -v test_file="$test_file" '
+    index($0, "\tshellcheck ") == 1 && index($0, test_file) > 0 { found = 1 }
+    END { exit(found ? 0 : 1) }
+  ' "$MAKEFILE" \
     || fail "Makefile lint does not cover $test_file"
   grep -Fx $'\t'bash' -n '"$test_file" "$MAKEFILE" >/dev/null \
     || fail "Makefile test does not syntax-check $test_file"
