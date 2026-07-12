@@ -233,7 +233,6 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Validate live release source
-        id: live
         shell: bash
         env:
           TAG: ${{ needs.verify.outputs.tag }}
@@ -258,40 +257,7 @@ jobs:
             exit 1
           }
 
-          git fetch --no-tags origin main
-          [[ "$(git rev-parse origin/main)" == "$VERIFIED_SHA" ]] || {
-            echo "origin/main moved after verification; refusing to publish $TAG." >&2
-            exit 1
-          }
-
-          tag_exists=false
-          tag_error="$(mktemp)"
-          trap 'rm -f "$tag_error"' EXIT
-          set +e
-          git ls-remote --exit-code --tags origin "refs/tags/$TAG" \
-            > /dev/null 2> "$tag_error"
-          tag_status=$?
-          set -e
-          case "$tag_status" in
-            0)
-              tag_exists=true
-              git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
-              [[ "$(git rev-list -n 1 "$TAG")" == "$VERIFIED_SHA" ]] || {
-                echo "$TAG exists but does not point to verified commit $VERIFIED_SHA." >&2
-                exit 1
-              }
-              ;;
-            2)
-              ;;
-            *)
-              cat "$tag_error" >&2
-              echo "Could not establish whether $TAG already exists." >&2
-              exit 1
-              ;;
-          esac
-          echo "tag_exists=$tag_exists" >> "$GITHUB_OUTPUT"
-
-      - name: Validate release credentials
+      - name: Preflight release credential identities
         if: ${{ ! inputs.dry_run }}
         shell: bash
         env:
@@ -323,24 +289,67 @@ jobs:
             $1 == expected { found = 1 }
             END { exit(found ? 0 : 1) }
           ' <<< "$npm_owners"; then
-            echo "The authenticated npm account cannot publish codex-profile." >&2
+            echo "The authenticated npm user is not a codex-profile owner." >&2
             exit 1
           fi
           unset npm_owners npm_user
 
-          tap_push=""
-          if ! tap_push="$(
+          tap_account_push=""
+          if ! tap_account_push="$(
             GH_TOKEN="$TAP_TOKEN" gh api repos/Ducksss/homebrew-tap \
               --jq '.permissions.push' 2>/dev/null
           )"; then
             echo "TAP_TOKEN could not authenticate for Ducksss/homebrew-tap." >&2
             exit 1
           fi
-          [[ "$tap_push" == "true" ]] || {
-            echo "TAP_TOKEN does not have push access to Ducksss/homebrew-tap." >&2
+          [[ "$tap_account_push" == "true" ]] || {
+            echo "The authenticated GitHub account does not report tap push access." >&2
             exit 1
           }
-          echo "Release credentials authenticated before publication."
+          echo "Release credential identities passed preflight."
+
+      - name: Revalidate live release state
+        id: live
+        if: ${{ ! inputs.dry_run }}
+        shell: bash
+        env:
+          TAG: ${{ needs.verify.outputs.tag }}
+          VERIFIED_SHA: ${{ needs.verify.outputs.commit }}
+        run: |
+          set -euo pipefail
+
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$VERIFIED_SHA" ]] || {
+            echo "origin/main moved during preflight; refusing to publish $TAG." >&2
+            exit 1
+          }
+
+          tag_exists=false
+          tag_error="$(mktemp)"
+          trap 'rm -f "$tag_error"' EXIT
+          set +e
+          git ls-remote --exit-code --tags origin "refs/tags/$TAG" \
+            > /dev/null 2> "$tag_error"
+          tag_status=$?
+          set -e
+          case "$tag_status" in
+            0)
+              tag_exists=true
+              git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+              [[ "$(git rev-list -n 1 "$TAG")" == "$VERIFIED_SHA" ]] || {
+                echo "$TAG exists but does not point to verified commit $VERIFIED_SHA." >&2
+                exit 1
+              }
+              ;;
+            2)
+              ;;
+            *)
+              cat "$tag_error" >&2
+              echo "Could not establish whether $TAG already exists." >&2
+              exit 1
+              ;;
+          esac
+          echo "tag_exists=$tag_exists" >> "$GITHUB_OUTPUT"
 
       - name: Create and push tag
         if: ${{ ! inputs.dry_run }}

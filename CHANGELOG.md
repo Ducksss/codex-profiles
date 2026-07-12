@@ -50,10 +50,11 @@ and this project follows semantic versioning for tagged releases.
 - Expanded the default release dry run to rehearse the standalone installer,
   npm package, Homebrew helper, and pinned AUR package paths. Live releases now
   require a strict, sanitized signed-app version/bundle attestation,
-  authenticate npm ownership and Homebrew tap push access before tagging, and
-  verify the published npm aliases with bounded registry retries, the exact
-  GitHub Release tag, and a newly dispatched Pages run and version; external
-  AUR publication remains a maintainer action.
+  preflight the npm owner identity and reported GitHub account access, recheck
+  main and tag state immediately before tagging, and verify the published npm
+  aliases with bounded registry retries, the exact GitHub Release tag, and a
+  newly dispatched Pages run and version; external AUR publication remains a
+  maintainer action.
 - Split default release verification into a credentialless, read-only job and
   live publication into a separately gated write job that revalidates
   `origin/main` and remote tag state. Registry, tag, and GitHub Release lookups

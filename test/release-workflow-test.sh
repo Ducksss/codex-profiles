@@ -265,24 +265,119 @@ verification_line="$(line_number '      - name: Run full verification')"
 live_validation_block="$(step_block "Validate live release source")"
 for literal in \
   'VERIFIED_SHA: ${{ needs.verify.outputs.commit }}' \
+  '[[ "$GITHUB_REF" == "refs/heads/main" ]]' \
+  '[[ "$GITHUB_SHA" == "$VERIFIED_SHA" ]]' \
+  '[[ "$(git rev-parse HEAD)" == "$VERIFIED_SHA" ]]' \
+  '[[ "$TAG" == "v$V" ]]'
+do
+  grep -F -- "$literal" <<< "$live_validation_block" >/dev/null \
+    || fail "live release source validation is missing: $literal"
+done
+
+live_state_block="$(step_block "Revalidate live release state")"
+for literal in \
+  'id: live' \
+  'VERIFIED_SHA: ${{ needs.verify.outputs.commit }}' \
   'git fetch --no-tags origin main' \
   'git ls-remote --exit-code --tags origin "refs/tags/$TAG"' \
   'git rev-list -n 1 "$TAG"' \
   'tag_exists=' \
   'tag_exists=$tag_exists'
 do
-  grep -F -- "$literal" <<< "$live_validation_block" >/dev/null \
-    || fail "live release source revalidation is missing: $literal"
+  grep -F -- "$literal" <<< "$live_state_block" >/dev/null \
+    || fail "live release state revalidation is missing: $literal"
 done
 
 live_validation_line="$(line_number '      - name: Validate live release source')"
-credential_validation_line="$(line_number '      - name: Validate release credentials')"
+credential_validation_line="$(line_number '      - name: Preflight release credential identities')"
+live_state_line="$(line_number '      - name: Revalidate live release state')"
 tag_creation_line="$(line_number '      - name: Create and push tag')"
 [[ "$live_validation_line" -lt "$credential_validation_line" \
-  && "$credential_validation_line" -lt "$tag_creation_line" ]] \
-  || fail "live source/tag state must be revalidated immediately before mutation"
+  && "$credential_validation_line" -lt "$live_state_line" \
+  && "$live_state_line" -lt "$tag_creation_line" ]] \
+  || fail "live state must be revalidated after credentials and immediately before mutation"
 
-credential_validation_block="$(step_block "Validate release credentials")"
+live_state_fake_bin="$tmp_dir/live-state-fake-bin"
+mkdir -p "$live_state_fake_bin"
+cat > "$live_state_fake_bin/git" <<'FAKE_GIT'
+#!/bin/sh
+
+set -eu
+
+printf '%s:%s\n' "${1:-}" "$*" >> "$RELEASE_WORKFLOW_TEST_LOG"
+case "${1:-}" in
+  fetch)
+    ;;
+  rev-parse)
+    if [ "$FAKE_LIVE_STATE_SCENARIO" = "main_moved" ]; then
+      printf '%s\n' 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+    else
+      printf '%s\n' "$VERIFIED_SHA"
+    fi
+    ;;
+  ls-remote)
+    case "$FAKE_LIVE_STATE_SCENARIO" in
+      absent) exit 2 ;;
+      transient) exit 128 ;;
+      *) printf '%s\n' 'remote tag exists' ;;
+    esac
+    ;;
+  rev-list)
+    if [ "$FAKE_LIVE_STATE_SCENARIO" = "tag_different" ]; then
+      printf '%s\n' 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+    else
+      printf '%s\n' "$VERIFIED_SHA"
+    fi
+    ;;
+  *)
+    printf 'unexpected git invocation: %s\n' "$*" >&2
+    exit 64
+    ;;
+esac
+FAKE_GIT
+chmod 755 "$live_state_fake_bin/git"
+
+live_state_script="$(step_script "Revalidate live release state")"
+require_live_state_scenario() {
+  local scenario="$1"
+  local expected_status="$2"
+  local expected_tag_exists="$3"
+  local log="$tmp_dir/live-state-$scenario.log"
+  local output="$tmp_dir/live-state-$scenario.output"
+  local status
+
+  : > "$log"
+  : > "$output"
+  set +e
+  PATH="$live_state_fake_bin:$PATH" \
+    RELEASE_WORKFLOW_TEST_LOG="$log" \
+    FAKE_LIVE_STATE_SCENARIO="$scenario" \
+    GITHUB_OUTPUT="$output" \
+    TAG="v0.7.0" \
+    VERIFIED_SHA="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
+    bash -c "$live_state_script" >"$tmp_dir/live-state-$scenario.out" 2>&1
+  status=$?
+  set -e
+
+  if [[ "$expected_status" == "success" ]]; then
+    [[ "$status" -eq 0 ]] || fail "live state $scenario path unexpectedly failed"
+    grep -Fx "tag_exists=$expected_tag_exists" "$output" >/dev/null \
+      || fail "live state $scenario emitted the wrong tag state"
+  else
+    [[ "$status" -ne 0 ]] || fail "live state $scenario path unexpectedly succeeded"
+  fi
+  if grep -Eq '^(push|tag):' "$log"; then
+    fail "live state $scenario mutated git state during revalidation"
+  fi
+}
+
+require_live_state_scenario absent success false
+require_live_state_scenario existing_same success true
+require_live_state_scenario main_moved failure ignored
+require_live_state_scenario tag_different failure ignored
+require_live_state_scenario transient failure ignored
+
+credential_validation_block="$(step_block "Preflight release credential identities")"
 for literal in \
   'NPM_TOKEN: ${{ secrets.NPM_TOKEN }}' \
   'TAP_TOKEN: ${{ secrets.TAP_TOKEN }}' \
@@ -332,7 +427,7 @@ set -eu
 [ "${GH_TOKEN:-}" = "tap-token" ] || exit 65
 printf 'gh:%s\n' "$*" >> "$RELEASE_WORKFLOW_TEST_LOG"
 [ "$FAKE_CREDENTIAL_SCENARIO" != "tap_auth" ] || exit 1
-if [ "$FAKE_CREDENTIAL_SCENARIO" = "tap_readonly" ]; then
+if [ "$FAKE_CREDENTIAL_SCENARIO" = "tap_account_no_push" ]; then
   printf '%s\n' false
 else
   printf '%s\n' true
@@ -340,7 +435,7 @@ fi
 FAKE_GH
 chmod 755 "$credential_fake_bin/npm" "$credential_fake_bin/gh"
 
-credential_validation_script="$(step_script "Validate release credentials")"
+credential_validation_script="$(step_script "Preflight release credential identities")"
 require_credential_scenario() {
   local scenario="$1"
   local npm_token="$2"
@@ -388,7 +483,7 @@ require_credential_scenario missing_tap npm-token '' failure 0 0
 require_credential_scenario npm_auth npm-token tap-token failure 1 0
 require_credential_scenario npm_owner npm-token tap-token failure 2 0
 require_credential_scenario tap_auth npm-token tap-token failure 2 1
-require_credential_scenario tap_readonly npm-token tap-token failure 2 1
+require_credential_scenario tap_account_no_push npm-token tap-token failure 2 1
 require_credential_scenario success npm-token tap-token success 2 1
 
 tag_publish_block="$(step_block "Create and push tag")"
@@ -884,7 +979,8 @@ require_github_release_final_scenario unpublished failure
 require_github_release_final_scenario wrong_tag failure
 
 for step_name in \
-  'Validate release credentials' \
+  'Preflight release credential identities' \
+  'Revalidate live release state' \
   'Create and push tag' \
   'Verify tagged AUR release files' \
   'Publish to npm' \
@@ -1004,7 +1100,8 @@ shell_steps=(
   'Run full verification'
   'Verification summary'
   'Validate live release source'
-  'Validate release credentials'
+  'Preflight release credential identities'
+  'Revalidate live release state'
   'Create and push tag'
   'Verify tagged AUR release files'
   'Publish to npm'

@@ -98,14 +98,15 @@ single escaped summary line and rejects a missing or malformed attestation
 before any live release step.
 
 The separate live-only job receives the write permissions. Before its first
-external mutation, it checks out the verified commit again and revalidates the
-current `origin/main` tip and exact remote tag state; stale verification outputs
-cannot authorize a release after either has moved. It also authenticates
-`NPM_TOKEN`, confirms that its npm user is listed as an owner of the unscoped
-`codex-profile` package, authenticates `TAP_TOKEN`, and requires GitHub to report
-push access to `Ducksss/homebrew-tap`. Use a dedicated fine-grained `TAP_TOKEN`
-limited to that repository with Contents read/write; do not reuse a broad
-personal or organization token.
+external mutation, it checks out the verified commit again, preflights the npm
+token's owner identity and the tap token's reported GitHub account access, then
+re-fetches the current `origin/main` tip and exact remote tag state immediately
+before tagging. Stale verification outputs cannot authorize a release after
+either has moved. These read-only identity checks cannot prove a granular
+token's write scope: configure `NPM_TOKEN` for `codex-profile` publication and
+use a dedicated fine-grained `TAP_TOKEN` limited to `Ducksss/homebrew-tap` with
+Contents read/write. Do not reuse a broad personal or organization token; the
+actual npm publish and tap push remain the authoritative write checks.
 
 After publication, the workflow retries npm installation with bounded backoff
 into a fresh prefix and checks `help` and `version` through both command aliases.
