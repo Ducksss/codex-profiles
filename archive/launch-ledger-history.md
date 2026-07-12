@@ -4,7 +4,7 @@ This is the full pre-prune launch ledger snapshot archived on 2026-06-10.
 Use it for audit history, old per-target evidence, and reconstruction.
 
 **Frozen.** Active outreach tracking has since moved to Airtable (base
-`appcezSUhDxz7uaQW`, tables `Targets` + `Log`), managed via
+`appcezSUhDxz7uaQW`, tables `Targets` + `Log` + `Claims`), managed via
 `scripts/outreach-tracker.mjs`. This file and the git history are the
 pre-Airtable record; nothing is written here anymore. `LAUNCH.md` now holds only
 positioning, channel copy, launch order, and policy.

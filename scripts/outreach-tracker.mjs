@@ -9,14 +9,17 @@
 // to stay dependency-free, matching test/geo-site-test.mjs.
 //
 // Why it exists: multiple outreach agents run in parallel. Editing a shared
-// Markdown ledger would race (lost updates, duplicate submissions). Airtable gives
-// atomic upserts (dedup on `Key`) and a claim protocol so two agents never act on
-// the same target at once.
+// Markdown ledger would race (lost updates, duplicate submissions). Target
+// upserts deduplicate on `Key`; append-preserving Claims records elect one live
+// workflow per target without letting a stale release clear another workflow.
 //
 // Config (env):
 //   AIRTABLE_TOKEN        Personal access token. If unset, read from a file.
 //   AIRTABLE_TOKEN_FILE   Token file path (default ~/.codex-outreach-airtable-token).
 //   AIRTABLE_BASE         Base id (default appcezSUhDxz7uaQW).
+//   AIRTABLE_API_ROOT     API root override (used by the local test harness).
+//   AIRTABLE_*_TABLE      Table id/name overrides (used by the local test harness).
+//   OUTREACH_*_MS         Lease/retry timing overrides (used by tests).
 //
 // Commands:
 //   list [--status S] [--priority P] [--channel C] [--owned] [--json]
@@ -33,12 +36,28 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { randomUUID } from 'node:crypto';
 
+const API_ROOT = (process.env.AIRTABLE_API_ROOT || 'https://api.airtable.com/v0').replace(/\/$/, '');
 const BASE = process.env.AIRTABLE_BASE || 'appcezSUhDxz7uaQW';
-const TARGETS = 'tblHOr51tpYHiaYWQ';
-const LOG = 'tbloEavouTn5Z7fOw';
-const CLAIM_TTL_MS = 15 * 60 * 1000; // a claim older than this is stale/steal-able
-const RECHECK_DELAY_MS = 2000; // wait before confirming a claim stuck
+const TARGETS = process.env.AIRTABLE_TARGETS_TABLE || 'tblHOr51tpYHiaYWQ';
+const LOG = process.env.AIRTABLE_LOG_TABLE || 'tbloEavouTn5Z7fOw';
+const CLAIMS = process.env.AIRTABLE_CLAIMS_TABLE || 'tbleL9s7CGUpxJDY7';
+
+function durationFromEnv(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    process.stderr.write(`${name} must be a non-negative integer.\n`);
+    process.exit(2);
+  }
+  return parsed;
+}
+
+const CLAIM_TTL_MS = durationFromEnv('OUTREACH_CLAIM_TTL_MS', 15 * 60 * 1000);
+const CLAIM_SETTLE_MS = durationFromEnv('OUTREACH_CLAIM_SETTLE_MS', 2000);
+const RETRY_DELAY_MS = durationFromEnv('OUTREACH_RETRY_DELAY_MS', 30_000);
 
 // Exit codes: 0 ok, 1 API/runtime error, 2 usage error, 3 claim lost.
 const EXIT = { OK: 0, ERROR: 1, USAGE: 2, CLAIM_LOST: 3 };
@@ -63,7 +82,7 @@ const TOKEN = token();
 // --- Airtable REST helper (with one 429 back-off retry) ------------------------
 
 async function api(method, table, { search, body } = {}) {
-  let url = `https://api.airtable.com/v0/${BASE}/${table}`;
+  let url = `${API_ROOT}/${encodeURIComponent(BASE)}/${encodeURIComponent(table)}`;
   if (search) url += `?${search}`;
   const init = {
     method,
@@ -78,7 +97,7 @@ async function api(method, table, { search, body } = {}) {
     if (res.status === 429) {
       // Airtable caps at 5 req/s per base; back off the documented 30s once.
       if (attempt === 0) {
-        await sleep(30_000);
+        await sleep(RETRY_DELAY_MS);
         continue;
       }
     }
@@ -90,10 +109,12 @@ async function api(method, table, { search, body } = {}) {
   }
 }
 
-// Escape a value for use inside an Airtable formula string literal. Our values
-// never contain double quotes, so wrapping in double quotes avoids apostrophe
-// breakage (e.g. statuses/keys are safe; free text has no `"`).
-const lit = (value) => `"${String(value).replace(/"/g, '\\"')}"`;
+// Escape a value for use inside an Airtable formula string literal.
+const lit = (value) => `"${String(value)
+  .replace(/\\/g, '\\\\')
+  .replace(/"/g, '\\"')
+  .replace(/\r/g, '\\r')
+  .replace(/\n/g, '\\n')}"`;
 
 async function getRecords(table, { filterByFormula, fields } = {}) {
   const records = [];
@@ -124,6 +145,23 @@ async function upsertTarget(fields) {
       records: [{ fields }],
       typecast: true,
     },
+  });
+}
+
+async function upsertClaim(fields) {
+  return api('PATCH', CLAIMS, {
+    body: {
+      performUpsert: { fieldsToMergeOn: ['Key'] },
+      records: [{ fields }],
+      typecast: true,
+    },
+  });
+}
+
+async function updateClaims(records) {
+  if (!records.length) return { records: [] };
+  return api('PATCH', CLAIMS, {
+    body: { records, typecast: true },
   });
 }
 
@@ -170,7 +208,33 @@ function parseArgs(argv) {
   return { positionals, flags };
 }
 
-const asBool = (v) => !(v === false || v === 'false' || v === '0' || v === 'no');
+function assertFlags(flags, allowed) {
+  for (const flag of Object.keys(flags)) {
+    if (!allowed.includes(flag)) fail(EXIT.USAGE, `Unknown option: --${flag}`);
+  }
+}
+
+function assertPositionals(positionals, min, max, usage) {
+  if (positionals.length < min || positionals.length > max) fail(EXIT.USAGE, usage);
+}
+
+function requiredFlag(flags, name, usage) {
+  const value = flags[name];
+  if (value === undefined || value === true || value === '') fail(EXIT.USAGE, usage);
+  return value;
+}
+
+function asBool(value) {
+  if (value === true || value === 'true' || value === '1' || value === 'yes') return true;
+  if (value === false || value === 'false' || value === '0' || value === 'no') return false;
+  fail(EXIT.USAGE, `Expected a boolean value, got: ${value}`);
+}
+
+function assertDate(value, flag) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
+    fail(EXIT.USAGE, `--${flag} must use YYYY-MM-DD.`);
+  }
+}
 
 // Map --flags to Target field names.
 function fieldsFromFlags(flags) {
@@ -188,14 +252,18 @@ function fieldsFromFlags(flags) {
   for (const [flag, col] of Object.entries(map)) {
     if (flags[flag] !== undefined) fields[col] = flags[flag];
   }
-  if (flags['last-checked'] !== undefined) fields['Last Checked'] = flags['last-checked'];
+  if (flags['last-checked'] !== undefined) {
+    if (flags['last-checked'] === true) fail(EXIT.USAGE, '--last-checked requires YYYY-MM-DD.');
+    assertDate(flags['last-checked'], 'last-checked');
+    fields['Last Checked'] = flags['last-checked'];
+  }
   if (flags.owned !== undefined) fields['Owned?'] = asBool(flags.owned);
   return fields;
 }
 
 // --- Output --------------------------------------------------------------------
 
-const COLS = ['Key', 'Name', 'Status', 'Priority', 'Channel', 'Owned?', 'Claimed By', 'Last Checked', 'Next Action'];
+const COLS = ['Key', 'Name', 'Status', 'Priority', 'Channel', 'Owned?', 'Last Checked', 'Next Action'];
 
 function printTable(records) {
   if (!records.length) {
@@ -219,6 +287,7 @@ function printTable(records) {
 // --- Commands ------------------------------------------------------------------
 
 async function cmdList(flags) {
+  assertFlags(flags, ['status', 'priority', 'channel', 'owned', 'json']);
   const clauses = [];
   if (flags.status) clauses.push(`{Status}=${lit(flags.status)}`);
   if (flags.priority) clauses.push(`{Priority}=${lit(flags.priority)}`);
@@ -235,61 +304,108 @@ async function cmdList(flags) {
 }
 
 async function cmdGet(positionals, flags) {
+  assertFlags(flags, ['json']);
+  assertPositionals(positionals, 1, 1, 'usage: get <key> [--json]');
   const key = positionals[0];
-  if (!key) fail(EXIT.USAGE, 'usage: get <key>');
   const rec = await resolveTarget(key);
   if (flags.json) process.stdout.write(`${JSON.stringify(rec.fields, null, 2)}\n`);
   else printTable([rec]);
 }
 
+async function targetClaims(key) {
+  return getRecords(CLAIMS, { filterByFormula: `{Target Key}=${lit(key)}` });
+}
+
+function isActiveClaim(record, now = Date.now()) {
+  const expiresAt = Date.parse(record.fields['Expires At'] || '');
+  return !record.fields['Released At'] && Number.isFinite(expiresAt) && expiresAt > now;
+}
+
+function compareClaims(a, b) {
+  const created = Date.parse(a.createdTime) - Date.parse(b.createdTime);
+  if (created !== 0) return created;
+  return String(a.fields.Key).localeCompare(String(b.fields.Key));
+}
+
 async function cmdClaim(positionals, flags) {
+  assertFlags(flags, ['by']);
+  assertPositionals(positionals, 1, 1, 'usage: claim <key> --by <workflowId>');
   const key = positionals[0];
-  const by = flags.by;
-  if (!key || !by || by === true) fail(EXIT.USAGE, 'usage: claim <key> --by <workflowId>');
-  const rec = await resolveTarget(key);
-  const holder = rec.fields['Claimed By'];
-  const at = rec.fields['Claimed At'];
-  const fresh = at && Date.now() - new Date(at).getTime() < CLAIM_TTL_MS;
-  if (holder && holder !== by && fresh) {
-    fail(EXIT.CLAIM_LOST, `Claim lost: ${key} is held by ${holder} (claimed ${at}).`);
+  const by = requiredFlag(flags, 'by', 'usage: claim <key> --by <workflowId>');
+  const target = await resolveTarget(key);
+  const existing = (await targetClaims(key)).filter((claim) => isActiveClaim(claim));
+  const owned = existing.find((claim) => claim.fields.Workflow === by);
+  if (owned) {
+    process.stdout.write(`Claimed ${key} as ${by} (${owned.fields.Key}).\n`);
+    return;
   }
-  await upsertTarget({ Key: key, 'Claimed By': by, 'Claimed At': new Date().toISOString() });
-  // Confirm the write stuck and no one raced us in the same window.
-  await sleep(RECHECK_DELAY_MS);
-  const after = await resolveTarget(key);
-  if (after.fields['Claimed By'] !== by) {
-    fail(EXIT.CLAIM_LOST, `Claim lost: ${key} is now held by ${after.fields['Claimed By']}.`);
+  if (existing.length) {
+    const holder = existing.sort(compareClaims)[0];
+    fail(EXIT.CLAIM_LOST, `Claim lost: ${key} is held by ${holder.fields.Workflow}.`);
+  }
+
+  const claimedAt = new Date();
+  const claimKey = `${key}:${by}:${randomUUID()}`;
+  await upsertClaim({
+    Key: claimKey,
+    'Target Key': key,
+    Target: [target.id],
+    Workflow: by,
+    'Claimed At': claimedAt.toISOString(),
+    'Expires At': new Date(claimedAt.getTime() + CLAIM_TTL_MS).toISOString(),
+  });
+
+  await sleep(CLAIM_SETTLE_MS);
+  const contenders = (await targetClaims(key)).filter((claim) => isActiveClaim(claim)).sort(compareClaims);
+  const winner = contenders[0];
+  if (!winner || winner.fields.Key !== claimKey) {
+    const own = contenders.find((claim) => claim.fields.Key === claimKey);
+    if (own) await updateClaims([{ id: own.id, fields: { 'Released At': new Date().toISOString() } }]);
+    fail(EXIT.CLAIM_LOST, `Claim lost: ${key} is held by ${winner?.fields.Workflow || 'another workflow'}.`);
   }
   await appendLog({ target: key, workflow: by, action: 'Claimed' });
-  process.stdout.write(`Claimed ${key} as ${by}.\n`);
+  process.stdout.write(`Claimed ${key} as ${by} (${claimKey}).\n`);
 }
 
 async function cmdRelease(positionals, flags) {
+  assertFlags(flags, ['by']);
+  assertPositionals(positionals, 1, 1, 'usage: release <key> --by <workflowId>');
   const key = positionals[0];
-  const by = flags.by;
-  if (!key || !by || by === true) fail(EXIT.USAGE, 'usage: release <key> --by <workflowId>');
-  await upsertTarget({ Key: key, 'Claimed By': '', 'Claimed At': null });
+  const by = requiredFlag(flags, 'by', 'usage: release <key> --by <workflowId>');
+  await resolveTarget(key);
+  const claims = await targetClaims(key);
+  const owned = claims.filter((claim) => claim.fields.Workflow === by);
+  if (!owned.length) fail(EXIT.CLAIM_LOST, `Release refused: ${by} has never claimed ${key}.`);
+  const active = owned.filter((claim) => isActiveClaim(claim));
+  if (!active.length) {
+    process.stdout.write(`No active claim for ${key} as ${by}.\n`);
+    return;
+  }
+  const releasedAt = new Date().toISOString();
+  await updateClaims(active.map((claim) => ({ id: claim.id, fields: { 'Released At': releasedAt } })));
   await appendLog({ target: key, workflow: by, action: 'Released Claim' });
   process.stdout.write(`Released ${key}.\n`);
 }
 
 async function cmdUpsert(positionals, flags) {
+  assertFlags(flags, ['name', 'channel', 'status', 'priority', 'link', 'owned', 'last-checked', 'next-action', 'last-version-told', 'notes']);
+  assertPositionals(positionals, 1, 1, 'usage: upsert <key> [--name ... --status ... ...]');
   const key = positionals[0];
-  if (!key) fail(EXIT.USAGE, 'usage: upsert <key> [--name ... --status ... ...]');
   const fields = { Key: key, ...fieldsFromFlags(flags) };
   await upsertTarget(fields);
   process.stdout.write(`Upserted ${key}.\n`);
 }
 
 async function cmdSetStatus(positionals) {
+  assertPositionals(positionals, 2, 2, 'usage: set-status <key> <status>');
   const [key, status] = positionals;
-  if (!key || !status) fail(EXIT.USAGE, 'usage: set-status <key> <status>');
   await upsertTarget({ Key: key, Status: status });
   await appendLog({ target: key, action: 'Status Change', result: `-> ${status}` });
   process.stdout.write(`Set ${key} status to ${status}.\n`);
 }
 
 async function cmdLog(flags) {
+  assertFlags(flags, ['target', 'workflow', 'action', 'result', 'link']);
   const target = flags.target;
   const action = flags.action;
   if (!target || target === true || !action || action === true) {

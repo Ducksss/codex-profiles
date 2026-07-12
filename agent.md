@@ -209,6 +209,14 @@ node scripts/outreach-tracker.mjs claim <key> --by <run-id>
 - `release` the target as soon as you finish or abandon it. Claims older than 15
   minutes are treated as stale and may be re-claimed automatically.
 
+```sh
+node scripts/outreach-tracker.mjs release <key> --by <run-id>
+```
+
+Claims are append-preserving rows in Airtable's `Claims` table. Never reuse a
+run id: release only changes rows owned by the exact `--by` workflow, so a stale
+run cannot clear another workflow's lease.
+
 ## Automation Authority
 
 You have full internal execution authority for this distribution pass: research,

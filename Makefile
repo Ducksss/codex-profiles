@@ -39,6 +39,7 @@ test:
 	bash test/release-workflow-test.sh
 	node test/aur-runbook-test.mjs
 	node test/geo-site-test.mjs
+	node test/outreach-tracker-test.mjs
 	bash test/package-metadata-test.sh
 	bash test/release-helper-test.sh
 	node test/github-pipeline-skills-test.mjs
