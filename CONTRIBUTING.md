@@ -110,11 +110,17 @@ actual npm publish and tap push remain the authoritative write checks.
 
 After publication, the workflow retries npm installation with bounded backoff
 into a fresh prefix and checks `help` and `version` through both command aliases.
-It then verifies the exact GitHub Release tag, requires a newly created Pages
-run from that immutable tag to succeed, and polls the public site for the exact
-visible version. Homebrew formula validation completes before the tap push.
-Tracked AUR metadata and tagged files are validated fail-closed here, but
-publication to the external AUR repository remains a maintainer action.
+It then verifies the exact GitHub Release tag, downloads `install.sh` from that
+immutable tag, and exercises its public `releases/latest` path in fresh prefixes
+until both aliases report the exact version and the plural alias is the expected
+relative symlink. The workflow also requires a newly created Pages run from the
+tag to succeed and polls the public site for the exact visible version. Homebrew
+formula validation completes before the tap push. Tracked AUR metadata and
+tagged files are validated fail-closed here, but publication to the external
+AUR repository remains a maintainer action.
+Maintainers performing that handoff must follow the
+[AUR publication and update runbook](packaging/aur/README.md), including its
+dedicated-key, immutable-tag, clean-build, and public-verification requirements.
 
 ## Pull requests
 

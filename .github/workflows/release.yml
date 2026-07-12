@@ -738,6 +738,54 @@ jobs:
           }
           NODE
 
+      - name: Verify public standalone installer
+        if: ${{ ! inputs.dry_run }}
+        env:
+          TAG: ${{ needs.verify.outputs.tag }}
+          V: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          installer="$tmp/install.sh"
+          curl --retry 3 --retry-all-errors -fsSL \
+            "https://raw.githubusercontent.com/Ducksss/codex-profiles/$TAG/install.sh" \
+            -o "$installer"
+
+          verify_installed_prefix() {
+            local prefix="$1"
+            local canonical="$prefix/bin/codex-profile"
+            local alias="$prefix/bin/codex-profiles"
+            local canonical_output
+            local alias_output
+
+            [[ -f "$canonical" && -x "$canonical" && ! -L "$canonical" ]] || return 1
+            [[ -L "$alias" ]] || return 1
+            [[ "$(readlink "$alias")" == "codex-profile" ]] || return 1
+            canonical_output="$("$canonical" version 2>&1)" || return 1
+            [[ "$canonical_output" == "codex-profile $V" ]] || return 1
+            alias_output="$("$alias" version 2>&1)" || return 1
+            [[ "$alias_output" == "codex-profile $V" ]] || return 1
+          }
+
+          standalone_verified=false
+          for attempt in {1..5}; do
+            prefix="$(mktemp -d "$tmp/prefix-$attempt.XXXXXX")"
+            if env -u CODEX_PROFILE_VERSION CODEX_PROFILE_PREFIX="$prefix" sh "$installer" \
+              && verify_installed_prefix "$prefix"; then
+              standalone_verified=true
+              break
+            fi
+            rm -rf "$prefix"
+            if [[ "$attempt" -lt 5 ]]; then
+              sleep "$((attempt * 2))"
+            fi
+          done
+          [[ "$standalone_verified" == "true" ]] || {
+            echo "The public standalone installer did not install codex-profile $V after 5 attempts." >&2
+            exit 1
+          }
+
       - name: Update Homebrew tap
         if: ${{ ! inputs.dry_run }}
         env:

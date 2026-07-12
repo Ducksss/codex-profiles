@@ -69,6 +69,15 @@ changelog_version="${version//./\.}"
 grep -Eq "^## $changelog_version - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md \
   || fail "CHANGELOG.md has no dated $version release section"
 
+aur_runbook="packaging/aur/README.md"
+[[ -f "$aur_runbook" ]] || fail "AUR publication runbook is missing"
+grep -F '(packaging/aur/README.md)' CHANGELOG.md >/dev/null \
+  || fail "CHANGELOG.md does not link the AUR publication runbook"
+grep -F '(packaging/aur/README.md)' CONTRIBUTING.md >/dev/null \
+  || fail "CONTRIBUTING.md does not link the AUR publication runbook"
+grep -F '58126222+Ducksss@users.noreply.github.com' "$aur_runbook" >/dev/null \
+  || fail "AUR runbook does not use Ducksss' ID-derived GitHub noreply identity"
+
 # shellcheck disable=SC2016 # fixed strings intentionally contain shell variables
 grep -F 'ln -s codex-profile "$staged_alias"' install.sh > /dev/null \
   || fail "standalone installer does not stage a relative plural alias"

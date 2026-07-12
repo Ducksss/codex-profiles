@@ -7,7 +7,7 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
-## 0.7.0 - 2026-07-12
+## 0.7.0 - 2026-07-13
 
 ### Added
 
@@ -26,6 +26,10 @@ and this project follows semantic versioning for tagged releases.
   `packaging/aur/`. The installer and flake track the current version
   automatically (the flake reads `package.json`), so they add no release drift;
   `install.sh` is covered by ShellCheck in CI.
+- A permanent [AUR publication and update runbook](packaging/aur/README.md)
+  covering dedicated credentials, immutable tagged inputs, clean non-root Arch
+  builds, metadata and alias validation, first publication, subsequent updates,
+  and public post-push verification.
 
 ### Changed
 
@@ -61,7 +65,8 @@ and this project follows semantic versioning for tagged releases.
   require a strict, sanitized signed-app version/bundle attestation,
   preflight the npm owner identity and reported GitHub account access, recheck
   main and tag state immediately before tagging, and verify the published npm
-  aliases with bounded registry retries, the exact GitHub Release tag, and a
+  aliases with bounded registry retries, the exact GitHub Release tag, the
+  public standalone installer's latest-release path in a fresh prefix, and a
   newly dispatched Pages run and version; external AUR publication remains a
   maintainer action.
 - Split default release verification into a credentialless, read-only job and
