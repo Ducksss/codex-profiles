@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Lead Gen"
+  short_description: "Find GitHub leads for codex-profiles"
+  default_prompt: "Use $github-lead-gen to find repository-first GitHub leads for codex-profiles."

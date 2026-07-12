@@ -11,6 +11,15 @@ and this project follows semantic versioning for tagged releases.
 
 ### Added
 
+- Repo-local GitHub pipeline skill set for lead generation, lead
+  qualification, closing drafts, and monitoring, with Airtable handoffs and
+  approval-gated external actions enforced by tests.
+- Repo-local `github-lead-gen` skill for GitHub candidate discovery, with
+  Airtable-only intake boundaries and search-lane references.
+- Airtable-first GitHub lead workflow instructions for the outreach agent,
+  including repository-first qualification, ICP/truthfulness gates,
+  approval-gated external actions, pipeline views, and a regression test that
+  keeps `agent.md` aligned with the workflow.
 - Additional install channels: a `curl | sh` installer (`install.sh`, fetches
   the latest release into `~/.local/bin`), a Nix flake
   (`nix run github:Ducksss/codex-profiles`), and an AUR `PKGBUILD` under

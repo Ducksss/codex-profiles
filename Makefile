@@ -36,6 +36,8 @@ test:
 	node test/geo-site-test.mjs
 	bash test/package-metadata-test.sh
 	bash test/release-helper-test.sh
+	node test/github-pipeline-skills-test.mjs
+	node test/outreach-agent-test.mjs
 	bin/codex-profile help >/dev/null
 	bash test/codex-profile-test.sh
 	bash test/makefile-smoke-test.sh
