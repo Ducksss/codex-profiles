@@ -34,6 +34,7 @@ test:
 	bash test/install-script-test.sh
 	bash test/release-workflow-test.sh
 	node test/geo-site-test.mjs
+	node test/outreach-tracker-test.mjs
 	bash test/package-metadata-test.sh
 	bash test/release-helper-test.sh
 	node test/github-pipeline-skills-test.mjs

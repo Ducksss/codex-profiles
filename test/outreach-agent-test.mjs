@@ -12,7 +12,7 @@ const mustContain = [
   'Targets stays the main pipeline table',
   'Log stays append-only history',
   'Merge Queue handles dedupe conflicts',
-  'Bots coordinates automation claims',
+  'Claims coordinates append-preserving automation leases',
   'Primary lead unit: repository',
   'Primary close: accepted listing/PR',
   'Do not submit, open, post, comment, email, DM, or otherwise contact externally without explicit approval',

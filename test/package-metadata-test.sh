@@ -51,6 +51,9 @@ for (const command of ['codex-profile', 'codex-profiles']) {
 if (pkg.files.some((entry) => entry === 'media' || entry.startsWith('media/'))) {
   throw new Error('historical media must not ship in the npm package');
 }
+if (pkg.files.some((entry) => entry === 'scripts' || entry.startsWith('scripts/'))) {
+  throw new Error('repository-operational scripts must not ship in the npm package');
+}
 NODE
 
 node - <<'NODE'

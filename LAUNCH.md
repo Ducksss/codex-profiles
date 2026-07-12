@@ -11,7 +11,8 @@ copy, launch order, and policy — the parts that rarely change and are not
 per-target state.
 
 - Live tracker: Airtable base `appcezSUhDxz7uaQW` — `Targets` (one row per
-  platform) and `Log` (append-only event history).
+  platform), `Log` (append-only event history), and `Claims`
+  (append-preserving workflow leases).
 - Read and write it through `scripts/outreach-tracker.mjs` (see `agent.md`), not
   by editing this file. Do not re-add tracking tables here: concurrent runs would
   race on them, which is exactly why tracking moved out.
