@@ -3,6 +3,10 @@ name: Release
 # Releases are deliberate. Prepare and review every version change on main,
 # then dispatch this workflow with that exact tracked version. The workflow
 # validates repository state; it never edits or commits a version bump.
+# Immutable releases are an operator prerequisite for every live dispatch.
+# The workflow token cannot read that Administration-only repository setting,
+# so the operator verifies it before dispatch; final verification enforces the
+# immutable result.
 
 on:
   workflow_dispatch:
@@ -677,7 +681,7 @@ jobs:
             create_error="$tmp/release-create.err"
             release_create_succeeded=false
             if gh release create "$TAG" --title "codex-profile $TAG" --generate-notes \
-              2> "$create_error"; then
+              --latest --verify-tag 2> "$create_error"; then
               release_create_succeeded=true
             fi
 
@@ -719,7 +723,8 @@ jobs:
           trap 'rm -rf "$tmp"' EXIT
           release_json="$tmp/release.json"
           gh release view "$TAG" \
-            --json tagName,isDraft,isPrerelease,publishedAt > "$release_json"
+            --json tagName,isDraft,isPrerelease,publishedAt,body,isImmutable \
+            > "$release_json"
           node - "$TAG" "$release_json" <<'NODE'
           const fs = require('fs');
           const [, , expectedTag, file] = process.argv;
@@ -736,7 +741,44 @@ jobs:
           if (typeof release.publishedAt !== 'string' || release.publishedAt.length === 0) {
             throw new Error(`GitHub Release ${expectedTag} has no publication time`);
           }
+          if (release.isImmutable !== true) {
+            throw new Error(`GitHub Release ${expectedTag} is not immutable`);
+          }
+          if (typeof release.body !== 'string' || release.body.trim().length === 0) {
+            throw new Error(`GitHub Release ${expectedTag} has no release notes`);
+          }
           NODE
+
+          latest_json="$tmp/latest-release.json"
+          latest_error="$tmp/latest-release.err"
+          latest_verified=false
+          for attempt in {1..5}; do
+            : > "$latest_error"
+            if gh api "/repos/$GITHUB_REPOSITORY/releases/latest" \
+              > "$latest_json" 2> "$latest_error" \
+              && node - "$TAG" "$latest_json" 2>> "$latest_error" <<'NODE'
+          const fs = require('fs');
+          const [, , expectedTag, file] = process.argv;
+          const latestRelease = JSON.parse(fs.readFileSync(file, 'utf8'));
+          if (latestRelease.tag_name !== expectedTag) {
+            throw new Error(
+              `GitHub latest release reported ${latestRelease.tag_name}; expected ${expectedTag}`,
+            );
+          }
+          NODE
+            then
+              latest_verified=true
+              break
+            fi
+            if [[ "$attempt" -lt 5 ]]; then
+              sleep "$((attempt * 2))"
+            fi
+          done
+          [[ "$latest_verified" == "true" ]] || {
+            cat "$latest_error" >&2
+            echo "GitHub latest release did not resolve to $TAG after 5 attempts." >&2
+            exit 1
+          }
 
       - name: Verify public standalone installer
         if: ${{ ! inputs.dry_run }}

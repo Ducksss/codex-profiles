@@ -65,10 +65,10 @@ and this project follows semantic versioning for tagged releases.
   require a strict, sanitized signed-app version/bundle attestation,
   preflight the npm owner identity and reported GitHub account access, recheck
   main and tag state immediately before tagging, and verify the published npm
-  aliases with bounded registry retries, the exact GitHub Release tag, the
-  public standalone installer's latest-release path in a fresh prefix, and a
-  newly dispatched Pages run and version; external AUR publication remains a
-  maintainer action.
+  aliases with bounded registry retries, the exact immutable GitHub Release as
+  latest with non-empty notes, the public standalone installer's latest-release
+  path in a fresh prefix, and a newly dispatched Pages run and version; external
+  AUR publication remains a maintainer action.
 - Split default release verification into a credentialless, read-only job and
   live publication into a separately gated write job that revalidates
   `origin/main` and remote tag state. Registry, tag, and GitHub Release lookups

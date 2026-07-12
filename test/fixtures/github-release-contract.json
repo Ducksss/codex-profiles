@@ -1,0 +1,30 @@
+{
+  "immutableFinal": {
+    "draft": false,
+    "immutable": true,
+    "prerelease": false,
+    "published_at": "2026-07-13T08:00:00Z",
+    "tag_name": "v0.7.0"
+  },
+  "mutable": {
+    "draft": false,
+    "immutable": false,
+    "prerelease": false,
+    "published_at": "2026-07-13T08:00:00Z",
+    "tag_name": "v0.7.0"
+  },
+  "draft": {
+    "draft": true,
+    "immutable": true,
+    "prerelease": false,
+    "published_at": "2026-07-13T08:00:00Z",
+    "tag_name": "v0.7.0"
+  },
+  "wrongTag": {
+    "draft": false,
+    "immutable": true,
+    "prerelease": false,
+    "published_at": "2026-07-13T08:00:00Z",
+    "tag_name": "v0.7.1"
+  }
+}

@@ -195,6 +195,7 @@ do
   require_literal "$literal"
 done
 
+require_literal '# Immutable releases are an operator prerequisite for every live dispatch.'
 require_literal 'description: "Live release only: tested ChatGPT version and bundle ID; no account data."'
 require_literal 'DESKTOP_SMOKE_ATTESTATION: ${{ inputs.desktop_smoke_attestation }}'
 require_literal '[[ "$DRY_RUN" != "true" ]]'
@@ -601,6 +602,7 @@ for literal in \
   'env -u CODEX_PROFILE_VERSION CODEX_PROFILE_PREFIX="$prefix" sh "$installer"' \
   'canonical="$prefix/bin/codex-profile"' \
   'alias="$prefix/bin/codex-profiles"' \
+  '[[ -f "$canonical" && -x "$canonical" && ! -L "$canonical" ]] || return 1' \
   '[[ -L "$alias" ]] || return 1' \
   '[[ "$(readlink "$alias")" == "codex-profile" ]] || return 1' \
   'canonical_output="$("$canonical" version 2>&1)" || return 1' \
@@ -809,6 +811,7 @@ for literal in \
   'release_lookup_succeeded=true' \
   '[[ "$release_lookup_succeeded" == "true" ]]' \
   'gh release create "$TAG"' \
+  '--latest --verify-tag' \
   'release_verified_after_create=true'
 do
   grep -F -- "$literal" <<< "$github_release_block" >/dev/null \
@@ -871,6 +874,14 @@ case "$command" in
     esac
     ;;
   release:create)
+    case " $* " in
+      *' --latest '*) ;;
+      *) exit 65 ;;
+    esac
+    case " $* " in
+      *' --verify-tag '*) ;;
+      *) exit 66 ;;
+    esac
     printf '%s\n' 'create' >> "$RELEASE_WORKFLOW_TEST_LOG"
     case "$FAKE_GH_RELEASE_SCENARIO" in
       absent) ;;
@@ -881,25 +892,60 @@ case "$command" in
   release:view)
     printf '%s\n' 'view' >> "$RELEASE_WORKFLOW_TEST_LOG"
     case "$FAKE_GH_RELEASE_SCENARIO" in
-      present)
+      present|latest_eventual|latest_malformed|latest_transient|not_latest)
         printf '%s\n' \
-          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-12T00:00:00Z"}'
+          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-13T00:00:00Z","body":"Release notes","isImmutable":true}'
         ;;
       draft)
         printf '%s\n' \
-          '{"tagName":"v0.7.0","isDraft":true,"isPrerelease":false,"publishedAt":null}'
+          '{"tagName":"v0.7.0","isDraft":true,"isPrerelease":false,"publishedAt":null,"body":"Release notes","isImmutable":true}'
         ;;
       prerelease)
         printf '%s\n' \
-          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":true,"publishedAt":"2026-07-12T00:00:00Z"}'
+          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":true,"publishedAt":"2026-07-13T00:00:00Z","body":"Release notes","isImmutable":true}'
         ;;
       unpublished)
         printf '%s\n' \
-          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":null}'
+          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":null,"body":"Release notes","isImmutable":true}'
         ;;
       wrong_tag)
         printf '%s\n' \
-          '{"tagName":"v0.6.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-01T00:00:00Z"}'
+          '{"tagName":"v0.6.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-01T00:00:00Z","body":"Release notes","isImmutable":true}'
+        ;;
+      non_immutable)
+        printf '%s\n' \
+          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-13T00:00:00Z","body":"Release notes","isImmutable":false}'
+        ;;
+      empty_notes)
+        printf '%s\n' \
+          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-13T00:00:00Z","body":"   ","isImmutable":true}'
+        ;;
+      *) exit 64 ;;
+    esac
+    ;;
+  api:*/releases/latest)
+    printf '%s\n' 'latest' >> "$RELEASE_WORKFLOW_TEST_LOG"
+    latest_count="$(grep -Fxc 'latest' "$RELEASE_WORKFLOW_TEST_LOG")"
+    case "$FAKE_GH_RELEASE_SCENARIO" in
+      present)
+        printf '%s\n' '{"tag_name":"v0.7.0"}'
+        ;;
+      latest_eventual)
+        if [ "$latest_count" -ge 3 ]; then
+          printf '%s\n' '{"tag_name":"v0.7.0"}'
+        else
+          printf '%s\n' '{"tag_name":"v0.6.0"}'
+        fi
+        ;;
+      not_latest)
+        printf '%s\n' '{"tag_name":"v0.6.0"}'
+        ;;
+      latest_malformed)
+        printf '%s\n' '{"tag_name":7}'
+        ;;
+      latest_transient)
+        printf '%s\n' 'HTTP 503: service unavailable' >&2
+        exit 1
         ;;
       *) exit 64 ;;
     esac
@@ -967,11 +1013,18 @@ require_github_release_scenario unpublished failure 5 0 4
 
 github_release_verify_block="$(step_block "Verify GitHub Release")"
 for literal in \
-  '--json tagName,isDraft,isPrerelease,publishedAt' \
+  '--json tagName,isDraft,isPrerelease,publishedAt,body,isImmutable' \
   'release.tagName !== expectedTag' \
   'release.isDraft !== false' \
   'release.isPrerelease !== false' \
-  "typeof release.publishedAt !== 'string'"
+  "typeof release.publishedAt !== 'string'" \
+  'release.isImmutable !== true' \
+  "typeof release.body !== 'string'" \
+  'release.body.trim().length === 0' \
+  'gh api "/repos/$GITHUB_REPOSITORY/releases/latest"' \
+  'for attempt in {1..5}; do' \
+  'latestRelease.tag_name !== expectedTag' \
+  '[[ "$latest_verified" == "true" ]]'
 do
   grep -F -- "$literal" <<< "$github_release_verify_block" >/dev/null \
     || fail "Verify GitHub Release is missing public-final contract: $literal"
@@ -981,14 +1034,18 @@ github_release_verify_script="$(step_script "Verify GitHub Release")"
 require_github_release_final_scenario() {
   local scenario="$1"
   local expected_status="$2"
+  local expected_latest_calls="$3"
+  local expected_sleeps="$4"
   local log="$tmp_dir/release-final-$scenario.log"
   local status
+  local actual
 
   : > "$log"
   set +e
   PATH="$release_fake_bin:$PATH" \
     RELEASE_WORKFLOW_TEST_LOG="$log" \
     FAKE_GH_RELEASE_SCENARIO="$scenario" \
+    GITHUB_REPOSITORY="Ducksss/codex-profiles" \
     TAG="v0.7.0" \
     bash -c "$github_release_verify_script" \
       >"$tmp_dir/release-final-$scenario.out" 2>&1
@@ -1000,13 +1057,26 @@ require_github_release_final_scenario() {
   else
     [[ "$status" -ne 0 ]] || fail "GitHub Release final $scenario verification unexpectedly succeeded"
   fi
+
+  actual="$(grep -Fxc 'latest' "$log" || true)"
+  [[ "$actual" -eq "$expected_latest_calls" ]] \
+    || fail "GitHub Release final $scenario queried latest $actual time(s); expected $expected_latest_calls"
+  actual="$(grep -Fxc 'sleep' "$log" || true)"
+  [[ "$actual" -eq "$expected_sleeps" ]] \
+    || fail "GitHub Release final $scenario slept $actual time(s); expected $expected_sleeps"
 }
 
-require_github_release_final_scenario present success
-require_github_release_final_scenario draft failure
-require_github_release_final_scenario prerelease failure
-require_github_release_final_scenario unpublished failure
-require_github_release_final_scenario wrong_tag failure
+require_github_release_final_scenario present success 1 0
+require_github_release_final_scenario latest_eventual success 3 2
+require_github_release_final_scenario draft failure 0 0
+require_github_release_final_scenario prerelease failure 0 0
+require_github_release_final_scenario unpublished failure 0 0
+require_github_release_final_scenario wrong_tag failure 0 0
+require_github_release_final_scenario non_immutable failure 0 0
+require_github_release_final_scenario empty_notes failure 0 0
+require_github_release_final_scenario not_latest failure 5 4
+require_github_release_final_scenario latest_malformed failure 5 4
+require_github_release_final_scenario latest_transient failure 5 4
 
 standalone_fake_bin="$tmp_dir/standalone-fake-bin"
 standalone_installer_fixture="$tmp_dir/standalone-install.sh"
@@ -1057,11 +1127,23 @@ esac
 FAKE_STANDALONE_COMMAND
 chmod 755 "$CODEX_PROFILE_PREFIX/bin/codex-profile"
 
+if [ "$FAKE_STANDALONE_SCENARIO" = 'canonical_symlink' ]; then
+  mv \
+    "$CODEX_PROFILE_PREFIX/bin/codex-profile" \
+    "$CODEX_PROFILE_PREFIX/bin/codex-profile-real"
+  ln -s codex-profile-real "$CODEX_PROFILE_PREFIX/bin/codex-profile"
+fi
+
 case "$FAKE_STANDALONE_SCENARIO" in
   missing_alias)
     ;;
   wrong_symlink)
     ln -s somewhere-else "$CODEX_PROFILE_PREFIX/bin/codex-profiles"
+    ;;
+  absolute_symlink)
+    ln -s \
+      "$CODEX_PROFILE_PREFIX/bin/codex-profile" \
+      "$CODEX_PROFILE_PREFIX/bin/codex-profiles"
     ;;
   *)
     ln -s codex-profile "$CODEX_PROFILE_PREFIX/bin/codex-profiles"
@@ -1209,6 +1291,8 @@ require_standalone_scenario wrong_canonical 0.6.0 0.7.0 failure 5 4 5 0
 require_standalone_scenario wrong_alias 0.7.0 0.6.0 failure 5 4 5 5
 require_standalone_scenario missing_alias 0.7.0 0.7.0 failure 5 4 0 0
 require_standalone_scenario wrong_symlink 0.7.0 0.7.0 failure 5 4 0 0
+require_standalone_scenario absolute_symlink 0.7.0 0.7.0 failure 5 4 0 0
+require_standalone_scenario canonical_symlink 0.7.0 0.7.0 failure 5 4 0 0
 
 for step_name in \
   'Preflight release credential identities' \
