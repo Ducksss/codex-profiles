@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.7.0 - 2026-07-12
+
 ### Added
 
 - Additional install channels: a `curl | sh` installer (`install.sh`, fetches
@@ -15,6 +17,97 @@ and this project follows semantic versioning for tagged releases.
   `packaging/aur/`. The installer and flake track the current version
   automatically (the flake reads `package.json`), so they add no release drift;
   `install.sh` is covered by ShellCheck in CI.
+
+### Changed
+
+- Adapted Desktop launching to OpenAI's integrated ChatGPT app. `app default`
+  launches the original signed application with `CODEX_HOME=~/.codex` and no
+  custom Electron user-data directory, preserving the stock ChatGPT session.
+- Named `app <profile>` launches now use both `~/.codex-<profile>` and matching
+  `electron-user-data` for the entire ChatGPT window across Chat, Work, and
+  Codex. Different names can coexist; reopening one name reuses its context.
+- Desktop discovery now prefers `CHATGPT_APP`, accepts legacy `CODEX_APP`, and
+  detects `/Applications/ChatGPT.app` before legacy `Codex.app`.
+- CLI resolution now validates candidates: an explicit `CODEX_CLI` must be
+  healthy; otherwise the wrapper can fall back from `PATH` to an explicit
+  bundled candidate or the CLI inside the detected Desktop app.
+- Documentation, security guidance, support templates, GEO structured data,
+  launch copy, and AI-readable facts now distinguish Codex-only commands from
+  whole-window ChatGPT Desktop profiles.
+- Version metadata is aligned on `0.7.0` without changing the project,
+  repository, npm package, commands, or profile-directory names.
+- Source, standalone, npm, Nix, AUR, and Homebrew release paths now preserve
+  both `codex-profile` and `codex-profiles` command spellings. CI validates the
+  aliases and synchronized package metadata on Linux and macOS.
+- Releases are now explicit, version-validated workflow dispatches from
+  `main`; the workflow verifies the dated changelog, publishes idempotently,
+  updates Homebrew, and deploys Pages from the immutable release tag.
+- The npm tarball excludes historical pre-v0.7 screenshot and video assets;
+  those files remain in the repository for release-history context.
+- Clarified current product copy, CLI diagnostics, and package metadata to
+  describe local-state separation without implying a verified account or
+  security boundary.
+- Expanded the default release dry run to rehearse the standalone installer,
+  npm package, Homebrew helper, and pinned AUR package paths. Live releases now
+  require a strict, sanitized signed-app version/bundle attestation,
+  preflight the npm owner identity and reported GitHub account access, recheck
+  main and tag state immediately before tagging, and verify the published npm
+  aliases with bounded registry retries, the exact GitHub Release tag, and a
+  newly dispatched Pages run and version; external AUR publication remains a
+  maintainer action.
+- Split default release verification into a credentialless, read-only job and
+  live publication into a separately gated write job that revalidates
+  `origin/main` and remote tag state. Registry, tag, and GitHub Release lookups
+  now fail closed while safely accepting only exact-version concurrent results.
+- Made the standalone installer validate exact release tags and payload
+  versions, then replace both installed command aliases transactionally with
+  rollback if any late install or verification step fails.
+
+### Removed
+
+- Removed Desktop app copying, bundle metadata patching, ad-hoc signing,
+  canonical-app quitting, and broad process-kill behavior. The installed signed
+  application is never modified or replaced.
+- Removed stale clone-based screenshot and video references from primary
+  documentation. Historical release and outreach records remain intact.
+
+### Deprecated
+
+- `app --instance`, `app --rebuild`, and `app-instance` remain accepted
+  compatibility spellings but use the ordinary named launcher. Named launches
+  are already parallel-capable, and `--rebuild` is now a no-op because no app
+  clone exists.
+- `CODEX_APP_BIN` remains a compatibility override only for an executable
+  inside an application bundle. Prefer the `CHATGPT_APP` bundle override.
+
+### Fixed
+
+- Corrected the AI-readable profile graph so `personal` maps to
+  `~/.codex-personal` rather than `~/.codex`; `default` remains the only name
+  mapped to `~/.codex`.
+- Clarified that `status` describes Codex-local authentication and that the
+  tool does not inspect or verify equality between CLI and Desktop accounts.
+- Normalized current logged-out CLI messages, prevented update notices from
+  polluting `status --json` and `doctor --json`, and expanded doctor output
+  with detected app metadata, CLI source/health, and explicit scope fields.
+- Rejected symlinked managed profile and Electron user-data directories before
+  creating files or changing permissions.
+- Made source installs refuse command-directory and canonical-symlink
+  destinations, verify both installed aliases, and smoke-test updates without
+  masking producer failures.
+- Restored deprecated `app-instance` discovery in all shell completions,
+  registered completions for both executable aliases, and rejected legacy
+  `CODEX_APP_BIN` values that do not name the bundle's declared executable.
+
+### Security
+
+- Replaced overbroad isolation claims with an explicit local-state model.
+  Named Electron data is not an operating-system sandbox or a server-side
+  ChatGPT workspace boundary; keychains, external credentials, filesystem
+  access, and OpenAI-managed state remain shared or outside the tool's control.
+- Desktop launch now refuses an inherited `CODEX_ACCESS_TOKEN` so a shell
+  access token cannot silently override the selected window's authentication
+  context.
 
 ## 0.6.0 - 2026-07-01
 

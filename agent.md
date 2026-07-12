@@ -12,9 +12,14 @@ the target's contribution rules allow it.
 
 ## Project Context
 
-`codex-profiles` is a small Bash tool for switching Codex CLI/Desktop profiles
-with isolated `CODEX_HOME` directories. It avoids copying auth files, supports
-macOS/Linux, has no third-party runtime dependencies, and installs with:
+`codex-profiles` is a small Bash tool for named Codex homes and, on macOS,
+named ChatGPT windows with separate local state. `cli`, `login`, `env`, and
+`use` are Codex-only. Named `app` launches select matching `CODEX_HOME` and
+Electron data for the whole ChatGPT window across Chat, Work, and Codex;
+`app default` preserves the stock session. Local-state separation is not an
+account, OS, or server-side boundary. The tool avoids copying auth files or
+modifying the signed app, supports macOS/Linux CLI workflows, and installs
+with:
 
 ```sh
 brew install Ducksss/tap/codex-profile
@@ -28,6 +33,12 @@ Start every run by reading:
 
 Do not duplicate prior submissions unless there is a clear reason, such as a
 closed PR that needs a replacement.
+
+Do not resume new promotion until README/LAUNCH identify v0.7.0 as released and
+the current ChatGPT app verification gate is recorded as passed. Before
+updating an existing listing, preserve its original submission history and
+correct stale claims about app clones, `--instance`, or Codex-only Desktop
+switching.
 
 ## Run Preconditions
 
@@ -173,8 +184,9 @@ there is no reply.
 Use this as a starting point and tailor it to the target repository:
 
 ````md
-Adds codex-profiles, a small Bash utility for switching Codex CLI/Desktop
-profiles with isolated CODEX_HOME directories.
+Adds codex-profiles, a small Bash utility for named Codex homes and named
+ChatGPT windows with separate local state. Named app launches apply across
+Chat, Work, and Codex; CLI commands remain Codex-only.
 
 I think it fits this list because [specific reason tied to the target
 repository's scope or section].

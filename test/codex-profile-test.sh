@@ -184,11 +184,11 @@ printf 'ARGS=%s\n' "$*"
 FAKE_CODEX
   chmod 755 "$fake_codex"
 
-  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" login work --device-code
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" login work --device-auth
 
   assert_status 0
   assert_contains "CODEX_HOME=$tmp/home/.codex-work"
-  assert_contains "ARGS=login --device-code"
+  assert_contains "ARGS=login --device-auth"
   [[ -d "$tmp/home/.codex-work" ]] || fail "login did not initialize profile home"
 
   rm -rf "$tmp"
@@ -323,7 +323,11 @@ test_status_treats_not_logged_in_as_normal_status() {
   fake_codex="$tmp/codex"
   cat > "$fake_codex" <<'FAKE_CODEX'
 #!/usr/bin/env bash
-printf 'Not logged in\n'
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'fake-codex 1.0\n'
+  exit 0
+fi
+printf 'You are not logged in. Run codex login.\n'
 exit 1
 FAKE_CODEX
   chmod 755 "$fake_codex"
@@ -332,7 +336,7 @@ FAKE_CODEX
   run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" status personal
 
   assert_status 0
-  assert_contains "personal ($tmp/home/.codex-personal): Not logged in"
+  assert_contains "personal ($tmp/home/.codex-personal): You are not logged in"
 
   rm -rf "$tmp"
 }
@@ -343,6 +347,10 @@ test_status_propagates_unexpected_cli_failure() {
   fake_codex="$tmp/codex"
   cat > "$fake_codex" <<'FAKE_CODEX'
 #!/usr/bin/env bash
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'fake-codex 1.0\n'
+  exit 0
+fi
 printf 'database exploded\n' >&2
 exit 7
 FAKE_CODEX
@@ -357,83 +365,7 @@ FAKE_CODEX
   rm -rf "$tmp"
 }
 
-test_app_logs_stay_under_profile_home() {
-  local tmp fake_bin log_file log_dir
-  tmp="$(mktemp -d)"
-  fake_bin="$tmp/bin"
-  mkdir -p "$fake_bin" "$tmp/home"
-  printf '#!/usr/bin/env bash\nexit 1\n' > "$fake_bin/pgrep"
-  chmod 755 "$fake_bin/pgrep"
-
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" CODEX_APP_BIN=/bin/echo "$SCRIPT" app personal "$tmp/workspace"
-
-  log_dir="$tmp/home/.codex-personal/logs"
-  log_file="$log_dir/desktop.log"
-  assert_status 0
-  assert_contains "Log: $log_file"
-  assert_not_contains "/tmp/codex-personal.log"
-
-  for _ in {1..20}; do
-    [[ -f "$log_file" ]] && break
-    sleep 0.1
-  done
-
-  [[ -f "$log_file" ]] || fail "desktop log was not created"
-  [[ "$(mode_of "$log_dir")" == "700" ]] || fail "log directory is not private"
-  [[ "$(mode_of "$log_file")" == "600" ]] || fail "desktop log is not private"
-
-  rm -rf "$tmp"
-}
-
-test_app_forces_quit_when_app_server_is_still_running() {
-  local tmp fake_bin fake_codex state_file
-  tmp="$(mktemp -d)"
-  fake_bin="$tmp/bin"
-  fake_codex="$tmp/codex"
-  mkdir -p "$fake_bin" "$tmp/home"
-  state_file="$tmp/state"
-  printf 'running\n' > "$state_file"
-
-  cat > "$fake_bin/pgrep" <<'FAKE_PGREP'
-#!/usr/bin/env bash
-state_file="${STATE_FILE:?}"
-if [[ "${1:-}" == "-x" && "${2:-}" == "Codex" ]]; then
-  [[ "$(cat "$state_file")" == "running" ]] && exit 0
-  exit 1
-fi
-
-if [[ "${1:-}" == "-f" && "${2:-}" == *"app-server"* ]]; then
-  [[ "$(cat "$state_file")" == "running" ]] && exit 0
-  exit 1
-fi
-
-exit 1
-FAKE_PGREP
-  chmod 755 "$fake_bin/pgrep"
-
-  cat > "$fake_bin/pkill" <<'FAKE_PKILL'
-#!/usr/bin/env bash
-state_file="${STATE_FILE:?}"
-printf 'stopped\n' > "$state_file"
-exit 0
-FAKE_PKILL
-  chmod 755 "$fake_bin/pkill"
-
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$fake_bin/osascript"
-  chmod 755 "$fake_bin/osascript"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$fake_codex"
-  chmod 755 "$fake_codex"
-
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" STATE_FILE="$state_file" CODEX_APP_BIN=/bin/echo CODEX_BUNDLED_CLI="$fake_codex" CODEX_PROFILE_QUIT_ATTEMPTS=1 CODEX_PROFILE_QUIT_SLEEP=0 "$SCRIPT" app personal "$tmp/workspace"
-
-  assert_status 0
-  assert_contains "Codex did not quit cleanly; forcing shutdown..."
-  assert_contains "Launching Codex Desktop with CODEX_HOME=$tmp/home/.codex-personal"
-
-  rm -rf "$tmp"
-}
-
-write_fake_codex_app_bundle() {
+write_fake_chatgpt_app_bundle() {
   local app="$1"
   local message="$2"
 
@@ -444,18 +376,18 @@ write_fake_codex_app_bundle() {
 <plist version="1.0">
 <dict>
   <key>CFBundleDisplayName</key>
-  <string>Codex</string>
+  <string>ChatGPT</string>
   <key>CFBundleExecutable</key>
-  <string>Codex</string>
+  <string>ChatGPT</string>
   <key>CFBundleIdentifier</key>
   <string>com.openai.codex</string>
   <key>CFBundleName</key>
-  <string>Codex</string>
+  <string>ChatGPT</string>
 </dict>
 </plist>
 FAKE_PLIST
 
-  cat > "$app/Contents/MacOS/Codex" <<FAKE_CODEX_APP
+  cat > "$app/Contents/MacOS/ChatGPT" <<FAKE_CHATGPT_APP
 #!/usr/bin/env bash
 if [[ "\${OPEN_LAUNCHED:-}" != "yes" ]]; then
   printf 'not launched through open\n' >&2
@@ -464,95 +396,80 @@ fi
 printf 'MESSAGE=%s\n' "$message"
 printf 'CODEX_HOME=%s\n' "\$CODEX_HOME"
 printf 'ARGS=%s\n' "\$*"
-FAKE_CODEX_APP
-  chmod 755 "$app/Contents/MacOS/Codex"
+FAKE_CHATGPT_APP
+  chmod 755 "$app/Contents/MacOS/ChatGPT"
+
+  cat > "$app/Contents/Resources/codex" <<'FAKE_BUNDLED_CODEX'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'bundled-codex 1.0\n'
+  exit 0
+fi
+if [[ -n "${FAKE_TOOL_LOG:-}" ]]; then
+  printf 'bundled codex called: %s\n' "$*" >> "$FAKE_TOOL_LOG"
+fi
+printf 'BUNDLED_CODEX_HOME=%s\n' "${CODEX_HOME:-}"
+printf 'BUNDLED_ARGS=%s\n' "$*"
+FAKE_BUNDLED_CODEX
+  chmod 755 "$app/Contents/Resources/codex"
 }
 
-write_fake_macos_bundle_tools() {
+write_fake_chatgpt_open_tools() {
   local fake_bin="$1"
+  local tool
 
   mkdir -p "$fake_bin"
+
   cat > "$fake_bin/plutil" <<'FAKE_PLUTIL'
 #!/usr/bin/env bash
-if [[ "${1:-}" == "-extract" ]]; then
-  key="${2:-}"
-  plist="${!#}"
-  awk -v target="$key" '
-    /<key>.*<\/key>/ {
-      current = $0
-      sub(/^.*<key>/, "", current)
-      sub(/<\/key>.*$/, "", current)
-      waiting = current == target
-      next
-    }
-    waiting && /<string>/ {
-      value = $0
-      gsub(/^[[:space:]]*<string>/, "", value)
-      gsub(/<\/string>[[:space:]]*$/, "", value)
-      print value
-      found = 1
-      exit
-    }
-    END {
-      if (!found) {
-        exit 1
-      }
-    }
-  ' "$plist"
-  exit $?
+if [[ "${1:-}" != "-extract" ]]; then
+  printf 'unexpected plutil mutation: %s\n' "$*" >&2
+  exit 99
 fi
-
-if [[ "${1:-}" == "-replace" && "${3:-}" == "-string" ]]; then
-  key="$2"
-  value="$4"
-  plist="$5"
-  printf 'plutil %s\n' "$*" >> "${FAKE_TOOL_LOG:?}"
-  PLUTIL_KEY="$key" PLUTIL_VALUE="$value" perl -0pi -e '
-    BEGIN {
-      $key = $ENV{"PLUTIL_KEY"};
-      $value = $ENV{"PLUTIL_VALUE"};
-      $value =~ s/&/&amp;/g;
-      $value =~ s/</&lt;/g;
-      $value =~ s/>/&gt;/g;
-    }
-    s#(<key>\Q$key\E</key>\s*<string>)[^<]*(</string>)#$1$value$2#s;
-  ' "$plist"
-  exit $?
-fi
-
-printf 'plutil %s\n' "$*" >> "${FAKE_TOOL_LOG:?}"
-exit 0
+key="${2:-}"
+plist="${!#}"
+awk -v target="$key" '
+  /<key>.*<\/key>/ {
+    current = $0
+    sub(/^.*<key>/, "", current)
+    sub(/<\/key>.*$/, "", current)
+    waiting = current == target
+    next
+  }
+  waiting && /<string>/ {
+    value = $0
+    gsub(/^[[:space:]]*<string>/, "", value)
+    gsub(/<\/string>[[:space:]]*$/, "", value)
+    print value
+    found = 1
+    exit
+  }
+  END { if (!found) exit 1 }
+' "$plist"
 FAKE_PLUTIL
   chmod 755 "$fake_bin/plutil"
 
-  cat > "$fake_bin/codesign" <<'FAKE_CODESIGN'
+  for tool in codesign osascript pgrep pkill cp; do
+    cat > "$fake_bin/$tool" <<'FAKE_FORBIDDEN_TOOL'
 #!/usr/bin/env bash
-printf 'codesign %s\n' "$*" >> "${FAKE_TOOL_LOG:?}"
-exit 0
-FAKE_CODESIGN
-  chmod 755 "$fake_bin/codesign"
-
-  cat > "$fake_bin/osascript" <<'FAKE_OSASCRIPT'
-#!/usr/bin/env bash
-printf 'osascript should not be called\n' >&2
+printf 'forbidden tool %s was called: %s\n' "${0##*/}" "$*" >> "${FAKE_TOOL_LOG:?}"
 exit 99
-FAKE_OSASCRIPT
-  chmod 755 "$fake_bin/osascript"
-
-  cat > "$fake_bin/pgrep" <<'FAKE_PGREP'
-#!/usr/bin/env bash
-printf 'pgrep should not be called\n' >&2
-exit 99
-FAKE_PGREP
-  chmod 755 "$fake_bin/pgrep"
+FAKE_FORBIDDEN_TOOL
+    chmod 755 "$fake_bin/$tool"
+  done
 
   cat > "$fake_bin/open" <<'FAKE_OPEN'
 #!/usr/bin/env bash
+if [[ -n "${FAKE_OPEN_EXIT:-}" ]]; then
+  printf 'open failed intentionally\n' >&2
+  exit "$FAKE_OPEN_EXIT"
+fi
 stdout="/dev/null"
 stderr="/dev/null"
 app=""
 env_args=()
 file_args=()
+app_args=()
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -577,6 +494,7 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --args)
       shift
+      app_args=("$@")
       break
       ;;
     *)
@@ -586,318 +504,344 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-printf 'open -a %s files=%s args=%s\n' "$app" "${file_args[*]}" "$*" >> "${FAKE_TOOL_LOG:?}"
+printf 'open -a %s files=%s args=%s\n' "$app" "${file_args[*]}" "${app_args[*]}" >> "${FAKE_TOOL_LOG:?}"
+executable="$(plutil -extract CFBundleExecutable raw -o - "$app/Contents/Info.plist")"
 
 if [[ "$stdout" == "$stderr" ]]; then
-  env OPEN_LAUNCHED=yes "${env_args[@]}" bash "$app/Contents/MacOS/Codex" "$@" > "$stdout" 2>&1
+  env OPEN_LAUNCHED=yes "${env_args[@]}" bash "$app/Contents/MacOS/$executable" "${app_args[@]}" > "$stdout" 2>&1
 else
-  env OPEN_LAUNCHED=yes "${env_args[@]}" bash "$app/Contents/MacOS/Codex" "$@" > "$stdout" 2> "$stderr"
+  env OPEN_LAUNCHED=yes "${env_args[@]}" bash "$app/Contents/MacOS/$executable" "${app_args[@]}" > "$stdout" 2> "$stderr"
 fi
 FAKE_OPEN
   chmod 755 "$fake_bin/open"
 }
 
-test_app_instance_launches_parallel_profile_without_quitting_existing_app() {
-  local tmp fake_app fake_bin tool_log instance_root instance_app log_file user_data_dir
+test_app_named_profile_uses_separate_local_state_for_the_whole_chatgpt_window() {
+  local tmp chatgpt_app ignored_app fake_bin tool_log profile_home user_data_dir log_file
   tmp="$(mktemp -d)"
-  fake_app="$tmp/Codex.app"
+  chatgpt_app="$tmp/Application Support/ChatGPT.app"
+  ignored_app="$tmp/ignored/Codex.app"
   fake_bin="$tmp/bin"
   tool_log="$tmp/tool.log"
-  instance_root="$tmp/instances"
-  instance_app="$instance_root/personal/Codex personal.app"
-  log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
-  user_data_dir="$tmp/home/.codex-personal/electron-user-data"
-  write_fake_codex_app_bundle "$fake_app" "parallel launch"
-  write_fake_macos_bundle_tools "$fake_bin"
+  profile_home="$tmp/home/.codex-personal"
+  user_data_dir="$profile_home/electron-user-data"
+  log_file="$profile_home/logs/desktop.log"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "named ChatGPT launch"
+  write_fake_chatgpt_app_bundle "$ignored_app" "wrong legacy app"
+  write_fake_chatgpt_open_tools "$fake_bin"
 
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance personal "$tmp/workspace"
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CHATGPT_APP="$chatgpt_app" CODEX_APP="$ignored_app" \
+    "$SCRIPT" app personal "$tmp/work space"
 
   assert_status 0
-  assert_contains "Launching experimental Codex Desktop instance for personal"
-  assert_contains "App bundle: $instance_app"
+  assert_contains "Launching ChatGPT for profile personal"
+  assert_contains "Desktop scope: separate Electron state for this named ChatGPT window (separate local state across Chat, Work, and Codex)"
+  assert_not_contains "isolated ChatGPT window"
   assert_contains "Electron user data: $user_data_dir"
   assert_contains "Log: $log_file"
-  [[ -x "$instance_app/Contents/MacOS/Codex" ]] || fail "app-instance did not create executable app clone"
-  [[ -d "$user_data_dir" ]] || fail "app-instance did not create isolated Electron user data directory"
-  [[ "$(mode_of "$tmp/home/.codex-personal")" == "700" ]] || fail "profile home is not private"
-  [[ "$(mode_of "$user_data_dir")" == "700" ]] || fail "Electron user data directory is not private"
-
-  for _ in {1..20}; do
-    [[ -f "$log_file" ]] && grep -q "parallel launch" "$log_file" && break
-    sleep 0.1
-  done
-
-  [[ -f "$log_file" ]] || fail "desktop instance log was not created"
-  assert_not_contains "osascript should not be called"
-  assert_not_contains "pgrep should not be called"
-  grep -q "MESSAGE=parallel launch" "$log_file" || fail "app-instance did not launch cloned Codex app"
-  grep -q "CODEX_HOME=$tmp/home/.codex-personal" "$log_file" || fail "app-instance did not pass profile CODEX_HOME"
-  grep -Fqx "ARGS=--user-data-dir=$user_data_dir" "$log_file" || fail "app-instance passed document workspace as argv"
-  grep -q "CFBundleIdentifier" "$tool_log" || fail "app-instance did not patch bundle identifier"
-  grep -q "CFBundleDisplayName" "$tool_log" || fail "app-instance did not patch display name"
-  ! grep -q "CFBundleName" "$tool_log" || fail "app-instance patched CFBundleName and broke Electron helper lookup"
-  grep -q "codesign --force --deep --sign -" "$tool_log" || fail "app-instance did not re-sign patched bundle"
-  grep -q "open -a $instance_app files=$tmp/workspace args=--user-data-dir=$user_data_dir" "$tool_log" || fail "app-instance did not launch workspace through macOS open -a"
+  [[ -d "$user_data_dir" ]] || fail "named app profile did not create separate Electron user data"
+  [[ "$(mode_of "$profile_home")" == "700" ]] || fail "named app profile home is not private"
+  [[ "$(mode_of "$user_data_dir")" == "700" ]] || fail "named app user data is not private"
+  [[ "$(mode_of "$log_file")" == "600" ]] || fail "named app desktop log is not private"
+  grep -Fqx "MESSAGE=named ChatGPT launch" "$log_file" || fail "named profile did not launch ChatGPT.app"
+  grep -Fqx "CODEX_HOME=$profile_home" "$log_file" || fail "named profile did not pass CODEX_HOME"
+  grep -Fqx "ARGS=--user-data-dir=$user_data_dir" "$log_file" || fail "named profile did not select separate Electron state"
+  grep -Fqx "open -a $chatgpt_app files=$tmp/work space args=--user-data-dir=$user_data_dir" "$tool_log" || fail "named profile used the wrong open invocation"
+  ! grep -q '^forbidden tool ' "$tool_log" || fail "named app launch mutated or stopped another app"
+  ! grep -q '^bundled codex called:' "$tool_log" || fail "Desktop launch delegated back through codex app"
+  [[ ! -e "$tmp/instances" ]] || fail "named app launch created an app clone"
 
   rm -rf "$tmp"
 }
 
-test_app_instance_reuses_compatible_existing_profile_app_clone() {
-  local tmp fake_app fake_bin tool_log instance_root instance_app log_file user_data_dir
+test_app_default_reuses_the_stock_chatgpt_session() {
+  local tmp chatgpt_app fake_bin tool_log profile_home log_file
   tmp="$(mktemp -d)"
-  fake_app="$tmp/Codex.app"
+  chatgpt_app="$tmp/ChatGPT.app"
   fake_bin="$tmp/bin"
   tool_log="$tmp/tool.log"
-  instance_root="$tmp/instances"
-  instance_app="$instance_root/personal/Codex personal.app"
-  log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
-  user_data_dir="$tmp/home/.codex-personal/electron-user-data"
-  write_fake_codex_app_bundle "$fake_app" "initial launch"
-  write_fake_macos_bundle_tools "$fake_bin"
+  profile_home="$tmp/home/.codex"
+  log_file="$profile_home/logs/desktop.log"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "default ChatGPT launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
 
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance personal "$tmp/workspace-a"
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CHATGPT_APP="$chatgpt_app" "$SCRIPT" app default "$tmp/workspace"
 
   assert_status 0
-  [[ -x "$instance_app/Contents/MacOS/Codex" ]] || fail "first app-instance launch did not create executable app clone"
+  assert_contains "Desktop scope: stock ChatGPT session"
+  assert_not_contains "Electron user data:"
+  grep -Fqx "MESSAGE=default ChatGPT launch" "$log_file" || fail "default profile did not launch ChatGPT.app"
+  grep -Fqx "CODEX_HOME=$profile_home" "$log_file" || fail "default profile did not pass CODEX_HOME"
+  grep -Fqx "ARGS=" "$log_file" || fail "default profile unexpectedly changed ChatGPT browser state"
+  grep -Fqx "open -a $chatgpt_app files=$tmp/workspace args=" "$tool_log" || fail "default profile passed a named user-data directory"
+  [[ ! -e "$profile_home/electron-user-data" ]] || fail "default app profile created named Electron user data"
+
+  rm -rf "$tmp"
+}
+
+test_app_legacy_instance_flags_use_the_same_signed_app_launcher() {
+  local tmp chatgpt_app fake_bin tool_log profile_home user_data_dir
+  tmp="$(mktemp -d)"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  profile_home="$tmp/home/.codex-work"
+  user_data_dir="$profile_home/electron-user-data"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "compatibility launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CHATGPT_APP="$chatgpt_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$tmp/instances" \
+    "$SCRIPT" app work --instance --rebuild "$tmp/workspace"
+
+  assert_status 0
+  assert_contains "Compatibility: --instance is no longer needed"
+  assert_contains "Compatibility: --rebuild no longer rebuilds an app clone"
+  grep -Fqx "open -a $chatgpt_app files=$tmp/workspace args=--user-data-dir=$user_data_dir" "$tool_log" || fail "legacy flags did not use signed ChatGPT.app"
+  [[ ! -e "$tmp/instances" ]] || fail "legacy flags still created an app clone"
+  ! grep -q '^forbidden tool ' "$tool_log" || fail "legacy flags mutated or stopped another app"
 
   : > "$tool_log"
-  write_fake_codex_app_bundle "$fake_app" "source changed launch"
-
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance personal "$tmp/workspace-b"
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CHATGPT_APP="$chatgpt_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$tmp/instances" \
+    "$SCRIPT" app-instance work --rebuild "$tmp/workspace-2"
 
   assert_status 0
-  assert_not_contains "Creating app instance for personal"
-  assert_not_contains "Rebuilding app instance for personal"
-
-  for _ in {1..20}; do
-    [[ -f "$log_file" ]] && grep -q "initial launch" "$log_file" && break
-    sleep 0.1
-  done
-
-  grep -q "MESSAGE=initial launch" "$log_file" || fail "compatible existing app instance was not reused"
-  ! grep -q "MESSAGE=source changed launch" "$log_file" || fail "compatible existing app instance was rebuilt from source app"
-  grep -Fqx "ARGS=--user-data-dir=$user_data_dir" "$log_file" || fail "reused app instance did not keep isolated Electron user data"
-  ! grep -q "codesign" "$tool_log" || fail "compatible existing app instance was re-signed"
-  ! grep -q "CFBundleIdentifier" "$tool_log" || fail "compatible existing app instance metadata was patched"
+  assert_contains "Compatibility: app-instance is now an alias for app"
+  grep -Fqx "open -a $chatgpt_app files=$tmp/workspace-2 args=--user-data-dir=$user_data_dir" "$tool_log" || fail "app-instance alias did not use signed ChatGPT.app"
+  [[ ! -e "$tmp/instances" ]] || fail "app-instance alias still created an app clone"
 
   rm -rf "$tmp"
 }
 
-test_app_instance_uses_unique_bundle_identifiers_for_similar_profile_names() {
-  local tmp fake_app fake_bin tool_log instance_root dot_plist underscore_plist
+test_app_rebuild_is_accepted_as_a_compatibility_noop() {
+  local tmp chatgpt_app fake_bin tool_log
   tmp="$(mktemp -d)"
-  fake_app="$tmp/Codex.app"
+  chatgpt_app="$tmp/ChatGPT.app"
   fake_bin="$tmp/bin"
   tool_log="$tmp/tool.log"
-  instance_root="$tmp/instances"
-  dot_plist="$instance_root/client.a/Codex client.a.app/Contents/Info.plist"
-  underscore_plist="$instance_root/client_a/Codex client_a.app/Contents/Info.plist"
-  write_fake_codex_app_bundle "$fake_app" "unique bundle id"
-  write_fake_macos_bundle_tools "$fake_bin"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "rebuild compatibility launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
 
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance client.a "$tmp/workspace-a"
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CHATGPT_APP="$chatgpt_app" "$SCRIPT" app work --rebuild "$tmp/workspace"
 
   assert_status 0
-
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance client_a "$tmp/workspace-b"
-
-  assert_status 0
-  grep -q '<string>com.openai.codex.profile.p636c69656e742e61</string>' "$dot_plist" || fail "dotted profile bundle identifier was not encoded uniquely"
-  grep -q '<string>com.openai.codex.profile.p636c69656e745f61</string>' "$underscore_plist" || fail "underscored profile bundle identifier was not encoded uniquely"
-  ! cmp -s "$dot_plist" "$underscore_plist" || fail "distinct profile app metadata should not be identical"
+  assert_contains "Compatibility: --rebuild no longer rebuilds an app clone"
 
   rm -rf "$tmp"
 }
 
-test_app_instance_rebuild_replaces_existing_profile_app_clone() {
-  local tmp fake_app fake_bin tool_log instance_root instance_app stale_file log_file
+test_cli_falls_back_to_the_bundled_cli_when_path_codex_is_broken() {
+  local tmp chatgpt_app fake_bin broken_codex
   tmp="$(mktemp -d)"
-  fake_app="$tmp/Codex.app"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  broken_codex="$fake_bin/codex"
+  mkdir -p "$fake_bin"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "unused"
+  cat > "$broken_codex" <<'BROKEN_CODEX'
+#!/usr/bin/env bash
+printf 'broken PATH codex\n' >&2
+exit 72
+BROKEN_CODEX
+  chmod 755 "$broken_codex"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" CHATGPT_APP="$chatgpt_app" \
+    "$SCRIPT" cli work exec "run tests"
+
+  assert_status 0
+  assert_contains "BUNDLED_CODEX_HOME=$tmp/home/.codex-work"
+  assert_contains "BUNDLED_ARGS=exec run tests"
+  assert_not_contains "broken PATH codex"
+
+  rm -rf "$tmp"
+}
+
+test_healthy_path_cli_keeps_priority_over_the_bundled_cli() {
+  local tmp chatgpt_app fake_bin path_codex
+  tmp="$(mktemp -d)"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  path_codex="$fake_bin/codex"
+  mkdir -p "$fake_bin"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "unused"
+  cat > "$path_codex" <<'PATH_CODEX'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'path-codex 1.0\n'
+  exit 0
+fi
+printf 'PATH_CODEX_HOME=%s\n' "${CODEX_HOME:-}"
+printf 'PATH_ARGS=%s\n' "$*"
+PATH_CODEX
+  chmod 755 "$path_codex"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" CHATGPT_APP="$chatgpt_app" \
+    "$SCRIPT" cli work exec "run tests"
+
+  assert_status 0
+  assert_contains "PATH_CODEX_HOME=$tmp/home/.codex-work"
+  assert_contains "PATH_ARGS=exec run tests"
+  assert_not_contains "BUNDLED_CODEX_HOME"
+
+  rm -rf "$tmp"
+}
+
+test_legacy_codex_app_bin_locates_its_signed_app_bundle() {
+  local tmp chatgpt_app fake_bin tool_log executable
+  tmp="$(mktemp -d)"
+  chatgpt_app="$tmp/Legacy Location/ChatGPT.app"
   fake_bin="$tmp/bin"
   tool_log="$tmp/tool.log"
-  instance_root="$tmp/instances"
-  instance_app="$instance_root/work/Codex work.app"
-  stale_file="$instance_app/stale"
-  log_file="$tmp/home/.codex-work/logs/desktop-instance.log"
-  write_fake_codex_app_bundle "$fake_app" "rebuilt launch"
-  write_fake_macos_bundle_tools "$fake_bin"
-  mkdir -p "$instance_app"
-  printf 'stale\n' > "$stale_file"
+  executable="$chatgpt_app/Contents/MacOS/ChatGPT"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "legacy executable override"
+  write_fake_chatgpt_open_tools "$fake_bin"
 
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance work --rebuild "$tmp/workspace"
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CODEX_APP_BIN="$executable" "$SCRIPT" app default "$tmp/workspace"
 
   assert_status 0
-  assert_contains "Rebuilding app instance for work"
-  [[ ! -e "$stale_file" ]] || fail "app-instance --rebuild did not remove stale app clone"
-  [[ -x "$instance_app/Contents/MacOS/Codex" ]] || fail "app-instance --rebuild did not recreate app clone"
-
-  for _ in {1..20}; do
-    [[ -f "$log_file" ]] && grep -q "rebuilt launch" "$log_file" && break
-    sleep 0.1
-  done
-
-  grep -q "MESSAGE=rebuilt launch" "$log_file" || fail "rebuilt app instance did not launch"
+  assert_contains "App bundle: $chatgpt_app"
+  grep -Fqx "open -a $chatgpt_app files=$tmp/workspace args=" "$tool_log" || fail "CODEX_APP_BIN did not resolve its containing app bundle"
 
   rm -rf "$tmp"
 }
 
-test_app_instance_rebuilds_clone_with_missing_bundle_metadata() {
-  local tmp fake_app fake_bin tool_log instance_root instance_app log_file
+test_legacy_codex_app_bin_rejects_a_different_executable_in_the_bundle() {
+  local tmp chatgpt_app fake_bin tool_log wrong_executable
   tmp="$(mktemp -d)"
-  fake_app="$tmp/Codex.app"
+  chatgpt_app="$tmp/ChatGPT.app"
   fake_bin="$tmp/bin"
   tool_log="$tmp/tool.log"
-  instance_root="$tmp/instances"
-  instance_app="$instance_root/personal/Codex personal.app"
-  log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
-  write_fake_codex_app_bundle "$fake_app" "fresh launch"
-  write_fake_macos_bundle_tools "$fake_bin"
-  write_fake_codex_app_bundle "$instance_app" "stale launch"
-  rm -f "$instance_app/Contents/Info.plist"
+  wrong_executable="$chatgpt_app/Contents/MacOS/wrong-name"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "must not launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
+  printf '#!/bin/sh\nexit 0\n' > "$wrong_executable"
+  chmod 755 "$wrong_executable"
 
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance personal "$tmp/workspace"
-
-  assert_status 0
-  assert_contains "Rebuilding app instance for personal because existing clone is incompatible"
-
-  for _ in {1..20}; do
-    [[ -f "$log_file" ]] && grep -q "fresh launch" "$log_file" && break
-    sleep 0.1
-  done
-
-  [[ -f "$instance_app/Contents/Info.plist" ]] || fail "rebuilt app instance is missing Info.plist"
-  grep -q "MESSAGE=fresh launch" "$log_file" || fail "app instance with missing metadata was not rebuilt before launch"
-  ! grep -q "MESSAGE=stale launch" "$log_file" || fail "app instance with missing metadata launched without rebuild"
-
-  rm -rf "$tmp"
-}
-
-test_app_instance_rebuilds_clone_with_stale_bundle_identifier() {
-  local tmp fake_app fake_bin tool_log instance_root instance_app log_file plist
-  tmp="$(mktemp -d)"
-  fake_app="$tmp/Codex.app"
-  fake_bin="$tmp/bin"
-  tool_log="$tmp/tool.log"
-  instance_root="$tmp/instances"
-  instance_app="$instance_root/client.a/Codex client.a.app"
-  log_file="$tmp/home/.codex-client.a/logs/desktop-instance.log"
-  plist="$instance_app/Contents/Info.plist"
-  write_fake_codex_app_bundle "$fake_app" "fresh launch"
-  write_fake_macos_bundle_tools "$fake_bin"
-  write_fake_codex_app_bundle "$instance_app" "stale launch"
-  perl -0pi -e 's#(<key>CFBundleIdentifier</key>\s*<string>)com\.openai\.codex(</string>)#$1com.openai.codex.profile.client-a$2#' "$plist"
-
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance client.a "$tmp/workspace"
-
-  assert_status 0
-  assert_contains "Rebuilding app instance for client.a because existing clone is incompatible"
-
-  for _ in {1..20}; do
-    [[ -f "$log_file" ]] && grep -q "fresh launch" "$log_file" && break
-    sleep 0.1
-  done
-
-  grep -q '<string>com.openai.codex.profile.p636c69656e742e61</string>' "$plist" || fail "stale bundle identifier was not rebuilt to encoded identifier"
-  grep -q "MESSAGE=fresh launch" "$log_file" || fail "app instance with stale bundle identifier was not rebuilt before launch"
-  ! grep -q "MESSAGE=stale launch" "$log_file" || fail "app instance with stale bundle identifier launched without rebuild"
-
-  rm -rf "$tmp"
-}
-
-test_app_instance_rebuilds_clone_with_incompatible_bundle_name() {
-  local tmp fake_app fake_bin tool_log instance_root instance_app log_file
-  tmp="$(mktemp -d)"
-  fake_app="$tmp/Codex.app"
-  fake_bin="$tmp/bin"
-  tool_log="$tmp/tool.log"
-  instance_root="$tmp/instances"
-  instance_app="$instance_root/personal/Codex personal.app"
-  log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
-  write_fake_codex_app_bundle "$fake_app" "fresh launch"
-  write_fake_macos_bundle_tools "$fake_bin"
-  write_fake_codex_app_bundle "$instance_app" "stale launch"
-  perl -0pi -e 's#(<key>CFBundleName</key>\s*<string>)Codex(</string>)#$1Codex personal$2#' "$instance_app/Contents/Info.plist"
-
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance personal "$tmp/workspace"
-
-  assert_status 0
-  assert_contains "Rebuilding app instance for personal because existing clone is incompatible"
-
-  for _ in {1..20}; do
-    [[ -f "$log_file" ]] && grep -q "fresh launch" "$log_file" && break
-    sleep 0.1
-  done
-
-  grep -q "MESSAGE=fresh launch" "$log_file" || fail "incompatible app instance was not rebuilt before launch"
-  ! grep -q "MESSAGE=stale launch" "$log_file" || fail "incompatible app instance launched without rebuild"
-
-  rm -rf "$tmp"
-}
-
-test_app_instance_flag_launches_parallel_profile() {
-  local tmp fake_app fake_bin tool_log instance_root instance_app log_file user_data_dir
-  tmp="$(mktemp -d)"
-  fake_app="$tmp/Codex.app"
-  fake_bin="$tmp/bin"
-  tool_log="$tmp/tool.log"
-  instance_root="$tmp/instances"
-  instance_app="$instance_root/personal/Codex personal.app"
-  log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
-  user_data_dir="$tmp/home/.codex-personal/electron-user-data"
-  write_fake_codex_app_bundle "$fake_app" "flag launch"
-  write_fake_macos_bundle_tools "$fake_bin"
-
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app personal --instance "$tmp/workspace"
-
-  assert_status 0
-  assert_contains "Launching experimental Codex Desktop instance for personal"
-  assert_contains "App bundle: $instance_app"
-  [[ -x "$instance_app/Contents/MacOS/Codex" ]] || fail "app --instance did not create executable app clone"
-  [[ -d "$user_data_dir" ]] || fail "app --instance did not create isolated Electron user data directory"
-
-  for _ in {1..20}; do
-    [[ -f "$log_file" ]] && grep -q "flag launch" "$log_file" && break
-    sleep 0.1
-  done
-
-  [[ -f "$log_file" ]] || fail "desktop instance log was not created"
-  assert_not_contains "osascript should not be called"
-  assert_not_contains "pgrep should not be called"
-  grep -q "MESSAGE=flag launch" "$log_file" || fail "app --instance did not launch cloned Codex app"
-  grep -q "CODEX_HOME=$tmp/home/.codex-personal" "$log_file" || fail "app --instance did not pass profile CODEX_HOME"
-  grep -Fqx "ARGS=--user-data-dir=$user_data_dir" "$log_file" || fail "app --instance passed document workspace as argv"
-
-  rm -rf "$tmp"
-}
-
-test_app_instance_alias_still_launches_parallel_profile() {
-  local tmp fake_app fake_bin tool_log instance_root instance_app
-  tmp="$(mktemp -d)"
-  fake_app="$tmp/Codex.app"
-  fake_bin="$tmp/bin"
-  tool_log="$tmp/tool.log"
-  instance_root="$tmp/instances"
-  instance_app="$instance_root/personal/Codex personal.app"
-  write_fake_codex_app_bundle "$fake_app" "alias launch"
-  write_fake_macos_bundle_tools "$fake_bin"
-
-  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CODEX_APP="$fake_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$instance_root" "$SCRIPT" app-instance personal "$tmp/workspace"
-
-  assert_status 0
-  assert_contains "Launching experimental Codex Desktop instance for personal"
-  [[ -x "$instance_app/Contents/MacOS/Codex" ]] || fail "app-instance alias did not create executable app clone"
-
-  rm -rf "$tmp"
-}
-
-test_app_rebuild_flag_requires_instance() {
-  local tmp
-  tmp="$(mktemp -d)"
-
-  run_cmd env HOME="$tmp/home" "$SCRIPT" app work --rebuild
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CODEX_APP_BIN="$wrong_executable" "$SCRIPT" app default "$tmp/workspace"
 
   assert_status 1
-  assert_contains "app --rebuild only applies together with --instance"
+  assert_contains "CODEX_APP_BIN must be an executable inside a usable .app bundle"
+  [[ ! -e "$tool_log" ]] || ! grep -q '^open ' "$tool_log" \
+    || fail "mismatched CODEX_APP_BIN launched the bundle's declared executable"
+
+  rm -rf "$tmp"
+}
+
+test_invalid_chatgpt_app_override_does_not_fall_back_silently() {
+  local tmp fallback_app fake_bin tool_log
+  tmp="$(mktemp -d)"
+  fallback_app="$tmp/Codex.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  write_fake_chatgpt_app_bundle "$fallback_app" "must not launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CHATGPT_APP="$tmp/missing/ChatGPT.app" CODEX_APP="$fallback_app" \
+    "$SCRIPT" app default
+
+  assert_status 1
+  assert_contains "CHATGPT_APP is not a usable desktop app bundle"
+  [[ ! -e "$tool_log" ]] || ! grep -q '^open ' "$tool_log" || fail "invalid CHATGPT_APP silently fell back to CODEX_APP"
+
+  rm -rf "$tmp"
+}
+
+test_explicit_codex_cli_must_be_healthy() {
+  local tmp broken_codex
+  tmp="$(mktemp -d)"
+  broken_codex="$tmp/codex"
+  cat > "$broken_codex" <<'BROKEN_CODEX'
+#!/usr/bin/env bash
+exit 72
+BROKEN_CODEX
+  chmod 755 "$broken_codex"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$broken_codex" "$SCRIPT" cli work
+
+  assert_status 1
+  assert_contains "CODEX_CLI is set but unhealthy"
+
+  rm -rf "$tmp"
+}
+
+test_app_refuses_access_token_override() {
+  local tmp chatgpt_app fake_bin tool_log
+  tmp="$(mktemp -d)"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "should not launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CHATGPT_APP="$chatgpt_app" CODEX_ACCESS_TOKEN=secret "$SCRIPT" app work
+
+  assert_status 1
+  assert_contains "Refusing Desktop launch while CODEX_ACCESS_TOKEN is set"
+  [[ ! -e "$tool_log" ]] || ! grep -q '^open ' "$tool_log" || fail "Desktop launched with an auth environment override"
+
+  rm -rf "$tmp"
+}
+
+test_profile_home_symlinks_are_refused() {
+  local tmp target
+  tmp="$(mktemp -d)"
+  target="$tmp/elsewhere"
+  mkdir -p "$tmp/home" "$target"
+  ln -s "$target" "$tmp/home/.codex-work"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" init work
+
+  assert_status 1
+  assert_contains "Refusing symlinked managed directory: $tmp/home/.codex-work"
+
+  rm -rf "$tmp"
+}
+
+test_named_app_user_data_symlinks_are_refused() {
+  local tmp chatgpt_app fake_bin tool_log outside profile_home
+  tmp="$(mktemp -d)"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  outside="$tmp/outside"
+  profile_home="$tmp/home/.codex-work"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "should not launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
+  mkdir -p "$profile_home" "$outside"
+  ln -s "$outside" "$profile_home/electron-user-data"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CHATGPT_APP="$chatgpt_app" "$SCRIPT" app work
+
+  assert_status 1
+  assert_contains "Refusing symlinked managed directory: $profile_home/electron-user-data"
+  [[ ! -e "$tool_log" ]] || ! grep -q '^open ' "$tool_log" || fail "Desktop launched through a symlinked user-data directory"
+
+  rm -rf "$tmp"
+}
+
+test_app_propagates_open_failures() {
+  local tmp chatgpt_app fake_bin tool_log
+  tmp="$(mktemp -d)"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "should not launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    FAKE_OPEN_EXIT=70 CHATGPT_APP="$chatgpt_app" "$SCRIPT" app work
+
+  assert_status 1
+  assert_contains "Cannot launch ChatGPT app"
 
   rm -rf "$tmp"
 }
@@ -1003,11 +947,13 @@ test_logs_prints_path_and_contents() {
 }
 
 test_logs_prints_instance_path_and_contents() {
-  local tmp log_file
+  local tmp log_file legacy_log_file
   tmp="$(mktemp -d)"
-  log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
+  log_file="$tmp/home/.codex-personal/logs/desktop.log"
+  legacy_log_file="$tmp/home/.codex-personal/logs/desktop-instance.log"
   mkdir -p "${log_file%/*}"
-  printf 'instance first\ninstance second\n' > "$log_file"
+  printf 'canonical first\ncanonical second\n' > "$log_file"
+  printf 'legacy first\nlegacy second\n' > "$legacy_log_file"
 
   run_cmd env HOME="$tmp/home" "$SCRIPT" logs personal --instance --path
 
@@ -1017,7 +963,13 @@ test_logs_prints_instance_path_and_contents() {
   run_cmd env HOME="$tmp/home" "$SCRIPT" logs personal --instance --tail 1
 
   assert_status 0
-  assert_equals "instance second"
+  assert_equals "canonical second"
+
+  rm -f "$log_file"
+  run_cmd env HOME="$tmp/home" "$SCRIPT" logs personal --instance --path
+
+  assert_status 0
+  assert_equals "$legacy_log_file"
 
   rm -rf "$tmp"
 }
@@ -1064,7 +1016,11 @@ test_status_json_treats_not_logged_in_as_normal_status() {
   fake_codex="$tmp/codex"
   cat > "$fake_codex" <<'FAKE_CODEX'
 #!/usr/bin/env bash
-printf 'Not logged in\n'
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'fake-codex 1.0\n'
+  exit 0
+fi
+printf 'No login credentials found for this profile.\n'
 exit 1
 FAKE_CODEX
   chmod 755 "$fake_codex"
@@ -1123,7 +1079,8 @@ test_completions_generate_shell_scripts() {
   run_cmd "$SCRIPT" completions bash
 
   assert_status 0
-  assert_contains "complete -F _codex_profile codex-profile"
+  assert_contains "complete -F _codex_profile codex-profile codex-profiles"
+  assert_contains 'compgen -W "app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help"'
   assert_contains "clone-config"
   assert_contains "upgrade"
   assert_contains "--instance"
@@ -1135,7 +1092,8 @@ test_completions_generate_shell_scripts() {
   run_cmd "$SCRIPT" completions zsh
 
   assert_status 0
-  assert_contains "#compdef codex-profile"
+  assert_contains "#compdef codex-profile codex-profiles"
+  assert_contains "app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help"
   assert_contains "logs"
   assert_contains "upgrade"
   assert_contains "--instance"
@@ -1145,12 +1103,17 @@ test_completions_generate_shell_scripts() {
   run_cmd "$SCRIPT" completions fish
 
   assert_status 0
-  assert_contains "complete -c codex-profile"
+  assert_contains "for codex_profile_command in codex-profile codex-profiles"
+  assert_contains "complete -c \$codex_profile_command"
+  assert_contains "-a 'app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help'"
   assert_contains "remove"
   assert_contains "upgrade"
-  assert_contains "--instance"
+  assert_contains "-l instance"
+  assert_contains "-l rebuild"
   assert_contains "app-instance"
   assert_contains "shell-init"
+  assert_not_contains "Codex Desktop clone"
+  assert_not_contains "Rebuild the app --instance clone"
 }
 
 test_upgrade_dry_run_reports_plan_without_mutating_files() {
@@ -1339,19 +1302,61 @@ FAKE_PROFILE
 }
 
 test_doctor_reports_desktop_and_cli_when_present() {
-  local tmp fake_codex
+  local tmp fake_codex chatgpt_app fake_bin tool_log executable
   tmp="$(mktemp -d)"
   fake_codex="$tmp/codex"
-  write_fake_codex "$fake_codex"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  executable="$chatgpt_app/Contents/MacOS/ChatGPT"
+  cat > "$fake_codex" <<'FAKE_CODEX'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'version warning from wrapper\n' >&2
+  printf 'fake-codex 1.0\n'
+  exit 0
+fi
+printf 'login status\n'
+FAKE_CODEX
+  chmod 755 "$fake_codex"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "doctor"
+  write_fake_chatgpt_open_tools "$fake_bin"
   mkdir -p "$tmp/home/.codex-personal"
 
-  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" CODEX_APP_BIN=/bin/echo "$SCRIPT" doctor
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CODEX_CLI="$fake_codex" CHATGPT_APP="$chatgpt_app" "$SCRIPT" doctor
 
   assert_status 0
-  assert_contains "Desktop: /bin/echo"
-  assert_contains "CLI: $fake_codex"
+  assert_contains "Desktop product: ChatGPT"
+  assert_contains "Desktop app: $chatgpt_app"
+  assert_contains "Desktop executable: $executable"
+  assert_contains "Desktop bundle ID: com.openai.codex"
+  assert_contains "Desktop scope: default uses the stock ChatGPT session; named ChatGPT windows use separate local state"
+  assert_not_contains "isolated ChatGPT window"
+  assert_contains "Boundary: local-state separation is not an account, OS, or server-side boundary"
+  assert_contains "CLI: $fake_codex (source: CODEX_CLI)"
+  assert_contains "CLI scope: Codex commands only; Desktop and CLI accounts must be verified separately"
   assert_contains "fake-codex 1.0"
   assert_contains "login status"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CODEX_CLI="$fake_codex" CHATGPT_APP="$chatgpt_app" "$SCRIPT" doctor --json
+
+  assert_status 0
+  assert_contains '"desktop":{"found":true'
+  assert_contains '"path":"'"$executable"'"'
+  assert_contains '"app_path":"'"$chatgpt_app"'"'
+  assert_contains '"product":"ChatGPT"'
+  assert_contains '"bundle_id":"com.openai.codex"'
+  assert_contains '"scope":"default:stock_chatgpt_session;named:separate_local_state"'
+  assert_contains '"account_identity":"unverified"'
+  assert_contains '"cli":{"found":true'
+  assert_contains '"source":"CODEX_CLI"'
+  assert_contains '"healthy":true'
+  assert_contains '"scope":"codex_only"'
+  assert_contains '"account_identity":"unverified_against_desktop"'
+  assert_contains '"version":"fake-codex 1.0"'
+  assert_not_contains "version warning from wrapper"
 
   rm -rf "$tmp"
 }
@@ -1416,6 +1421,35 @@ test_update_check_respects_disable_env() {
 
   assert_status 0
   assert_not_contains "available"
+
+  rm -rf "$tmp"
+}
+
+test_json_commands_never_emit_update_notices() {
+  local tmp cache fake_codex now
+  tmp="$(mktemp -d)"
+  cache="$tmp/update-check"
+  fake_codex="$tmp/codex"
+  now="$(date +%s)"
+  printf '%s 9.9.9\n' "$now" > "$cache"
+  write_fake_codex "$fake_codex"
+  mkdir -p "$tmp/home/.codex-personal"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" \
+    CODEX_PROFILE_FORCE_UPDATE_CHECK=1 CODEX_PROFILE_UPDATE_CACHE="$cache" \
+    "$SCRIPT" status --json personal
+
+  assert_status 0
+  assert_not_contains "available"
+  [[ "$output" == \{*\} ]] || fail "status --json was polluted by non-JSON output"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" \
+    CODEX_PROFILE_FORCE_UPDATE_CHECK=1 CODEX_PROFILE_UPDATE_CACHE="$cache" \
+    "$SCRIPT" doctor --json
+
+  assert_status 0
+  assert_not_contains "available"
+  [[ "$output" == \{*\} ]] || fail "doctor --json was polluted by non-JSON output"
 
   rm -rf "$tmp"
 }
@@ -1724,18 +1758,20 @@ test_status_all_reports_missing_default_without_creating_it
 test_status_reports_arbitrary_discovered_profiles_and_skips_invalid_dirs
 test_status_treats_not_logged_in_as_normal_status
 test_status_propagates_unexpected_cli_failure
-test_app_logs_stay_under_profile_home
-test_app_forces_quit_when_app_server_is_still_running
-test_app_instance_launches_parallel_profile_without_quitting_existing_app
-test_app_instance_reuses_compatible_existing_profile_app_clone
-test_app_instance_uses_unique_bundle_identifiers_for_similar_profile_names
-test_app_instance_rebuild_replaces_existing_profile_app_clone
-test_app_instance_rebuilds_clone_with_missing_bundle_metadata
-test_app_instance_rebuilds_clone_with_stale_bundle_identifier
-test_app_instance_rebuilds_clone_with_incompatible_bundle_name
-test_app_instance_flag_launches_parallel_profile
-test_app_instance_alias_still_launches_parallel_profile
-test_app_rebuild_flag_requires_instance
+test_app_named_profile_uses_separate_local_state_for_the_whole_chatgpt_window
+test_app_default_reuses_the_stock_chatgpt_session
+test_app_legacy_instance_flags_use_the_same_signed_app_launcher
+test_app_rebuild_is_accepted_as_a_compatibility_noop
+test_cli_falls_back_to_the_bundled_cli_when_path_codex_is_broken
+test_healthy_path_cli_keeps_priority_over_the_bundled_cli
+test_legacy_codex_app_bin_locates_its_signed_app_bundle
+test_legacy_codex_app_bin_rejects_a_different_executable_in_the_bundle
+test_invalid_chatgpt_app_override_does_not_fall_back_silently
+test_explicit_codex_cli_must_be_healthy
+test_app_refuses_access_token_override
+test_profile_home_symlinks_are_refused
+test_named_app_user_data_symlinks_are_refused
+test_app_propagates_open_failures
 test_doctor_skips_status_when_cli_missing
 test_doctor_reports_desktop_and_cli_when_present
 test_init_creates_private_profile_home_without_codex
@@ -1772,5 +1808,6 @@ test_clone_config_refuses_to_overwrite_without_force
 test_update_check_notifies_when_newer_version_is_cached
 test_update_check_is_silent_when_up_to_date
 test_update_check_respects_disable_env
+test_json_commands_never_emit_update_notices
 test_update_check_is_silent_without_a_terminal
 test_update_check_refreshes_cache_from_source

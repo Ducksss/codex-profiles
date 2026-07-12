@@ -1,63 +1,61 @@
 # GEO Audit for codex-profiles
 
-This audit maps the public documentation layer to the GEO checklist supplied
-for the project. The implementation target is a GitHub Pages site served from
-`docs/`.
+This audit maps the public documentation layer to the project's generative
+engine optimization checklist. The implementation target is the static GitHub
+Pages site in `docs/`.
 
 ## Technical AI Readiness
 
 | Check | Status | Implementation |
 | --- | --- | --- |
-| AI bots allowed in robots.txt | Implemented | `docs/robots.txt` uses `User-agent: *` and `Allow: /`. |
-| Priority URLs return 200 | Implemented after Pages deployment | `docs/index.html`, `docs/llms.txt`, and `docs/sitemap.xml` are static files. |
-| Pages are indexable | Implemented | `docs/index.html` uses `index,follow` and does not contain `noindex`. |
-| Canonicals are correct | Implemented | `docs/index.html` canonicalizes to `https://ducksss.github.io/codex-profiles/`. |
-| Snippet settings allow extraction | Implemented | Robots meta uses unrestricted snippet, image, and video preview directives. |
-| XML sitemap is clean | Implemented | `docs/sitemap.xml` lists the canonical page and LLM summary file. |
+| AI bots allowed | Implemented | `robots.txt` uses `User-agent: *` and `Allow: /`. |
+| Priority URLs return static content | Implemented after deployment | The homepage, `llms.txt`, and sitemap require no client rendering. |
+| Pages are indexable | Implemented | The homepage uses `index,follow` and unrestricted snippet directives. |
+| Canonical URL is stable | Implemented | The site keeps `https://ducksss.github.io/codex-profiles/`; the v0.7 migration does not rebrand or move it. |
+| Sitemap is current | Implemented | The sitemap lists the canonical homepage and LLM summary with 2026-07-12 modification dates. |
+| Stale authenticated media avoided | Implemented | Primary docs no longer embed the pre-integration Codex app screenshot or video. |
 
 ## Structured Data and Machine Understanding
 
 | Check | Status | Implementation |
 | --- | --- | --- |
-| Organization schema present | Implemented | JSON-LD includes the project publisher and official sameAs links. |
-| Product schema added where relevant | Implemented | JSON-LD includes SoftwareApplication with repository, install, license, version, platform, features, and free offer data. |
-| FAQ schema only when visible | Implemented | Every FAQPage question and answer is visible on `docs/index.html`. |
-| Schema matches visible content | Implemented | The GEO test validates FAQ question and answer text against visible HTML. |
-| Article schema correct on content pages | Not applicable | The current Pages site is a product page, not a blog or article section. |
-| Local schema added where relevant | Not applicable | codex-profiles is a software project with no public local business location. |
-| Schema validation is logged | Implemented | `node test/geo-site-test.mjs` validates JSON-LD parseability and required fields. |
+| Organization schema present | Implemented | JSON-LD includes the publisher and official GitHub/npm links. |
+| Software schema present | Implemented | SoftwareApplication includes repository, install, license, v0.7.0, platforms, and current features. |
+| FAQ schema only for visible content | Implemented | Every FAQPage question and exact answer is present in visible HTML. |
+| Two product scopes represented | Implemented | Schema and visible content distinguish Codex-only commands from whole-window ChatGPT Desktop launches. |
+| Profile mappings correct | Implemented | Default, personal, work, and edu map to `~/.codex`, `~/.codex-personal`, `~/.codex-work`, and `~/.codex-edu`. |
+| Automated validation | Implemented | `node test/geo-site-test.mjs` parses JSON-LD and checks schema/visible-FAQ alignment. |
 
 ## Content Structure and Citation Readiness
 
 | Check | Status | Implementation |
 | --- | --- | --- |
-| Question-based headings | Implemented | FAQ uses direct question headings. |
-| Direct answer in first 1-3 sentences | Implemented | The first content section defines the product and isolation boundary immediately. |
-| Bullets, tables, and commands | Implemented | The page includes feature cards, install commands, and a citation-ready facts table. |
-| Short paragraphs | Implemented | Sections use concise, extractable paragraphs. |
-| Facts and stats current | Implemented | Version, license, package name, platforms, and URLs match repository metadata as of 2026-06-03. |
-| Clear About content | Implemented | Trust and methodology section states what the tool is, who maintains it, and what it does not claim. |
+| Direct answer near the top | Implemented | The opening section states both the Codex-home and ChatGPT-window capabilities. |
+| Question-based headings | Implemented | FAQ headings answer scope, default-session, identity, install, and platform questions. |
+| Commands and tables | Implemented | The page contains install commands, a scope table, mappings, and citation-ready facts. |
+| Primary contract is explicit | Implemented | Named Desktop profiles apply across Chat, Work, and Codex; CLI/login/env/use stay Codex-only. |
+| Non-claims are explicit | Implemented | The page says account equality is unverified and local paths do not control server-side ChatGPT data. |
+| Facts current | Implemented | Version, package name, URLs, platforms, behavior, and dates reflect the v0.7.0 contract as of 2026-07-12. |
 
 ## Entity, Trust, and Brand Authority
 
 | Check | Status | Implementation |
 | --- | --- | --- |
-| Consistent project name | Implemented | Page, schema, package metadata, and llms.txt use codex-profiles and codex-profile consistently. |
-| Consistent contact paths | Implemented | Official repository, issues, discussion, npm, license, and security links are present. |
-| sameAs links to official profiles | Implemented | Organization schema points to GitHub and npm. |
-| Real policies where advice is given | Implemented | Security boundaries link to the repository security policy and README security model. |
-| Compare proof vs project pages | Implemented | The public page exposes concrete commands, platform limits, and non-claims rather than broad marketing language. |
+| Project name stable | Implemented | Public surfaces retain `codex-profiles`, package `codex-profile`, and both installed commands. |
+| OpenAI affiliation accurate | Implemented | The project is identified as community-maintained and unaffiliated with OpenAI. |
+| Security boundary accurate | Implemented | Documentation distinguishes selected local state from shared OS state and server-side account controls. |
+| Signed app behavior accurate | Implemented | The page states that the original app is launched without cloning, patching, re-signing, quitting, or replacing it. |
+| Contact and policy paths present | Implemented | Repository, issue tracker, discussion, npm, license, and security policy remain linked. |
 
 ## Measurement, Testing, and Outcomes
 
 | Check | Status | Implementation |
 | --- | --- | --- |
-| Define target prompt set | Implemented | `docs/geo-measurement.md` contains reusable prompts. |
-| Retest prompts after changes | Implemented | Measurement plan requires baseline and post-change runs. |
-| Track citation count and position | Implemented | Measurement plan includes citation and position columns. |
-| Track cited pages over time | Implemented | Measurement plan records exact cited URLs per prompt. |
-| Capture before/after screenshots | Implemented | Measurement plan includes screenshot evidence paths. |
-| Report KPIs | Implemented | Measurement plan defines visibility, citation, accuracy, and lead/conversion KPIs. |
+| Target prompt set defined | Implemented | `geo-measurement.md` tests the merged ChatGPT/Codex scope explicitly. |
+| Prompt accuracy tracked | Implemented | The log records citations, position, competitors, and incorrect scope claims. |
+| Before/after evidence captured | Implemented | The plan uses dated private evidence paths without publishing account data. |
+| Release retest required | Implemented | The plan requires retesting after product, metadata, or package changes. |
+| Brand and boundary KPIs defined | Implemented | KPIs cover package/command accuracy, two-scope accuracy, and non-affiliation. |
 
 ## Validation Commands
 

@@ -1,18 +1,23 @@
 # Maintainer: Ducksss <https://github.com/Ducksss>
 pkgname=codex-profile
-pkgver=0.6.0
+pkgver=0.7.0
 pkgrel=1
-pkgdesc="Switch Codex CLI and Desktop accounts with isolated CODEX_HOME profiles"
+pkgdesc="Named Codex CLI profiles with separate local ChatGPT desktop state"
 arch=('any')
 url="https://github.com/Ducksss/codex-profiles"
 license=('MIT')
 depends=('bash')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/Ducksss/codex-profiles/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('2d949af33d6b24499b25abf19d25c1fa6d758e35c3e0a649c7872bade90d083b')
+source=(
+  "codex-profile-$pkgver::https://raw.githubusercontent.com/Ducksss/codex-profiles/v$pkgver/bin/codex-profile"
+  "LICENSE-$pkgver::https://raw.githubusercontent.com/Ducksss/codex-profiles/v$pkgver/LICENSE"
+)
+sha256sums=(
+  'd85f8a3cb479578d7d8cb436daec6c57f36b7a9a139558ed756501896ea58b2b'
+  '9ff3b3e5b6a234802d746443539abda82c35d1581a98249b40636dd5acff4364'
+)
 
 package() {
-  cd "codex-profiles-$pkgver"
-  install -Dm755 "bin/codex-profile" "$pkgdir/usr/bin/codex-profile"
+  install -Dm755 "codex-profile-$pkgver" "$pkgdir/usr/bin/codex-profile"
   ln -s codex-profile "$pkgdir/usr/bin/codex-profiles"
-  install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "LICENSE-$pkgver" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

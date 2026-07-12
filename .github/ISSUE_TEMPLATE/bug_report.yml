@@ -7,14 +7,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a bug. Do not paste `auth.json`, tokens, OAuth codes, connector credentials, or private logs.
+        Thanks for reporting a bug. Do not paste `auth.json`, tokens, cookies, OAuth codes, connector credentials, account identifiers, or private logs.
 
   - type: textarea
     id: summary
     attributes:
       label: Summary
       description: What happened?
-      placeholder: codex-profile app personal launched the wrong profile...
+      placeholder: codex-profile app personal reused the stock ChatGPT session...
     validations:
       required: true
 
@@ -59,6 +59,26 @@ body:
       label: Shell
       placeholder: bash 5.2, zsh 5.9, etc.
 
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Affected scope
+      description: Which surface shows the problem?
+      options:
+        - Codex CLI / CODEX_HOME
+        - "`app default`"
+        - "Named Desktop profile (`app <name>`)"
+        - Both or unsure
+    validations:
+      required: true
+
+  - type: input
+    id: desktop
+    attributes:
+      label: Desktop app version
+      description: For app-launch issues, provide the Desktop app version; do not include account details.
+      placeholder: ChatGPT 26.x (bundle ID if shown by doctor)
+
   - type: textarea
     id: doctor
     attributes:
@@ -71,5 +91,7 @@ body:
     attributes:
       label: Safety checks
       options:
-        - label: I did not paste real tokens, auth files, OAuth codes, connector credentials, or private logs.
+        - label: I did not paste real tokens, auth files, cookies, OAuth codes, connector credentials, account identifiers, or private logs.
+          required: true
+        - label: I identified above whether this affects Codex CLI, `app default`, a named Desktop profile, or more than one scope.
           required: true

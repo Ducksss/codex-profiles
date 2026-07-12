@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
@@ -31,7 +31,10 @@ jobs:
         run: make test
 
       - name: Run ShellCheck
-        run: shellcheck bin/codex-profile test/codex-profile-test.sh install.sh
+        run: make lint
+
+      - name: Validate package metadata
+        run: bash test/package-metadata-test.sh
 
   macos:
     name: macOS smoke test
@@ -40,7 +43,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Run smoke tests
         run: make test
@@ -49,3 +52,28 @@ jobs:
         run: |
           make install PREFIX="$RUNNER_TEMP/codex-profile-install"
           "$RUNNER_TEMP/codex-profile-install/bin/codex-profile" help >/dev/null
+          "$RUNNER_TEMP/codex-profile-install/bin/codex-profiles" version | grep -E '^codex-profile ' >/dev/null
+          make uninstall PREFIX="$RUNNER_TEMP/codex-profile-install"
+          test ! -e "$RUNNER_TEMP/codex-profile-install/bin/codex-profile"
+          test ! -L "$RUNNER_TEMP/codex-profile-install/bin/codex-profiles"
+
+  nix:
+    name: Nix package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@a49548c11d9846ad46ecc0115273879b045f001c # v31
+
+      - name: Build and verify package
+        run: |
+          nix build .# --no-update-lock-file --print-build-logs
+          git diff --exit-code -- flake.lock
+          test -x result/bin/codex-profile
+          test -x result/bin/codex-profiles
+          result/bin/codex-profile help >/dev/null
+          result/bin/codex-profiles version | grep -E '^codex-profile ' >/dev/null

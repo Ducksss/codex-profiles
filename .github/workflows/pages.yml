@@ -1,10 +1,16 @@
 name: Pages
+run-name: Deploy Pages from ${{ github.ref_name }} (${{ inputs.release_correlation || 'manual' }})
 
+# Release dispatches this workflow from the immutable release tag. It can also
+# be run manually for an explicitly selected ref when documentation needs an
+# independent redeploy.
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      release_correlation:
+        description: "Optional release correlation ID; no account or private data."
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -21,13 +27,13 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Run GEO site tests
         run: node test/geo-site-test.mjs
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: docs
 
@@ -48,4 +54,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5

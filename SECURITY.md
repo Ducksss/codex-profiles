@@ -1,50 +1,96 @@
 # Security Policy
 
-## Supported Versions
+## Supported versions
 
-`codex-profiles` is a small script project. Security fixes are made on `main`
-and included in the next tagged release.
+Security fixes are made on `main` and included in the next tagged release.
+Use the newest release when relying on separate local state.
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-Please do not open a public issue for vulnerabilities that expose credentials,
-tokens, or private account data.
+Do not open a public issue for a vulnerability that could expose credentials,
+tokens, cookies, private account data, or cross-profile state.
 
-Report privately through GitHub's private vulnerability reporting if available,
-or contact the maintainer through the GitHub profile linked from this repository.
+Use GitHub private vulnerability reporting when available, or contact the
+maintainer through the GitHub profile linked from this repository. Include a
+clear description, reproducible steps using test accounts, expected impact,
+and a suggested fix if you have one.
 
-Include:
+Never include real `auth.json` contents, access or refresh tokens, OAuth codes,
+cookies, connector credentials, private logs, or account identifiers.
 
-- A clear description of the issue.
-- Steps to reproduce.
-- Impact.
-- A suggested fix, if you have one.
+## Local-state boundaries
 
-Do not include real `auth.json` contents, OpenAI tokens, GitHub tokens, OAuth
-codes, connector credentials, or private logs.
+`codex-profiles` selects two related but different kinds of local state:
 
-## Project Security Boundaries
+1. Every profile selects a `CODEX_HOME`: `default` maps to `~/.codex`; any
+   other valid name maps to `~/.codex-<name>`. Codex CLI, login, shell
+   activation, and the desktop app-server use that directory.
+2. On macOS, named `app` launches create named ChatGPT windows with separate
+   local state by selecting `~/.codex-<name>/electron-user-data`. This local
+   Electron directory applies to the whole launched window, including Chat,
+   Work, and Codex modes. `app default` deliberately omits that override and
+   preserves the stock ChatGPT Desktop session.
 
-`codex-profiles` does not read or copy Codex auth tokens. It only sets
-`CODEX_HOME` before launching Codex.
+Local-state separation is not an account, OS, or server-side boundary.
 
-The experimental `app --instance` flag also creates profile-specific Codex app
-clones and launches them with separate Electron user data directories. That is
-profile-level process isolation for Codex Desktop state, not OS-level
-isolation.
+The launcher uses the original signed ChatGPT (or legacy Codex) application.
+It does not clone, patch, re-sign, replace, quit, or kill the installed app.
+Compatibility spellings such as `--instance`, `--rebuild`, and `app-instance`
+do not restore the old clone behavior.
 
-It does not isolate non-Codex credentials such as SSH keys, GitHub CLI auth,
-cloud CLI credentials, browser cookies, or OS keychain items. Use separate OS
-users for stronger isolation.
+Desktop launch refuses an inherited `CODEX_ACCESS_TOKEN`. This prevents a
+shell access token from silently overriding the authentication used by the
+launched window. Unset it before `app`; Codex-only `cli` and `login` commands
+remain available for explicit access-token workflows. Provider/API credentials
+are shared shell or operating-system state outside the local state selected by
+this wrapper.
 
-## Network Activity
+## What the project does not verify
 
-`codex-profile` runs entirely offline except for two explicit, user-facing
-actions:
+The tool does not read, copy, print, parse, upload, compare, or migrate token
+contents. In particular, it does not inspect an account identifier to prove
+that a Codex CLI login and a ChatGPT Desktop window use the same account.
+Those sessions can be authenticated independently; verify the visible account
+in each surface when equality matters.
 
-- `upgrade` clones/pulls the project repository over the network.
-- When run in an interactive terminal, an update check makes a single anonymous
-  HTTPS `GET` to the npm registry (`registry.npmjs.org`) at most once per day to
-  compare the installed version against the latest release. No identifiers,
-  telemetry, or profile data are transmitted; only the response version is read.
-  Disable it with `CODEX_PROFILE_NO_UPDATE_CHECK=1` or `DO_NOT_TRACK=1`.
+The selected directories are not a complete description of ChatGPT or Codex
+storage. OpenAI or macOS may store some information in the system keychain or
+other locations. Server-side workspaces, policies, histories, memories,
+connectors, plans, limits, and cloud tasks are controlled by the signed-in
+account and OpenAI—not by `CODEX_HOME` or Electron `--user-data-dir`.
+
+## Shared operating-system state
+
+Profiles still run as the same operating-system user. They share filesystem
+permissions, processes, network configuration, keychains, SSH keys, GitHub and
+cloud CLI credentials, git credential helpers, npm state, and credentials used
+by tools that Codex launches. A malicious process running as the same user may
+be able to read another profile's files despite private directory permissions.
+
+Use separate operating-system users or separately managed devices for strict,
+regulated, privileged, or adversarial separation.
+
+## Configuration copying
+
+`clone-config` considers only an allowlist of root-level non-auth files. It
+never copies `auth.json`, sessions, plugins, logs, caches, Electron data, or
+directories, and it refuses sensitive-looking keys. The heuristic is a safety
+guard, not a proof that arbitrary text is non-secret. Review source files
+before copying them between trust domains.
+
+## Network activity
+
+The wrapper itself performs network access only for these project-maintenance
+features:
+
+- `upgrade` fetches the configured source repository. A non-default repository
+  can execute code during installation; use only sources you trust and inspect
+  `upgrade --dry-run` first.
+- Interactive terminal runs may make one anonymous HTTPS request to the npm
+  registry at most once per day to compare versions. Scripts, pipes, CI, and
+  JSON output do not perform this check. Disable it with
+  `CODEX_PROFILE_NO_UPDATE_CHECK=1` or `DO_NOT_TRACK=1`.
+
+Codex CLI and the ChatGPT app make their own network requests under OpenAI's
+behavior and policies. Those requests are outside this wrapper's network
+model.
