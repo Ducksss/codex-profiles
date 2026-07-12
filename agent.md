@@ -113,7 +113,7 @@ submitted, or later needs a major update.
 Treat `codex-profiles` as an open-source developer CLI and Codex workflow tool,
 not a startup, company, SaaS launch, accelerator applicant, or fundraising
 story. Use the repo-local GitHub Lead Qualification skill at
-`skills/github-lead-qualification` for ICP fit, Maybe ICP, Not ICP, and
+`.agents/skills/github-lead-qualification` for ICP fit, Maybe ICP, Not ICP, and
 Truthfulness gate decisions.
 
 Truthfulness gate:
@@ -134,15 +134,18 @@ Run the GitHub pipeline as four small phase contexts. Each phase writes its
 handoff to Airtable through `Targets.Next Action` and an append-only `Log`
 record.
 
-- Use the repo-local GitHub Lead Gen skill at `skills/github-lead-gen` for
-  candidate discovery and shallow Airtable intake.
+- Use the repo-local GitHub Lead Gen skill at
+  `.agents/skills/github-lead-gen` for candidate discovery and shallow Airtable
+  intake.
 - Use the repo-local GitHub Lead Qualification skill at
-  `skills/github-lead-qualification` for ICP, status, priority, evidence, and
-  next-action decisions.
-- Use the repo-local GitHub Closing Draft skill at `skills/github-closing-draft`
-  for PR, issue, listing, forum, or maintainer-request drafts.
-- Use the repo-local GitHub Monitoring skill at `skills/github-monitoring` for
-  existing PR, issue, listing, and submitted-target rechecks.
+  `.agents/skills/github-lead-qualification` for ICP, status, priority,
+  evidence, and next-action decisions.
+- Use the repo-local GitHub Closing Draft skill at
+  `.agents/skills/github-closing-draft` for PR, issue, listing, forum, or
+  maintainer-request drafts.
+- Use the repo-local GitHub Monitoring skill at
+  `.agents/skills/github-monitoring` for existing PR, issue, listing, and
+  submitted-target rechecks.
 
 Do not collapse phases into one long context unless the user explicitly asks.
 Do not skip Airtable handoffs between phases.

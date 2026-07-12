@@ -13,9 +13,9 @@ posts, submits, comments, emails, or sends anything externally.
 
 ## Required Context
 
-Read `README.md`, `LAUNCH.md`, the Airtable target, and the target's
-contribution rules or submission guidelines. Load `references/draft-rules.md`
-before writing copy.
+Read `README.md`, policy gates in `LAUNCH.md`, the live Airtable target, and the
+target's contribution rules or submission guidelines. Load
+`references/draft-rules.md` before writing copy.
 
 ## Boundaries
 
@@ -28,6 +28,38 @@ before writing copy.
 - Do not qualify `ICP: maybe` or `ICP: no` targets; route unclear fit back to
   lead qualification.
 - Do not submit, open, post, comment, email, DM, or otherwise contact externally.
+
+## Accepted Input
+
+- Consume only `Status = Backlog` targets with `ICP: yes` recorded in `Notes`
+  and `Next Action = Run closing draft`.
+- Never draft for `ICP: maybe`, `ICP: no`, `Deferred`, `Declined`, or `Dead`
+  targets; route unclear evidence back to lead qualification.
+
+## Tracker Protocol
+
+Create a unique `run-<UTC-timestamp>-<random-suffix>` `<run-id>`, select the
+eligible target, inspect it, and acquire its lease before drafting:
+
+```sh
+node scripts/outreach-tracker.mjs list --status Backlog --json
+node scripts/outreach-tracker.mjs get <key> --json
+node scripts/outreach-tracker.mjs claim <key> --by <run-id>
+```
+
+If claim exits 3, skip the target without writing or contacting externally.
+Store the draft or its repo-local path in `Notes`, hold it for approval, log the
+stable phase label, and always release:
+
+```sh
+node scripts/outreach-tracker.mjs upsert <key> \
+  --next-action "Await approval to submit draft" \
+  --notes "<draft text or repo-local artifact path plus evidence>"
+node scripts/outreach-tracker.mjs log --target <key> \
+  --workflow closing --action Rechecked \
+  --result "Draft prepared; explicit approval required" --link "<target-url>"
+node scripts/outreach-tracker.mjs release <key> --by <run-id>
+```
 
 ## Workflow
 

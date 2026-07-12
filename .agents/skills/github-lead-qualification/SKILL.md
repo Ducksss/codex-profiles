@@ -13,8 +13,9 @@ Airtable targets whose `Next Action = Run lead qualification`.
 
 ## Required Context
 
-Read `README.md` for current product positioning and `LAUNCH.md` for prior
-outreach state. Load `references/icp-rules.md` before scoring.
+Read `README.md` for current product positioning, `LAUNCH.md` for policy gates,
+and the selected Airtable target for live outreach state. Load
+`references/icp-rules.md` before scoring.
 
 ## Boundaries
 
@@ -26,6 +27,41 @@ outreach state. Load `references/icp-rules.md` before scoring.
 - Do not discover new leads.
 - Do not draft PRs, issues, comments, emails, DMs, forum posts, listing submissions, or maintainer replies.
 - Do not contact externally.
+
+## Accepted Input
+
+- Consume only `Backlog` or `Deferred` targets whose
+  `Next Action = Run lead qualification`.
+- Leave ready `ICP: yes` targets as `Backlog` with
+  `Next Action = Run closing draft`; leave all other outcomes with a concrete
+  recheck, blocker, or terminal next action.
+
+## Tracker Protocol
+
+Create a unique `run-<UTC-timestamp>-<random-suffix>` `<run-id>`, list candidate
+rows, and inspect each selected row before claiming it:
+
+```sh
+node scripts/outreach-tracker.mjs list --status Backlog --json
+node scripts/outreach-tracker.mjs list --status Deferred --json
+node scripts/outreach-tracker.mjs get <key> --json
+node scripts/outreach-tracker.mjs claim <key> --by <run-id>
+```
+
+If claim exits 3, skip the target without writing or contacting externally.
+After qualification, persist the decision and stable phase log, then always
+release the lease:
+
+```sh
+node scripts/outreach-tracker.mjs upsert <key> --status "<status>" \
+  --priority "<P0|P1|P2>" --last-checked <YYYY-MM-DD> \
+  --next-action "<next phase, blocker, recheck, or terminal action>" \
+  --notes "<ICP decision, rationale, and evidence>"
+node scripts/outreach-tracker.mjs log --target <key> \
+  --workflow lead-qualification --action Rechecked \
+  --result "<ICP decision, reason, and next step>" --link "<evidence-url>"
+node scripts/outreach-tracker.mjs release <key> --by <run-id>
+```
 
 ## Workflow
 
