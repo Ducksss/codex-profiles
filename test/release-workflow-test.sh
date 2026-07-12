@@ -276,9 +276,120 @@ do
 done
 
 live_validation_line="$(line_number '      - name: Validate live release source')"
+credential_validation_line="$(line_number '      - name: Validate release credentials')"
 tag_creation_line="$(line_number '      - name: Create and push tag')"
-[[ "$live_validation_line" -lt "$tag_creation_line" ]] \
+[[ "$live_validation_line" -lt "$credential_validation_line" \
+  && "$credential_validation_line" -lt "$tag_creation_line" ]] \
   || fail "live source/tag state must be revalidated immediately before mutation"
+
+credential_validation_block="$(step_block "Validate release credentials")"
+for literal in \
+  'NPM_TOKEN: ${{ secrets.NPM_TOKEN }}' \
+  'TAP_TOKEN: ${{ secrets.TAP_TOKEN }}' \
+  '[[ -n "${NPM_TOKEN:-}" ]]' \
+  '[[ -n "${TAP_TOKEN:-}" ]]' \
+  'NODE_AUTH_TOKEN="$NPM_TOKEN" npm whoami' \
+  'NODE_AUTH_TOKEN="$NPM_TOKEN" npm owner ls codex-profile' \
+  'GH_TOKEN="$TAP_TOKEN" gh api repos/Ducksss/homebrew-tap' \
+  "--jq '.permissions.push'"
+do
+  grep -F -- "$literal" <<< "$credential_validation_block" >/dev/null \
+    || fail "release credential validation is missing: $literal"
+done
+
+credential_fake_bin="$tmp_dir/credential-fake-bin"
+mkdir -p "$credential_fake_bin"
+cat > "$credential_fake_bin/npm" <<'FAKE_NPM'
+#!/bin/sh
+
+set -eu
+
+[ "${NODE_AUTH_TOKEN:-}" = "npm-token" ] || exit 65
+printf 'npm:%s\n' "$*" >> "$RELEASE_WORKFLOW_TEST_LOG"
+case "${1:-}" in
+  whoami)
+    [ "$FAKE_CREDENTIAL_SCENARIO" != "npm_auth" ] || exit 1
+    printf '%s\n' 'release-owner'
+    ;;
+  owner)
+    [ "${2:-}" = "ls" ] || exit 64
+    [ "$FAKE_CREDENTIAL_SCENARIO" != "npm_owner" ] \
+      && printf '%s\n' 'release-owner <owner@example.invalid>' \
+      || printf '%s\n' 'different-owner <other@example.invalid>'
+    ;;
+  *)
+    printf 'unexpected npm invocation: %s\n' "$*" >&2
+    exit 64
+    ;;
+esac
+FAKE_NPM
+
+cat > "$credential_fake_bin/gh" <<'FAKE_GH'
+#!/bin/sh
+
+set -eu
+
+[ "${GH_TOKEN:-}" = "tap-token" ] || exit 65
+printf 'gh:%s\n' "$*" >> "$RELEASE_WORKFLOW_TEST_LOG"
+[ "$FAKE_CREDENTIAL_SCENARIO" != "tap_auth" ] || exit 1
+if [ "$FAKE_CREDENTIAL_SCENARIO" = "tap_readonly" ]; then
+  printf '%s\n' false
+else
+  printf '%s\n' true
+fi
+FAKE_GH
+chmod 755 "$credential_fake_bin/npm" "$credential_fake_bin/gh"
+
+credential_validation_script="$(step_script "Validate release credentials")"
+require_credential_scenario() {
+  local scenario="$1"
+  local npm_token="$2"
+  local tap_token="$3"
+  local expected_status="$4"
+  local expected_npm_calls="$5"
+  local expected_gh_calls="$6"
+  local log="$tmp_dir/credential-$scenario.log"
+  local status
+  local actual
+
+  : > "$log"
+  set +e
+  PATH="$credential_fake_bin:$PATH" \
+    RELEASE_WORKFLOW_TEST_LOG="$log" \
+    FAKE_CREDENTIAL_SCENARIO="$scenario" \
+    NPM_TOKEN="$npm_token" \
+    TAP_TOKEN="$tap_token" \
+    bash -c "$credential_validation_script" \
+      >"$tmp_dir/credential-$scenario.out" 2>&1
+  status=$?
+  set -e
+
+  if [[ "$expected_status" == "success" ]]; then
+    [[ "$status" -eq 0 ]] || fail "credential $scenario path unexpectedly failed"
+  else
+    [[ "$status" -ne 0 ]] || fail "credential $scenario path unexpectedly succeeded"
+  fi
+  actual="$(grep -c '^npm:' "$log" || true)"
+  [[ "$actual" -eq "$expected_npm_calls" ]] \
+    || fail "credential $scenario made $actual npm call(s); expected $expected_npm_calls"
+  actual="$(grep -c '^gh:' "$log" || true)"
+  [[ "$actual" -eq "$expected_gh_calls" ]] \
+    || fail "credential $scenario made $actual gh call(s); expected $expected_gh_calls"
+  for secret_value in "$npm_token" "$tap_token"; do
+    [[ -z "$secret_value" ]] && continue
+    if grep -F -- "$secret_value" "$tmp_dir/credential-$scenario.out" >/dev/null; then
+      fail "credential $scenario leaked a secret value into workflow output"
+    fi
+  done
+}
+
+require_credential_scenario missing_npm '' tap-token failure 0 0
+require_credential_scenario missing_tap npm-token '' failure 0 0
+require_credential_scenario npm_auth npm-token tap-token failure 1 0
+require_credential_scenario npm_owner npm-token tap-token failure 2 0
+require_credential_scenario tap_auth npm-token tap-token failure 2 1
+require_credential_scenario tap_readonly npm-token tap-token failure 2 1
+require_credential_scenario success npm-token tap-token success 2 1
 
 tag_publish_block="$(step_block "Create and push tag")"
 for literal in \

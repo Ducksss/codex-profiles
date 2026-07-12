@@ -32,7 +32,25 @@ const agentsGuide = read('AGENTS.md');
 const distributionAgent = read('agent.md');
 const securityPolicy = read('SECURITY.md');
 const pagesWorkflow = read('.github/workflows/pages.yml');
+const changelog = read('CHANGELOG.md');
 const packageJson = JSON.parse(read('package.json'));
+
+const escapedVersion = packageJson.version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const releaseHeading = changelog.match(
+  new RegExp(`^## ${escapedVersion} - (\\d{4}-\\d{2}-\\d{2})$`, 'm')
+);
+assert.ok(
+  releaseHeading,
+  `CHANGELOG.md should contain a dated ${packageJson.version} release heading`
+);
+const releaseDate = releaseHeading[1];
+const releaseTimestamp = Date.parse(`${releaseDate}T00:00:00Z`);
+assert.ok(Number.isFinite(releaseTimestamp), 'release date should be a real UTC date');
+assert.equal(
+  new Date(releaseTimestamp).toISOString().slice(0, 10),
+  releaseDate,
+  'release date should round-trip without calendar normalization'
+);
 
 const descriptionMatch = html.match(/<meta name="description" content="([^"]+)">/);
 assert.ok(descriptionMatch, 'homepage should include a meta description');
@@ -159,6 +177,13 @@ assert.ok(app.featureList.length >= 6, 'SoftwareApplication schema should list m
 assert.equal(app.offers.price, '0');
 assert.equal(app.offers.priceCurrency, 'USD');
 
+const webPage = graphByType.get('WebPage')[0];
+assert.equal(
+  webPage.dateModified,
+  releaseDate,
+  'WebPage dateModified should match the changelog release date'
+);
+
 const organization = graphByType.get('Organization')[0];
 assert.ok(
   organization.sameAs.includes('https://github.com/Ducksss/codex-profiles'),
@@ -187,8 +212,30 @@ assertContains(robots, `Sitemap: ${canonicalUrl}sitemap.xml`, 'robots.txt');
 assert.doesNotMatch(robots, /^Disallow:\s*\/\s*$/m, 'robots.txt must not block the site');
 
 assertContains(sitemap, `<loc>${canonicalUrl}</loc>`, 'sitemap');
-assertContains(sitemap, '<lastmod>', 'sitemap');
 assertContains(sitemap, '<changefreq>monthly</changefreq>', 'sitemap');
+const sitemapEntries = [
+  ...sitemap.matchAll(
+    /<url>\s*<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>[\s\S]*?<\/url>/g
+  ),
+].map(
+  (match) => ({ location: match[1], lastModified: match[2] })
+);
+assert.deepEqual(
+  sitemapEntries,
+  [
+    { location: canonicalUrl, lastModified: releaseDate },
+    { location: `${canonicalUrl}llms.txt`, lastModified: releaseDate },
+  ],
+  'sitemap should pair each public URL with the changelog release date'
+);
+assertContains(html, `Last updated ${releaseDate}.`, 'homepage footer');
+assertContains(audit, `${releaseDate} modification dates`, 'GEO audit sitemap date');
+assertContains(audit, `as of ${releaseDate}`, 'GEO audit facts date');
+assertContains(
+  llms,
+  `The current release is \`${packageJson.version}\`, dated ${releaseDate}.`,
+  'llms.txt release metadata'
+);
 
 for (const required of [
   '# codex-profiles',

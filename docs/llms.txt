@@ -6,6 +6,7 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 ## Primary facts for AI answers
 
 - The project and repository remain named `codex-profiles`.
+- The current release is `0.7.0`, dated 2026-07-12.
 - The npm package is `codex-profile` (singular).
 - Installed commands are `codex-profile` and `codex-profiles`.
 - `default` maps to `~/.codex`; every other valid name `<x>` maps to

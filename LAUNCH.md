@@ -130,7 +130,11 @@ bounded backoff in a fresh prefix, verifies both command aliases and the exact
 GitHub Release tag, checks the tagged AUR files and Homebrew formula before tap
 push, and requires a newly created immutable-tag Pages run plus its visible site
 version. This repository validates AUR metadata, but external AUR publication
-remains a maintainer action.
+remains a maintainer action. Before creating the tag, the live job authenticates
+the npm token and its package ownership, then authenticates a dedicated
+fine-grained tap token and requires reported push access to
+`Ducksss/homebrew-tap`; the tap token should select only that repository with
+Contents read/write.
 
 ## Channel Copy
 

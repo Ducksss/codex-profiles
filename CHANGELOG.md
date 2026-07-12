@@ -7,35 +7,7 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
-### Changed
-
-- Clarified current product copy, CLI diagnostics, and package metadata to
-  describe local-state separation without implying a verified account or
-  security boundary.
-- Expanded the default release dry run to rehearse the standalone installer,
-  npm package, Homebrew helper, and pinned AUR package paths. Live releases now
-  require a strict, sanitized signed-app version/bundle attestation and verify
-  the published npm aliases with bounded registry retries, the exact GitHub
-  Release tag, and a newly dispatched Pages run and version; external AUR
-  publication remains a maintainer action.
-- Split default release verification into a credentialless, read-only job and
-  live publication into a separately gated write job that revalidates
-  `origin/main` and remote tag state. Registry, tag, and GitHub Release lookups
-  now fail closed while safely accepting only exact-version concurrent results.
-- Made the standalone installer validate exact release tags and payload
-  versions, then replace both installed command aliases transactionally with
-  rollback if any late install or verification step fails.
-
-### Fixed
-
-- Made source installs refuse command-directory and canonical-symlink
-  destinations, verify both installed aliases, and smoke-test updates without
-  masking producer failures.
-- Restored deprecated `app-instance` discovery in all shell completions,
-  registered completions for both executable aliases, and rejected legacy
-  `CODEX_APP_BIN` values that do not name the bundle's declared executable.
-
-## 0.7.0 - 2026-07-11
+## 0.7.0 - 2026-07-12
 
 ### Added
 
@@ -72,6 +44,23 @@ and this project follows semantic versioning for tagged releases.
   updates Homebrew, and deploys Pages from the immutable release tag.
 - The npm tarball excludes historical pre-v0.7 screenshot and video assets;
   those files remain in the repository for release-history context.
+- Clarified current product copy, CLI diagnostics, and package metadata to
+  describe local-state separation without implying a verified account or
+  security boundary.
+- Expanded the default release dry run to rehearse the standalone installer,
+  npm package, Homebrew helper, and pinned AUR package paths. Live releases now
+  require a strict, sanitized signed-app version/bundle attestation,
+  authenticate npm ownership and Homebrew tap push access before tagging, and
+  verify the published npm aliases with bounded registry retries, the exact
+  GitHub Release tag, and a newly dispatched Pages run and version; external
+  AUR publication remains a maintainer action.
+- Split default release verification into a credentialless, read-only job and
+  live publication into a separately gated write job that revalidates
+  `origin/main` and remote tag state. Registry, tag, and GitHub Release lookups
+  now fail closed while safely accepting only exact-version concurrent results.
+- Made the standalone installer validate exact release tags and payload
+  versions, then replace both installed command aliases transactionally with
+  rollback if any late install or verification step fails.
 
 ### Removed
 
@@ -102,6 +91,12 @@ and this project follows semantic versioning for tagged releases.
   with detected app metadata, CLI source/health, and explicit scope fields.
 - Rejected symlinked managed profile and Electron user-data directories before
   creating files or changing permissions.
+- Made source installs refuse command-directory and canonical-symlink
+  destinations, verify both installed aliases, and smoke-test updates without
+  masking producer failures.
+- Restored deprecated `app-instance` discovery in all shell completions,
+  registered completions for both executable aliases, and rejected legacy
+  `CODEX_APP_BIN` values that do not name the bundle's declared executable.
 
 ### Security
 

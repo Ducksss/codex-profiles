@@ -12,7 +12,7 @@ Pages site in `docs/`.
 | Priority URLs return static content | Implemented after deployment | The homepage, `llms.txt`, and sitemap require no client rendering. |
 | Pages are indexable | Implemented | The homepage uses `index,follow` and unrestricted snippet directives. |
 | Canonical URL is stable | Implemented | The site keeps `https://ducksss.github.io/codex-profiles/`; the v0.7 migration does not rebrand or move it. |
-| Sitemap is current | Implemented | The sitemap lists the canonical homepage and LLM summary with 2026-07-11 modification dates. |
+| Sitemap is current | Implemented | The sitemap lists the canonical homepage and LLM summary with 2026-07-12 modification dates. |
 | Stale authenticated media avoided | Implemented | Primary docs no longer embed the pre-integration Codex app screenshot or video. |
 
 ## Structured Data and Machine Understanding
@@ -35,7 +35,7 @@ Pages site in `docs/`.
 | Commands and tables | Implemented | The page contains install commands, a scope table, mappings, and citation-ready facts. |
 | Primary contract is explicit | Implemented | Named Desktop profiles apply across Chat, Work, and Codex; CLI/login/env/use stay Codex-only. |
 | Non-claims are explicit | Implemented | The page says account equality is unverified and local paths do not control server-side ChatGPT data. |
-| Facts current | Implemented | Version, package name, URLs, platforms, behavior, and dates reflect the v0.7.0 contract as of 2026-07-11. |
+| Facts current | Implemented | Version, package name, URLs, platforms, behavior, and dates reflect the v0.7.0 contract as of 2026-07-12. |
 
 ## Entity, Trust, and Brand Authority
 

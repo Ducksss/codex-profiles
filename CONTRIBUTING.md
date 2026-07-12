@@ -100,7 +100,12 @@ before any live release step.
 The separate live-only job receives the write permissions. Before its first
 external mutation, it checks out the verified commit again and revalidates the
 current `origin/main` tip and exact remote tag state; stale verification outputs
-cannot authorize a release after either has moved.
+cannot authorize a release after either has moved. It also authenticates
+`NPM_TOKEN`, confirms that its npm user is listed as an owner of the unscoped
+`codex-profile` package, authenticates `TAP_TOKEN`, and requires GitHub to report
+push access to `Ducksss/homebrew-tap`. Use a dedicated fine-grained `TAP_TOKEN`
+limited to that repository with Contents read/write; do not reuse a broad
+personal or organization token.
 
 After publication, the workflow retries npm installation with bounded backoff
 into a fresh prefix and checks `help` and `version` through both command aliases.
