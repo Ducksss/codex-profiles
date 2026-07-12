@@ -1,0 +1,13 @@
+{
+  "resultcount": 1,
+  "results": [
+    {
+      "Maintainer": "Ducksss",
+      "Name": "codex-profile",
+      "PackageBase": "codex-profile",
+      "Version": "0.7.0-1"
+    }
+  ],
+  "type": "multiinfo",
+  "version": 5
+}

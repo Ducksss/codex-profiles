@@ -20,6 +20,10 @@ uninstall:
 
 lint:
 	shellcheck bin/codex-profile scripts/update-homebrew-formula test/codex-profile-test.sh test/install-script-test.sh test/makefile-smoke-test.sh test/package-metadata-test.sh test/release-helper-test.sh test/release-workflow-test.sh install.sh
+	@set -eu; runbook_shell="$$(mktemp)"; \
+		trap 'rm -f "$$runbook_shell"' EXIT HUP INT TERM; \
+		node test/aur-runbook-test.mjs --extract > "$$runbook_shell"; \
+		shellcheck "$$runbook_shell"
 
 test:
 	bash -n bin/codex-profile
@@ -33,6 +37,7 @@ test:
 	sh -n install.sh
 	bash test/install-script-test.sh
 	bash test/release-workflow-test.sh
+	node test/aur-runbook-test.mjs
 	node test/geo-site-test.mjs
 	bash test/package-metadata-test.sh
 	bash test/release-helper-test.sh
