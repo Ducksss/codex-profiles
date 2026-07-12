@@ -287,6 +287,17 @@ Update rule:
   only when it is genuinely true. If a template cannot be satisfied truthfully,
   skip or use issue-first if allowed.
 
+### 2026-07-13 External Issue Reconciliation
+
+- Audited all 150 external GitHub issues authored by `Ducksss` that mention
+  `codex-profiles`: 135 remain open with zero comments; 15 had maintainer
+  outcomes and were reconciled in Airtable.
+- Opened the one permitted, explicitly invited structured-catalog PR while the
+  broad open-backlog cap applies: <https://github.com/michielhdoteth/awesome-ai-agent-tools/pull/8>.
+- Closed the out-of-scope `awesome-bash` issue after maintainer feedback;
+  deferred the other PR invitations, recorded accepted listings, and preserved
+  declines without reopening or bumping any issue.
+
 ### Priority Follow-Up
 
 | Priority | Target | Last ledger status | Link | Next action |
