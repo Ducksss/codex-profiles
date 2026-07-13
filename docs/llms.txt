@@ -91,7 +91,7 @@ not match.
 `env`/`use`, and `app` selections before side effects; `off` disables checks.
 This is a local mistake-prevention feature, not an account, OS, server-side, or
 security boundary. Upstream Codex directory flags such as `-C` are passed
-through and are not parsed for guard resolution.
+through after the `run --` separator and are not parsed for guard resolution.
 
 ## Deprecated compatibility spellings
 

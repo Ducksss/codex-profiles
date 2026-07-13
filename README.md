@@ -249,8 +249,10 @@ codex-profile workspace guard warn
 Strict mode rejects a mismatch before launching Codex, ChatGPT, or emitting
 shell exports. This is a mistake-prevention guardrail, not a security boundary;
 it can be disabled or bypassed by invoking upstream Codex directly. The wrapper
-does not parse upstream arguments such as `codex -C <directory>`, so change to
-the intended directory before using `run` or an explicitly guarded `cli`.
+requires `--` before upstream options that start with a dash, for example
+`codex-profile run -- -C <directory>`. Those arguments are passed through and
+are not parsed for guard resolution, so change to the intended directory before
+using `run` or an explicitly guarded `cli`.
 
 Binding state is stored with private permissions in
 `${XDG_CONFIG_HOME:-~/.config}/codex-profile/workspaces.tsv`; the guard setting

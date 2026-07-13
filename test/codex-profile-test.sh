@@ -1287,6 +1287,20 @@ test_workspace_bind_rejects_unsafe_state_and_reports_stale_bindings() {
   assert_contains "Refusing symlinked workspace registry"
   [[ "$(cat "$outside")" == "outside" ]] || fail "workspace registry followed a symlink"
 
+  rm -rf "$config"
+  printf 'not a directory\n' > "$config"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace list --json
+  assert_status 1
+  assert_contains "Workspace config path is not a directory: $config"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI=/no/such/codex "$SCRIPT" doctor --json
+  assert_status 0
+  assert_contains '"guard_mode":null'
+  assert_contains '"registry_valid":false'
+  JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
+
   rm -rf "$tmp"
 }
 
@@ -1384,6 +1398,23 @@ FAKE_CODEX
 
   assert_status 0
   assert_contains "ARGS=--app"
+
+  # shellcheck disable=SC2016 # the child bash expands positional parameters
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI="$fake_codex" bash -c \
+    'cd "$1" && exec "$2" run --typo' _ "$service" "$SCRIPT"
+
+  assert_status 1
+  assert_contains "Usage: codex-profile run"
+  assert_not_contains "ARGS=--typo"
+
+  # shellcheck disable=SC2016 # the child bash expands positional parameters
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI="$fake_codex" bash -c \
+    'cd "$1" && exec "$2" run -- --typo' _ "$service" "$SCRIPT"
+
+  assert_status 0
+  assert_contains "ARGS=--typo"
 
   run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
     PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CHATGPT_APP="$chatgpt_app" \
@@ -1845,6 +1876,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "app app-instance cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help"
   assert_contains "workspace_commands=(bind unbind list status guard)"
   assert_contains "run_flags=(--app)"
+  assert_contains "workspace_json_flags=(--json)"
   assert_contains "logs"
   assert_contains "upgrade"
   assert_contains "--instance"
