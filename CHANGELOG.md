@@ -7,6 +7,12 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- Added `init <profile> --share-with <source-profile>` for linked profiles that
+  share only an explicit configuration allowlist while keeping authentication,
+  sessions, logs, Desktop data, caches, and connector/app state separate.
+
 ### Changed
 
 - Added practical GitHub Q&A guides for separate Codex CLI profiles, named

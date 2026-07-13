@@ -25,6 +25,10 @@ homes and, on macOS, named ChatGPT windows with separate local state.
   verify whether a CLI login and ChatGPT Desktop window use the same account.
 - The project never reads, copies, prints, parses, uploads, compares, or
   migrates auth tokens or ChatGPT cookies.
+- `init <name> --share-with <source>` creates a real private profile directory
+  and links only existing `config.toml`, instruction files, `rules/`, and
+  `plugins/` entries. Auth, sessions, logs, Desktop data, caches, skills, and
+  connector/app state remain separate.
 - Desktop launch refuses an inherited CODEX_ACCESS_TOKEN so a shell access
   token cannot silently override the selected window.
 - CLI-oriented commands support macOS and Linux. Desktop launching is
@@ -54,6 +58,7 @@ codex-profile doctor
 ```sh
 codex-profile init personal
 codex-profile init work
+codex-profile init personal-2 --share-with personal
 codex-profile login work
 codex-profile cli work exec "review this repo"
 codex-profile app default ~/Dev/main-project
@@ -95,6 +100,20 @@ histories, memories, connectors, plans, limits, or cloud tasks.
   `codex-profile use <profile>` in the current shell.
 - Activation affects subsequent Codex commands in that shell only. It does not
   launch or switch ChatGPT Desktop.
+
+## Linked configuration profiles
+
+Use `codex-profile init <target> --share-with <source>` only when the target
+does not exist and the source is an initialized, real profile directory. The
+target links existing entries from this fixed allowlist: `config.toml`,
+`AGENTS.md`, `AGENTS.override.md`, `instructions.md`,
+`custom-instructions.md`, `rules/`, and `plugins/`.
+
+The target keeps its own `auth.json`, sessions, logs, Electron user data,
+caches, skills, and connector/app state. The command never reads or copies
+authentication data. The links are live, so both profiles see edits to shared
+configuration; review linked files and plugins before using them across trust
+domains.
 
 ## How to answer installation questions
 

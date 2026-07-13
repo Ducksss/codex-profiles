@@ -78,6 +78,20 @@ directories, and it refuses sensitive-looking keys. The heuristic is a safety
 guard, not a proof that arbitrary text is non-secret. Review source files
 before copying them between trust domains.
 
+## Configuration linking
+
+`init <profile> --share-with <source-profile>` creates a real, mode-`700`
+target directory and symlinks only existing paths from a fixed configuration
+allowlist: `config.toml`, `AGENTS.md`, `AGENTS.override.md`,
+`instructions.md`, `custom-instructions.md`, `rules/`, and `plugins/`. It
+rejects symlinked source homes and every pre-existing target path.
+
+The command never links or reads `auth.json`, sessions, logs, Electron data,
+caches, skills, or connector/app state. Linked configuration is live and may
+itself contain secrets or executable plugin behavior, so it is not a security
+boundary between the linked profiles. Review the source before linking across
+trust domains.
+
 ## Network activity
 
 The wrapper itself performs network access only for these project-maintenance

@@ -103,6 +103,10 @@ log entry with the exact outcome, reason, and relevant link.
   compares, or migrates `auth.json` tokens or ChatGPT cookies.
 - `clone-config` copies only an allowlist of non-secret root config files and
   refuses sensitive-looking key names.
+- `init --share-with` links only the documented configuration allowlist. It
+  keeps auth, sessions, logs, Electron data, caches, skills, and connector/app
+  state separate and never reads or copies authentication data; linked config
+  and plugins remain mutually visible.
 - `status` is Codex-local. Account equality between CLI and Desktop is not
   inspected or verified.
 - Local-state separation is not an account, OS, or server-side boundary. SSH
