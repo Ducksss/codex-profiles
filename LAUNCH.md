@@ -69,6 +69,10 @@ per-target state.
   with no outreach and
   [Awesome-Agents-](https://github.com/voxxov222/Awesome-Agents-/pull/1)
   with a draft correction for outdated pre-v0.7 Desktop wording.
+- The exact-link reconciliation also corrected the stale
+  [awesome-ai-agent-tools](https://github.com/michielhdoteth/awesome-ai-agent-tools/blob/main/tools/catalog.json#L414-L421)
+  Airtable row from `PR Open` to `Listed`: the owner closed PR #8 only after
+  manually integrating it in commit `687776c` around catalog-refresh conflicts.
 - The owned
   [GitHub guide PR #31](https://github.com/Ducksss/codex-profiles/pull/31)
   remains an open draft with all three CI jobs passing and no review yet.
@@ -87,6 +91,8 @@ per-target state.
 - Continued discovery created 2 deduplicated Airtable targets and 3 linked log
   events for the organic listings and copy-correction PR; readback verified
   both records and all 3 events.
+- The stale awesome-ai-agent-tools row received one verified status update and
+  one linked monitoring event while preserving its original issue and PR URLs.
 - Wave-start traffic baseline: 51 stars, 7 forks, 1 watcher, 412 views with
   217 unique viewers, and 582 clones with 216 unique cloners over the
   available 14-day window.
