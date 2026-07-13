@@ -292,25 +292,28 @@ ensure_workspace_config_home() {
     die "Cannot set private permissions on: $CODEX_PROFILE_CONFIG_HOME"
 }
 
-workspace_parse_registry_line() {
-  local line="$1" line_number="$2" tab=$'\t' path profile
+workspace_decode_registry_line() {
+  local line="$1" tab=$'\t' path profile
 
-  [[ -n "$line" ]] || return 1
-  if [[ "$line" != *"$tab"* ]]; then
-    die "Malformed workspace registry line $line_number: expected <path><tab><profile>."
-  fi
-
+  [[ -n "$line" && "$line" == *"$tab"* ]] || return 1
   path="${line%%$'\t'*}"
   profile="${line#*$'\t'}"
   if [[ -z "$path" || -z "$profile" || "$profile" == *"$tab"* || \
         "$path" != /* ]] || workspace_path_has_control_characters "$path" || \
         ! is_valid_profile_name "$profile"; then
-    die "Malformed workspace registry line $line_number: invalid path or profile."
+    return 1
   fi
 
   WORKSPACE_ROW_PATH="$path"
   WORKSPACE_ROW_PROFILE="$profile"
-  return 0
+}
+
+workspace_parse_registry_line() {
+  local line="$1" line_number="$2"
+
+  [[ -n "$line" ]] || return 1
+  workspace_decode_registry_line "$line" || \
+    die "Malformed workspace registry line $line_number: expected one absolute <path><tab><profile> row."
 }
 
 workspace_registry_validate() {
@@ -429,6 +432,97 @@ workspace_resolve() {
   done < "$WORKSPACE_REGISTRY"
 
   [[ -n "$WORKSPACE_RESOLVED_PROFILE" ]]
+}
+
+workspace_remove_profile_bindings() {
+  local target_profile="$1" line line_number=0 found=no temp
+
+  workspace_registry_validate
+  [[ -f "$WORKSPACE_REGISTRY" ]] || return 0
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line_number=$((line_number + 1))
+    workspace_parse_registry_line "$line" "$line_number" || continue
+    if [[ "$WORKSPACE_ROW_PROFILE" == "$target_profile" ]]; then
+      found=yes
+      break
+    fi
+  done < "$WORKSPACE_REGISTRY"
+  [[ "$found" == "yes" ]] || return 0
+
+  ensure_workspace_config_home
+  temp="$(mktemp "$CODEX_PROFILE_CONFIG_HOME/.workspaces.tmp.XXXXXX")" || \
+    die "Cannot create a temporary workspace registry."
+  chmod 600 "$temp" || {
+    rm -f "$temp"
+    die "Cannot set private permissions on temporary workspace registry."
+  }
+
+  line_number=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line_number=$((line_number + 1))
+    workspace_parse_registry_line "$line" "$line_number" || continue
+    if [[ "$WORKSPACE_ROW_PROFILE" != "$target_profile" ]]; then
+      printf '%s\t%s\n' "$WORKSPACE_ROW_PATH" "$WORKSPACE_ROW_PROFILE" >> "$temp" || {
+        rm -f "$temp"
+        die "Cannot write temporary workspace registry."
+      }
+    fi
+  done < "$WORKSPACE_REGISTRY"
+
+  mv -f "$temp" "$WORKSPACE_REGISTRY" || {
+    rm -f "$temp"
+    die "Cannot replace workspace registry: $WORKSPACE_REGISTRY"
+  }
+}
+
+workspace_registry_stats() {
+  local line mode line_number=0
+
+  WORKSPACE_STATS_GUARD_MODE="warn"
+  WORKSPACE_STATS_REGISTRY_VALID=true
+  WORKSPACE_STATS_BINDING_COUNT=0
+  WORKSPACE_STATS_MISSING_PATHS=0
+  WORKSPACE_STATS_MISSING_PROFILES=0
+
+  if [[ -L "$CODEX_PROFILE_CONFIG_HOME" || -L "$WORKSPACE_REGISTRY" || \
+        -L "$WORKSPACE_GUARD_FILE" ]]; then
+    WORKSPACE_STATS_GUARD_MODE=""
+    WORKSPACE_STATS_REGISTRY_VALID=false
+    return 0
+  fi
+  if [[ -e "$WORKSPACE_REGISTRY" && ! -f "$WORKSPACE_REGISTRY" ]] || \
+     [[ -e "$WORKSPACE_GUARD_FILE" && ! -f "$WORKSPACE_GUARD_FILE" ]]; then
+    WORKSPACE_STATS_GUARD_MODE=""
+    WORKSPACE_STATS_REGISTRY_VALID=false
+    return 0
+  fi
+
+  if [[ -f "$WORKSPACE_GUARD_FILE" ]]; then
+    mode="$(< "$WORKSPACE_GUARD_FILE")"
+    case "$mode" in
+      off | warn | strict) WORKSPACE_STATS_GUARD_MODE="$mode" ;;
+      *)
+        WORKSPACE_STATS_GUARD_MODE=""
+        WORKSPACE_STATS_REGISTRY_VALID=false
+        ;;
+    esac
+  fi
+
+  [[ -f "$WORKSPACE_REGISTRY" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line_number=$((line_number + 1))
+    [[ -n "$line" ]] || continue
+    if ! workspace_decode_registry_line "$line"; then
+      WORKSPACE_STATS_REGISTRY_VALID=false
+      continue
+    fi
+    WORKSPACE_STATS_BINDING_COUNT=$((WORKSPACE_STATS_BINDING_COUNT + 1))
+    [[ -d "$WORKSPACE_ROW_PATH" ]] || \
+      WORKSPACE_STATS_MISSING_PATHS=$((WORKSPACE_STATS_MISSING_PATHS + 1))
+    profile_is_initialized "$WORKSPACE_ROW_PROFILE" || \
+      WORKSPACE_STATS_MISSING_PROFILES=$((WORKSPACE_STATS_MISSING_PROFILES + 1))
+  done < "$WORKSPACE_REGISTRY"
 }
 
 workspace_guard_profile() {
@@ -892,8 +986,10 @@ command_remove() {
 
   local codex_home confirmation
   codex_home="$(codex_home_for_profile "$profile")"
+  workspace_registry_validate
 
   if [[ ! -d "$codex_home" ]]; then
+    workspace_remove_profile_bindings "$profile"
     note "Not initialized $profile ($codex_home)"
     return 0
   fi
@@ -909,6 +1005,7 @@ command_remove() {
   fi
 
   rm -rf -- "$codex_home" || die "Cannot remove profile home: $codex_home"
+  workspace_remove_profile_bindings "$profile"
   note "Removed $profile ($codex_home)"
 }
 
@@ -2120,6 +2217,7 @@ command_doctor() {
     bundle_id="$(desktop_bundle_identifier "$app")"
   fi
   [[ -d "$CODEX_PROFILE_APP_INSTANCE_ROOT" ]] && legacy_clone_found=true
+  workspace_registry_stats
 
   if [[ "$json" == "yes" ]]; then
     local status_code=0
@@ -2136,6 +2234,20 @@ command_doctor() {
     printf ',"legacy_clone_root":{"found":%s,"path":' "$legacy_clone_found"
     json_string "$CODEX_PROFILE_APP_INSTANCE_ROOT"
     printf '}'
+    printf ',"workspaces":{"config_home":'
+    json_string "$CODEX_PROFILE_CONFIG_HOME"
+    printf ',"registry_path":'
+    json_string "$WORKSPACE_REGISTRY"
+    printf ',"guard_mode":'
+    if [[ -n "$WORKSPACE_STATS_GUARD_MODE" ]]; then
+      json_string "$WORKSPACE_STATS_GUARD_MODE"
+    else
+      printf 'null'
+    fi
+    printf ',"registry_valid":%s' "$WORKSPACE_STATS_REGISTRY_VALID"
+    printf ',"binding_count":%s' "$WORKSPACE_STATS_BINDING_COUNT"
+    printf ',"missing_paths":%s' "$WORKSPACE_STATS_MISSING_PATHS"
+    printf ',"missing_profiles":%s}' "$WORKSPACE_STATS_MISSING_PROFILES"
 
     if codex_cli="$(try_find_codex_cli)"; then
       cli_source="$(codex_cli_source "$codex_cli")"
@@ -2178,6 +2290,16 @@ command_doctor() {
   if [[ "$legacy_clone_found" == "true" ]]; then
     note "Legacy app clones: found at $CODEX_PROFILE_APP_INSTANCE_ROOT (safe to remove after closing old cloned apps)"
   fi
+  note "Workspace registry: $WORKSPACE_REGISTRY"
+  if [[ "$WORKSPACE_STATS_REGISTRY_VALID" == "true" ]]; then
+    note "Workspace guard mode: $WORKSPACE_STATS_GUARD_MODE"
+  else
+    note "Workspace guard mode: invalid"
+  fi
+  note "Workspace registry valid: $WORKSPACE_STATS_REGISTRY_VALID"
+  note "Workspace bindings: $WORKSPACE_STATS_BINDING_COUNT"
+  note "Missing workspace paths: $WORKSPACE_STATS_MISSING_PATHS"
+  note "Missing workspace profiles: $WORKSPACE_STATS_MISSING_PROFILES"
 
   if codex_cli="$(try_find_codex_cli)"; then
     cli_source="$(codex_cli_source "$codex_cli")"
