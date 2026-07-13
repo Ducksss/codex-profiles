@@ -127,6 +127,16 @@ codex-profile cli personal
 codex-profile cli work exec "run tests and summarize failures"
 ```
 
+Optionally bind a project once, then let the current directory select its
+profile for both CLI and Desktop launches:
+
+```sh
+codex-profile workspace bind ~/Dev/work-project work
+cd ~/Dev/work-project
+codex-profile run exec "run tests and summarize failures"
+codex-profile run --app
+```
+
 On macOS, open the stock ChatGPT session or a named window with separate local
 state:
 
@@ -196,7 +206,57 @@ codex-profile remove client-a --yes
 
 `list` and `status` are read-only. They do not create a directory for a typo.
 Removing a profile deletes its Codex home and, for a named Desktop profile, its
-local Electron data. Review the path and close the corresponding window first.
+local Electron data. It also removes bindings that target that profile, without
+deleting any project directory. Review the path and close the corresponding
+window first.
+
+### Bind projects to profiles
+
+```sh
+codex-profile workspace bind ~/Dev/client-a client-a
+codex-profile workspace bind ~/Dev/client-a/service client-a-service
+codex-profile workspace list
+codex-profile workspace status
+codex-profile workspace status --json ~/Dev/client-a/service
+```
+
+Bindings use physical canonical directory paths. The nearest bound ancestor
+wins, so a nested project can override a broader workspace. Similar string
+prefixes are not matches: binding `client-a` does not bind `client-app`.
+Bindings are private local metadata; they do not create or modify files in a
+project.
+
+From a bound directory, omit the profile name:
+
+```sh
+codex-profile run
+codex-profile run exec "review this repo"
+codex-profile run -- --app            # pass --app to the upstream CLI
+codex-profile run --app               # launch the bound ChatGPT window
+codex-profile run --app ~/Dev/client-a
+```
+
+Explicit `cli`, `env`/`use`, and `app` selections are checked against the
+current or supplied workspace. Mismatches warn on stderr by default, so stdout
+remains safe for `eval` and scripts. Choose stricter or disabled checks with:
+
+```sh
+codex-profile workspace guard strict
+codex-profile workspace guard off
+codex-profile workspace guard warn
+```
+
+Strict mode rejects a mismatch before launching Codex, ChatGPT, or emitting
+shell exports. This is a mistake-prevention guardrail, not a security boundary;
+it can be disabled or bypassed by invoking upstream Codex directly. The wrapper
+does not parse upstream arguments such as `codex -C <directory>`, so change to
+the intended directory before using `run` or an explicitly guarded `cli`.
+
+Binding state is stored with private permissions in
+`${XDG_CONFIG_HOME:-~/.config}/codex-profile/workspaces.tsv`; the guard setting
+is stored beside it. `CODEX_PROFILE_CONFIG_HOME` overrides that directory for
+automation. Bindings contain only canonical project paths and profile names,
+never authentication, cookies, sessions, or credentials.
 
 #### Share configuration, not identity or runtime state
 
@@ -367,6 +427,13 @@ codex-profile cli <profile> [codex-args...]
 codex-profile login <profile> [codex-login-args...]
 codex-profile init <profile> [--share-with <source-profile>]
 codex-profile remove <profile> [--yes]
+codex-profile workspace bind <path> <profile> [--force]
+codex-profile workspace unbind <path>
+codex-profile workspace list [--json]
+codex-profile workspace status [--json] [path]
+codex-profile workspace guard [off|warn|strict]
+codex-profile run [--] [codex-args...]
+codex-profile run --app [workspace]
 codex-profile status [profile]
 codex-profile status --json [profile]
 codex-profile path <profile>
@@ -404,6 +471,7 @@ launch or log mode.
 | `CODEX_APP_BIN` | Deprecated executable override; accepted only for an executable inside an app bundle. |
 | `CODEX_CLI` | Use a specific Codex CLI. An invalid explicit override fails instead of silently selecting another binary. |
 | `CODEX_BUNDLED_CLI` | Optional fallback Codex CLI checked after `PATH` and before the selected app's bundled CLI. |
+| `CODEX_PROFILE_CONFIG_HOME` | Override the private directory containing workspace bindings and guard mode. |
 | `CODEX_PROFILE_UPGRADE_REPO` | Override the source-upgrade repository. |
 | `CODEX_PROFILE_UPGRADE_REF` | Override the source-upgrade git ref. |
 | `CODEX_PROFILE_UPGRADE_CACHE` | Override the source-upgrade cache. |
@@ -447,7 +515,7 @@ contains no profile data; disable it with `CODEX_PROFILE_NO_UPDATE_CHECK=1` or
 CLI-oriented commands are tested on macOS and Ubuntu/Linux:
 
 ```text
-cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help
+cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
 ```
 
 `app` is macOS-only. It detects the installed integrated `ChatGPT.app` and
