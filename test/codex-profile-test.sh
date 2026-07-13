@@ -1114,6 +1114,233 @@ test_remove_yes_deletes_profiles_named_like_common_aliases() {
   rm -rf "$tmp"
 }
 
+test_workspace_bind_list_status_and_nested_resolution() {
+  local tmp config dev client service sibling link
+  tmp="$(mktemp -d)"
+  tmp="$(cd "$tmp" && pwd -P)"
+  config="$tmp/config"
+  dev="$tmp/Dev"
+  client="$dev/client one"
+  service="$client/service"
+  sibling="$dev/client one-more"
+  link="$tmp/client-link"
+  mkdir -p "$tmp/home/.codex-work" "$tmp/home/.codex-client" \
+    "$dev" "$service" "$sibling"
+  ln -s "$client" "$link"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$dev" work
+
+  assert_status 0
+  assert_contains "Bound $dev to profile work"
+  [[ "$(mode_of "$config")" == "700" ]] || fail "workspace config directory is not private"
+  [[ "$(mode_of "$config/workspaces.tsv")" == "600" ]] || fail "workspace registry is not private"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$dev" work
+
+  assert_status 0
+  assert_contains "Already bound $dev to profile work"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$client" client
+
+  assert_status 0
+  assert_contains "Bound $client to profile client"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace status --json "$service"
+
+  assert_status 0
+  assert_contains '"path":"'"$service"'"'
+  assert_contains '"binding_path":"'"$client"'"'
+  assert_contains '"profile":"client"'
+  assert_contains '"guard_mode":"warn"'
+  JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace status --json "$link/service"
+
+  assert_status 0
+  assert_contains '"path":"'"$service"'"'
+  assert_contains '"binding_path":"'"$client"'"'
+  assert_contains '"profile":"client"'
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace status --json "$sibling"
+
+  assert_status 0
+  assert_contains '"binding_path":"'"$dev"'"'
+  assert_contains '"profile":"work"'
+  assert_not_contains '"profile":"client"'
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace list --json
+
+  assert_status 0
+  assert_contains '"guard_mode":"warn"'
+  assert_contains '"path":"'"$client"'"'
+  assert_contains '"profile":"client"'
+  assert_contains '"path_exists":true'
+  assert_contains '"profile_exists":true'
+  JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace unbind "$client"
+
+  assert_status 0
+  assert_contains "Unbound $client"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace status --json "$service"
+
+  assert_status 0
+  assert_contains '"binding_path":"'"$dev"'"'
+  assert_contains '"profile":"work"'
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace status --json "$tmp"
+
+  assert_status 0
+  assert_contains '"binding_path":null'
+  assert_contains '"profile":null'
+
+  rm -rf "$tmp"
+}
+
+test_workspace_bind_rejects_unsafe_state_and_reports_stale_bindings() {
+  local tmp config workspace quoted outside
+  tmp="$(mktemp -d)"
+  tmp="$(cd "$tmp" && pwd -P)"
+  config="$tmp/config"
+  workspace="$tmp/workspace"
+  quoted="$tmp/quoted \"workspace\""
+  outside="$tmp/outside-registry"
+  mkdir -p "$tmp/home/.codex-work" "$tmp/home/.codex-client" \
+    "$workspace" "$quoted"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$workspace" work
+  assert_status 0
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$workspace" client
+  assert_status 1
+  assert_contains "already bound to profile work"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$workspace" client --force
+  assert_status 0
+  assert_contains "Rebound $workspace from profile work to client"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$quoted" work
+  assert_status 0
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace list --json
+  assert_status 0
+  JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
+  assert_contains '\"workspace\"'
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$tmp/missing" work
+  assert_status 1
+  assert_contains "Workspace directory does not exist"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$workspace" ghost --force
+  assert_status 1
+  assert_contains "Profile 'ghost' is not initialized"
+
+  mkdir -p "$tmp/tab"$'\t'"workspace" "$tmp/newline"$'\n'"workspace"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$tmp/tab"$'\t'"workspace" work
+  assert_status 1
+  assert_contains "control characters"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$tmp/newline"$'\n'"workspace" work
+  assert_status 1
+  assert_contains "control characters"
+
+  printf '%s\t%s\n' "$tmp/stale-path" work >> "$config/workspaces.tsv"
+  printf '%s\t%s\n' "$workspace" ghost >> "$config/workspaces.tsv"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace list --json
+  assert_status 0
+  assert_contains '"path_exists":false'
+  assert_contains '"profile_exists":false'
+
+  printf 'malformed row\n' > "$config/workspaces.tsv"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace list
+  assert_status 1
+  assert_contains "Malformed workspace registry line 1"
+
+  printf 'outside\n' > "$outside"
+  rm -f "$config/workspaces.tsv"
+  ln -s "$outside" "$config/workspaces.tsv"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace list
+  assert_status 1
+  assert_contains "Refusing symlinked workspace registry"
+  [[ "$(cat "$outside")" == "outside" ]] || fail "workspace registry followed a symlink"
+
+  rm -rf "$tmp"
+}
+
+test_workspace_uses_xdg_config_and_manages_guard_mode() {
+  local tmp config workspace
+  tmp="$(mktemp -d)"
+  tmp="$(cd "$tmp" && pwd -P)"
+  config="$tmp/xdg/codex-profile"
+  workspace="$tmp/workspace"
+  mkdir -p "$tmp/home/.codex-work" "$workspace"
+
+  run_cmd env HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/xdg" \
+    "$SCRIPT" workspace bind "$workspace" work
+  assert_status 0
+  [[ -f "$config/workspaces.tsv" ]] || fail "workspace binding ignored XDG_CONFIG_HOME"
+
+  run_cmd env HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/xdg" \
+    "$SCRIPT" workspace guard
+  assert_status 0
+  assert_equals "warn"
+
+  run_cmd env HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/xdg" \
+    "$SCRIPT" workspace guard strict
+  assert_status 0
+  assert_contains "Workspace guard mode: strict"
+  [[ "$(mode_of "$config/guard-mode")" == "600" ]] || fail "workspace guard state is not private"
+
+  run_cmd env HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/xdg" \
+    "$SCRIPT" workspace guard
+  assert_status 0
+  assert_equals "strict"
+
+  run_cmd env HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/xdg" \
+    "$SCRIPT" workspace guard off
+  assert_status 0
+  assert_contains "Workspace guard mode: off"
+
+  run_cmd env HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/xdg" \
+    "$SCRIPT" workspace guard invalid
+  assert_status 1
+  assert_contains "Use off, warn, or strict"
+
+  run_cmd env HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/xdg" \
+    "$SCRIPT" workspace unbind "$tmp/missing"
+  assert_status 1
+  assert_contains "No exact workspace binding"
+
+  if find "$config" -maxdepth 1 -name '*.tmp.*' | grep -q .; then
+    fail "workspace mutation left temporary files behind"
+  fi
+
+  rm -rf "$tmp"
+}
+
 test_logs_prints_path_and_contents() {
   local tmp log_file
   tmp="$(mktemp -d)"
@@ -1975,6 +2202,9 @@ test_init_share_with_cleans_up_after_link_failure
 test_remove_aborts_when_confirmation_does_not_match
 test_remove_yes_deletes_profile_home
 test_remove_yes_deletes_profiles_named_like_common_aliases
+test_workspace_bind_list_status_and_nested_resolution
+test_workspace_bind_rejects_unsafe_state_and_reports_stale_bindings
+test_workspace_uses_xdg_config_and_manages_guard_mode
 test_env_prints_posix_exports_for_profile
 test_env_emits_fish_syntax
 test_env_warns_to_stderr_without_polluting_stdout_when_uninitialized

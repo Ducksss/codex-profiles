@@ -11,6 +11,9 @@ CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-}"
 CODEX_PROFILE_APP_INSTANCE_ROOT="${CODEX_PROFILE_APP_INSTANCE_ROOT:-$HOME/Library/Application Support/codex-profile/app-instances}"
 CODEX_PROFILE_UPGRADE_REPO="${CODEX_PROFILE_UPGRADE_REPO:-https://github.com/Ducksss/codex-profiles.git}"
 CODEX_PROFILE_UPGRADE_REF="${CODEX_PROFILE_UPGRADE_REF:-main}"
+CODEX_PROFILE_CONFIG_HOME="${CODEX_PROFILE_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/codex-profile}"
+WORKSPACE_REGISTRY="$CODEX_PROFILE_CONFIG_HOME/workspaces.tsv"
+WORKSPACE_GUARD_FILE="$CODEX_PROFILE_CONFIG_HOME/guard-mode"
 
 usage() {
   cat <<EOF
@@ -217,6 +220,215 @@ initialize_shared_profile() {
 
   note "Initialized $target_profile ($target_home)"
   note "Sharing configuration with $source_profile ($source_home)"
+}
+
+profile_is_initialized() {
+  local codex_home
+
+  codex_home="$(codex_home_for_profile "$1")"
+  [[ -d "$codex_home" && ! -L "$codex_home" ]]
+}
+
+workspace_path_has_control_characters() {
+  local path="$1"
+
+  [[ "$path" == *$'\t'* || "$path" == *$'\r'* || "$path" == *$'\n'* ]]
+}
+
+canonical_directory() {
+  local path="$1" canonical
+
+  workspace_path_has_control_characters "$path" && \
+    die "Workspace paths cannot contain tab, carriage-return, or newline control characters."
+  [[ -d "$path" ]] || die "Workspace directory does not exist: $path"
+  canonical="$(cd -- "$path" 2> /dev/null && pwd -P)" || \
+    die "Cannot resolve workspace directory: $path"
+  workspace_path_has_control_characters "$canonical" && \
+    die "Workspace paths cannot contain tab, carriage-return, or newline control characters."
+  printf '%s\n' "$canonical"
+}
+
+workspace_path_for_unbind() {
+  local path="$1"
+
+  workspace_path_has_control_characters "$path" && \
+    die "Workspace paths cannot contain tab, carriage-return, or newline control characters."
+
+  if [[ -d "$path" ]]; then
+    canonical_directory "$path"
+    return 0
+  fi
+
+  [[ "$path" == /* ]] || die "Missing workspace paths must be supplied as absolute paths: $path"
+  while [[ "$path" != "/" && "$path" == */ ]]; do
+    path="${path%/}"
+  done
+  printf '%s\n' "$path"
+}
+
+workspace_assert_state_paths_safe() {
+  [[ ! -L "$CODEX_PROFILE_CONFIG_HOME" ]] || \
+    die "Refusing symlinked workspace config directory: $CODEX_PROFILE_CONFIG_HOME"
+  [[ ! -L "$WORKSPACE_REGISTRY" ]] || \
+    die "Refusing symlinked workspace registry: $WORKSPACE_REGISTRY"
+  [[ ! -L "$WORKSPACE_GUARD_FILE" ]] || \
+    die "Refusing symlinked workspace guard file: $WORKSPACE_GUARD_FILE"
+
+  if [[ -e "$WORKSPACE_REGISTRY" && ! -f "$WORKSPACE_REGISTRY" ]]; then
+    die "Workspace registry is not a regular file: $WORKSPACE_REGISTRY"
+  fi
+  if [[ -e "$WORKSPACE_GUARD_FILE" && ! -f "$WORKSPACE_GUARD_FILE" ]]; then
+    die "Workspace guard state is not a regular file: $WORKSPACE_GUARD_FILE"
+  fi
+}
+
+ensure_workspace_config_home() {
+  workspace_assert_state_paths_safe
+  mkdir -p "$CODEX_PROFILE_CONFIG_HOME" || \
+    die "Cannot create workspace config directory: $CODEX_PROFILE_CONFIG_HOME"
+  [[ -d "$CODEX_PROFILE_CONFIG_HOME" ]] || \
+    die "Workspace config path is not a directory: $CODEX_PROFILE_CONFIG_HOME"
+  chmod 700 "$CODEX_PROFILE_CONFIG_HOME" || \
+    die "Cannot set private permissions on: $CODEX_PROFILE_CONFIG_HOME"
+}
+
+workspace_parse_registry_line() {
+  local line="$1" line_number="$2" tab=$'\t' path profile
+
+  [[ -n "$line" ]] || return 1
+  if [[ "$line" != *"$tab"* ]]; then
+    die "Malformed workspace registry line $line_number: expected <path><tab><profile>."
+  fi
+
+  path="${line%%$'\t'*}"
+  profile="${line#*$'\t'}"
+  if [[ -z "$path" || -z "$profile" || "$profile" == *"$tab"* || \
+        "$path" != /* ]] || workspace_path_has_control_characters "$path" || \
+        ! is_valid_profile_name "$profile"; then
+    die "Malformed workspace registry line $line_number: invalid path or profile."
+  fi
+
+  WORKSPACE_ROW_PATH="$path"
+  WORKSPACE_ROW_PROFILE="$profile"
+  return 0
+}
+
+workspace_registry_validate() {
+  local line line_number=0
+
+  workspace_assert_state_paths_safe
+  [[ -f "$WORKSPACE_REGISTRY" ]] || return 0
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line_number=$((line_number + 1))
+    workspace_parse_registry_line "$line" "$line_number" || true
+  done < "$WORKSPACE_REGISTRY"
+}
+
+workspace_guard_mode() {
+  local mode
+
+  workspace_assert_state_paths_safe
+  if [[ ! -f "$WORKSPACE_GUARD_FILE" ]]; then
+    printf 'warn\n'
+    return 0
+  fi
+
+  mode="$(< "$WORKSPACE_GUARD_FILE")"
+  case "$mode" in
+    off | warn | strict)
+      printf '%s\n' "$mode"
+      ;;
+    *)
+      die "Invalid workspace guard state in $WORKSPACE_GUARD_FILE. Use off, warn, or strict."
+      ;;
+  esac
+}
+
+workspace_exact_profile() {
+  local requested_path="$1" line line_number=0
+
+  WORKSPACE_EXACT_PROFILE=""
+  workspace_registry_validate
+  [[ -f "$WORKSPACE_REGISTRY" ]] || return 1
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line_number=$((line_number + 1))
+    workspace_parse_registry_line "$line" "$line_number" || continue
+    if [[ "$WORKSPACE_ROW_PATH" == "$requested_path" ]]; then
+      WORKSPACE_EXACT_PROFILE="$WORKSPACE_ROW_PROFILE"
+      return 0
+    fi
+  done < "$WORKSPACE_REGISTRY"
+  return 1
+}
+
+workspace_registry_rewrite() {
+  local skipped_path="$1" appended_profile="${2:-}"
+  local line line_number=0 temp
+
+  workspace_registry_validate
+  ensure_workspace_config_home
+  temp="$(mktemp "$CODEX_PROFILE_CONFIG_HOME/.workspaces.tmp.XXXXXX")" || \
+    die "Cannot create a temporary workspace registry."
+  chmod 600 "$temp" || {
+    rm -f "$temp"
+    die "Cannot set private permissions on temporary workspace registry."
+  }
+
+  if [[ -f "$WORKSPACE_REGISTRY" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      line_number=$((line_number + 1))
+      if ! workspace_parse_registry_line "$line" "$line_number"; then
+        continue
+      fi
+      if [[ "$WORKSPACE_ROW_PATH" != "$skipped_path" ]]; then
+        printf '%s\t%s\n' "$WORKSPACE_ROW_PATH" "$WORKSPACE_ROW_PROFILE" >> "$temp" || {
+          rm -f "$temp"
+          die "Cannot write temporary workspace registry."
+        }
+      fi
+    done < "$WORKSPACE_REGISTRY"
+  fi
+
+  if [[ -n "$appended_profile" ]]; then
+    printf '%s\t%s\n' "$skipped_path" "$appended_profile" >> "$temp" || {
+      rm -f "$temp"
+      die "Cannot write temporary workspace registry."
+    }
+  fi
+
+  mv -f "$temp" "$WORKSPACE_REGISTRY" || {
+    rm -f "$temp"
+    die "Cannot replace workspace registry: $WORKSPACE_REGISTRY"
+  }
+}
+
+workspace_resolve() {
+  local requested_path="$1" line line_number=0 binding profile
+
+  WORKSPACE_RESOLVED_PATH="$(canonical_directory "$requested_path")"
+  WORKSPACE_RESOLVED_BINDING=""
+  WORKSPACE_RESOLVED_PROFILE=""
+  workspace_registry_validate
+  [[ -f "$WORKSPACE_REGISTRY" ]] || return 1
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line_number=$((line_number + 1))
+    workspace_parse_registry_line "$line" "$line_number" || continue
+    binding="$WORKSPACE_ROW_PATH"
+    profile="$WORKSPACE_ROW_PROFILE"
+
+    if [[ "$WORKSPACE_RESOLVED_PATH" == "$binding" || "$binding" == "/" || \
+          "$WORKSPACE_RESOLVED_PATH" == "$binding/"* ]]; then
+      if [[ ${#binding} -gt ${#WORKSPACE_RESOLVED_BINDING} ]]; then
+        WORKSPACE_RESOLVED_BINDING="$binding"
+        WORKSPACE_RESOLVED_PROFILE="$profile"
+      fi
+    fi
+  done < "$WORKSPACE_REGISTRY"
+
+  [[ -n "$WORKSPACE_RESOLVED_PROFILE" ]]
 }
 
 desktop_plist_value() {
@@ -921,6 +1133,214 @@ command_status() {
 
 command_list() {
   discover_profiles yes
+}
+
+command_workspace_bind() {
+  local usage="Usage: $PROGRAM workspace bind <path> <profile> [--force]"
+  local path="${1:-}" profile="${2:-}" force=no canonical existing
+
+  [[ -n "$path" && -n "$profile" ]] || die "$usage"
+  shift 2 || true
+  if [[ "${1:-}" == "--force" ]]; then
+    force=yes
+    shift
+  fi
+  [[ "$#" -eq 0 ]] || die "$usage"
+
+  validate_profile "$profile"
+  profile_is_initialized "$profile" || \
+    die "Profile '$profile' is not initialized; run '$PROGRAM init $profile' first."
+  canonical="$(canonical_directory "$path")"
+
+  if workspace_exact_profile "$canonical"; then
+    existing="$WORKSPACE_EXACT_PROFILE"
+    if [[ "$existing" == "$profile" ]]; then
+      note "Already bound $canonical to profile $profile"
+      return 0
+    fi
+    [[ "$force" == "yes" ]] || \
+      die "Workspace $canonical is already bound to profile $existing; use --force to replace it."
+    workspace_registry_rewrite "$canonical" "$profile"
+    note "Rebound $canonical from profile $existing to $profile"
+    return 0
+  fi
+
+  workspace_registry_rewrite "$canonical" "$profile"
+  note "Bound $canonical to profile $profile"
+}
+
+command_workspace_unbind() {
+  local usage="Usage: $PROGRAM workspace unbind <path>"
+  local path="${1:-}" canonical
+
+  [[ -n "$path" ]] || die "$usage"
+  shift || true
+  [[ "$#" -eq 0 ]] || die "$usage"
+  canonical="$(workspace_path_for_unbind "$path")"
+
+  workspace_exact_profile "$canonical" || \
+    die "No exact workspace binding exists for $canonical."
+  workspace_registry_rewrite "$canonical"
+  note "Unbound $canonical"
+}
+
+command_workspace_list() {
+  local json=no line line_number=0 mode first=yes
+  local path profile path_exists profile_exists state
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --json | -j) json=yes ;;
+      *) die "Usage: $PROGRAM workspace list [--json]" ;;
+    esac
+    shift
+  done
+
+  workspace_registry_validate
+  mode="$(workspace_guard_mode)"
+
+  if [[ "$json" == "yes" ]]; then
+    printf '{"guard_mode":'
+    json_string "$mode"
+    printf ',"bindings":['
+  else
+    note "Workspace guard mode: $mode"
+  fi
+
+  if [[ -f "$WORKSPACE_REGISTRY" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      line_number=$((line_number + 1))
+      workspace_parse_registry_line "$line" "$line_number" || continue
+      path="$WORKSPACE_ROW_PATH"
+      profile="$WORKSPACE_ROW_PROFILE"
+      if [[ -d "$path" ]]; then path_exists=true; else path_exists=false; fi
+      if profile_is_initialized "$profile"; then profile_exists=true; else profile_exists=false; fi
+
+      if [[ "$json" == "yes" ]]; then
+        if [[ "$first" == "yes" ]]; then first=no; else printf ','; fi
+        printf '{"path":'
+        json_string "$path"
+        printf ',"profile":'
+        json_string "$profile"
+        printf ',"path_exists":%s,"profile_exists":%s}' "$path_exists" "$profile_exists"
+      else
+        state=""
+        [[ "$path_exists" == "true" ]] || state="${state} missing-path"
+        [[ "$profile_exists" == "true" ]] || state="${state} missing-profile"
+        if [[ -n "$state" ]]; then
+          printf '%s -> %s [%s]\n' "$path" "$profile" "${state# }"
+        else
+          printf '%s -> %s\n' "$path" "$profile"
+        fi
+      fi
+    done < "$WORKSPACE_REGISTRY"
+  fi
+
+  if [[ "$json" == "yes" ]]; then
+    printf ']}\n'
+  elif [[ "$first" == "yes" && ! -s "$WORKSPACE_REGISTRY" ]]; then
+    note "No workspace bindings."
+  fi
+}
+
+command_workspace_status() {
+  local usage="Usage: $PROGRAM workspace status [--json] [path]"
+  local json=no path="" mode matched=no
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --json | -j)
+        json=yes
+        ;;
+      -*)
+        die "$usage"
+        ;;
+      *)
+        [[ -z "$path" ]] || die "$usage"
+        path="$1"
+        ;;
+    esac
+    shift
+  done
+  [[ -n "$path" ]] || path="$PWD"
+
+  mode="$(workspace_guard_mode)"
+  if workspace_resolve "$path"; then
+    matched=yes
+  fi
+
+  if [[ "$json" == "yes" ]]; then
+    printf '{"path":'
+    json_string "$WORKSPACE_RESOLVED_PATH"
+    printf ',"binding_path":'
+    if [[ "$matched" == "yes" ]]; then json_string "$WORKSPACE_RESOLVED_BINDING"; else printf 'null'; fi
+    printf ',"profile":'
+    if [[ "$matched" == "yes" ]]; then json_string "$WORKSPACE_RESOLVED_PROFILE"; else printf 'null'; fi
+    printf ',"guard_mode":'
+    json_string "$mode"
+    printf '}\n'
+    return 0
+  fi
+
+  note "Workspace: $WORKSPACE_RESOLVED_PATH"
+  if [[ "$matched" == "yes" ]]; then
+    note "Binding: $WORKSPACE_RESOLVED_BINDING"
+    note "Profile: $WORKSPACE_RESOLVED_PROFILE"
+  else
+    note "Binding: none"
+    note "Profile: none"
+  fi
+  note "Guard mode: $mode"
+}
+
+command_workspace_guard() {
+  local usage="Usage: $PROGRAM workspace guard [off|warn|strict]"
+  local mode="${1:-}" temp
+
+  if [[ -z "$mode" ]]; then
+    workspace_guard_mode
+    return 0
+  fi
+  shift
+  [[ "$#" -eq 0 ]] || die "$usage"
+  case "$mode" in
+    off | warn | strict) ;;
+    *) die "Invalid workspace guard mode '$mode'. Use off, warn, or strict." ;;
+  esac
+
+  workspace_registry_validate
+  ensure_workspace_config_home
+  temp="$(mktemp "$CODEX_PROFILE_CONFIG_HOME/.guard-mode.tmp.XXXXXX")" || \
+    die "Cannot create temporary workspace guard state."
+  printf '%s\n' "$mode" > "$temp" || {
+    rm -f "$temp"
+    die "Cannot write temporary workspace guard state."
+  }
+  chmod 600 "$temp" || {
+    rm -f "$temp"
+    die "Cannot set private permissions on temporary workspace guard state."
+  }
+  mv -f "$temp" "$WORKSPACE_GUARD_FILE" || {
+    rm -f "$temp"
+    die "Cannot replace workspace guard state: $WORKSPACE_GUARD_FILE"
+  }
+  note "Workspace guard mode: $mode"
+}
+
+command_workspace() {
+  local subcommand="${1:-}"
+
+  [[ -n "$subcommand" ]] || \
+    die "Usage: $PROGRAM workspace <bind|unbind|list|status|guard> ..."
+  shift || true
+  case "$subcommand" in
+    bind) command_workspace_bind "$@" ;;
+    unbind) command_workspace_unbind "$@" ;;
+    list) command_workspace_list "$@" ;;
+    status) command_workspace_status "$@" ;;
+    guard) command_workspace_guard "$@" ;;
+    *) die "Unknown workspace command '$subcommand'. Use bind, unbind, list, status, or guard." ;;
+  esac
 }
 
 command_path() {
@@ -1731,7 +2151,7 @@ main() {
   shift || true
 
   case "$command" in
-    status | doctor)
+    status | doctor | workspace)
       for arg in "$@"; do
         if [[ "$arg" == "--json" || "$arg" == "-j" ]]; then
           json_command=yes
@@ -1763,6 +2183,9 @@ main() {
       ;;
     remove)
       command_remove "$@"
+      ;;
+    workspace)
+      command_workspace "$@"
       ;;
     status)
       command_status "$@"
