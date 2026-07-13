@@ -127,6 +127,7 @@ const server = createServer(async (request, response) => {
 
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const address = server.address();
+const CLAIM_TTL_MS = 3000;
 const env = {
   ...process.env,
   AIRTABLE_TOKEN: 'test-secret-token',
@@ -135,7 +136,7 @@ const env = {
   AIRTABLE_TARGETS_TABLE: TABLES.targets,
   AIRTABLE_LOG_TABLE: TABLES.log,
   AIRTABLE_CLAIMS_TABLE: TABLES.claims,
-  OUTREACH_CLAIM_TTL_MS: '800',
+  OUTREACH_CLAIM_TTL_MS: String(CLAIM_TTL_MS),
   OUTREACH_CLAIM_SETTLE_MS: '30',
   OUTREACH_RETRY_DELAY_MS: '1',
 };
@@ -168,9 +169,28 @@ try {
   const invalidDate = await run(['upsert', 'beta', '--last-checked', '2026-99-99']);
   assert.equal(invalidDate.status, 2);
   assert.match(invalidDate.stderr, /YYYY-MM-DD/);
+  const normalizedInvalidDate = await run(['upsert', 'beta', '--last-checked', '2026-02-30']);
+  assert.equal(normalizedInvalidDate.status, 2);
+  assert.match(normalizedInvalidDate.stderr, /YYYY-MM-DD/);
   const unknownOption = await run(['get', 'alpha', '--bogus']);
   assert.equal(unknownOption.status, 2);
   assert.match(unknownOption.stderr, /Unknown option: --bogus/);
+  const missingValue = await run(['upsert', 'beta', '--name']);
+  assert.equal(missingValue.status, 2);
+  assert.match(missingValue.stderr, /--name requires a value/);
+  const missingListValue = await run(['list', '--status']);
+  assert.equal(missingListValue.status, 2);
+  assert.match(missingListValue.stderr, /--status requires a value/);
+  const setStatusUnknownOption = await run(['set-status', 'alpha', 'Backlog', '--bogus']);
+  assert.equal(setStatusUnknownOption.status, 2);
+  assert.match(setStatusUnknownOption.stderr, /Unknown option: --bogus/);
+
+  const missingWorkflow = await run(['log', '--target', 'alpha', '--action', 'Rechecked']);
+  assert.equal(missingWorkflow.status, 2);
+  assert.match(missingWorkflow.stderr, /--workflow/);
+  const missingResult = await run(['log', '--target', 'alpha', '--workflow', 'test-run', '--action', 'Rechecked', '--result']);
+  assert.equal(missingResult.status, 2);
+  assert.match(missingResult.stderr, /--result requires a value/);
 
   const logged = await run(['log', '--target', 'alpha', '--workflow', 'test-run', '--action', 'Rechecked', '--result', 'Still open']);
   assert.equal(logged.status, 0, logged.stderr);
@@ -182,7 +202,7 @@ try {
   assert.equal(retried.status, 0, retried.stderr);
   assert.ok(rateLimitRequests >= 2, `expected a retry, got ${rateLimitRequests} request(s)`);
 
-  failNext = { status: 500, message: 'deliberate server failure' };
+  failNext = { status: 500, message: 'deliberate server failure: test-secret-token' };
   const failed = await run(['get', 'alpha']);
   assert.equal(failed.status, 1);
   assert.match(failed.stderr, /500.*deliberate server failure/);
@@ -207,7 +227,7 @@ try {
 
   const reclaimed = await run(['claim', 'alpha', '--by', 'run-c']);
   assert.equal(reclaimed.status, 0, reclaimed.stderr);
-  await sleep(850);
+  await sleep(CLAIM_TTL_MS + 200);
   const afterExpiry = await run(['claim', 'alpha', '--by', 'run-d']);
   assert.equal(afterExpiry.status, 0, afterExpiry.stderr);
 

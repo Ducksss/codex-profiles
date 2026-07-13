@@ -43,6 +43,7 @@ const BASE = process.env.AIRTABLE_BASE || 'appcezSUhDxz7uaQW';
 const TARGETS = process.env.AIRTABLE_TARGETS_TABLE || 'tblHOr51tpYHiaYWQ';
 const LOG = process.env.AIRTABLE_LOG_TABLE || 'tbloEavouTn5Z7fOw';
 const CLAIMS = process.env.AIRTABLE_CLAIMS_TABLE || 'tbleL9s7CGUpxJDY7';
+let activeToken = '';
 
 function durationFromEnv(name, fallback) {
   const raw = process.env[name];
@@ -63,7 +64,11 @@ const RETRY_DELAY_MS = durationFromEnv('OUTREACH_RETRY_DELAY_MS', 30_000);
 const EXIT = { OK: 0, ERROR: 1, USAGE: 2, CLAIM_LOST: 3 };
 
 function fail(code, message) {
-  process.stderr.write(`${message}\n`);
+  let safeMessage = String(message);
+  for (const secret of new Set([activeToken, process.env.AIRTABLE_TOKEN?.trim()])) {
+    if (secret) safeMessage = safeMessage.split(secret).join('[REDACTED]');
+  }
+  process.stderr.write(`${safeMessage}\n`);
   process.exit(code);
 }
 
@@ -78,6 +83,7 @@ function token() {
 }
 
 const TOKEN = token();
+activeToken = TOKEN;
 
 // --- Airtable REST helper (with one 429 back-off retry) ------------------------
 
@@ -231,7 +237,10 @@ function asBool(value) {
 }
 
 function assertDate(value, flag) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
+  const parsed = new Date(`${value}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)
+    || Number.isNaN(parsed.getTime())
+    || parsed.toISOString().slice(0, 10) !== value) {
     fail(EXIT.USAGE, `--${flag} must use YYYY-MM-DD.`);
   }
 }
@@ -288,6 +297,9 @@ function printTable(records) {
 
 async function cmdList(flags) {
   assertFlags(flags, ['status', 'priority', 'channel', 'owned', 'json']);
+  for (const name of ['status', 'priority', 'channel']) {
+    if (flags[name] !== undefined) requiredFlag(flags, name, `--${name} requires a value.`);
+  }
   const clauses = [];
   if (flags.status) clauses.push(`{Status}=${lit(flags.status)}`);
   if (flags.priority) clauses.push(`{Priority}=${lit(flags.priority)}`);
@@ -390,13 +402,17 @@ async function cmdRelease(positionals, flags) {
 async function cmdUpsert(positionals, flags) {
   assertFlags(flags, ['name', 'channel', 'status', 'priority', 'link', 'owned', 'last-checked', 'next-action', 'last-version-told', 'notes']);
   assertPositionals(positionals, 1, 1, 'usage: upsert <key> [--name ... --status ... ...]');
+  for (const name of Object.keys(flags)) {
+    requiredFlag(flags, name, `--${name} requires a value.`);
+  }
   const key = positionals[0];
   const fields = { Key: key, ...fieldsFromFlags(flags) };
   await upsertTarget(fields);
   process.stdout.write(`Upserted ${key}.\n`);
 }
 
-async function cmdSetStatus(positionals) {
+async function cmdSetStatus(positionals, flags) {
+  assertFlags(flags, []);
   assertPositionals(positionals, 2, 2, 'usage: set-status <key> <status>');
   const [key, status] = positionals;
   await upsertTarget({ Key: key, Status: status });
@@ -406,17 +422,19 @@ async function cmdSetStatus(positionals) {
 
 async function cmdLog(flags) {
   assertFlags(flags, ['target', 'workflow', 'action', 'result', 'link']);
-  const target = flags.target;
-  const action = flags.action;
-  if (!target || target === true || !action || action === true) {
-    fail(EXIT.USAGE, 'usage: log --target <key> --workflow <id> --action <A> [--result T] [--link URL]');
+  const usage = 'usage: log --target <key> --workflow <id> --action <A> [--result T] [--link URL]';
+  const target = requiredFlag(flags, 'target', usage);
+  const workflow = requiredFlag(flags, 'workflow', usage);
+  const action = requiredFlag(flags, 'action', usage);
+  for (const name of ['result', 'link']) {
+    if (flags[name] !== undefined) requiredFlag(flags, name, `--${name} requires a value.`);
   }
   await appendLog({
     target,
-    workflow: flags.workflow === true ? '' : flags.workflow,
+    workflow,
     action,
-    result: flags.result === true ? undefined : flags.result,
-    link: flags.link === true ? undefined : flags.link,
+    result: flags.result,
+    link: flags.link,
   });
   process.stdout.write(`Logged "${action}" for ${target}.\n`);
 }
@@ -432,7 +450,7 @@ async function main() {
     case 'claim': return cmdClaim(positionals, flags);
     case 'release': return cmdRelease(positionals, flags);
     case 'upsert': return cmdUpsert(positionals, flags);
-    case 'set-status': return cmdSetStatus(positionals);
+    case 'set-status': return cmdSetStatus(positionals, flags);
     case 'log': return cmdLog(flags);
     default:
       process.stderr.write('Commands: list | get | claim | release | upsert | set-status | log\n');
