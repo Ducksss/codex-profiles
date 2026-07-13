@@ -52,8 +52,17 @@ per-target state.
   [ai-agent-stack #2](https://github.com/SelahattinSert/ai-agent-stack/pull/2),
   and [awesome-ChatGPT-repositories #181](https://github.com/taishi-i/awesome-ChatGPT-repositories/pull/181).
 - The medium-confidence
-  [athivvat/awesome-devtools route](https://github.com/athivvat/awesome-devtools/issues/40)
-  is queued after the ten-PR cap. Do not bump the issue.
+  [athivvat/awesome-devtools route](https://github.com/athivvat/awesome-devtools/pull/41)
+  was revalidated and converted from the queued issue into a one-line draft PR
+  on 2026-07-14. The original issue was not bumped.
+- Follow-up on 2026-07-14 verified that
+  [awesome-ChatGPT-repositories #181](https://github.com/taishi-i/awesome-ChatGPT-repositories/pull/181)
+  was owner-approved, merged, and is live under CLIs. External wave state is
+  now 10 open draft PRs, 1 merged listing, and 6 issue-first monitor routes.
+  The other 9 open drafts and all 6 issues had no human replies.
+- The owned
+  [GitHub guide PR #31](https://github.com/Ducksss/codex-profiles/pull/31)
+  remains an open draft with all three CI jobs passing and no review yet.
 - Verified
   [awesome-agent-clients](https://github.com/1shiharat/awesome-agent-clients#related-agents-frameworks--protocols)
   lists codex-profiles under adjacent tooling.
@@ -63,6 +72,9 @@ per-target state.
   AI-generated PRs. No new issues or reminder comments were posted.
 - Airtable received 56 reviewed-target events plus 3 owned-discussion events.
   Readback verified all target fields and log links without mismatches.
+- The 2026-07-14 follow-up updated 17 target rows and appended 17 linked log
+  events. Readback found zero mismatches across status, last checked, next
+  action, notes, links, and log relationships.
 - Wave-start traffic baseline: 51 stars, 7 forks, 1 watcher, 412 views with
   217 unique viewers, and 582 clones with 216 unique cloners over the
   available 14-day window.
