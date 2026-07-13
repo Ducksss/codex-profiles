@@ -1384,6 +1384,7 @@ FAKE_CODEX
     "$SCRIPT" workspace bind "$workspace" client
   assert_status 0
 
+  # shellcheck disable=SC2016 # the child bash expands positional parameters
   run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
     CODEX_CLI="$fake_codex" bash -c \
     'cd "$1" && exec "$2" run -- exec "run tests"' _ "$service" "$SCRIPT"
@@ -1392,6 +1393,7 @@ FAKE_CODEX
   assert_contains "CODEX_HOME=$tmp/home/.codex-client"
   assert_contains "ARGS=exec run tests"
 
+  # shellcheck disable=SC2016 # the child bash expands positional parameters
   run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
     CODEX_CLI="$fake_codex" bash -c \
     'cd "$1" && exec "$2" run -- --app' _ "$service" "$SCRIPT"
@@ -1425,6 +1427,7 @@ FAKE_CODEX
   grep -Fqx "open -a $chatgpt_app files=$service args=--user-data-dir=$tmp/home/.codex-client/electron-user-data" "$tool_log" || \
     fail "run --app did not launch the signed app with the bound profile"
 
+  # shellcheck disable=SC2016 # the child bash expands positional parameters
   run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
     CODEX_CLI="$fake_codex" bash -c \
     'cd "$1" && exec "$2" run' _ "$tmp" "$SCRIPT"
@@ -1496,6 +1499,7 @@ FAKE_CODEX
   assert_status 0
 
   set +e
+  # shellcheck disable=SC2016 # the child bash expands positional parameters
   env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" CODEX_CLI="$fake_codex" \
     FAKE_CODEX_MARKER="$marker" bash -c \
     'cd "$1" && exec "$2" cli personal exec check' _ "$service" "$SCRIPT" \
@@ -1511,6 +1515,7 @@ FAKE_CODEX
 
   : > "$err"
   set +e
+  # shellcheck disable=SC2016 # the child bash expands positional parameters
   env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" CODEX_CLI="$fake_codex" \
     FAKE_CODEX_MARKER="$marker" bash -c \
     'cd "$1" && exec "$2" cli client exec check' _ "$service" "$SCRIPT" \
@@ -1526,6 +1531,7 @@ FAKE_CODEX
   : > "$marker"
 
   set +e
+  # shellcheck disable=SC2016 # the child bash expands positional parameters
   env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" CODEX_CLI="$fake_codex" \
     FAKE_CODEX_MARKER="$marker" bash -c \
     'cd "$1" && exec "$2" cli personal exec blocked' _ "$service" "$SCRIPT" \
@@ -1537,6 +1543,7 @@ FAKE_CODEX
   [[ "$(cat "$err")" == *"refusing selected profile 'personal'"* ]] || fail "strict CLI error is not actionable"
 
   set +e
+  # shellcheck disable=SC2016 # the child bash expands positional parameters
   env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
     bash -c 'cd "$1" && exec "$2" env personal' _ "$service" "$SCRIPT" \
     > "$out" 2> "$err"
@@ -1558,6 +1565,7 @@ FAKE_CODEX
   assert_status 0
   : > "$err"
   set +e
+  # shellcheck disable=SC2016 # the child bash expands positional parameters
   env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" CODEX_CLI="$fake_codex" \
     FAKE_CODEX_MARKER="$marker" bash -c \
     'cd "$1" && exec "$2" cli personal exec allowed' _ "$service" "$SCRIPT" \
@@ -1567,6 +1575,7 @@ FAKE_CODEX
   [[ "$status" -eq 0 ]] || fail "off-mode CLI mismatch should run"
   [[ ! -s "$err" ]] || fail "off-mode CLI mismatch emitted a warning"
 
+  # shellcheck disable=SC2016 # the child bash expands positional parameters
   run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" CODEX_CLI="$fake_codex" \
     FAKE_CODEX_MARKER="$marker" bash -c \
     'cd "$1" && exec "$2" cli personal exec unbound' _ "$unbound" "$SCRIPT"
@@ -1858,6 +1867,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "complete -F _codex_profile codex-profile codex-profiles"
   assert_contains 'compgen -W "app app-instance cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help"'
   assert_contains 'workspace_commands="bind unbind list status guard"'
+  # shellcheck disable=SC2016 # matching literal generated completion text
   assert_contains 'compgen -W "$workspace_commands"'
   assert_contains 'compgen -W "--app"'
   assert_contains "clone-config"

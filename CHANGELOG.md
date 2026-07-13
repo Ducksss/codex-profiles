@@ -12,7 +12,7 @@ and this project follows semantic versioning for tagged releases.
 - Added `init <profile> --share-with <source-profile>` for linked profiles that
   share only an explicit configuration allowlist while keeping authentication,
   sessions, logs, Desktop data, caches, and connector/app state separate.
-- Private workspace-to-profile bindings with nearest-ancestor resolution,
+- Added private workspace-to-profile bindings with nearest-ancestor resolution,
   `run`/`run --app` automatic routing, warn/strict/off mismatch guards,
   machine-readable inspection, profile-removal cleanup, doctor diagnostics,
   and Bash/Zsh/Fish completion support. Bindings contain only canonical paths
