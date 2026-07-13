@@ -57,9 +57,18 @@ per-target state.
   on 2026-07-14. The original issue was not bumped.
 - Follow-up on 2026-07-14 verified that
   [awesome-ChatGPT-repositories #181](https://github.com/taishi-i/awesome-ChatGPT-repositories/pull/181)
-  was owner-approved, merged, and is live under CLIs. External wave state is
-  now 10 open draft PRs, 1 merged listing, and 6 issue-first monitor routes.
-  The other 9 open drafts and all 6 issues had no human replies.
+  was owner-approved, merged, and is live under CLIs. Current external
+  outreach state is now 11 open draft PRs, 1 merged listing from this wave,
+  and 6 issue-first monitor routes. The other 9 original open drafts and all
+  6 issues had no human replies.
+- Continued discovery on 2026-07-14 found 24 third-party repositories with an
+  exact codex-profiles link. Fifteen already matched Airtable, 7 missing hits
+  were generated mirrors, copied skills, or one-off reports rather than leads,
+  and 2 were real organic listings. Airtable now tracks
+  [awesome-ai-rabbit-holes](https://github.com/gabrielmoreira/awesome-ai-rabbit-holes/blob/main/docs/rabbit-holes/ai-dev-extensions.md#L443)
+  with no outreach and
+  [Awesome-Agents-](https://github.com/voxxov222/Awesome-Agents-/pull/1)
+  with a draft correction for outdated pre-v0.7 Desktop wording.
 - The owned
   [GitHub guide PR #31](https://github.com/Ducksss/codex-profiles/pull/31)
   remains an open draft with all three CI jobs passing and no review yet.
@@ -75,6 +84,9 @@ per-target state.
 - The 2026-07-14 follow-up updated 17 target rows and appended 17 linked log
   events. Readback found zero mismatches across status, last checked, next
   action, notes, links, and log relationships.
+- Continued discovery created 2 deduplicated Airtable targets and 3 linked log
+  events for the organic listings and copy-correction PR; readback verified
+  both records and all 3 events.
 - Wave-start traffic baseline: 51 stars, 7 forks, 1 watcher, 412 views with
   217 unique viewers, and 582 clones with 216 unique cloners over the
   available 14-day window.
