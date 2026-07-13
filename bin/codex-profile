@@ -431,6 +431,23 @@ workspace_resolve() {
   [[ -n "$WORKSPACE_RESOLVED_PROFILE" ]]
 }
 
+workspace_guard_profile() {
+  local selected_profile="$1" path="$2" mode
+
+  mode="$(workspace_guard_mode)"
+  [[ "$mode" != "off" ]] || return 0
+  if ! workspace_resolve "$path"; then
+    return 0
+  fi
+  [[ "$selected_profile" != "$WORKSPACE_RESOLVED_PROFILE" ]] || return 0
+
+  if [[ "$mode" == "strict" ]]; then
+    die "Workspace '$WORKSPACE_RESOLVED_BINDING' is bound to profile '$WORKSPACE_RESOLVED_PROFILE'; refusing selected profile '$selected_profile'."
+  fi
+  printf "Warning: workspace '%s' is bound to profile '%s'; selected profile is '%s'.\n" \
+    "$WORKSPACE_RESOLVED_BINDING" "$WORKSPACE_RESOLVED_PROFILE" "$selected_profile" >&2
+}
+
 desktop_plist_value() {
   local app="$1"
   local key="$2"
@@ -713,6 +730,8 @@ command_app() {
 
   [[ "$profile_set" == yes ]] || die "$usage"
   [[ "$workspace_set" == yes ]] || workspace="$PWD"
+  validate_profile "$profile"
+  workspace_guard_profile "$profile" "$workspace"
 
   if [[ "$instance" == yes ]]; then
     note "Compatibility: --instance is no longer needed; named ChatGPT windows already use separate local state."
@@ -790,6 +809,8 @@ command_cli() {
   shift || true
 
   local codex_home codex_cli
+  validate_profile "$profile"
+  workspace_guard_profile "$profile" "$PWD"
   codex_home="$(codex_home_for_profile "$profile")"
   ensure_home "$codex_home"
   codex_cli="$(find_codex_cli)"
@@ -1343,6 +1364,35 @@ command_workspace() {
   esac
 }
 
+command_run() {
+  local usage="Usage: $PROGRAM run [--] [codex-args...]\n       $PROGRAM run --app [workspace]"
+  local workspace profile
+
+  if [[ "${1:-}" == "--app" ]]; then
+    shift
+    workspace="${1:-$PWD}"
+    if [[ "$#" -gt 0 ]]; then
+      shift
+    fi
+    [[ "$#" -eq 0 ]] || die "$usage"
+    if ! workspace_resolve "$workspace"; then
+      die "No workspace profile is bound to '$WORKSPACE_RESOLVED_PATH'. Run '$PROGRAM workspace bind $WORKSPACE_RESOLVED_PATH <profile>' first."
+    fi
+    profile="$WORKSPACE_RESOLVED_PROFILE"
+    command_app "$profile" "$WORKSPACE_RESOLVED_PATH"
+    return 0
+  fi
+
+  if [[ "${1:-}" == "--" ]]; then
+    shift
+  fi
+  if ! workspace_resolve "$PWD"; then
+    die "No workspace profile is bound to '$WORKSPACE_RESOLVED_PATH'. Run '$PROGRAM workspace bind $WORKSPACE_RESOLVED_PATH <profile>' first."
+  fi
+  profile="$WORKSPACE_RESOLVED_PROFILE"
+  command_cli "$profile" "$@"
+}
+
 command_path() {
   local profile="${1:-}"
   [[ -n "$profile" ]] || die "Usage: $PROGRAM path <profile>"
@@ -1389,6 +1439,7 @@ command_env() {
 
   local codex_home
   codex_home="$(codex_home_for_profile "$profile")"
+  workspace_guard_profile "$profile" "$PWD"
 
   if [[ ! -d "$codex_home" ]]; then
     printf "%s: profile '%s' is not initialized (%s); run '%s init %s' or '%s login %s'.\n" \
@@ -2186,6 +2237,9 @@ main() {
       ;;
     workspace)
       command_workspace "$@"
+      ;;
+    run)
+      command_run "$@"
       ;;
     status)
       command_status "$@"
