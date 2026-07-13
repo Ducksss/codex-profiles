@@ -1405,6 +1405,31 @@ FAKE_CODEX
   rm -rf "$tmp"
 }
 
+test_workspace_resolution_errors_are_not_treated_as_unbound() {
+  local tmp config missing
+  tmp="$(mktemp -d)"
+  tmp="$(cd "$tmp" && pwd -P)"
+  config="$tmp/config"
+  missing="$tmp/missing"
+  mkdir -p "$tmp/home"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace status --json "$missing"
+
+  assert_status 1
+  assert_contains "Workspace directory does not exist: $missing"
+  assert_not_contains '"binding_path"'
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" run --app "$missing"
+
+  assert_status 1
+  assert_contains "Workspace directory does not exist: $missing"
+  assert_not_contains "No workspace profile is bound to ''"
+
+  rm -rf "$tmp"
+}
+
 test_workspace_guards_explicit_profile_commands() {
   local tmp config workspace service unbound fake_codex marker out err chatgpt_app fake_bin tool_log
   tmp="$(mktemp -d)"
@@ -2519,6 +2544,7 @@ test_workspace_bind_list_status_and_nested_resolution
 test_workspace_bind_rejects_unsafe_state_and_reports_stale_bindings
 test_workspace_uses_xdg_config_and_manages_guard_mode
 test_workspace_run_routes_cli_and_signed_app
+test_workspace_resolution_errors_are_not_treated_as_unbound
 test_workspace_guards_explicit_profile_commands
 test_remove_cleans_workspace_bindings_without_touching_projects
 test_doctor_reports_workspace_binding_health_in_human_and_json_output
