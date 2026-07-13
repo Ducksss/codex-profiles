@@ -7,6 +7,11 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Changed
+
+- Added practical GitHub Q&A guides for separate Codex CLI profiles, named
+  ChatGPT Desktop windows, and the local-state isolation boundary.
+
 ## 0.7.0 - 2026-07-13
 
 ### Added

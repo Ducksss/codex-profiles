@@ -12,6 +12,7 @@ copying tokens.
 
 [Project page](https://ducksss.github.io/codex-profiles/) |
 [llms.txt](https://ducksss.github.io/codex-profiles/llms.txt) |
+[Practical guides](#practical-guides) |
 [Agent guide](AGENTS.md) |
 [Security model](SECURITY.md)
 
@@ -131,6 +132,12 @@ The first launch of a named window may require signing into ChatGPT. Reopening
 the same name reuses that name's Desktop process and data. Different names can
 run side by side. The launcher uses the original signed `ChatGPT.app`; it does
 not clone, patch, re-sign, quit, or replace the installed app.
+
+## Practical guides
+
+- [Use separate work and personal Codex CLI profiles](https://github.com/Ducksss/codex-profiles/discussions/28)
+- [Open separate named ChatGPT windows on macOS](https://github.com/Ducksss/codex-profiles/discussions/29)
+- [Understand what codex-profiles isolates and what remains shared](https://github.com/Ducksss/codex-profiles/discussions/30)
 
 ## How profiles map to disk
 
