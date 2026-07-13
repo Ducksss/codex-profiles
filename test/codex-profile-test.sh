@@ -1341,6 +1341,185 @@ test_workspace_uses_xdg_config_and_manages_guard_mode() {
   rm -rf "$tmp"
 }
 
+test_workspace_run_routes_cli_and_signed_app() {
+  local tmp config workspace service fake_codex chatgpt_app fake_bin tool_log
+  tmp="$(mktemp -d)"
+  tmp="$(cd "$tmp" && pwd -P)"
+  config="$tmp/config"
+  workspace="$tmp/client"
+  service="$workspace/service"
+  fake_codex="$tmp/codex"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  mkdir -p "$tmp/home/.codex-client" "$service"
+  cat > "$fake_codex" <<'FAKE_CODEX'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'fake-codex 1.0\n'
+  exit 0
+fi
+printf 'CODEX_HOME=%s\n' "$CODEX_HOME"
+printf 'ARGS=%s\n' "$*"
+FAKE_CODEX
+  chmod 755 "$fake_codex"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "bound ChatGPT launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$workspace" client
+  assert_status 0
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI="$fake_codex" bash -c \
+    'cd "$1" && exec "$2" run -- exec "run tests"' _ "$service" "$SCRIPT"
+
+  assert_status 0
+  assert_contains "CODEX_HOME=$tmp/home/.codex-client"
+  assert_contains "ARGS=exec run tests"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI="$fake_codex" bash -c \
+    'cd "$1" && exec "$2" run -- --app' _ "$service" "$SCRIPT"
+
+  assert_status 0
+  assert_contains "ARGS=--app"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CHATGPT_APP="$chatgpt_app" \
+    "$SCRIPT" run --app "$service"
+
+  assert_status 0
+  assert_contains "Launching ChatGPT for profile client"
+  grep -Fqx "open -a $chatgpt_app files=$service args=--user-data-dir=$tmp/home/.codex-client/electron-user-data" "$tool_log" || \
+    fail "run --app did not launch the signed app with the bound profile"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI="$fake_codex" bash -c \
+    'cd "$1" && exec "$2" run' _ "$tmp" "$SCRIPT"
+
+  assert_status 1
+  assert_contains "No workspace profile is bound"
+  assert_contains "workspace bind"
+
+  rm -rf "$tmp"
+}
+
+test_workspace_guards_explicit_profile_commands() {
+  local tmp config workspace service unbound fake_codex marker out err chatgpt_app fake_bin tool_log
+  tmp="$(mktemp -d)"
+  tmp="$(cd "$tmp" && pwd -P)"
+  config="$tmp/config"
+  workspace="$tmp/client"
+  service="$workspace/service"
+  unbound="$tmp/unbound"
+  fake_codex="$tmp/codex"
+  marker="$tmp/codex-runs"
+  out="$tmp/out"
+  err="$tmp/err"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  mkdir -p "$tmp/home/.codex-client" "$tmp/home/.codex-personal" "$service" "$unbound"
+  cat > "$fake_codex" <<'FAKE_CODEX'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'fake-codex 1.0\n'
+  exit 0
+fi
+printf 'ran %s\n' "$*" >> "${FAKE_CODEX_MARKER:?}"
+printf 'CODEX_HOME=%s\n' "$CODEX_HOME"
+printf 'ARGS=%s\n' "$*"
+FAKE_CODEX
+  chmod 755 "$fake_codex"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "guarded ChatGPT launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$workspace" client
+  assert_status 0
+
+  set +e
+  env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" CODEX_CLI="$fake_codex" \
+    FAKE_CODEX_MARKER="$marker" bash -c \
+    'cd "$1" && exec "$2" cli personal exec check' _ "$service" "$SCRIPT" \
+    > "$out" 2> "$err"
+  status=$?
+  set -e
+  [[ "$status" -eq 0 ]] || fail "warn-mode CLI mismatch should run"
+  [[ "$(cat "$out")" == *"CODEX_HOME=$tmp/home/.codex-personal"* ]] || \
+    fail "warn-mode CLI did not use the explicit profile"
+  [[ "$(cat "$out")" != *"Warning:"* ]] || fail "workspace warning polluted stdout"
+  [[ "$(cat "$err")" == *"bound to profile 'client'"* ]] || fail "warn mode omitted expected profile"
+  [[ "$(cat "$err")" == *"selected profile is 'personal'"* ]] || fail "warn mode omitted selected profile"
+
+  : > "$err"
+  set +e
+  env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" CODEX_CLI="$fake_codex" \
+    FAKE_CODEX_MARKER="$marker" bash -c \
+    'cd "$1" && exec "$2" cli client exec check' _ "$service" "$SCRIPT" \
+    > "$out" 2> "$err"
+  status=$?
+  set -e
+  [[ "$status" -eq 0 ]] || fail "matching CLI profile should run"
+  [[ ! -s "$err" ]] || fail "matching CLI profile emitted a warning"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace guard strict
+  assert_status 0
+  : > "$marker"
+
+  set +e
+  env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" CODEX_CLI="$fake_codex" \
+    FAKE_CODEX_MARKER="$marker" bash -c \
+    'cd "$1" && exec "$2" cli personal exec blocked' _ "$service" "$SCRIPT" \
+    > "$out" 2> "$err"
+  status=$?
+  set -e
+  [[ "$status" -eq 1 ]] || fail "strict-mode CLI mismatch was not rejected"
+  [[ ! -s "$marker" ]] || fail "strict-mode CLI mismatch invoked Codex"
+  [[ "$(cat "$err")" == *"refusing selected profile 'personal'"* ]] || fail "strict CLI error is not actionable"
+
+  set +e
+  env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    bash -c 'cd "$1" && exec "$2" env personal' _ "$service" "$SCRIPT" \
+    > "$out" 2> "$err"
+  status=$?
+  set -e
+  [[ "$status" -eq 1 ]] || fail "strict-mode env mismatch was not rejected"
+  [[ ! -s "$out" ]] || fail "strict-mode env mismatch emitted eval-able stdout"
+
+  rm -f "$tool_log"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" CHATGPT_APP="$chatgpt_app" \
+    "$SCRIPT" app personal "$service"
+  assert_status 1
+  assert_contains "refusing selected profile 'personal'"
+  [[ ! -e "$tool_log" ]] || fail "strict-mode app mismatch invoked macOS open"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace guard off
+  assert_status 0
+  : > "$err"
+  set +e
+  env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" CODEX_CLI="$fake_codex" \
+    FAKE_CODEX_MARKER="$marker" bash -c \
+    'cd "$1" && exec "$2" cli personal exec allowed' _ "$service" "$SCRIPT" \
+    > "$out" 2> "$err"
+  status=$?
+  set -e
+  [[ "$status" -eq 0 ]] || fail "off-mode CLI mismatch should run"
+  [[ ! -s "$err" ]] || fail "off-mode CLI mismatch emitted a warning"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" CODEX_CLI="$fake_codex" \
+    FAKE_CODEX_MARKER="$marker" bash -c \
+    'cd "$1" && exec "$2" cli personal exec unbound' _ "$unbound" "$SCRIPT"
+  assert_status 0
+  assert_not_contains "Warning:"
+
+  rm -rf "$tmp"
+}
+
 test_logs_prints_path_and_contents() {
   local tmp log_file
   tmp="$(mktemp -d)"
@@ -2205,6 +2384,8 @@ test_remove_yes_deletes_profiles_named_like_common_aliases
 test_workspace_bind_list_status_and_nested_resolution
 test_workspace_bind_rejects_unsafe_state_and_reports_stale_bindings
 test_workspace_uses_xdg_config_and_manages_guard_mode
+test_workspace_run_routes_cli_and_signed_app
+test_workspace_guards_explicit_profile_commands
 test_env_prints_posix_exports_for_profile
 test_env_emits_fish_syntax
 test_env_warns_to_stderr_without_polluting_stdout_when_uninitialized
