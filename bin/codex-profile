@@ -25,6 +25,13 @@ Usage:
   $PROGRAM login <profile> [codex-login-args...]
   $PROGRAM init <profile> [--share-with <source-profile>]
   $PROGRAM remove <profile> [--yes]
+  $PROGRAM workspace bind <path> <profile> [--force]
+  $PROGRAM workspace unbind <path>
+  $PROGRAM workspace list [--json]
+  $PROGRAM workspace status [--json] [path]
+  $PROGRAM workspace guard [off|warn|strict]
+  $PROGRAM run [--] [codex-args...]
+  $PROGRAM run --app [workspace]
   $PROGRAM status [profile]
   $PROGRAM status --json [profile]
   $PROGRAM path <profile>
@@ -47,6 +54,9 @@ Examples:
   $PROGRAM app personal ~/Dev/my-project
   $PROGRAM app work ~/Dev/client-project
   $PROGRAM cli personal exec "review this repo"
+  $PROGRAM workspace bind ~/Dev/client-project work
+  $PROGRAM run exec "review this repo"
+  $PROGRAM run --app
   $PROGRAM status
   eval "\$($PROGRAM env work)"     # set CODEX_HOME for this shell
   $PROGRAM use work               # same, via the shell-init wrapper
@@ -75,6 +85,7 @@ Environment:
   CODEX_APP_BIN   Locate a desktop .app from its executable (deprecated).
   CODEX_CLI       Override Codex CLI binary path.
   CODEX_BUNDLED_CLI  Override the bundled Codex CLI fallback path.
+  CODEX_PROFILE_CONFIG_HOME  Override private workspace binding storage.
   CODEX_PROFILE_APP_INSTANCE_ROOT  Legacy clone root (doctor only; never written).
   CODEX_PROFILE_UPGRADE_REPO    Override upgrade repository.
   CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref.
@@ -2024,14 +2035,15 @@ command_completions() {
       cat <<'EOF'
 _codex_profile()
 {
-  local cur command prev profiles
+  local cur command prev profiles workspace_commands
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   command="${COMP_WORDS[1]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
+  workspace_commands="bind unbind list status guard"
 
   if [[ "$COMP_CWORD" -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help" -- "$cur") )
+    COMPREPLY=( $(compgen -W "app app-instance cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help" -- "$cur") )
     return 0
   fi
 
@@ -2064,6 +2076,23 @@ _codex_profile()
         COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
       fi
       ;;
+    workspace)
+      if [[ "$COMP_CWORD" -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "$workspace_commands" -- "$cur") )
+      elif [[ "${COMP_WORDS[2]}" == "bind" && "$COMP_CWORD" -eq 4 ]]; then
+        profiles="$(codex-profile list 2>/dev/null)"
+        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
+      elif [[ "${COMP_WORDS[2]}" == "guard" && "$COMP_CWORD" -eq 3 ]]; then
+        COMPREPLY=( $(compgen -W "off warn strict" -- "$cur") )
+      elif [[ ( "${COMP_WORDS[2]}" == "list" || "${COMP_WORDS[2]}" == "status" ) && "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "--json" -- "$cur") )
+      fi
+      ;;
+    run)
+      if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "--app" -- "$cur") )
+      fi
+      ;;
     completions|shell-init)
       if [[ "$COMP_CWORD" -eq 2 ]]; then
         COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
@@ -2079,14 +2108,16 @@ EOF
 #compdef codex-profile codex-profiles
 
 _codex_profile() {
-  local -a commands profiles shells app_flags init_flags
+  local -a commands profiles shells app_flags init_flags workspace_commands run_flags
   commands=(
-    app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help
+    app app-instance cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
   )
   profiles=(${(f)"$(codex-profile list 2>/dev/null)"} default personal work)
   shells=(bash zsh fish)
   app_flags=(--instance --rebuild)
   init_flags=(--share-with)
+  workspace_commands=(bind unbind list status guard)
+  run_flags=(--app)
 
   if (( CURRENT == 2 )); then
     _describe 'command' commands
@@ -2118,6 +2149,20 @@ _codex_profile() {
         _describe 'profile' profiles
       fi
       ;;
+    workspace)
+      if (( CURRENT == 3 )); then
+        _describe 'workspace command' workspace_commands
+      elif [[ "$words[3]" == "bind" ]] && (( CURRENT == 5 )); then
+        _describe 'profile' profiles
+      elif [[ "$words[3]" == "guard" ]] && (( CURRENT == 4 )); then
+        _values 'guard mode' off warn strict
+      fi
+      ;;
+    run)
+      if [[ "$words[CURRENT]" == -* ]]; then
+        _describe 'flag' run_flags
+      fi
+      ;;
     completions|shell-init)
       if (( CURRENT == 3 )); then
         _describe 'shell' shells
@@ -2133,12 +2178,20 @@ EOF
       cat <<'EOF'
 for codex_profile_command in codex-profile codex-profiles
     complete -c $codex_profile_command -f
-    complete -c $codex_profile_command -n '__fish_is_first_arg' -a 'app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help'
+    complete -c $codex_profile_command -n '__fish_is_first_arg' -a 'app app-instance cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from app app-instance cli login init remove status path env use logs' -a '(codex-profile list 2>/dev/null) default personal work'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from app' -l instance -d 'Compatibility flag; named ChatGPT windows already use separate local state'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from app' -l rebuild -d 'Compatibility no-op; the signed app is never cloned'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from init' -l share-with -r -a '(codex-profile list 2>/dev/null) default personal work' -d 'Link the configuration allowlist from another profile'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from clone-config' -a '(codex-profile list 2>/dev/null) default personal work'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and test (count (commandline -opc)) -eq 2' -a 'bind unbind list status guard'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from bind; and test (count (commandline -opc)) -eq 3' -F
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from bind; and test (count (commandline -opc)) -eq 4' -a '(codex-profile list 2>/dev/null) default personal work'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from unbind; and test (count (commandline -opc)) -eq 3' -F
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from status; and test (count (commandline -opc)) -eq 3' -F
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from guard; and test (count (commandline -opc)) -eq 3' -a 'off warn strict'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from list status' -l json -d 'Emit JSON'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from run' -l app -d 'Launch the bound ChatGPT window'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from completions shell-init' -a 'bash zsh fish'
 end
 EOF

@@ -23,6 +23,11 @@ homes and, on macOS, named ChatGPT windows with separate local state.
   patching, re-signing, quitting, or replacing it.
 - `status` reports Codex-local authentication. The project does not inspect or
   verify whether a CLI login and ChatGPT Desktop window use the same account.
+- `workspace bind <path> <profile>` stores a private local canonical-path
+  binding. The nearest bound ancestor wins; no file is added to the project.
+- `run` uses the current directory's binding for Codex CLI, while `run --app`
+  uses it for the signed ChatGPT app. Explicit mismatches warn by default and
+  can be rejected with `workspace guard strict`.
 - The project never reads, copies, prints, parses, uploads, compares, or
   migrates auth tokens or ChatGPT cookies.
 - `init <name> --share-with <source>` creates a real private profile directory
@@ -61,6 +66,9 @@ codex-profile init work
 codex-profile init personal-2 --share-with personal
 codex-profile login work
 codex-profile cli work exec "review this repo"
+codex-profile workspace bind ~/Dev/work-project work
+codex-profile run exec "review this repo"
+codex-profile run --app
 codex-profile app default ~/Dev/main-project
 codex-profile app personal ~/Dev/personal-project
 codex-profile app work ~/Dev/work-project
@@ -70,6 +78,20 @@ eval "$(codex-profile env work)"
 
 The word `work` in these examples is an arbitrary profile name. It must not be
 confused with the ChatGPT mode named Work.
+
+## Workspace routing
+
+Workspace bindings contain only a physical canonical path and profile name.
+They live under `${XDG_CONFIG_HOME:-~/.config}/codex-profile` by default, with
+private permissions, and can be relocated with `CODEX_PROFILE_CONFIG_HOME`.
+Nested bindings override broader ancestors; sibling paths with similar names do
+not match.
+
+`workspace guard` defaults to `warn`. `strict` rejects mismatched `cli`,
+`env`/`use`, and `app` selections before side effects; `off` disables checks.
+This is a local mistake-prevention feature, not an account, OS, server-side, or
+security boundary. Upstream Codex directory flags such as `-C` are passed
+through and are not parsed for guard resolution.
 
 ## Deprecated compatibility spellings
 
