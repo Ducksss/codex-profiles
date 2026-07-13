@@ -280,6 +280,9 @@ workspace_path_for_unbind() {
 workspace_assert_state_paths_safe() {
   [[ ! -L "$CODEX_PROFILE_CONFIG_HOME" ]] || \
     die "Refusing symlinked workspace config directory: $CODEX_PROFILE_CONFIG_HOME"
+  if [[ -e "$CODEX_PROFILE_CONFIG_HOME" && ! -d "$CODEX_PROFILE_CONFIG_HOME" ]]; then
+    die "Workspace config path is not a directory: $CODEX_PROFILE_CONFIG_HOME"
+  fi
   [[ ! -L "$WORKSPACE_REGISTRY" ]] || \
     die "Refusing symlinked workspace registry: $WORKSPACE_REGISTRY"
   [[ ! -L "$WORKSPACE_GUARD_FILE" ]] || \
@@ -499,6 +502,11 @@ workspace_registry_stats() {
   WORKSPACE_STATS_MISSING_PATHS=0
   WORKSPACE_STATS_MISSING_PROFILES=0
 
+  if [[ -e "$CODEX_PROFILE_CONFIG_HOME" && ! -d "$CODEX_PROFILE_CONFIG_HOME" ]]; then
+    WORKSPACE_STATS_GUARD_MODE=""
+    WORKSPACE_STATS_REGISTRY_VALID=false
+    return 0
+  fi
   if [[ -L "$CODEX_PROFILE_CONFIG_HOME" || -L "$WORKSPACE_REGISTRY" || \
         -L "$WORKSPACE_GUARD_FILE" ]]; then
     WORKSPACE_STATS_GUARD_MODE=""
@@ -1485,7 +1493,8 @@ command_workspace() {
 }
 
 command_run() {
-  local usage="Usage: $PROGRAM run [--] [codex-args...]\n       $PROGRAM run --app [workspace]"
+  local usage="Usage: $PROGRAM run [--] [codex-args...]
+       $PROGRAM run --app [workspace]"
   local workspace profile resolve_status
 
   if [[ "${1:-}" == "--app" ]]; then
@@ -1507,9 +1516,10 @@ command_run() {
     return 0
   fi
 
-  if [[ "${1:-}" == "--" ]]; then
-    shift
-  fi
+  case "${1:-}" in
+    --) shift ;;
+    -*) die "$usage" ;;
+  esac
   if workspace_resolve "$PWD"; then
     :
   else
@@ -2128,7 +2138,7 @@ EOF
 #compdef codex-profile codex-profiles
 
 _codex_profile() {
-  local -a commands profiles shells app_flags init_flags workspace_commands run_flags
+  local -a commands profiles shells app_flags init_flags workspace_commands run_flags workspace_json_flags
   commands=(
     app app-instance cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
   )
@@ -2138,6 +2148,7 @@ _codex_profile() {
   init_flags=(--share-with)
   workspace_commands=(bind unbind list status guard)
   run_flags=(--app)
+  workspace_json_flags=(--json)
 
   if (( CURRENT == 2 )); then
     _describe 'command' commands
@@ -2176,6 +2187,9 @@ _codex_profile() {
         _describe 'profile' profiles
       elif [[ "$words[3]" == "guard" ]] && (( CURRENT == 4 )); then
         _values 'guard mode' off warn strict
+      elif [[ "$words[3]" == "list" || "$words[3]" == "status" ]] && \
+           [[ "$words[CURRENT]" == -* ]]; then
+        _describe 'flag' workspace_json_flags
       fi
       ;;
     run)
