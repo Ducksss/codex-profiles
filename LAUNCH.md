@@ -28,6 +28,45 @@ per-target state.
   Codex app clones or Codex-only Desktop switching need correction after the
   release; preserve their historical submission records.
 
+### 2026-07-13–14 GitHub Wave
+
+- Published three owned Q&A guides:
+  [separate CLI profiles](https://github.com/Ducksss/codex-profiles/discussions/28),
+  [named macOS ChatGPT windows](https://github.com/Ducksss/codex-profiles/discussions/29),
+  and [the isolation boundary](https://github.com/Ducksss/codex-profiles/discussions/30).
+- Audited all 56 remaining P0/P1 GitHub issue routes. Airtable outcomes:
+  10 draft PRs, 1 verified listing, 1 qualified route queued after the cap,
+  6 issue-first monitor routes, 10 deferred routes, and 28 permanent non-ICP
+  routes. Qualification totals were 4 high-confidence and 7 medium-confidence
+  routes; 4 high and 6 medium were submitted.
+- High-confidence draft PRs:
+  [awesome-dev-tools #12](https://github.com/dinakars777/awesome-dev-tools/pull/12),
+  [CodexGuide #26](https://github.com/freestylefly/CodexGuide/pull/26),
+  [awesome-agentic-engineering #5](https://github.com/ashishkaloge/awesome-agentic-engineering/pull/5),
+  and [awesome-llm-cli-apps #6](https://github.com/jsnyder/awesome-llm-cli-apps/pull/6).
+- Medium-confidence draft PRs:
+  [collective-ai-tools #259](https://github.com/Hyraze/collective-ai-tools/pull/259),
+  [Awesome-independent-tools #82](https://github.com/yaolifeng0629/Awesome-independent-tools/pull/82),
+  [dev-resource-hub #29](https://github.com/saikirantechy/dev-resource-hub/pull/29),
+  [awesome-devtools #2](https://github.com/Alvaro1904200/awesome-devtools/pull/2),
+  [ai-agent-stack #2](https://github.com/SelahattinSert/ai-agent-stack/pull/2),
+  and [awesome-ChatGPT-repositories #181](https://github.com/taishi-i/awesome-ChatGPT-repositories/pull/181).
+- The medium-confidence
+  [athivvat/awesome-devtools route](https://github.com/athivvat/awesome-devtools/issues/40)
+  is queued after the ten-PR cap. Do not bump the issue.
+- Verified
+  [awesome-agent-clients](https://github.com/1shiharat/awesome-agent-clients#related-agents-frameworks--protocols)
+  lists codex-profiles under adjacent tooling.
+- Principal blockers: agent/client/MCP/plugin/skill/subagent scope mismatch;
+  100-star and one-year age gates; stale or ambiguous companion-tool scope;
+  unsupported scoring metadata; and a contribution policy that rejects
+  AI-generated PRs. No new issues or reminder comments were posted.
+- Airtable received 56 reviewed-target events plus 3 owned-discussion events.
+  Readback verified all target fields and log links without mismatches.
+- Wave-start traffic baseline: 51 stars, 7 forks, 1 watcher, 412 views with
+  217 unique viewers, and 582 clones with 216 unique cloners over the
+  available 14-day window.
+
 ## Positioning
 
 One-line pitch:
