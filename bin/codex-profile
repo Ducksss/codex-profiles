@@ -295,7 +295,7 @@ workspace_assert_state_paths_safe() {
 
 ensure_workspace_config_home() {
   workspace_assert_state_paths_safe
-  mkdir -p "$CODEX_PROFILE_CONFIG_HOME" || \
+  (umask 077 && mkdir -p "$CODEX_PROFILE_CONFIG_HOME") || \
     die "Cannot create workspace config directory: $CODEX_PROFILE_CONFIG_HOME"
   [[ -d "$CODEX_PROFILE_CONFIG_HOME" ]] || \
     die "Workspace config path is not a directory: $CODEX_PROFILE_CONFIG_HOME"
@@ -421,9 +421,12 @@ workspace_registry_rewrite() {
 workspace_resolve() {
   local requested_path="$1" line line_number=0 binding profile
 
-  WORKSPACE_RESOLVED_PATH="$(canonical_directory "$requested_path")"
+  WORKSPACE_RESOLVED_PATH=""
   WORKSPACE_RESOLVED_BINDING=""
   WORKSPACE_RESOLVED_PROFILE=""
+  if ! WORKSPACE_RESOLVED_PATH="$(canonical_directory "$requested_path")"; then
+    return 2
+  fi
   workspace_registry_validate
   [[ -f "$WORKSPACE_REGISTRY" ]] || return 1
 
@@ -537,11 +540,17 @@ workspace_registry_stats() {
 }
 
 workspace_guard_profile() {
-  local selected_profile="$1" path="$2" mode
+  local selected_profile="$1" path="$2" mode resolve_status
 
   mode="$(workspace_guard_mode)"
   [[ "$mode" != "off" ]] || return 0
-  if ! workspace_resolve "$path"; then
+  workspace_registry_validate
+  [[ -s "$WORKSPACE_REGISTRY" && -d "$path" ]] || return 0
+  if workspace_resolve "$path"; then
+    :
+  else
+    resolve_status=$?
+    [[ "$resolve_status" -eq 1 ]] || return 1
     return 0
   fi
   [[ "$selected_profile" != "$WORKSPACE_RESOLVED_PROFILE" ]] || return 0
@@ -1374,7 +1383,7 @@ command_workspace_list() {
 
 command_workspace_status() {
   local usage="Usage: $PROGRAM workspace status [--json] [path]"
-  local json=no path="" mode matched=no
+  local json=no path="" mode matched=no resolve_status
 
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
@@ -1396,6 +1405,9 @@ command_workspace_status() {
   mode="$(workspace_guard_mode)"
   if workspace_resolve "$path"; then
     matched=yes
+  else
+    resolve_status=$?
+    [[ "$resolve_status" -eq 1 ]] || return 1
   fi
 
   if [[ "$json" == "yes" ]]; then
@@ -1474,7 +1486,7 @@ command_workspace() {
 
 command_run() {
   local usage="Usage: $PROGRAM run [--] [codex-args...]\n       $PROGRAM run --app [workspace]"
-  local workspace profile
+  local workspace profile resolve_status
 
   if [[ "${1:-}" == "--app" ]]; then
     shift
@@ -1483,7 +1495,11 @@ command_run() {
       shift
     fi
     [[ "$#" -eq 0 ]] || die "$usage"
-    if ! workspace_resolve "$workspace"; then
+    if workspace_resolve "$workspace"; then
+      :
+    else
+      resolve_status=$?
+      [[ "$resolve_status" -eq 1 ]] || return 1
       die "No workspace profile is bound to '$WORKSPACE_RESOLVED_PATH'. Run '$PROGRAM workspace bind $WORKSPACE_RESOLVED_PATH <profile>' first."
     fi
     profile="$WORKSPACE_RESOLVED_PROFILE"
@@ -1494,7 +1510,11 @@ command_run() {
   if [[ "${1:-}" == "--" ]]; then
     shift
   fi
-  if ! workspace_resolve "$PWD"; then
+  if workspace_resolve "$PWD"; then
+    :
+  else
+    resolve_status=$?
+    [[ "$resolve_status" -eq 1 ]] || return 1
     die "No workspace profile is bound to '$WORKSPACE_RESOLVED_PATH'. Run '$PROGRAM workspace bind $WORKSPACE_RESOLVED_PATH <profile>' first."
   fi
   profile="$WORKSPACE_RESOLVED_PROFILE"
