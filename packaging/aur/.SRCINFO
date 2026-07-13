@@ -8,7 +8,7 @@ pkgbase = codex-profile
 	depends = bash
 	source = codex-profile-0.7.0::https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.7.0/bin/codex-profile
 	source = LICENSE-0.7.0::https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.7.0/LICENSE
-	sha256sums = 5333d2fed3bbd9e9c4fe53db259a89815ec93f8c5a81e1bdaa3650a54c757f2c
+	sha256sums = db059709d65cb13d4081fddee39d03b89bcc48c589d83869e2b00622d952f444
 	sha256sums = 9ff3b3e5b6a234802d746443539abda82c35d1581a98249b40636dd5acff4364
 
 pkgname = codex-profile
