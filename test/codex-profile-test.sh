@@ -1520,6 +1520,125 @@ FAKE_CODEX
   rm -rf "$tmp"
 }
 
+test_remove_cleans_workspace_bindings_without_touching_projects() {
+  local tmp config personal_one personal_two work_space ghost_space marker
+  tmp="$(mktemp -d)"
+  tmp="$(cd "$tmp" && pwd -P)"
+  config="$tmp/config"
+  personal_one="$tmp/projects/personal-one"
+  personal_two="$tmp/projects/personal-two"
+  work_space="$tmp/projects/work"
+  ghost_space="$tmp/projects/ghost"
+  marker="$personal_one/keep.txt"
+  mkdir -p "$tmp/home/.codex-personal" "$tmp/home/.codex-work" \
+    "$tmp/home/.codex-ghost" "$personal_one" "$personal_two" "$work_space" "$ghost_space"
+  printf 'keep project data\n' > "$marker"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$personal_one" personal
+  assert_status 0
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$personal_two" personal
+  assert_status 0
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$work_space" work
+  assert_status 0
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$ghost_space" ghost
+  assert_status 0
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" remove personal --yes
+
+  assert_status 0
+  assert_contains "Removed personal"
+  [[ -f "$marker" ]] || fail "profile removal deleted bound project data"
+  [[ -d "$personal_two" ]] || fail "profile removal deleted a bound workspace"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace list --json
+  assert_status 0
+  assert_not_contains '"profile":"personal"'
+  assert_contains '"profile":"work"'
+  assert_contains '"profile":"ghost"'
+
+  rm -rf "$tmp/home/.codex-ghost"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" remove ghost --yes
+  assert_status 0
+  assert_contains "Not initialized ghost"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace list --json
+  assert_status 0
+  assert_not_contains '"profile":"ghost"'
+  assert_contains '"profile":"work"'
+
+  printf 'malformed registry\n' > "$config/workspaces.tsv"
+  mkdir -p "$tmp/home/.codex-client"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" remove client --yes
+  assert_status 1
+  assert_contains "Malformed workspace registry line 1"
+  [[ -d "$tmp/home/.codex-client" ]] || fail "remove deleted a profile before validating binding cleanup"
+
+  rm -rf "$tmp"
+}
+
+test_doctor_reports_workspace_binding_health_in_human_and_json_output() {
+  local tmp config existing_one existing_two missing
+  tmp="$(mktemp -d)"
+  tmp="$(cd "$tmp" && pwd -P)"
+  config="$tmp/config"
+  existing_one="$tmp/projects/one"
+  existing_two="$tmp/projects/two"
+  missing="$tmp/projects/missing"
+  mkdir -p "$tmp/home/.codex-work" "$existing_one" "$existing_two" "$config"
+  chmod 700 "$config"
+  printf '%s\t%s\n' "$existing_one" work > "$config/workspaces.tsv"
+  printf '%s\t%s\n' "$missing" work >> "$config/workspaces.tsv"
+  printf '%s\t%s\n' "$existing_two" ghost >> "$config/workspaces.tsv"
+  chmod 600 "$config/workspaces.tsv"
+  printf 'strict\n' > "$config/guard-mode"
+  chmod 600 "$config/guard-mode"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI=/no/such/codex "$SCRIPT" doctor
+
+  assert_status 0
+  assert_contains "Workspace registry: $config/workspaces.tsv"
+  assert_contains "Workspace guard mode: strict"
+  assert_contains "Workspace bindings: 3"
+  assert_contains "Missing workspace paths: 1"
+  assert_contains "Missing workspace profiles: 1"
+  assert_contains "CLI: missing"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI=/no/such/codex "$SCRIPT" doctor --json
+
+  assert_status 0
+  assert_contains '"workspaces":{'
+  assert_contains '"guard_mode":"strict"'
+  assert_contains '"registry_valid":true'
+  assert_contains '"binding_count":3'
+  assert_contains '"missing_paths":1'
+  assert_contains '"missing_profiles":1'
+  JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
+
+  printf 'malformed registry\n' > "$config/workspaces.tsv"
+  printf 'dangerous\n' > "$config/guard-mode"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI=/no/such/codex "$SCRIPT" doctor --json
+
+  assert_status 0
+  assert_contains '"guard_mode":null'
+  assert_contains '"registry_valid":false'
+  assert_contains '"binding_count":0'
+  JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
+
+  rm -rf "$tmp"
+}
+
 test_logs_prints_path_and_contents() {
   local tmp log_file
   tmp="$(mktemp -d)"
@@ -2386,6 +2505,8 @@ test_workspace_bind_rejects_unsafe_state_and_reports_stale_bindings
 test_workspace_uses_xdg_config_and_manages_guard_mode
 test_workspace_run_routes_cli_and_signed_app
 test_workspace_guards_explicit_profile_commands
+test_remove_cleans_workspace_bindings_without_touching_projects
+test_doctor_reports_workspace_binding_health_in_human_and_json_output
 test_env_prints_posix_exports_for_profile
 test_env_emits_fish_syntax
 test_env_warns_to_stderr_without_polluting_stdout_when_uninitialized
