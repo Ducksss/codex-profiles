@@ -879,6 +879,195 @@ test_init_creates_private_profile_home_without_codex() {
   rm -rf "$tmp"
 }
 
+test_init_share_with_links_only_existing_allowlisted_config() {
+  local tmp source_home target_home source_override minimal_source minimal_target
+  tmp="$(mktemp -d)"
+  source_home="$tmp/home/.codex-personal"
+  target_home="$tmp/home/.codex-personal-2"
+  source_override="$source_home/shared-override.md"
+  mkdir -p "$source_home/rules" "$source_home/plugins" \
+    "$source_home/sessions" "$source_home/logs" \
+    "$source_home/electron-user-data" "$source_home/cache" \
+    "$source_home/caches" "$source_home/connectors" \
+    "$source_home/connector-data" "$source_home/apps" \
+    "$source_home/skills"
+  printf 'model = "gpt-5"\n' > "$source_home/config.toml"
+  printf '# Shared agents\n' > "$source_home/AGENTS.md"
+  printf '# Shared override\n' > "$source_override"
+  ln -s "$source_override" "$source_home/AGENTS.override.md"
+  printf '# Legacy instructions\n' > "$source_home/instructions.md"
+  printf '# Legacy shared instructions\n' > "$source_home/custom-instructions.md"
+  printf 'allow_rule = true\n' > "$source_home/rules/default.rules"
+  printf 'plugin\n' > "$source_home/plugins/example.txt"
+  printf '{"token":"source-secret"}\n' > "$source_home/auth.json"
+  printf 'private session\n' > "$source_home/sessions/session.json"
+  printf 'private log\n' > "$source_home/logs/codex.log"
+  printf 'private desktop state\n' > "$source_home/electron-user-data/state"
+  printf 'private cache\n' > "$source_home/cache/state"
+  printf 'private caches\n' > "$source_home/caches/state"
+  printf 'private connector\n' > "$source_home/connectors/state"
+  printf 'private connector data\n' > "$source_home/connector-data/state"
+  printf 'private app data\n' > "$source_home/apps/state"
+  printf 'not allowlisted\n' > "$source_home/skills/example.txt"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex \
+    "$SCRIPT" init personal-2 --share-with personal
+
+  assert_status 0
+  assert_contains "Initialized personal-2 ($target_home)"
+  assert_contains "Sharing configuration with personal ($source_home)"
+  [[ -d "$target_home" && ! -L "$target_home" ]] ||
+    fail "shared init target must be a real directory"
+  [[ "$(mode_of "$target_home")" == "700" ]] ||
+    fail "shared init target is not private"
+
+  local entry
+  for entry in config.toml AGENTS.md AGENTS.override.md instructions.md custom-instructions.md rules plugins; do
+    [[ -L "$target_home/$entry" ]] || fail "shared init did not link $entry"
+    [[ "$(readlink "$target_home/$entry")" == "$source_home/$entry" ]] ||
+      fail "shared init linked $entry to the wrong source"
+  done
+
+  for entry in auth.json sessions logs electron-user-data cache caches connectors connector-data apps skills; do
+    [[ ! -e "$target_home/$entry" && ! -L "$target_home/$entry" ]] ||
+      fail "shared init linked private or non-allowlisted state: $entry"
+  done
+
+  printf '{"token":"target-secret"}\n' > "$target_home/auth.json"
+  [[ "$(cat "$source_home/auth.json")" == '{"token":"source-secret"}' ]] ||
+    fail "target auth write changed source auth"
+
+  minimal_source="$tmp/home/.codex-minimal"
+  minimal_target="$tmp/home/.codex-minimal-2"
+  mkdir -p "$minimal_source"
+  printf 'model = "gpt-5"\n' > "$minimal_source/config.toml"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" init minimal-2 --share-with minimal
+
+  assert_status 0
+  [[ -L "$minimal_target/config.toml" ]] ||
+    fail "minimal shared init did not link existing config.toml"
+  for entry in AGENTS.md AGENTS.override.md instructions.md custom-instructions.md rules plugins; do
+    [[ ! -e "$minimal_target/$entry" && ! -L "$minimal_target/$entry" ]] ||
+      fail "minimal shared init created a dangling link: $entry"
+  done
+
+  rm -rf "$tmp"
+}
+
+test_init_share_with_rejects_invalid_sources_and_usage() {
+  local tmp source_home outside
+  tmp="$(mktemp -d)"
+  source_home="$tmp/home/.codex-personal"
+  outside="$tmp/outside-source"
+  mkdir -p "$source_home" "$outside"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" init personal --share-with personal
+
+  assert_status 1
+  assert_contains "Source and target profiles must be different"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" init personal-2 --share-with missing
+
+  assert_status 1
+  assert_contains "Shared profile source is not initialized"
+  [[ ! -e "$tmp/home/.codex-personal-2" ]] ||
+    fail "missing source created target profile"
+
+  rm -rf "$source_home"
+  ln -s "$outside" "$source_home"
+  run_cmd env HOME="$tmp/home" "$SCRIPT" init personal-2 --share-with personal
+
+  assert_status 1
+  assert_contains "Refusing symlinked shared profile source"
+  [[ ! -e "$tmp/home/.codex-personal-2" ]] ||
+    fail "symlinked source created target profile"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" init personal-2 --share-with
+
+  assert_status 1
+  assert_contains "Usage:"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" init personal-2 --unknown
+
+  assert_status 1
+  assert_contains "Usage:"
+
+  rm -rf "$tmp"
+}
+
+test_init_share_with_refuses_every_existing_target_path() {
+  local tmp source_home target_home
+  tmp="$(mktemp -d)"
+  source_home="$tmp/home/.codex-personal"
+  target_home="$tmp/home/.codex-personal-2"
+  mkdir -p "$source_home" "$target_home"
+  printf 'model = "gpt-5"\n' > "$source_home/config.toml"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" init personal-2 --share-with personal
+
+  assert_status 1
+  assert_contains "Target profile path already exists"
+  [[ -d "$target_home" ]] || fail "shared init removed existing target directory"
+
+  rmdir "$target_home"
+  printf 'existing file\n' > "$target_home"
+  run_cmd env HOME="$tmp/home" "$SCRIPT" init personal-2 --share-with personal
+
+  assert_status 1
+  assert_contains "Target profile path already exists"
+  [[ "$(cat "$target_home")" == "existing file" ]] ||
+    fail "shared init changed existing target file"
+
+  rm -f "$target_home"
+  ln -s "$tmp/missing-target" "$target_home"
+  run_cmd env HOME="$tmp/home" "$SCRIPT" init personal-2 --share-with personal
+
+  assert_status 1
+  assert_contains "Target profile path already exists"
+  [[ -L "$target_home" ]] || fail "shared init removed existing dangling target symlink"
+
+  rm -rf "$tmp"
+}
+
+test_init_share_with_cleans_up_after_link_failure() {
+  local tmp source_home target_home real_ln
+  tmp="$(mktemp -d)"
+  source_home="$tmp/home/.codex-personal"
+  target_home="$tmp/home/.codex-personal-2"
+  real_ln="$(command -v ln)"
+  mkdir -p "$source_home" "$tmp/bin"
+  printf 'model = "gpt-5"\n' > "$source_home/config.toml"
+  printf '# Shared agents\n' > "$source_home/AGENTS.md"
+  cat > "$tmp/bin/ln" <<'FAKE_LN'
+#!/usr/bin/env bash
+count=0
+if [[ -f "$FAKE_LN_COUNT" ]]; then
+  read -r count < "$FAKE_LN_COUNT"
+fi
+count=$((count + 1))
+printf '%s\n' "$count" > "$FAKE_LN_COUNT"
+if [[ "$count" -eq 2 ]]; then
+  exit 73
+fi
+exec "$REAL_LN" "$@"
+FAKE_LN
+  chmod 755 "$tmp/bin/ln"
+
+  run_cmd env HOME="$tmp/home" PATH="$tmp/bin:$PATH" \
+    REAL_LN="$real_ln" FAKE_LN_COUNT="$tmp/ln-count" \
+    "$SCRIPT" init personal-2 --share-with personal
+
+  assert_status 1
+  assert_contains "Cannot link shared entry AGENTS.md"
+  [[ ! -e "$target_home" && ! -L "$target_home" ]] ||
+    fail "shared init left a partially populated target after link failure"
+  [[ -f "$source_home/config.toml" && -f "$source_home/AGENTS.md" ]] ||
+    fail "shared init cleanup changed the source profile"
+
+  rm -rf "$tmp"
+}
+
 test_remove_aborts_when_confirmation_does_not_match() {
   local tmp profile_home
   tmp="$(mktemp -d)"
@@ -1075,6 +1264,7 @@ test_completions_generate_shell_scripts() {
 
   assert_status 0
   assert_contains "--instance"
+  assert_contains "--share-with"
 
   run_cmd "$SCRIPT" completions bash
 
@@ -1088,6 +1278,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "env"
   assert_contains "use"
   assert_contains "shell-init"
+  assert_contains "--share-with"
 
   run_cmd "$SCRIPT" completions zsh
 
@@ -1099,6 +1290,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "--instance"
   assert_contains "app-instance"
   assert_contains "shell-init"
+  assert_contains "--share-with"
 
   run_cmd "$SCRIPT" completions fish
 
@@ -1112,6 +1304,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "-l rebuild"
   assert_contains "app-instance"
   assert_contains "shell-init"
+  assert_contains "-l share-with"
   assert_not_contains "Codex Desktop clone"
   assert_not_contains "Rebuild the app --instance clone"
 }
@@ -1775,6 +1968,10 @@ test_app_propagates_open_failures
 test_doctor_skips_status_when_cli_missing
 test_doctor_reports_desktop_and_cli_when_present
 test_init_creates_private_profile_home_without_codex
+test_init_share_with_links_only_existing_allowlisted_config
+test_init_share_with_rejects_invalid_sources_and_usage
+test_init_share_with_refuses_every_existing_target_path
+test_init_share_with_cleans_up_after_link_failure
 test_remove_aborts_when_confirmation_does_not_match
 test_remove_yes_deletes_profile_home
 test_remove_yes_deletes_profiles_named_like_common_aliases

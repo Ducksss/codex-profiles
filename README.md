@@ -112,6 +112,14 @@ codex-profile login personal
 codex-profile login work
 ```
 
+To keep authentication and runtime state separate while sharing selected
+configuration, initialize a new linked profile from an existing one:
+
+```sh
+codex-profile init personal-2 --share-with personal
+codex-profile login personal-2
+```
+
 Run the upstream Codex CLI with either home:
 
 ```sh
@@ -180,6 +188,7 @@ codex-profile path personal
 
 ```sh
 codex-profile init client-a
+codex-profile init client-b --share-with client-a
 codex-profile list
 codex-profile remove client-a
 codex-profile remove client-a --yes
@@ -188,6 +197,29 @@ codex-profile remove client-a --yes
 `list` and `status` are read-only. They do not create a directory for a typo.
 Removing a profile deletes its Codex home and, for a named Desktop profile, its
 local Electron data. Review the path and close the corresponding window first.
+
+#### Share configuration, not identity or runtime state
+
+`init <profile> --share-with <source-profile>` creates a new, private profile
+directory and symlinks only source entries that already exist in this explicit
+allowlist:
+
+```text
+config.toml
+AGENTS.md
+AGENTS.override.md
+instructions.md
+custom-instructions.md
+rules/
+plugins/
+```
+
+The target must not already exist. `auth.json`, `sessions/`, `logs/`,
+`electron-user-data/`, caches, skills, and connector/app state are never
+linked. The command does not read or copy authentication data. Allowlisted
+links are live: edits from either profile affect the same source configuration,
+and plugins or configuration can themselves contain sensitive or executable
+content. Review the source before linking across trust domains.
 
 ### Inspect Codex-local status
 
@@ -333,7 +365,7 @@ For Bash, save the output as
 codex-profile app <profile> [workspace]
 codex-profile cli <profile> [codex-args...]
 codex-profile login <profile> [codex-login-args...]
-codex-profile init <profile>
+codex-profile init <profile> [--share-with <source-profile>]
 codex-profile remove <profile> [--yes]
 codex-profile status [profile]
 codex-profile status --json [profile]
@@ -436,6 +468,10 @@ The tool does not read, copy, print, parse, upload, compare, or migrate token
 contents. It also cannot promise that OpenAI will never store some state in the
 macOS keychain or another location outside the selected directories. Use
 separate operating-system users when you require a stronger boundary.
+
+Linked profiles share only the documented configuration paths. They do not
+share authentication or runtime state, but linked configuration and plugins
+are mutually visible and may carry their own secrets or executable behavior.
 
 See [SECURITY.md](SECURITY.md) before using named profiles for regulated,
 privileged, or high-risk accounts.

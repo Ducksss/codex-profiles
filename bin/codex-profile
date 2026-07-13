@@ -20,7 +20,7 @@ Usage:
   $PROGRAM app <profile> [--instance] [--rebuild] [workspace]
   $PROGRAM cli <profile> [codex-args...]
   $PROGRAM login <profile> [codex-login-args...]
-  $PROGRAM init <profile>
+  $PROGRAM init <profile> [--share-with <source-profile>]
   $PROGRAM remove <profile> [--yes]
   $PROGRAM status [profile]
   $PROGRAM status --json [profile]
@@ -40,6 +40,7 @@ Usage:
 Examples:
   $PROGRAM login personal
   $PROGRAM init work
+  $PROGRAM init personal-2 --share-with personal
   $PROGRAM app personal ~/Dev/my-project
   $PROGRAM app work ~/Dev/client-project
   $PROGRAM cli personal exec "review this repo"
@@ -162,6 +163,60 @@ ensure_home() {
   mkdir -p "$codex_home" || die "Cannot create directory: $codex_home"
   [[ -d "$codex_home" ]] || die "Not a directory: $codex_home"
   chmod 700 "$codex_home" || die "Cannot set private permissions on: $codex_home"
+}
+
+shared_profile_config_entries() {
+  printf '%s\n' \
+    config.toml \
+    AGENTS.md \
+    AGENTS.override.md \
+    instructions.md \
+    custom-instructions.md \
+    rules \
+    plugins
+}
+
+initialize_shared_profile() {
+  local target_profile="$1"
+  local source_profile="$2"
+  local target_home source_home entry source_entry target_entry
+
+  [[ "$target_profile" != "$source_profile" ]] ||
+    die "Source and target profiles must be different."
+
+  target_home="$(codex_home_for_profile "$target_profile")"
+  source_home="$(codex_home_for_profile "$source_profile")"
+
+  [[ ! -L "$source_home" ]] ||
+    die "Refusing symlinked shared profile source: $source_home"
+  [[ -d "$source_home" ]] ||
+    die "Shared profile source is not initialized: $source_profile ($source_home)"
+  [[ ! -e "$target_home" && ! -L "$target_home" ]] ||
+    die "Target profile path already exists: $target_profile ($target_home)"
+
+  mkdir "$target_home" || die "Cannot create directory: $target_home"
+  if ! chmod 700 "$target_home"; then
+    if ! rm -rf "$target_home"; then
+      die "Cannot set private permissions on: $target_home; cleanup also failed."
+    fi
+    die "Cannot set private permissions on: $target_home"
+  fi
+
+  while IFS= read -r entry; do
+    source_entry="$source_home/$entry"
+    target_entry="$target_home/$entry"
+    [[ -e "$source_entry" || -L "$source_entry" ]] || continue
+
+    if ! ln -s "$source_entry" "$target_entry"; then
+      if ! rm -rf "$target_home"; then
+        die "Cannot link shared entry $entry into $target_home; cleanup also failed."
+      fi
+      die "Cannot link shared entry $entry into $target_home"
+    fi
+  done < <(shared_profile_config_entries)
+
+  note "Initialized $target_profile ($target_home)"
+  note "Sharing configuration with $source_profile ($source_home)"
 }
 
 desktop_plist_value() {
@@ -545,9 +600,30 @@ command_login() {
 
 command_init() {
   local profile="${1:-}"
-  [[ -n "$profile" ]] || die "Usage: $PROGRAM init <profile>"
+  [[ -n "$profile" && "$profile" != -* ]] ||
+    die "Usage: $PROGRAM init <profile> [--share-with <source-profile>]"
   shift || true
-  [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM init <profile>"
+
+  local source_profile=""
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --share-with)
+        [[ -z "$source_profile" && -n "${2:-}" ]] ||
+          die "Usage: $PROGRAM init <profile> [--share-with <source-profile>]"
+        source_profile="$2"
+        shift
+        ;;
+      *)
+        die "Usage: $PROGRAM init <profile> [--share-with <source-profile>]"
+        ;;
+    esac
+    shift
+  done
+
+  if [[ -n "$source_profile" ]]; then
+    initialize_shared_profile "$profile" "$source_profile"
+    return 0
+  fi
 
   local codex_home existed
   codex_home="$(codex_home_for_profile "$profile")"
@@ -1380,10 +1456,11 @@ command_completions() {
       cat <<'EOF'
 _codex_profile()
 {
-  local cur command profiles
+  local cur command prev profiles
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   command="${COMP_WORDS[1]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
 
   if [[ "$COMP_CWORD" -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help" -- "$cur") )
@@ -1399,10 +1476,18 @@ _codex_profile()
         COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
       fi
       ;;
-    app-instance|cli|login|init|remove|status|path|env|use|logs)
+    app-instance|cli|login|remove|status|path|env|use|logs)
       if [[ "$COMP_CWORD" -eq 2 ]]; then
         profiles="$(codex-profile list 2>/dev/null)"
         COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
+      fi
+      ;;
+    init)
+      if [[ "$COMP_CWORD" -eq 2 || "$prev" == "--share-with" ]]; then
+        profiles="$(codex-profile list 2>/dev/null)"
+        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
+      else
+        COMPREPLY=( $(compgen -W "--share-with" -- "$cur") )
       fi
       ;;
     clone-config)
@@ -1426,13 +1511,14 @@ EOF
 #compdef codex-profile codex-profiles
 
 _codex_profile() {
-  local -a commands profiles shells app_flags
+  local -a commands profiles shells app_flags init_flags
   commands=(
     app app-instance cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help
   )
   profiles=(${(f)"$(codex-profile list 2>/dev/null)"} default personal work)
   shells=(bash zsh fish)
   app_flags=(--instance --rebuild)
+  init_flags=(--share-with)
 
   if (( CURRENT == 2 )); then
     _describe 'command' commands
@@ -1447,9 +1533,16 @@ _codex_profile() {
         _describe 'profile' profiles
       fi
       ;;
-    app-instance|cli|login|init|remove|status|path|env|use|logs)
+    app-instance|cli|login|remove|status|path|env|use|logs)
       if (( CURRENT == 3 )); then
         _describe 'profile' profiles
+      fi
+      ;;
+    init)
+      if (( CURRENT == 3 )) || [[ "$words[CURRENT-1]" == "--share-with" ]]; then
+        _describe 'profile' profiles
+      else
+        _describe 'flag' init_flags
       fi
       ;;
     clone-config)
@@ -1476,6 +1569,7 @@ for codex_profile_command in codex-profile codex-profiles
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from app app-instance cli login init remove status path env use logs' -a '(codex-profile list 2>/dev/null) default personal work'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from app' -l instance -d 'Compatibility flag; named ChatGPT windows already use separate local state'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from app' -l rebuild -d 'Compatibility no-op; the signed app is never cloned'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from init' -l share-with -r -a '(codex-profile list 2>/dev/null) default personal work' -d 'Link the configuration allowlist from another profile'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from clone-config' -a '(codex-profile list 2>/dev/null) default personal work'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from completions shell-init' -a 'bash zsh fish'
 end
