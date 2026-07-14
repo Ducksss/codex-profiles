@@ -40,6 +40,29 @@ assert_contains "$list_output" $'node-test\ttest/outreach/tracker-test.mjs' "out
 assert_contains "$list_output" $'node-test\ttest/outreach/agent-test.mjs' "outreach agent inventory"
 assert_contains "$list_output" $'node-test\ttest/outreach/skills-test.mjs' "outreach skills inventory"
 
+release_suites=(
+  test/release/source-test.sh
+  test/release/state-test.sh
+  test/release/npm-test.sh
+  test/release/github-test.sh
+  test/release/distribution-test.sh
+  test/release/homebrew-test.sh
+  test/release/pages-test.sh
+  test/release/workflow-contract-test.mjs
+)
+for suite in "${release_suites[@]}"; do
+  if [[ "$suite" == *.mjs ]]; then
+    assert_contains "$list_output" $'node-test\t'"$suite" "release suite inventory"
+  else
+    assert_contains "$list_output" $'bash-test\t'"$suite" "release suite inventory"
+  fi
+done
+for old_path in test/release-workflow-test.sh test/release-helper-test.sh; do
+  if [[ "$list_output" == *$'\t'"$old_path"* ]]; then
+    fail "obsolete release test remains in inventory: $old_path"
+  fi
+done
+
 cli_suites=(
   test/cli/profiles-test.sh
   test/cli/desktop-test.sh

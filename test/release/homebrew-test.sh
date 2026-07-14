@@ -2,7 +2,8 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$ROOT_DIR/test/lib/command-shims.sh"
 HELPER="$ROOT_DIR/scripts/update-homebrew-formula"
 VERSION="0.7.0"
 SHA="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -291,4 +292,82 @@ set -e
 [[ "$status" -ne 0 ]] || fail "missing formula unexpectedly succeeded"
 assert_output_equals "Missing Homebrew formula: $missing_formula" "$output"
 
-printf '%s\n' 'Homebrew release helper tests passed.'
+release_bin="$tmp_dir/release-bin"
+tap_fixture="$tmp_dir/tap-fixture"
+release_log="$tmp_dir/release.log"
+mkdir -p "$release_bin" "$tap_fixture/Formula"
+write_valid_formula "$tap_fixture/Formula/codex-profile.rb"
+
+write_command_shim "$release_bin/curl" <<'SH'
+set -eu
+printf '%s\n' 'immutable release archive'
+SH
+
+write_command_shim "$release_bin/ruby" <<'SH'
+set -eu
+[ "${1:-}" = -c ]
+[ -f "${2:-}" ]
+SH
+
+write_command_shim "$release_bin/git" <<'SH'
+set -eu
+printf '%s\n' "$*" >> "$RELEASE_TEST_LOG"
+if [ "${1:-}" = clone ]; then
+  destination=''
+  for argument in "$@"; do destination="$argument"; done
+  mkdir -p "$destination"
+  cp -R "$TAP_FIXTURE/." "$destination/"
+  exit 0
+fi
+if [ "${1:-}" = -C ]; then
+  command_name="${3:-}"
+  case "$command_name" in
+    config|add|commit|push) exit 0 ;;
+    diff)
+      [ "$FAKE_TAP_SCENARIO" = unchanged ] && exit 0
+      exit 1
+      ;;
+  esac
+fi
+exit 64
+SH
+
+for scenario in unchanged changed; do
+  : > "$release_log"
+  set +e
+  release_output="$({
+    PATH="$release_bin:$PATH" \
+      RELEASE_TEST_LOG="$release_log" \
+      TAP_FIXTURE="$tap_fixture" \
+      FAKE_TAP_SCENARIO="$scenario" \
+      TAP_TOKEN="tap-secret" \
+      V="$VERSION" \
+      "$ROOT_DIR/scripts/release/update-homebrew.sh"
+  } 2>&1)"
+  release_status=$?
+  set -e
+  [[ "$release_status" -eq 0 ]] || fail "Homebrew release $scenario scenario failed"
+  [[ "$release_output" != *'tap-secret'* ]] || fail "Homebrew release leaked the tap token"
+  if [[ "$scenario" = unchanged ]]; then
+    [[ "$release_output" == *"already matches v$VERSION"* ]] \
+      || fail "unchanged tap did not report idempotent success"
+    ! grep -F ' push' "$release_log" >/dev/null \
+      || fail "unchanged tap was pushed"
+  else
+    grep -F ' commit -m codex-profile 0.7.0' "$release_log" >/dev/null \
+      || fail "changed tap was not committed"
+    grep -F ' push' "$release_log" >/dev/null \
+      || fail "changed tap was not pushed"
+  fi
+done
+
+set +e
+missing_token_output="$(V="$VERSION" TAP_TOKEN="" \
+  "$ROOT_DIR/scripts/release/update-homebrew.sh" 2>&1)"
+missing_token_status=$?
+set -e
+[[ "$missing_token_status" -ne 0 ]] || fail "Homebrew release accepted a missing token"
+[[ "$missing_token_output" == *'TAP_TOKEN is required'* ]] \
+  || fail "Homebrew release missing-token error is not actionable"
+
+printf '%s\n' 'Homebrew release tests passed.'

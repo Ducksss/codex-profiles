@@ -1,0 +1,137 @@
+#!/usr/bin/env node
+
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const workflow = readFileSync(".github/workflows/release.yml", "utf8");
+
+function stepBlock(name) {
+  const marker = `      - name: ${name}\n`;
+  const start = workflow.indexOf(marker);
+  assert.notEqual(start, -1, `release workflow should define the ${name} step`);
+  const next = workflow.indexOf("\n      - name: ", start + marker.length);
+  return workflow.slice(start, next === -1 ? workflow.length : next);
+}
+
+const requiredLiterals = [
+  "workflow_dispatch:",
+  "version:",
+  "dry_run:",
+  "desktop_smoke_attestation:",
+  "group: release",
+  "cancel-in-progress: false",
+  "contents: read",
+  "contents: write",
+  "id-token: write",
+  "actions: write",
+  "needs: verify",
+  "make check",
+  "if: ${{ ! inputs.dry_run }}",
+  "scripts/release/verify-source.sh",
+  "scripts/release/preflight.sh",
+  "scripts/release/verify-state.sh",
+  "scripts/release/publish-tag.sh",
+  "scripts/release/verify-distribution.sh tagged-aur",
+  "scripts/release/publish-npm.sh publish",
+  "scripts/release/publish-npm.sh verify",
+  "scripts/release/publish-github.sh publish",
+  "scripts/release/publish-github.sh verify",
+  "scripts/release/verify-distribution.sh standalone",
+  "scripts/release/update-homebrew.sh",
+  "scripts/release/deploy-pages.sh",
+];
+
+for (const literal of requiredLiterals) {
+  assert.ok(workflow.includes(literal), `release workflow should contain ${literal}`);
+}
+
+const publishSteps = [
+  "Validate live release source",
+  "Preflight release credential identities",
+  "Revalidate live release state",
+  "Create and push tag",
+  "Verify tagged AUR release files",
+  "Publish to npm",
+  "Verify published npm package",
+  "Create GitHub Release",
+  "Verify GitHub Release",
+  "Verify public standalone installer",
+  "Update Homebrew tap",
+  "Deploy and verify release documentation",
+  "Release summary",
+];
+let previousStep = -1;
+for (const name of publishSteps) {
+  const position = workflow.indexOf(`      - name: ${name}\n`);
+  assert.ok(position > previousStep, `${name} should preserve publication order`);
+  previousStep = position;
+}
+
+for (const [name, literals] of Object.entries({
+  "Run full verification": ["make check", "git diff --exit-code", "git status --porcelain=v1"],
+  "Preflight release credential identities": ["NPM_TOKEN: ${{ secrets.NPM_TOKEN }}", "TAP_TOKEN: ${{ secrets.TAP_TOKEN }}"],
+  "Revalidate live release state": ["TAG: ${{ needs.verify.outputs.tag }}", "VERIFIED_SHA: ${{ needs.verify.outputs.commit }}"],
+  "Create and push tag": ["TAG_EXISTS: ${{ steps.live.outputs.tag_exists }}"],
+  "Publish to npm": ["NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}", "V: ${{ needs.verify.outputs.version }}"],
+  "Create GitHub Release": ["GH_TOKEN: ${{ github.token }}", "TAG: ${{ needs.verify.outputs.tag }}"],
+  "Update Homebrew tap": ["TAP_TOKEN: ${{ secrets.TAP_TOKEN }}", "V: ${{ needs.verify.outputs.version }}"],
+  "Deploy and verify release documentation": ["GH_TOKEN: ${{ github.token }}", "V: ${{ needs.verify.outputs.version }}"],
+})) {
+  const block = stepBlock(name);
+  for (const literal of literals) {
+    assert.ok(block.includes(literal), `${name} should contain ${literal}`);
+  }
+}
+
+for (const name of publishSteps.slice(1, -1)) {
+  assert.ok(
+    stepBlock(name).includes("if: ${{ ! inputs.dry_run }}"),
+    `${name} should remain live-only`,
+  );
+}
+
+const verificationBlock = stepBlock("Run full verification");
+for (const duplicate of ["make test", "make lint", "make npm-package-test", "bash test/"]) {
+  assert.ok(!verificationBlock.includes(duplicate), `full verification should not duplicate ${duplicate}`);
+}
+
+for (const script of [
+  "verify-source.sh",
+  "preflight.sh",
+  "verify-state.sh",
+  "publish-tag.sh",
+  "verify-distribution.sh",
+  "publish-npm.sh",
+  "publish-github.sh",
+  "update-homebrew.sh",
+  "deploy-pages.sh",
+]) {
+  const matches = workflow.match(new RegExp(`scripts/release/${script.replace(".", "\\.")}`, "g")) ?? [];
+  const expected = ["verify-distribution.sh", "publish-npm.sh", "publish-github.sh"].includes(script) ? 2 : 1;
+  assert.equal(matches.length, expected, `${script} should be wired ${expected} time(s)`);
+}
+
+const prohibitedInlineCommands = [
+  "npm publish",
+  "gh release create",
+  "git push origin",
+  "scripts/update-homebrew-formula",
+  "gh workflow run pages.yml",
+];
+for (const command of prohibitedInlineCommands) {
+  assert.ok(!workflow.includes(command), `release workflow should not inline ${command}`);
+}
+
+const runBlocks = [...workflow.matchAll(/^        run: \|\n((?:^          .*\n|^\n)*)/gm)];
+for (const match of runBlocks) {
+  const nonblankLines = match[1].split("\n").filter((line) => line.trim()).length;
+  assert.ok(nonblankLines <= 20, `workflow run block has ${nonblankLines} nonblank lines`);
+}
+
+const actionLines = workflow.match(/^\s*uses: .*$/gm) ?? [];
+assert.ok(actionLines.length > 0, "release workflow should use pinned actions");
+for (const line of actionLines) {
+  assert.match(line, /@[0-9a-f]{40}\s+# v[0-9]+$/, `action should be pinned: ${line.trim()}`);
+}
+
+console.log("Release workflow wiring tests passed.");
