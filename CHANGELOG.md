@@ -28,9 +28,13 @@ and this project follows semantic versioning for tagged releases.
   Markdown with non-pushing preparation and read-only verification commands.
 - Added practical GitHub Q&A guides for separate Codex CLI profiles, named
   ChatGPT Desktop windows, and the local-state isolation boundary.
-- Hardened release publication with bounded network requests, portable
-  SHA-256 calculation, explicit unset-input handling, and byte-for-byte public
-  AUR verification against immutable prepared package files.
+- Hardened release publication with bounded network requests, destination-
+  pinned npm and GitHub operations, secret-safe Homebrew authentication,
+  portable SHA-256 calculation, exact remote-tag postconditions, explicit
+  unset-input handling, and byte-for-byte public AUR verification against
+  immutable prepared package files.
+- Made canonical repository checks fail closed on inventory-discovery errors,
+  and reject option-like archive members before AUR extraction.
 
 ## 0.7.0 - 2026-07-13
 

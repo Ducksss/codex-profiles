@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/release/lib.sh
@@ -9,8 +11,6 @@ cd "$ROOT_DIR"
 release_require_env TAG
 release_require_env VERIFIED_SHA
 release_require_env GITHUB_OUTPUT
-
-set -euo pipefail
 
 git fetch --no-tags origin main
 [[ "$(git rev-parse origin/main)" == "$VERIFIED_SHA" ]] || {

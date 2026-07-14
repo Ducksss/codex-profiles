@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/release/lib.sh
 source "$SCRIPT_DIR/lib.sh"
 cd "$ROOT_DIR"
-
-set -euo pipefail
 [[ -n "${NPM_TOKEN:-}" ]] || { echo "NPM_TOKEN is required." >&2; exit 1; }
 [[ -n "${TAP_TOKEN:-}" ]] || { echo "TAP_TOKEN is required." >&2; exit 1; }
 

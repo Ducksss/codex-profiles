@@ -313,7 +313,21 @@ SH
 write_command_shim "$release_bin/git" <<'SH'
 set -eu
 printf '%s\n' "$*" >> "$RELEASE_TEST_LOG"
+for argument in "$@"; do
+  case "$argument" in *tap-secret*) exit 98 ;; esac
+done
+require_git_auth() {
+  [ "${GIT_TERMINAL_PROMPT:-}" = 0 ]
+  [ -x "${GIT_ASKPASS:-}" ]
+  [ "$("$GIT_ASKPASS" 'Username for https://github.com')" = x-access-token ]
+  [ "$("$GIT_ASKPASS" 'Password for https://github.com')" = tap-secret ]
+}
 if [ "${1:-}" = clone ]; then
+  require_git_auth
+  case " $* " in
+    *' https://github.com/Ducksss/homebrew-tap.git '*) ;;
+    *) exit 96 ;;
+  esac
   destination=''
   for argument in "$@"; do destination="$argument"; done
   mkdir -p "$destination"
@@ -323,7 +337,8 @@ fi
 if [ "${1:-}" = -C ]; then
   command_name="${3:-}"
   case "$command_name" in
-    config|add|commit|push) exit 0 ;;
+    config|add|commit) exit 0 ;;
+    push) require_git_auth; exit 0 ;;
     diff)
       [ "$FAKE_TAP_SCENARIO" = unchanged ] && exit 0
       exit 1
@@ -349,6 +364,8 @@ for scenario in unchanged changed; do
   set -e
   [[ "$release_status" -eq 0 ]] || fail "Homebrew release $scenario scenario failed"
   [[ "$release_output" != *'tap-secret'* ]] || fail "Homebrew release leaked the tap token"
+  ! grep -F 'tap-secret' "$release_log" >/dev/null \
+    || fail "Homebrew release exposed the tap token in Git arguments"
   grep -F \
     "curl:--retry 3 --retry-all-errors --connect-timeout 10 --max-time 120 -fsSL $URL" \
     "$release_log" >/dev/null \

@@ -83,6 +83,8 @@ trap cleanup_output EXIT
 archive_members="$output/.archive-members"
 tar -tf "$archive" > "$archive_members"
 while IFS= read -r member; do
+  [[ -n "$member" && "$member" != -* && "$member" != *[[:cntrl:]]* ]] \
+    || aur_die "release archive contains an option-like archive member: $member"
   case "/$member/" in
     //* | */../* | */./*) aur_die "release archive contains an unsafe path: $member" ;;
   esac
@@ -112,11 +114,11 @@ archive_prefix="${pkgbuild_member%packaging/aur/PKGBUILD}"
 
 sources="$output/.sources"
 mkdir -m 0700 "$sources"
-tar -xOf "$archive" "$pkgbuild_member" > "$output/PKGBUILD"
-tar -xOf "$archive" "$srcinfo_member" > "$output/.SRCINFO"
-tar -xOf "$archive" "$license_member" > "$output/LICENSE"
-tar -xOf "$archive" "$cli_member" > "$sources/codex-profile-$version"
-tar -xOf "$archive" "$license_member" > "$sources/LICENSE-$version"
+tar -xOf "$archive" -- "$pkgbuild_member" > "$output/PKGBUILD"
+tar -xOf "$archive" -- "$srcinfo_member" > "$output/.SRCINFO"
+tar -xOf "$archive" -- "$license_member" > "$output/LICENSE"
+tar -xOf "$archive" -- "$cli_member" > "$sources/codex-profile-$version"
+tar -xOf "$archive" -- "$license_member" > "$sources/LICENSE-$version"
 chmod 0644 "$output/PKGBUILD" "$output/.SRCINFO" "$output/LICENSE"
 chmod 0600 "$sources/codex-profile-$version" "$sources/LICENSE-$version"
 

@@ -13,6 +13,17 @@ function stepBlock(name) {
   return workflow.slice(start, next === -1 ? workflow.length : next);
 }
 
+function jobBlock(name) {
+  const jobsStart = workflow.indexOf("jobs:\n");
+  assert.notEqual(jobsStart, -1, "release workflow should define jobs");
+  const marker = `  ${name}:\n`;
+  const start = workflow.indexOf(marker, jobsStart);
+  assert.notEqual(start, -1, `release workflow should define the ${name} job`);
+  const remainder = workflow.slice(start + marker.length);
+  const next = remainder.search(/^  [A-Za-z0-9_-]+:\n/m);
+  return workflow.slice(start, next === -1 ? workflow.length : start + marker.length + next);
+}
+
 const requiredLiterals = [
   "workflow_dispatch:",
   "version:",
@@ -20,10 +31,6 @@ const requiredLiterals = [
   "desktop_smoke_attestation:",
   "group: release",
   "cancel-in-progress: false",
-  "contents: read",
-  "contents: write",
-  "id-token: write",
-  "actions: write",
   "needs: verify",
   "make check",
   "if: ${{ ! inputs.dry_run }}",
@@ -43,6 +50,14 @@ const requiredLiterals = [
 
 for (const literal of requiredLiterals) {
   assert.ok(workflow.includes(literal), `release workflow should contain ${literal}`);
+}
+
+const verifyJob = jobBlock("verify");
+const publishJob = jobBlock("publish");
+assert.ok(verifyJob.includes("    permissions:\n      contents: read"));
+for (const permission of ["contents: write", "id-token: write", "actions: write"]) {
+  assert.ok(!verifyJob.includes(permission), `verify job must not grant ${permission}`);
+  assert.ok(publishJob.includes(`      ${permission}`), `publish job should grant ${permission}`);
 }
 
 const publishSteps = [
@@ -109,6 +124,25 @@ for (const script of [
   const matches = workflow.match(new RegExp(`scripts/release/${script.replace(".", "\\.")}`, "g")) ?? [];
   const expected = ["verify-distribution.sh", "publish-npm.sh", "publish-github.sh"].includes(script) ? 2 : 1;
   assert.equal(matches.length, expected, `${script} should be wired ${expected} time(s)`);
+}
+
+for (const script of [
+  "verify-source.sh",
+  "preflight.sh",
+  "verify-state.sh",
+  "publish-tag.sh",
+  "verify-distribution.sh",
+  "publish-npm.sh",
+  "publish-github.sh",
+  "update-homebrew.sh",
+  "deploy-pages.sh",
+]) {
+  const source = readFileSync(`scripts/release/${script}`, "utf8");
+  assert.match(
+    source,
+    /^#!\/usr\/bin\/env bash\n\nset -euo pipefail\n/,
+    `${script} should enable strict mode before setup`,
+  );
 }
 
 const prohibitedInlineCommands = [

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/release/lib.sh
@@ -11,8 +13,6 @@ release_require_env DRY_RUN
 release_require_env GITHUB_REF
 release_require_env GITHUB_SHA
 release_require_env GITHUB_OUTPUT
-
-set -euo pipefail
 
 if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
   echo "Releases must be dispatched from the main branch, not $GITHUB_REF." >&2
@@ -105,8 +105,14 @@ grep -F "ln -s codex-profile \"\$out/bin/codex-profiles\"" flake.nix >/dev/null
 grep -F "ln -s codex-profile \"\$pkgdir/usr/bin/codex-profiles\"" packaging/aur/PKGBUILD >/dev/null
 
 git fetch --no-tags origin main
-if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+head_commit="$(git rev-parse HEAD)"
+main_commit="$(git rev-parse origin/main)"
+if [[ "$head_commit" != "$main_commit" ]]; then
   echo "The checked-out commit is not the current origin/main tip." >&2
+  exit 1
+fi
+if [[ "$GITHUB_SHA" != "$head_commit" ]]; then
+  echo "Workflow commit $GITHUB_SHA does not match the checked-out commit $head_commit." >&2
   exit 1
 fi
 
@@ -114,7 +120,7 @@ tag="v$version"
 tag_exists=false
 if git show-ref --verify --quiet "refs/tags/$tag"; then
   tag_exists=true
-  if [[ "$(git rev-list -n 1 "$tag")" != "$GITHUB_SHA" ]]; then
+  if [[ "$(git rev-list -n 1 "$tag")" != "$head_commit" ]]; then
     echo "$tag already points to a different commit; refusing to move it." >&2
     exit 1
   fi
@@ -124,6 +130,6 @@ fi
   echo "version=$version"
   echo "tag=$tag"
   echo "tag_exists=$tag_exists"
-  echo "commit=$GITHUB_SHA"
+  echo "commit=$head_commit"
 } >> "$GITHUB_OUTPUT"
-echo "Validated tracked release $tag at $GITHUB_SHA."
+echo "Validated tracked release $tag at $head_commit."

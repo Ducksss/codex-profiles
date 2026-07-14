@@ -24,6 +24,24 @@ assert_contains() {
 
 list_output="$("$CHECK" list)"
 check_source="$(<"$CHECK")"
+
+failing_find_bin="$TMP_ROOT/failing-find-bin"
+mkdir -p "$failing_find_bin"
+cat > "$failing_find_bin/find" <<'SH'
+#!/usr/bin/env bash
+exit 42
+SH
+chmod 755 "$failing_find_bin/find"
+set +e
+failing_find_output="$(PATH="$failing_find_bin:$PATH" "$CHECK" list 2>&1)"
+failing_find_status=$?
+set -e
+[[ "$failing_find_status" -ne 0 ]] \
+  || fail "dispatcher accepted a failed inventory producer"
+assert_contains "$failing_find_output" \
+  'could not build the canonical repository inventory' \
+  "failed inventory producer error"
+
 assert_contains "$list_output" $'shell\tbin/codex-profile' "runtime inventory"
 assert_contains "$list_output" $'shell\tinstall.sh' "installer inventory"
 assert_contains "$list_output" $'shell\tscripts/check' "dispatcher inventory"
@@ -33,6 +51,16 @@ assert_contains "$list_output" $'shell\tscripts/aur/prepare.sh' "AUR prepare inv
 assert_contains "$list_output" $'shell\tscripts/aur/verify.sh' "AUR verify inventory"
 assert_contains "$list_output" $'bash-test\ttest/install/check-test.sh' "Bash test inventory"
 assert_contains "$list_output" $'bash-test\ttest/install/dispatcher-input-test.sh' "dispatcher isolation inventory"
+set +e
+partial_stdin_output="$(printf 'partial inventory path' \
+  | bash "$ROOT_DIR/test/install/dispatcher-input-test.sh" 2>&1)"
+partial_stdin_status=$?
+set -e
+[[ "$partial_stdin_status" -ne 0 ]] \
+  || fail "dispatcher input probe accepted a partial unterminated path"
+assert_contains "$partial_stdin_output" \
+  'FAIL: test process inherited dispatcher inventory on stdin' \
+  "partial dispatcher input failure"
 assert_contains "$list_output" $'shell\ttest/lib/assertions.sh' "Bash helper inventory"
 for obsolete_helper in test/lib/assertions.mjs test/lib/fixtures.mjs; do
   if [[ "$list_output" == *$'\t'"$obsolete_helper"* ]]; then
@@ -106,7 +134,7 @@ fi
 if [[ "$list_output" == *'test/fixtures/'* ]]; then
   fail "fixture files must not appear in the executable inventory"
 fi
-assert_contains "$check_source" 'done < <(list_tests)' "globally sorted test execution"
+assert_contains "$check_source" "done <<< \"\$TESTS\"" "materialized test execution"
 run_tests_source="$(awk '
   /^run_tests\(\) \{/ { capture = 1 }
   capture { print }
@@ -117,7 +145,7 @@ if [[ "$run_tests_source" == *'list_bash_tests'* \
   fail "test execution must not group suites by runtime"
 fi
 ripgrep_command="r""g "
-if [[ "$(<"$ROOT_DIR/test/install/check-test.sh")" == *"$ripgrep_command"* ]]; then
+if [[ "$check_source" == *"$ripgrep_command"* ]]; then
   fail "dispatcher contracts must not require ripgrep"
 fi
 

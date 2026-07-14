@@ -116,6 +116,26 @@ set -e
 assert_contains "$unset_attestation_output" \
   'Signed-app smoke attestation is required for a live release' \
   "unset attestation error"
+
+set +e
+sha_mismatch_output="$({
+  PATH="$fake_bin:$PATH" \
+    RELEASE_TEST_LOG="$log_file" \
+    INPUT_VERSION="$VERSION" \
+    DRY_RUN="true" \
+    DESKTOP_SMOKE_ATTESTATION="" \
+    GITHUB_REF="refs/heads/main" \
+    GITHUB_SHA="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" \
+    GITHUB_OUTPUT="$TMP_ROOT/sha-mismatch-output" \
+    GITHUB_STEP_SUMMARY="$TMP_ROOT/sha-mismatch-summary" \
+    "$VERIFY_SOURCE"
+} 2>&1)"
+sha_mismatch_status=$?
+set -e
+[[ "$sha_mismatch_status" -ne 0 ]] || fail "verify-source accepted a mismatched GITHUB_SHA"
+assert_contains "$sha_mismatch_output" \
+  'does not match the checked-out commit' \
+  "workflow SHA mismatch error"
 assert_not_contains "$unset_attestation_output" \
   'unbound variable' \
   "unset attestation error"

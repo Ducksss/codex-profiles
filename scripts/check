@@ -10,58 +10,49 @@ die() {
   exit 1
 }
 
-print_discovered_paths() {
+print_discovered_inventory() {
   local path
 
   while IFS= read -r -d '' path; do
-    [[ "$path" != *$'\n'* ]] || die "repository path contains a newline: $path"
-    printf '%s\n' "${path#./}"
+    [[ "$path" != *$'\n'* && "$path" != *$'\t'* ]] \
+      || die "repository path contains a tab or newline: $path"
+    path="${path#./}"
+    case "$path" in
+      *.sh)
+        printf 'shell\t%s\n' "$path"
+        [[ "$path" != *-test.sh ]] || printf 'bash-test\t%s\n' "$path"
+        ;;
+      *.mjs)
+        printf 'node\t%s\n' "$path"
+        [[ "$path" != *-test.mjs ]] || printf 'node-test\t%s\n' "$path"
+        ;;
+      *) die "unsupported discovered source: $path" ;;
+    esac
   done
 }
 
-list_shell_sources() {
+build_inventory() {
   {
-    printf '%s\n' \
-      bin/codex-profile \
-      install.sh \
-      scripts/check \
-      scripts/update-homebrew-formula
-    find scripts test -type f -name '*.sh' -print0 \
-      | print_discovered_paths
+    printf 'shell\t%s\n' \
+      bin/codex-profile install.sh scripts/check scripts/update-homebrew-formula
+    find scripts test -type f \( -name '*.sh' -o -name '*.mjs' \) -print0 \
+      | print_discovered_inventory
   } | LC_ALL=C sort -u
 }
 
-list_node_sources() {
-  find scripts test -type f -name '*.mjs' -print0 \
-    | print_discovered_paths \
+if ! CANONICAL_INVENTORY="$(build_inventory)"; then
+  die "could not build the canonical repository inventory"
+fi
+SHELL_SOURCES="$(awk -F '\t' '$1 == "shell" { print $2 }' <<< "$CANONICAL_INVENTORY")"
+NODE_SOURCES="$(awk -F '\t' '$1 == "node" { print $2 }' <<< "$CANONICAL_INVENTORY")"
+TESTS="$(
+  awk -F '\t' '$1 == "bash-test" || $1 == "node-test" { print $2 }' \
+    <<< "$CANONICAL_INVENTORY" \
     | LC_ALL=C sort -u
-}
-
-list_bash_tests() {
-  find test -type f -name '*-test.sh' -print0 \
-    | print_discovered_paths \
-    | LC_ALL=C sort
-}
-
-list_node_tests() {
-  find test -type f -name '*-test.mjs' -print0 \
-    | print_discovered_paths \
-    | LC_ALL=C sort
-}
-
-list_tests() {
-  find test -type f \( -name '*-test.sh' -o -name '*-test.mjs' \) -print0 \
-    | print_discovered_paths \
-    | LC_ALL=C sort
-}
+)"
 
 list_inventory() {
-  local path
-
-  while IFS= read -r path; do printf 'shell\t%s\n' "$path"; done < <(list_shell_sources)
-  while IFS= read -r path; do printf 'bash-test\t%s\n' "$path"; done < <(list_bash_tests)
-  while IFS= read -r path; do printf 'node-test\t%s\n' "$path"; done < <(list_node_tests)
-  while IFS= read -r path; do printf 'node\t%s\n' "$path"; done < <(list_node_sources)
+  printf '%s\n' "$CANONICAL_INVENTORY"
 }
 
 run_syntax() {
@@ -73,11 +64,11 @@ run_syntax() {
     else
       bash -n "$path"
     fi
-  done < <(list_shell_sources)
+  done <<< "$SHELL_SOURCES"
 
   while IFS= read -r path; do
     node --check "$path"
-  done < <(list_node_sources)
+  done <<< "$NODE_SOURCES"
 }
 
 run_tests() {
@@ -91,7 +82,7 @@ run_tests() {
       *.mjs) node "$path" </dev/null ;;
       *) die "unsupported test file: $path" ;;
     esac
-  done < <(list_tests)
+  done <<< "$TESTS"
 }
 
 run_lint() {
@@ -103,7 +94,7 @@ run_lint() {
 
   while IFS= read -r path; do
     sources+=("$path")
-  done < <(list_shell_sources)
+  done <<< "$SHELL_SOURCES"
 
   shellcheck "${sources[@]}"
 }

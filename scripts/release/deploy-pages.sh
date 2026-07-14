@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/release/lib.sh
@@ -12,8 +14,6 @@ release_require_env GITHUB_RUN_ID
 release_require_env GITHUB_RUN_ATTEMPT
 release_require_env GITHUB_REPOSITORY
 release_require_env GITHUB_SHA
-
-set -euo pipefail
 pages_correlation="release-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 pages_run_title="Deploy Pages from $TAG ($pages_correlation)"
 gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG" \

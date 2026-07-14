@@ -9,6 +9,10 @@ tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 cd "$ROOT_DIR"
 REPOSITORY_VERSION="$(node -p "require('./package.json').version")"
+distribution_source="$(<"$ROOT_DIR/scripts/release/verify-distribution.sh")"
+[[ "$(grep -c -- '--connect-timeout 10 --max-time 60' \
+  <<< "$distribution_source")" -eq 3 ]] \
+  || fail "every distribution request must have bounded timeouts"
 
 standalone_fake_bin="$tmp_dir/standalone-fake-bin"
 standalone_installer_fixture="$tmp_dir/standalone-install.sh"
@@ -261,12 +265,39 @@ case "$mode" in
   *) exit 64 ;;
 esac
 SH
+REAL_LN="$(command -v ln)"
+export REAL_LN
+write_command_shim "$aur_fake_bin/ln" <<'SH'
+set -eu
+if [ "${FAKE_AUR_ALIAS_SCENARIO:-}" = copy ]; then
+  destination=''
+  for argument in "$@"; do destination="$argument"; done
+  cp "$(dirname "$destination")/codex-profile" "$destination"
+else
+  exec "$REAL_LN" "$@"
+fi
+SH
 
 PATH="$aur_fake_bin:$PATH" \
   RELEASE_ROOT="$ROOT_DIR" \
   GITHUB_WORKSPACE="$ROOT_DIR" \
   TAG="v$REPOSITORY_VERSION" \
   "$ROOT_DIR/scripts/release/verify-distribution.sh" tagged-aur
+
+set +e
+copied_alias_output="$({
+  PATH="$aur_fake_bin:$PATH" \
+    RELEASE_ROOT="$ROOT_DIR" \
+    GITHUB_WORKSPACE="$ROOT_DIR" \
+    FAKE_AUR_ALIAS_SCENARIO=copy \
+    TAG="v$REPOSITORY_VERSION" \
+    "$ROOT_DIR/scripts/release/verify-distribution.sh" tagged-aur
+} 2>&1)"
+copied_alias_status=$?
+set -e
+[[ "$copied_alias_status" -ne 0 ]] || fail "tagged AUR accepted a copied plural command"
+[[ "$copied_alias_output" == *'relative codex-profiles alias'* ]] \
+  || fail "tagged AUR copied-alias error is not actionable"
 
 set +e
 tag_mismatch_output="$({

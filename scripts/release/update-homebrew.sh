@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/release/lib.sh
@@ -8,8 +10,6 @@ cd "$ROOT_DIR"
 
 release_require_env TAP_TOKEN
 release_require_env V
-
-set -euo pipefail
 tarball="https://github.com/Ducksss/codex-profiles/archive/refs/tags/v$V.tar.gz"
 if command -v sha256sum >/dev/null 2>&1; then
   hash_command=(sha256sum)
@@ -25,8 +25,21 @@ sha="$(
 )"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+askpass="$tmp/git-askpass"
+cat > "$askpass" <<'ASKPASS'
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  *Username*) printf '%s\n' x-access-token ;;
+  *Password*) printf '%s\n' "$TAP_TOKEN" ;;
+  *) exit 1 ;;
+esac
+ASKPASS
+chmod 0700 "$askpass"
+export GIT_ASKPASS="$askpass"
+export GIT_TERMINAL_PROMPT=0
 git clone --depth 1 \
-  "https://x-access-token:${TAP_TOKEN}@github.com/Ducksss/homebrew-tap.git" \
+  https://github.com/Ducksss/homebrew-tap.git \
   "$tmp/tap"
 formula="$tmp/tap/Formula/codex-profile.rb"
 scripts/update-homebrew-formula "$formula" "$V" "$sha"

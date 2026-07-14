@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/release/lib.sh
@@ -11,7 +13,6 @@ mode="${1:-}"
 if [[ "$mode" == "publish" ]]; then
 release_require_env TAG
 release_require_env GITHUB_REPOSITORY
-set -euo pipefail
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 release_records="$tmp/release-records.jsonl"
@@ -73,7 +74,8 @@ if [[ "$release_state" == "public_final" ]]; then
 else
   create_error="$tmp/release-create.err"
   release_create_succeeded=false
-  if gh release create "$TAG" --title "codex-profile $TAG" --generate-notes \
+  if gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+    --title "codex-profile $TAG" --generate-notes \
     --latest --verify-tag 2> "$create_error"; then
     release_create_succeeded=true
   fi
@@ -110,13 +112,28 @@ fi
 if [[ "$mode" == "verify" ]]; then
 release_require_env TAG
 release_require_env GITHUB_REPOSITORY
-set -euo pipefail
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 release_json="$tmp/release.json"
-gh release view "$TAG" \
-  --json tagName,isDraft,isPrerelease,publishedAt,body,isImmutable \
-  > "$release_json"
+release_view_error="$tmp/release-view.err"
+release_view_succeeded=false
+for attempt in {1..5}; do
+  : > "$release_view_error"
+  if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+    --json tagName,isDraft,isPrerelease,publishedAt,body,isImmutable \
+    > "$release_json" 2> "$release_view_error"; then
+    release_view_succeeded=true
+    break
+  fi
+  if [[ "$attempt" -lt 5 ]]; then
+    sleep "$((attempt * 2))"
+  fi
+done
+[[ "$release_view_succeeded" == "true" ]] || {
+  cat "$release_view_error" >&2
+  echo "Could not read GitHub Release $TAG after 5 attempts." >&2
+  exit 1
+}
 node - "$TAG" "$release_json" <<'NODE'
 const fs = require('fs');
 const [, , expectedTag, file] = process.argv;

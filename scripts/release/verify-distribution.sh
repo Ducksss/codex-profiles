@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/release/lib.sh
@@ -11,7 +13,6 @@ mode="${1:-}"
 if [[ "$mode" == "tagged-aur" ]]; then
   release_require_env TAG
   release_require_env GITHUB_WORKSPACE
-  set -euo pipefail
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
   (
@@ -25,10 +26,10 @@ if [[ "$mode" == "tagged-aur" ]]; then
       exit 1
     }
 
-    curl --retry 3 --retry-all-errors -fsSL \
+    curl --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 -fsSL \
       "https://raw.githubusercontent.com/Ducksss/codex-profiles/$TAG/bin/codex-profile" \
       -o "codex-profile-$pkgver"
-    curl --retry 3 --retry-all-errors -fsSL \
+    curl --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 -fsSL \
       "https://raw.githubusercontent.com/Ducksss/codex-profiles/$TAG/LICENSE" \
       -o "LICENSE-$pkgver"
     # shellcheck disable=SC2154 # sha256sums is loaded from the PKGBUILD.
@@ -41,21 +42,34 @@ if [[ "$mode" == "tagged-aur" ]]; then
     pkgdir="$tmp/pkg"
     package
   )
-  test -x "$tmp/pkg/usr/bin/codex-profile"
-  test -x "$tmp/pkg/usr/bin/codex-profiles"
-  "$tmp/pkg/usr/bin/codex-profile" version | grep -F "codex-profile ${TAG#v}" >/dev/null
-  "$tmp/pkg/usr/bin/codex-profiles" version | grep -F "codex-profile ${TAG#v}" >/dev/null
+  canonical="$tmp/pkg/usr/bin/codex-profile"
+  alias="$tmp/pkg/usr/bin/codex-profiles"
+  [[ -f "$canonical" && -x "$canonical" && ! -L "$canonical" ]] || {
+    echo "Tagged AUR package has no regular executable codex-profile command." >&2
+    exit 1
+  }
+  [[ -L "$alias" && "$(readlink "$alias")" == codex-profile ]] || {
+    echo "Tagged AUR package must install a relative codex-profiles alias." >&2
+    exit 1
+  }
+  [[ "$("$canonical" version 2>&1)" == "codex-profile ${TAG#v}" ]] || {
+    echo "Tagged AUR canonical command reported the wrong version." >&2
+    exit 1
+  }
+  [[ "$("$alias" version 2>&1)" == "codex-profile ${TAG#v}" ]] || {
+    echo "Tagged AUR plural command reported the wrong version." >&2
+    exit 1
+  }
   exit 0
 fi
 
 if [[ "$mode" == "standalone" ]]; then
   release_require_env TAG
   release_require_env V
-  set -euo pipefail
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
   installer="$tmp/install.sh"
-  curl --retry 3 --retry-all-errors -fsSL \
+  curl --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 -fsSL \
     "https://raw.githubusercontent.com/Ducksss/codex-profiles/$TAG/install.sh" \
     -o "$installer"
 

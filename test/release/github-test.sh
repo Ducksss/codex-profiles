@@ -16,6 +16,12 @@ cat > "$release_fake_bin/gh" <<'FAKE_GH_RELEASE'
 set -eu
 
 command="${1:-}:${2:-}"
+require_repo() {
+  case " $* " in
+    *' --repo Ducksss/codex-profiles '*) ;;
+    *) exit 96 ;;
+  esac
+}
 case "$command" in
   api:--paginate)
     printf '%s\n' 'lookup' >> "$RELEASE_WORKFLOW_TEST_LOG"
@@ -64,6 +70,7 @@ case "$command" in
     esac
     ;;
   release:create)
+    require_repo "$@"
     case " $* " in
       *' --latest '*) ;;
       *) exit 65 ;;
@@ -80,9 +87,19 @@ case "$command" in
     esac
     ;;
   release:view)
+    require_repo "$@"
     printf '%s\n' 'view' >> "$RELEASE_WORKFLOW_TEST_LOG"
+    view_count="$(grep -Fxc 'view' "$RELEASE_WORKFLOW_TEST_LOG")"
     case "$FAKE_GH_RELEASE_SCENARIO" in
       present|latest_eventual|latest_malformed|latest_transient|not_latest)
+        printf '%s\n' \
+          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-13T00:00:00Z","body":"Release notes","isImmutable":true}'
+        ;;
+      view_eventual)
+        if [ "$view_count" -lt 3 ]; then
+          printf '%s\n' 'HTTP 503: service unavailable' >&2
+          exit 1
+        fi
         printf '%s\n' \
           '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-13T00:00:00Z","body":"Release notes","isImmutable":true}'
         ;;
@@ -117,7 +134,7 @@ case "$command" in
     printf '%s\n' 'latest' >> "$RELEASE_WORKFLOW_TEST_LOG"
     latest_count="$(grep -Fxc 'latest' "$RELEASE_WORKFLOW_TEST_LOG")"
     case "$FAKE_GH_RELEASE_SCENARIO" in
-      present)
+      present|view_eventual)
         printf '%s\n' '{"tag_name":"v0.7.0"}'
         ;;
       latest_eventual)
@@ -235,9 +252,16 @@ require_github_release_final_scenario() {
   actual="$(grep -Fxc 'sleep' "$log" || true)"
   [[ "$actual" -eq "$expected_sleeps" ]] \
     || fail "GitHub Release final $scenario slept $actual time(s); expected $expected_sleeps"
+  actual="$(grep -Fxc 'view' "$log" || true)"
+  if [[ "$scenario" == view_eventual ]]; then
+    [[ "$actual" -eq 3 ]] || fail "GitHub Release final view retry ran $actual time(s); expected 3"
+  else
+    [[ "$actual" -eq 1 ]] || fail "GitHub Release final $scenario viewed $actual time(s); expected 1"
+  fi
 }
 
 require_github_release_final_scenario present success 1 0
+require_github_release_final_scenario view_eventual success 1 2
 require_github_release_final_scenario latest_eventual success 3 2
 require_github_release_final_scenario draft failure 0 0
 require_github_release_final_scenario prerelease failure 0 0

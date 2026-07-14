@@ -66,5 +66,5 @@ const forbidden = [
 ];
 
 for (const text of forbidden) {
-  assert.ok(!agent.includes(text), `agent.md should not contain: ${text}`);
+  assert.ok(!normalizedAgent.includes(text), `agent.md should not contain: ${text}`);
 }

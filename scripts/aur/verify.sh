@@ -86,10 +86,10 @@ trap cleanup EXIT
 
 sources="$work_dir/sources"
 mkdir "$sources"
-curl --retry 3 --retry-all-errors -fsSL \
+curl --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 -fsSL \
   "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/bin/codex-profile" \
   -o "$sources/codex-profile-$version"
-curl --retry 3 --retry-all-errors -fsSL \
+curl --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 -fsSL \
   "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/LICENSE" \
   -o "$sources/LICENSE-$version"
 chmod 0600 "$sources/codex-profile-$version" "$sources/LICENSE-$version"
@@ -97,7 +97,7 @@ aur_validate_metadata "$version" "$checkout" "$sources"
 
 if [[ -z "$rpc_json" ]]; then
   rpc_json="$work_dir/aur-rpc.json"
-  curl --retry 3 --retry-all-errors -fsSL --get \
+  curl --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 -fsSL --get \
     --data-urlencode 'arg[]=codex-profile' \
     https://aur.archlinux.org/rpc/v5/info \
     -o "$rpc_json"

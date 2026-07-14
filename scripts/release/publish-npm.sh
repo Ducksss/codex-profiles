@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/release/lib.sh
@@ -7,10 +9,10 @@ source "$SCRIPT_DIR/lib.sh"
 cd "$ROOT_DIR"
 
 mode="${1:-}"
+NPM_REGISTRY="https://registry.npmjs.org/"
 
 if [[ "$mode" == "publish" ]]; then
 release_require_env V
-set -euo pipefail
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 pack_json="$tmp/npm-pack.json"
@@ -59,7 +61,8 @@ tarball="$tmp/$artifact_filename"
 }
 
 lookup_npm_artifact() {
-  npm view codex-profile versions --json > "$versions_file" 2> "$lookup_error" \
+  npm view codex-profile versions --json --registry "$NPM_REGISTRY" \
+    > "$versions_file" 2> "$lookup_error" \
     || return 1
   membership="$(node - "$V" "$versions_file" 2>> "$lookup_error" <<'NODE'
 const fs = require('fs');
@@ -76,7 +79,7 @@ NODE
     return 0
   fi
 
-  npm view "codex-profile@$V" dist.integrity --json \
+  npm view "codex-profile@$V" dist.integrity --json --registry "$NPM_REGISTRY" \
     > "$integrity_file" 2>> "$lookup_error" || return 1
   node - "$V" "$local_integrity" "$integrity_file" \
     2>> "$lookup_error" <<'NODE'
@@ -117,7 +120,7 @@ if [[ "$npm_artifact_state" == "matching" ]]; then
 else
   publish_error="$tmp/npm-publish.err"
   npm_publish_succeeded=false
-  if npm publish "$tarball" --provenance --access public \
+  if npm publish "$tarball" --provenance --access public --registry "$NPM_REGISTRY" \
     2> "$publish_error"; then
     npm_publish_succeeded=true
   fi
@@ -153,14 +156,14 @@ fi
 
 if [[ "$mode" == "verify" ]]; then
 release_require_env V
-set -euo pipefail
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 prefix="$tmp/prefix"
 cache="$tmp/npm-cache"
 npm_installed=false
 for attempt in {1..10}; do
-  if npm install -g --prefix "$prefix" --cache "$cache" "codex-profile@$V"; then
+  if npm install -g --prefix "$prefix" --cache "$cache" \
+    --registry "$NPM_REGISTRY" "codex-profile@$V"; then
     npm_installed=true
     break
   fi

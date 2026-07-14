@@ -90,7 +90,7 @@ function createArchive(name, mutate = () => {}, prefix = "") {
   ].map((path) => (prefix ? `${prefix}/${path}` : path));
   execFileSync(
     "tar",
-    ["-cf", archive, ...archivePaths],
+    ["-cf", archive, "--", ...archivePaths],
     { cwd: fixtureRoot },
   );
   return archive;
@@ -135,6 +135,22 @@ assertSuccess(
     join(tempRoot, "prefixed-output"),
   ]),
   "GitHub-style prefixed archive",
+);
+
+const optionLikeArchive = createArchive("option-like-release", () => {}, "--checkpoint=1");
+assertFailure(
+  run(prepare, [
+    "--version",
+    "0.8.0",
+    "--release-json",
+    releaseJson,
+    "--archive",
+    optionLikeArchive,
+    "--output",
+    join(tempRoot, "option-like-output"),
+  ]),
+  "option-like archive member",
+  "option-like archive member",
 );
 
 for (const [name, fixture] of Object.entries(releaseFixtures)) {
@@ -383,6 +399,11 @@ for (const path of [prepare, verify]) {
   assert.doesNotMatch(source, /\bssh\s+[^\n]*aur\.archlinux\.org/, `${path} must not use AUR credentials`);
 }
 const verifySource = readFileSync(verify, "utf8");
+assert.equal(
+  (verifySource.match(/--connect-timeout 10 --max-time 60/g) ?? []).length,
+  3,
+  "every AUR verification request should have bounded timeouts",
+);
 for (const contract of [
   "makepkg --printsrcinfo",
   "makepkg --verifysource",

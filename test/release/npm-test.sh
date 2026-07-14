@@ -16,6 +16,12 @@ cat > "$npm_fake_bin/npm" <<'FAKE_NPM'
 set -eu
 
 local_integrity='sha512-dGVzdC1jb2RleC1wcm9maWxl'
+require_public_registry() {
+  case " $* " in
+    *' --registry https://registry.npmjs.org/ '*) ;;
+    *) exit 96 ;;
+  esac
+}
 
 case "${1:-}" in
   pack)
@@ -37,6 +43,7 @@ case "${1:-}" in
       "$local_integrity"
     ;;
   view)
+    require_public_registry "$@"
     if [ "${2:-}" = 'codex-profile' ] && [ "${3:-}" = 'versions' ]; then
       printf '%s\n' 'view:versions' >> "$RELEASE_WORKFLOW_TEST_LOG"
       case "$FAKE_NPM_SCENARIO" in
@@ -79,6 +86,7 @@ case "${1:-}" in
     fi
     ;;
   publish)
+    require_public_registry "$@"
     printf '%s\n' 'publish' >> "$RELEASE_WORKFLOW_TEST_LOG"
     [ -f "${2:-}" ] || {
       printf 'publish did not receive the packed tarball: %s\n' "${2:-}" >&2
@@ -104,7 +112,7 @@ printf '%s\n' 'sleep' >> "$RELEASE_WORKFLOW_TEST_LOG"
 FAKE_SLEEP
 chmod 755 "$npm_fake_bin/npm" "$npm_fake_bin/sleep"
 
-npm_publish_script="$ROOT_DIR/scripts/release/publish-npm.sh publish"
+npm_publish_script=("$ROOT_DIR/scripts/release/publish-npm.sh" publish)
 require_npm_publish_scenario() {
   local scenario="$1"
   local expected_status="$2"
@@ -123,7 +131,7 @@ require_npm_publish_scenario() {
     RELEASE_WORKFLOW_TEST_LOG="$log" \
     FAKE_NPM_SCENARIO="$scenario" \
     V="0.7.0" \
-    bash -c "$npm_publish_script" >"$tmp_dir/npm-$scenario.out" 2>&1
+    "${npm_publish_script[@]}" >"$tmp_dir/npm-$scenario.out" 2>&1
   status=$?
   set -e
 
@@ -165,6 +173,10 @@ cat > "$npm_verify_bin/npm" <<'FAKE_NPM_VERIFY'
 set -eu
 
 [ "${1:-}" = install ] || exit 64
+case " $* " in
+  *' --registry https://registry.npmjs.org/ '*) ;;
+  *) exit 96 ;;
+esac
 printf '%s\n' install >> "$RELEASE_WORKFLOW_TEST_LOG"
 attempt="$(grep -Fxc install "$RELEASE_WORKFLOW_TEST_LOG")"
 if [ "$FAKE_NPM_VERIFY_SCENARIO" = retry ] && [ "$attempt" -lt 3 ]; then

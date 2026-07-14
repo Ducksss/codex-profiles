@@ -16,6 +16,10 @@ VERIFIED_SHA="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 for script in "$PREFLIGHT" "$VERIFY_STATE" "$PUBLISH_TAG"; do
   [[ -x "$script" ]] || fail "missing executable ${script#"$ROOT_DIR/"}"
 done
+strict_line="$(grep -n '^set -euo pipefail$' "$VERIFY_STATE" | cut -d: -f1)"
+setup_line="$(grep -n '^SCRIPT_DIR=' "$VERIFY_STATE" | cut -d: -f1)"
+[[ -n "$strict_line" && -n "$setup_line" && "$strict_line" -lt "$setup_line" ]] \
+  || fail "verify-state must enable strict mode before setup"
 
 fake_bin="$TMP_ROOT/bin"
 log_file="$TMP_ROOT/commands.log"
@@ -59,7 +63,8 @@ case "${1:-}" in
     esac
     ;;
   rev-list)
-    if [ "${FAKE_RELEASE_SCENARIO:-}" = "conflict" ]; then
+    if [ "${FAKE_RELEASE_SCENARIO:-}" = "conflict" ] \
+      || [ "${FAKE_RELEASE_SCENARIO:-}" = "wrong-remote" ]; then
       printf '%s\n' bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
     else
       printf '%s\n' "$VERIFIED_SHA"
@@ -67,7 +72,7 @@ case "${1:-}" in
     ;;
   push)
     case "${FAKE_RELEASE_SCENARIO:-}" in
-      publish) exit 0 ;;
+      publish|wrong-remote) exit 0 ;;
       race-same|conflict|transient) exit 1 ;;
       *) exit 64 ;;
     esac
@@ -133,9 +138,10 @@ run_publish_tag() {
   local scenario="$1"
   local tag_exists="$2"
   local expected_status="$3"
-  local before_pushes after_pushes status
+  local before_pushes after_pushes before_remote_checks after_remote_checks status
 
   before_pushes="$(grep -c '^git:push ' "$log_file" || true)"
+  before_remote_checks="$(grep -c '^git:ls-remote ' "$log_file" || true)"
   set +e
   PATH="$fake_bin:$PATH" \
     RELEASE_TEST_LOG="$log_file" \
@@ -147,6 +153,7 @@ run_publish_tag() {
   status=$?
   set -e
   after_pushes="$(grep -c '^git:push ' "$log_file" || true)"
+  after_remote_checks="$(grep -c '^git:ls-remote ' "$log_file" || true)"
 
   if [[ "$expected_status" = success ]]; then
     [[ "$status" -eq 0 ]] || fail "publish-tag $scenario failed"
@@ -159,6 +166,8 @@ run_publish_tag() {
   else
     [[ "$after_pushes" -eq $((before_pushes + 1)) ]] || fail "new tag was not pushed once"
   fi
+  [[ "$after_remote_checks" -eq $((before_remote_checks + 1)) ]] \
+    || fail "publish-tag $scenario did not verify the remote tag postcondition"
 }
 
 run_publish_tag present true success
@@ -166,5 +175,8 @@ run_publish_tag publish false success
 run_publish_tag race-same false success
 run_publish_tag conflict false failure
 run_publish_tag transient false failure
+run_publish_tag wrong-remote false failure
+grep -F "git:tag -a v0.7.0 $VERIFIED_SHA -m codex-profile v0.7.0" "$log_file" >/dev/null \
+  || fail "publish-tag did not create the tag at the verified commit"
 
 printf '%s\n' 'Release state tests passed.'
