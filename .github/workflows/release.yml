@@ -71,119 +71,7 @@ jobs:
         id: release
         shell: bash
         run: |
-          set -euo pipefail
-
-          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
-            echo "Releases must be dispatched from the main branch, not $GITHUB_REF." >&2
-            exit 1
-          fi
-
-          if [[ "$DRY_RUN" != "true" ]]; then
-            [[ -n "$DESKTOP_SMOKE_ATTESTATION" ]] || {
-              echo "Signed-app smoke attestation is required for a live release." >&2
-              exit 1
-            }
-            [[ "$DESKTOP_SMOKE_ATTESTATION" == *ChatGPT* ]] || {
-              echo "Signed-app smoke attestation must contain the tested ChatGPT version." >&2
-              exit 1
-            }
-            [[ "$DESKTOP_SMOKE_ATTESTATION" == *com.openai.* ]] || {
-              echo "Signed-app smoke attestation must contain the tested bundle ID beginning with com.openai." >&2
-              exit 1
-            }
-            attestation_pattern='^ChatGPT version [0-9]+\.[0-9]+(\.[0-9]+)?; bundle ID com\.openai\.[A-Za-z0-9]+([.-][A-Za-z0-9]+)*$'
-            if ! [[ "$DESKTOP_SMOKE_ATTESTATION" =~ $attestation_pattern ]]; then
-              echo "Signed-app smoke attestation must exactly match: ChatGPT version X.Y[.Z]; bundle ID com.openai.<identifier>." >&2
-              exit 1
-            fi
-
-            sanitized_attestation="$(
-              printf '%s' "$DESKTOP_SMOKE_ATTESTATION" \
-                | tr '\r\n' '  ' \
-                | sed 's/[[:cntrl:]]//g; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
-            )"
-            printf 'Signed-app smoke attestation: <code>%s</code>\n' \
-              "$sanitized_attestation" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          version="$INPUT_VERSION"
-          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Version '$version' is not an exact X.Y.Z release version." >&2
-            exit 1
-          fi
-
-          check_version() {
-            local source="$1"
-            local declared="$2"
-            if [[ "$declared" != "$version" ]]; then
-              printf '%s declares %q; expected %q.\n' "$source" "$declared" "$version" >&2
-              exit 1
-            fi
-          }
-
-          check_version package.json "$(node -p "require('./package.json').version")"
-          check_version package-lock.json "$(node -p "require('./package-lock.json').version")"
-          check_version package-lock-root "$(node -p "require('./package-lock.json').packages[''].version")"
-          check_version bin/codex-profile "$(sed -n 's/^VERSION="\([^"]*\)"/\1/p' bin/codex-profile | head -n 1)"
-          check_version docs/index.html "$(sed -n 's/.*"softwareVersion": "\([^"]*\)".*/\1/p' docs/index.html | head -n 1)"
-          check_version docs-visible-version "$(sed -n 's|.*<span>v\([0-9][^<]*\)</span>.*|\1|p' docs/index.html | head -n 1)"
-          check_version packaging/aur/PKGBUILD "$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD | head -n 1)"
-          check_version packaging/aur/.SRCINFO "$(sed -n 's/^\tpkgver = //p' packaging/aur/.SRCINFO | head -n 1)"
-
-          changelog_version="${version//./\.}"
-          if ! grep -Eq "^## $changelog_version - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then
-            echo "CHANGELOG.md must contain a dated '## $version - YYYY-MM-DD' section before release." >&2
-            exit 1
-          fi
-
-          node - <<'NODE'
-          const pkg = require('./package.json');
-          const lock = require('./package-lock.json');
-          if (pkg.name !== 'codex-profile') {
-            throw new Error(`package name must remain codex-profile, got ${pkg.name}`);
-          }
-          if (lock.name !== pkg.name || lock.packages?.['']?.name !== pkg.name) {
-            throw new Error('package-lock.json package names must match package.json');
-          }
-          for (const command of ['codex-profile', 'codex-profiles']) {
-            if (pkg.bin?.[command] !== 'bin/codex-profile') {
-              throw new Error(`${command} must map to bin/codex-profile`);
-            }
-          }
-          NODE
-
-          # shellcheck disable=SC2016
-          grep -F 'ln -s codex-profile "$staged_alias"' install.sh >/dev/null
-          # shellcheck disable=SC2016
-          grep -F 'mv "$staged_alias" "$alias"' install.sh >/dev/null
-          # shellcheck disable=SC2016
-          grep -F 'if [ ! -L "$alias" ] || [ "$(readlink "$alias")" != codex-profile ]; then' install.sh >/dev/null
-          grep -F "ln -s codex-profile \"\$out/bin/codex-profiles\"" flake.nix >/dev/null
-          grep -F "ln -s codex-profile \"\$pkgdir/usr/bin/codex-profiles\"" packaging/aur/PKGBUILD >/dev/null
-
-          git fetch --no-tags origin main
-          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
-            echo "The checked-out commit is not the current origin/main tip." >&2
-            exit 1
-          fi
-
-          tag="v$version"
-          tag_exists=false
-          if git show-ref --verify --quiet "refs/tags/$tag"; then
-            tag_exists=true
-            if [[ "$(git rev-list -n 1 "$tag")" != "$GITHUB_SHA" ]]; then
-              echo "$tag already points to a different commit; refusing to move it." >&2
-              exit 1
-            fi
-          fi
-
-          {
-            echo "version=$version"
-            echo "tag=$tag"
-            echo "tag_exists=$tag_exists"
-            echo "commit=$GITHUB_SHA"
-          } >> "$GITHUB_OUTPUT"
-          echo "Validated tracked release $tag at $GITHUB_SHA."
+          scripts/release/verify-source.sh
 
       - name: Run full verification
         run: |
@@ -268,49 +156,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
         run: |
-          set -euo pipefail
-          [[ -n "${NPM_TOKEN:-}" ]] || { echo "NPM_TOKEN is required." >&2; exit 1; }
-          [[ -n "${TAP_TOKEN:-}" ]] || { echo "TAP_TOKEN is required." >&2; exit 1; }
-
-          registry="https://registry.npmjs.org/"
-          npm_user=""
-          if ! npm_user="$(
-            NODE_AUTH_TOKEN="$NPM_TOKEN" npm whoami --registry "$registry" 2>/dev/null
-          )" || [[ -z "$npm_user" ]]; then
-            echo "NPM_TOKEN could not authenticate with the npm registry." >&2
-            exit 1
-          fi
-
-          npm_owners=""
-          if ! npm_owners="$(
-            NODE_AUTH_TOKEN="$NPM_TOKEN" npm owner ls codex-profile \
-              --registry "$registry" 2>/dev/null
-          )"; then
-            echo "NPM_TOKEN could not verify codex-profile ownership." >&2
-            exit 1
-          fi
-          if ! awk -v expected="$npm_user" '
-            $1 == expected { found = 1 }
-            END { exit(found ? 0 : 1) }
-          ' <<< "$npm_owners"; then
-            echo "The authenticated npm user is not a codex-profile owner." >&2
-            exit 1
-          fi
-          unset npm_owners npm_user
-
-          tap_account_push=""
-          if ! tap_account_push="$(
-            GH_TOKEN="$TAP_TOKEN" gh api repos/Ducksss/homebrew-tap \
-              --jq '.permissions.push' 2>/dev/null
-          )"; then
-            echo "TAP_TOKEN could not authenticate for Ducksss/homebrew-tap." >&2
-            exit 1
-          fi
-          [[ "$tap_account_push" == "true" ]] || {
-            echo "The authenticated GitHub account does not report tap push access." >&2
-            exit 1
-          }
-          echo "Release credential identities passed preflight."
+          scripts/release/preflight.sh
 
       - name: Revalidate live release state
         id: live
@@ -320,40 +166,7 @@ jobs:
           TAG: ${{ needs.verify.outputs.tag }}
           VERIFIED_SHA: ${{ needs.verify.outputs.commit }}
         run: |
-          set -euo pipefail
-
-          git fetch --no-tags origin main
-          [[ "$(git rev-parse origin/main)" == "$VERIFIED_SHA" ]] || {
-            echo "origin/main moved during preflight; refusing to publish $TAG." >&2
-            exit 1
-          }
-
-          tag_exists=false
-          tag_error="$(mktemp)"
-          trap 'rm -f "$tag_error"' EXIT
-          set +e
-          git ls-remote --exit-code --tags origin "refs/tags/$TAG" \
-            > /dev/null 2> "$tag_error"
-          tag_status=$?
-          set -e
-          case "$tag_status" in
-            0)
-              tag_exists=true
-              git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
-              [[ "$(git rev-list -n 1 "$TAG")" == "$VERIFIED_SHA" ]] || {
-                echo "$TAG exists but does not point to verified commit $VERIFIED_SHA." >&2
-                exit 1
-              }
-              ;;
-            2)
-              ;;
-            *)
-              cat "$tag_error" >&2
-              echo "Could not establish whether $TAG already exists." >&2
-              exit 1
-              ;;
-          esac
-          echo "tag_exists=$tag_exists" >> "$GITHUB_OUTPUT"
+          scripts/release/verify-state.sh
 
       - name: Create and push tag
         if: ${{ ! inputs.dry_run }}
@@ -362,45 +175,7 @@ jobs:
           TAG_EXISTS: ${{ steps.live.outputs.tag_exists }}
           VERIFIED_SHA: ${{ needs.verify.outputs.commit }}
         run: |
-          set -euo pipefail
-          if [[ "$TAG_EXISTS" == "true" ]]; then
-            echo "$TAG already exists at this commit; continuing the release."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "codex-profile $TAG"
-          tmp="$(mktemp -d)"
-          trap 'rm -rf "$tmp"' EXIT
-          push_error="$tmp/tag-push.err"
-          if git push origin "$TAG" 2> "$push_error"; then
-            exit 0
-          fi
-
-          tag_error="$tmp/tag-lookup.err"
-          set +e
-          git ls-remote --exit-code --tags origin "refs/tags/$TAG" \
-            > /dev/null 2> "$tag_error"
-          tag_status=$?
-          set -e
-          tag_published_after_failure=false
-          if [[ "$tag_status" -eq 0 ]]; then
-            remote_tag_ref="refs/codex-profile-release-check/$TAG"
-            git fetch --no-tags --force origin \
-              "refs/tags/$TAG:$remote_tag_ref"
-            remote_tag_sha="$(git rev-list -n 1 "$remote_tag_ref")"
-            git update-ref -d "$remote_tag_ref"
-            if [[ "$remote_tag_sha" == "$VERIFIED_SHA" ]]; then
-              tag_published_after_failure=true
-            fi
-          fi
-          [[ "$tag_published_after_failure" == "true" ]] || {
-            cat "$push_error" >&2
-            cat "$tag_error" >&2
-            echo "Could not publish or verify $TAG at $VERIFIED_SHA." >&2
-            exit 1
-          }
-          echo "$TAG was published concurrently; continuing the release."
+          scripts/release/publish-tag.sh
 
       - name: Verify tagged AUR release files
         if: ${{ ! inputs.dry_run }}

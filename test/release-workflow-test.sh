@@ -108,6 +108,11 @@ source_validation_step="Validate release source and tracked versions"
 source_validation_block="$(step_block "$source_validation_step")"
 [[ -n "$source_validation_block" ]] \
   || fail "release workflow is missing step: $source_validation_step"
+source_validation_script="$ROOT_DIR/scripts/release/verify-source.sh"
+[[ -x "$source_validation_script" ]] \
+  || fail "release source validation script is missing or not executable"
+require_step_literal "$source_validation_step" 'scripts/release/verify-source.sh'
+source_validation_program="$(<"$source_validation_script")"
 
 for literal in \
   '# shellcheck disable=SC2016' \
@@ -115,18 +120,18 @@ for literal in \
   "grep -F 'mv \"\$staged_alias\" \"\$alias\"' install.sh >/dev/null" \
   "grep -F 'if [ ! -L \"\$alias\" ] || [ \"\$(readlink \"\$alias\")\" != codex-profile ]; then' install.sh >/dev/null"
 do
-  grep -F -- "$literal" <<< "$source_validation_block" >/dev/null \
+  grep -F -- "$literal" <<< "$source_validation_program" >/dev/null \
     || fail "$source_validation_step is missing transactional installer precondition: $literal"
 done
 
 installer_shellcheck_disable_count="$(
-  grep -Fxc '          # shellcheck disable=SC2016' <<< "$source_validation_block" || true
+  grep -Fxc '# shellcheck disable=SC2016' <<< "$source_validation_program" || true
 )"
 [[ "$installer_shellcheck_disable_count" -eq 3 ]] \
   || fail "$source_validation_step must mark all three literal installer checks as intentional"
 
 if grep -F 'ln -sf codex-profile \"\$BINDIR/codex-profiles\"' \
-  <<< "$source_validation_block" >/dev/null; then
+  <<< "$source_validation_program" >/dev/null; then
   fail "$source_validation_step still requires the removed non-transactional installer alias"
 fi
 
@@ -186,7 +191,6 @@ for literal in \
   desktop_smoke_attestation \
   'ChatGPT version' \
   'bundle ID' \
-  'Signed-app smoke attestation is required for a live release' \
   'npm install -g --prefix' \
   'gh release view' \
   'scripts/update-homebrew-formula' \
@@ -198,16 +202,21 @@ done
 require_literal '# Immutable releases are an operator prerequisite for every live dispatch.'
 require_literal 'description: "Live release only: tested ChatGPT version and bundle ID; no account data."'
 require_literal 'DESKTOP_SMOKE_ATTESTATION: ${{ inputs.desktop_smoke_attestation }}'
-require_literal '[[ "$DRY_RUN" != "true" ]]'
-require_literal '[[ "$DESKTOP_SMOKE_ATTESTATION" == *ChatGPT* ]]'
-require_literal '[[ "$DESKTOP_SMOKE_ATTESTATION" == *com.openai.* ]]'
-require_literal '[[ "$DESKTOP_SMOKE_ATTESTATION" =~ $attestation_pattern ]]'
-require_literal 'Signed-app smoke attestation:'
-require_literal "| tr '\\r\\n' '  '"
-require_literal "sed 's/[[:cntrl:]]//g; s/&/\\&amp;/g; s/</\\&lt;/g; s/>/\\&gt;/g'"
+for literal in \
+  '[[ "$DRY_RUN" != "true" ]]' \
+  '[[ "$DESKTOP_SMOKE_ATTESTATION" == *ChatGPT* ]]' \
+  '[[ "$DESKTOP_SMOKE_ATTESTATION" == *com.openai.* ]]' \
+  '[[ "$DESKTOP_SMOKE_ATTESTATION" =~ $attestation_pattern ]]' \
+  'Signed-app smoke attestation:' \
+  "| tr '\\r\\n' '  '" \
+  "sed 's/[[:cntrl:]]//g; s/&/\\&amp;/g; s/</\\&lt;/g; s/>/\\&gt;/g'"
+do
+  grep -F -- "$literal" <<< "$source_validation_program" >/dev/null \
+    || fail "release source validation is missing: $literal"
+done
 
 attestation_pattern="$(
-  sed -n "s/^[[:space:]]*attestation_pattern='\\(.*\\)'$/\\1/p" "$WORKFLOW"
+  sed -n "s/^[[:space:]]*attestation_pattern='\\(.*\\)'$/\\1/p" "$source_validation_script"
 )"
 [[ -n "$attestation_pattern" ]] \
   || fail "release workflow is missing an anchored attestation pattern"
@@ -279,14 +288,21 @@ live_state_block="$(step_block "Revalidate live release state")"
 for literal in \
   'id: live' \
   'VERIFIED_SHA: ${{ needs.verify.outputs.commit }}' \
+  'scripts/release/verify-state.sh'
+do
+  grep -F -- "$literal" <<< "$live_state_block" >/dev/null \
+    || fail "live release state revalidation is missing: $literal"
+done
+live_state_program="$(<"$ROOT_DIR/scripts/release/verify-state.sh")"
+for literal in \
   'git fetch --no-tags origin main' \
   'git ls-remote --exit-code --tags origin "refs/tags/$TAG"' \
   'git rev-list -n 1 "$TAG"' \
   'tag_exists=' \
   'tag_exists=$tag_exists'
 do
-  grep -F -- "$literal" <<< "$live_state_block" >/dev/null \
-    || fail "live release state revalidation is missing: $literal"
+  grep -F -- "$literal" <<< "$live_state_program" >/dev/null \
+    || fail "live release state script is missing: $literal"
 done
 
 live_validation_line="$(line_number '      - name: Validate live release source')"
@@ -382,6 +398,13 @@ credential_validation_block="$(step_block "Preflight release credential identiti
 for literal in \
   'NPM_TOKEN: ${{ secrets.NPM_TOKEN }}' \
   'TAP_TOKEN: ${{ secrets.TAP_TOKEN }}' \
+  'scripts/release/preflight.sh'
+do
+  grep -F -- "$literal" <<< "$credential_validation_block" >/dev/null \
+    || fail "release credential validation wiring is missing: $literal"
+done
+credential_validation_program="$(<"$ROOT_DIR/scripts/release/preflight.sh")"
+for literal in \
   '[[ -n "${NPM_TOKEN:-}" ]]' \
   '[[ -n "${TAP_TOKEN:-}" ]]' \
   'NODE_AUTH_TOKEN="$NPM_TOKEN" npm whoami' \
@@ -389,8 +412,8 @@ for literal in \
   'GH_TOKEN="$TAP_TOKEN" gh api repos/Ducksss/homebrew-tap' \
   "--jq '.permissions.push'"
 do
-  grep -F -- "$literal" <<< "$credential_validation_block" >/dev/null \
-    || fail "release credential validation is missing: $literal"
+  grep -F -- "$literal" <<< "$credential_validation_program" >/dev/null \
+    || fail "release credential validation script is missing: $literal"
 done
 
 credential_fake_bin="$tmp_dir/credential-fake-bin"
@@ -490,12 +513,19 @@ require_credential_scenario success npm-token tap-token success 2 1
 tag_publish_block="$(step_block "Create and push tag")"
 for literal in \
   'VERIFIED_SHA: ${{ needs.verify.outputs.commit }}' \
+  'scripts/release/publish-tag.sh'
+do
+  grep -F -- "$literal" <<< "$tag_publish_block" >/dev/null \
+    || fail "Create and push tag wiring is missing: $literal"
+done
+tag_publish_program="$(<"$ROOT_DIR/scripts/release/publish-tag.sh")"
+for literal in \
   'tag_published_after_failure=true' \
   'git ls-remote --exit-code --tags origin "refs/tags/$TAG"' \
   'git rev-list -n 1 "$remote_tag_ref"'
 do
-  grep -F -- "$literal" <<< "$tag_publish_block" >/dev/null \
-    || fail "Create and push tag is missing race recovery contract: $literal"
+  grep -F -- "$literal" <<< "$tag_publish_program" >/dev/null \
+    || fail "Create and push tag script is missing race recovery contract: $literal"
 done
 
 tag_fake_bin="$tmp_dir/tag-fake-bin"
