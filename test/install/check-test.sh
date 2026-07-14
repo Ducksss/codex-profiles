@@ -40,6 +40,21 @@ assert_contains "$list_output" $'node-test\ttest/outreach/tracker-test.mjs' "out
 assert_contains "$list_output" $'node-test\ttest/outreach/agent-test.mjs' "outreach agent inventory"
 assert_contains "$list_output" $'node-test\ttest/outreach/skills-test.mjs' "outreach skills inventory"
 
+cli_suites=(
+  test/cli/profiles-test.sh
+  test/cli/desktop-test.sh
+  test/cli/workspace-test.sh
+  test/cli/status-json-test.sh
+  test/cli/shell-test.sh
+  test/cli/upgrade-test.sh
+)
+for suite in "${cli_suites[@]}"; do
+  assert_contains "$list_output" $'bash-test\t'"$suite" "CLI suite inventory"
+done
+if [[ "$list_output" == *$'\ttest/codex-profile-test.sh'* ]]; then
+  fail "obsolete CLI monolith remains in inventory"
+fi
+
 if [[ "$list_output" == *'test/fixtures/'* ]]; then
   fail "fixture files must not appear in the executable inventory"
 fi
@@ -133,5 +148,17 @@ node --input-type=module -e '
   assertIncludes(executable, root, "fixture path");
   await rm(root, { recursive: true, force: true });
 ' >/dev/null
+
+definition_names="$TMP_ROOT/cli-definitions"
+invocation_names="$TMP_ROOT/cli-invocations"
+rg --no-filename -o -P '^test_[A-Za-z0-9_]+(?=\(\) \{)' \
+  "${cli_suites[@]/#/$ROOT_DIR/}" | LC_ALL=C sort > "$definition_names"
+rg --no-filename -o -P '^test_[A-Za-z0-9_]+$' \
+  "${cli_suites[@]/#/$ROOT_DIR/}" | LC_ALL=C sort > "$invocation_names"
+diff -u "$definition_names" "$invocation_names" \
+  || fail "every CLI test must be defined and invoked exactly once"
+
+duplicate_test="$(uniq -d "$definition_names" | sed -n '1p')"
+[[ -z "$duplicate_test" ]] || fail "duplicate CLI test definition: $duplicate_test"
 
 printf '%s\n' 'Check dispatcher tests passed.'
