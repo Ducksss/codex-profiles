@@ -76,11 +76,11 @@ run_tests() {
   run_syntax
 
   while IFS= read -r path; do
-    bash "$path"
+    bash "$path" </dev/null
   done < <(list_bash_tests)
 
   while IFS= read -r path; do
-    node "$path"
+    node "$path" </dev/null
   done < <(list_node_tests)
 }
 
