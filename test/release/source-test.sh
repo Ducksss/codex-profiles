@@ -98,4 +98,25 @@ assert_contains "$attestation_output" \
   'Signed-app smoke attestation is required for a live release' \
   "missing attestation error"
 
+set +e
+unset_attestation_output="$({
+  env -u DESKTOP_SMOKE_ATTESTATION -u GITHUB_STEP_SUMMARY \
+    INPUT_VERSION="0.7.0" \
+    DRY_RUN="false" \
+    GITHUB_REF="refs/heads/main" \
+    GITHUB_SHA="$FAKE_SHA" \
+    GITHUB_OUTPUT="$TMP_ROOT/unset-attestation-output" \
+    "$VERIFY_SOURCE"
+} 2>&1)"
+unset_attestation_status=$?
+set -e
+[[ "$unset_attestation_status" -ne 0 ]] \
+  || fail "live release with unset attestation variables must fail"
+assert_contains "$unset_attestation_output" \
+  'Signed-app smoke attestation is required for a live release' \
+  "unset attestation error"
+assert_not_contains "$unset_attestation_output" \
+  'unbound variable' \
+  "unset attestation error"
+
 printf '%s\n' 'Release source tests passed.'

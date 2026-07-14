@@ -300,6 +300,7 @@ write_valid_formula "$tap_fixture/Formula/codex-profile.rb"
 
 write_command_shim "$release_bin/curl" <<'SH'
 set -eu
+printf 'curl:%s\n' "$*" >> "$RELEASE_TEST_LOG"
 printf '%s\n' 'immutable release archive'
 SH
 
@@ -348,6 +349,10 @@ for scenario in unchanged changed; do
   set -e
   [[ "$release_status" -eq 0 ]] || fail "Homebrew release $scenario scenario failed"
   [[ "$release_output" != *'tap-secret'* ]] || fail "Homebrew release leaked the tap token"
+  grep -F \
+    "curl:--retry 3 --retry-all-errors --connect-timeout 10 --max-time 120 -fsSL $URL" \
+    "$release_log" >/dev/null \
+    || fail "Homebrew release $scenario did not bound the archive request"
   if [[ "$scenario" = unchanged ]]; then
     [[ "$release_output" == *"already matches v$VERSION"* ]] \
       || fail "unchanged tap did not report idempotent success"

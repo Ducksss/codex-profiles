@@ -134,7 +134,7 @@ test/
     workflow-contract-test.mjs
   packaging/
     metadata-test.sh
-    aur-test.sh
+    aur-test.mjs
   site/
     geo-test.mjs
   outreach/

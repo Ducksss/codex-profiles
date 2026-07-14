@@ -95,6 +95,11 @@ run_pages() {
   actual="$(grep -c '^curl:' "$log_file" || true)"
   [[ "$actual" -eq "$expected_curls" ]] \
     || fail "Pages $scenario fetched the site $actual times; expected $expected_curls"
+  if [[ "$expected_curls" -gt 0 ]]; then
+    actual="$(grep -c '^curl:--connect-timeout 10 --max-time 30 -fsSL ' "$log_file" || true)"
+    [[ "$actual" -eq "$expected_curls" ]] \
+      || fail "Pages $scenario did not bound every site request"
+  fi
 }
 
 run_pages eventual success 3 1 2

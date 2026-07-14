@@ -260,6 +260,8 @@ const verifyArgs = [
   "0.7.0",
   "--checkout",
   prepared,
+  "--expected",
+  prepared,
   "--rpc-json",
   join(rpcDir, "exact-final-version.json"),
   "--rpc-state",
@@ -274,8 +276,24 @@ assert.match(verifyResult.stdout, /Metadata, sources, checksums, aliases, and RP
 assert.match(verifyResult.stdout, /Container validation: skipped by request/);
 assert.equal(readFileSync(commandLog, "utf8"), "", "never mode must not call Docker, Git, or SSH");
 assertSuccess(
-  run(verify, [...verifyArgs.slice(0, 4), ...verifyArgs.slice(6)], verifyEnv),
+  run(verify, [...verifyArgs.slice(0, 6), ...verifyArgs.slice(8)], verifyEnv),
   "fetched AUR RPC verification",
+);
+
+const unexpectedContent = join(tempRoot, "unexpected-content");
+cpSync(prepared, unexpectedContent, { recursive: true });
+writeFileSync(
+  join(unexpectedContent, "PKGBUILD"),
+  `${readFileSync(join(unexpectedContent, "PKGBUILD"), "utf8")}# unexpected\n`,
+);
+assertFailure(
+  run(
+    verify,
+    verifyArgs.map((arg, index) => (index === 3 ? unexpectedContent : arg)),
+    verifyEnv,
+  ),
+  "checkout with unexpected package content",
+  "does not match expected immutable PKGBUILD",
 );
 
 const rpcScenarios = [
@@ -378,6 +396,10 @@ for (const contract of [
 const runbook = readFileSync(runbookPath, "utf8");
 assert.ok(runbook.includes("scripts/aur/prepare.sh"), "runbook should call prepare.sh");
 assert.ok(runbook.includes("scripts/aur/verify.sh"), "runbook should call verify.sh");
+assert.ok(
+  runbook.includes('--expected "$WORK_ROOT/staged"'),
+  "public verification should bind the checkout to the prepared release files",
+);
 assert.ok(runbook.includes("git -C \"$AUR_DIR\" push origin master"), "manual push must stay explicit");
 assert.ok(runbook.includes("official AUR homepage"), "host-key trust source must remain documented");
 assert.ok(runbook.includes("never"), "credential and mutation boundaries must remain explicit");

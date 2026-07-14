@@ -194,6 +194,7 @@ curl -fsSL --get --data-urlencode 'arg[]=codex-profile' \
 PUBLIC_DIR="$WORK_ROOT/public"
 git clone https://aur.archlinux.org/codex-profile.git "$PUBLIC_DIR"
 scripts/aur/verify.sh --version "$VERSION" --checkout "$PUBLIC_DIR" \
+  --expected "$WORK_ROOT/staged" \
   --rpc-json "$WORK_ROOT/aur-after.json" --rpc-state exact \
   --container always
 ```

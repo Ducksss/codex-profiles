@@ -154,7 +154,7 @@ printf '%s\n' 'sleep' >> "$RELEASE_WORKFLOW_TEST_LOG"
 FAKE_SLEEP
 chmod 755 "$release_fake_bin/gh" "$release_fake_bin/sleep"
 
-github_release_script="$ROOT_DIR/scripts/release/publish-github.sh publish"
+github_release_script=("$ROOT_DIR/scripts/release/publish-github.sh" publish)
 require_github_release_scenario() {
   local scenario="$1"
   local expected_status="$2"
@@ -172,7 +172,7 @@ require_github_release_scenario() {
     FAKE_GH_RELEASE_SCENARIO="$scenario" \
     GITHUB_REPOSITORY="Ducksss/codex-profiles" \
     TAG="v0.7.0" \
-    bash -c "$github_release_script" >"$tmp_dir/release-$scenario.out" 2>&1
+    "${github_release_script[@]}" >"$tmp_dir/release-$scenario.out" 2>&1
   status=$?
   set -e
 
@@ -201,7 +201,7 @@ require_github_release_scenario draft failure 5 0 4
 require_github_release_scenario prerelease failure 5 0 4
 require_github_release_scenario unpublished failure 5 0 4
 
-github_release_verify_script="$ROOT_DIR/scripts/release/publish-github.sh verify"
+github_release_verify_script=("$ROOT_DIR/scripts/release/publish-github.sh" verify)
 require_github_release_final_scenario() {
   local scenario="$1"
   local expected_status="$2"
@@ -218,7 +218,7 @@ require_github_release_final_scenario() {
     FAKE_GH_RELEASE_SCENARIO="$scenario" \
     GITHUB_REPOSITORY="Ducksss/codex-profiles" \
     TAG="v0.7.0" \
-    bash -c "$github_release_verify_script" \
+    "${github_release_verify_script[@]}" \
       >"$tmp_dir/release-final-$scenario.out" 2>&1
   status=$?
   set -e

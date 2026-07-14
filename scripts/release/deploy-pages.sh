@@ -36,7 +36,8 @@ gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status
 site_url="https://ducksss.github.io/codex-profiles/"
 deployed=false
 for _attempt in {1..30}; do
-  if curl -fsSL "$site_url" | grep -F "<span>v$V</span>" >/dev/null; then
+  if curl --connect-timeout 10 --max-time 30 -fsSL "$site_url" \
+    | grep -F "<span>v$V</span>" >/dev/null; then
     deployed=true
     break
   fi

@@ -145,7 +145,7 @@ chmod 755 \
   "$standalone_fake_bin/curl" \
   "$standalone_fake_bin/sleep"
 
-standalone_verification_script="$ROOT_DIR/scripts/release/verify-distribution.sh standalone"
+standalone_verification_script=("$ROOT_DIR/scripts/release/verify-distribution.sh" standalone)
 require_standalone_scenario() {
   local scenario="$1"
   local canonical_version="$2"
@@ -172,7 +172,7 @@ require_standalone_scenario() {
     CODEX_PROFILE_VERSION="v9.9.9" \
     TAG="v0.7.0" \
     V="0.7.0" \
-    bash -c "$standalone_verification_script" > "$output" 2>&1
+    "${standalone_verification_script[@]}" > "$output" 2>&1
   status=$?
   set -e
 

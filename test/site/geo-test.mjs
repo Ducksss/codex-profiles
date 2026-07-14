@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('../..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('../..', import.meta.url));
 const siteRoot = join(root, 'docs');
 const canonicalUrl = 'https://ducksss.github.io/codex-profiles/';
 
@@ -156,7 +157,7 @@ for (const [label, guidance] of [
   );
   assert.doesNotMatch(
     normalizedGuidance,
-    /isolated\s+(?:local\s+)?ChatGPT desktop windows|named local ChatGPT desktop windows|account separation matters|local identity boundary|isolation boundary|profile isolation/i,
+    /isolated\s+(?:local\s+)?ChatGPT desktop windows|named local ChatGPT desktop windows|account separation matters|separate accounts|isolated accounts|identity isolation|local identity boundary|isolation boundary|profile isolation/i,
     `${label} must not imply verified account or identity isolation`
   );
 }

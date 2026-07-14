@@ -11,7 +11,18 @@ release_require_env V
 
 set -euo pipefail
 tarball="https://github.com/Ducksss/codex-profiles/archive/refs/tags/v$V.tar.gz"
-sha="$(curl --retry 3 --retry-all-errors -fsSL "$tarball" | sha256sum | cut -d ' ' -f 1)"
+if command -v sha256sum >/dev/null 2>&1; then
+  hash_command=(sha256sum)
+elif command -v shasum >/dev/null 2>&1; then
+  hash_command=(shasum -a 256)
+else
+  release_die "sha256sum or shasum is required"
+fi
+sha="$(
+  curl --retry 3 --retry-all-errors --connect-timeout 10 --max-time 120 -fsSL "$tarball" \
+    | "${hash_command[@]}" \
+    | awk '{ print $1 }'
+)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 git clone --depth 1 \

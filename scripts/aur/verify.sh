@@ -9,6 +9,7 @@ source "$SCRIPT_DIR/lib.sh"
 usage() {
   cat >&2 <<'EOF'
 Usage: scripts/aur/verify.sh --version X.Y.Z --checkout DIRECTORY
+  [--expected DIRECTORY]
   [--rpc-json FILE] [--rpc-state unclaimed|owned|exact]
   [--container auto|always|never]
 EOF
@@ -16,16 +17,18 @@ EOF
 
 version=""
 checkout_input=""
+expected_input=""
 rpc_json=""
 rpc_state="exact"
 container_mode="auto"
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    --version | --checkout | --rpc-json | --rpc-state | --container)
+    --version | --checkout | --expected | --rpc-json | --rpc-state | --container)
       [[ "$#" -ge 2 ]] || { usage; exit 2; }
       case "$1" in
         --version) version="$2" ;;
         --checkout) checkout_input="$2" ;;
+        --expected) expected_input="$2" ;;
         --rpc-json) rpc_json="$2" ;;
         --rpc-state) rpc_state="$2" ;;
         --container) container_mode="$2" ;;
@@ -52,6 +55,19 @@ case "$rpc_state" in unclaimed | owned | exact) ;; *) aur_die "RPC state must be
 checkout="$(cd "$checkout_input" && pwd -P)"
 [[ -n "$checkout" && "$checkout" != "/" && "$checkout" != *$'\n'* && "$checkout" != *","* ]] \
   || aur_die "unsafe checkout path: $checkout"
+if [[ -n "$expected_input" ]]; then
+  [[ -d "$expected_input" && ! -L "$expected_input" ]] \
+    || aur_die "expected files must be in a real directory: $expected_input"
+  expected="$(cd "$expected_input" && pwd -P)"
+  [[ -n "$expected" && "$expected" != "/" && "$expected" != *$'\n'* ]] \
+    || aur_die "unsafe expected directory: $expected"
+  for file in PKGBUILD .SRCINFO LICENSE; do
+    aur_require_regular_file "$expected/$file" "expected immutable $file"
+    aur_require_regular_file "$checkout/$file" "checkout $file"
+    cmp -s "$expected/$file" "$checkout/$file" \
+      || aur_die "checkout $file does not match expected immutable $file"
+  done
+fi
 
 aur_require_command curl
 aur_require_command jq

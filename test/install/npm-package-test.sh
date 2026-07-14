@@ -44,9 +44,7 @@ npm install -g \
 
 "$TMP_PREFIX/bin/codex-profile" help >/dev/null
 version_output="$("$TMP_PREFIX/bin/codex-profiles" version)"
-case "$version_output" in
-  'codex-profile '[0-9]*.[0-9]*.[0-9]*) ;;
-  *) exit 1 ;;
-esac
+expected_version="$(node -p "require('./package.json').version")"
+[[ "$version_output" == "codex-profile $expected_version" ]]
 
 printf '%s\n' 'npm package smoke test passed.'
