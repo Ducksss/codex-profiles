@@ -231,6 +231,8 @@ assert.deepEqual(
 assertContains(html, `Last updated ${releaseDate}.`, 'homepage footer');
 assertContains(audit, `${releaseDate} modification dates`, 'GEO audit sitemap date');
 assertContains(audit, `as of ${releaseDate}`, 'GEO audit facts date');
+assertContains(audit, 'make check', 'GEO audit validation command');
+assertContains(html, 'uses make check', 'homepage validation description');
 assertContains(
   llms,
   `The current release is \`${packageJson.version}\`, dated ${releaseDate}.`,

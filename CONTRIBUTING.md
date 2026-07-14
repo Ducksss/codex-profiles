@@ -7,12 +7,13 @@ Thanks for helping improve `codex-profiles`.
 ```sh
 git clone https://github.com/Ducksss/codex-profiles.git
 cd codex-profiles
-make test
-make lint
+make check
 ```
 
-`make lint` is required unless the environment lacks ShellCheck. If ShellCheck
-is unavailable, state that explicitly in the pull request.
+`make check` is the canonical local gate: it runs syntax validation, all Bash
+and Node behavior suites, and ShellCheck from one deterministic file inventory.
+If ShellCheck is unavailable, run `make test` and state the missing lint result
+explicitly in the pull request.
 
 ## Product contract
 
@@ -48,6 +49,34 @@ killing, token copying, or cookie migration.
 - Keep `bin/codex-profile`, npm/package-lock, docs, PKGBUILD, and `.SRCINFO`
   versions in sync. A release also requires a dated changelog section.
 
+## Repository automation and test placement
+
+- Keep installed behavior in the single `bin/codex-profile` file. Repository
+  automation belongs under `scripts/` and must not enter the npm package.
+- `scripts/check` owns source and test discovery. Make, npm, CI, and release
+  verification delegate to it rather than copying file lists.
+- Put tests beside their responsibility: `test/cli`, `test/install`,
+  `test/packaging`, `test/release`, `test/site`, or `test/outreach`.
+- Put only reusable test infrastructure in `test/lib`; product expectations
+  stay in the owning suite. Tests must be independently runnable and use
+  disposable state.
+- Keep GitHub workflow files focused on permissions, secrets, runner setup, and
+  sequencing. Release behavior belongs in directly tested `scripts/release`
+  commands.
+- `scripts/aur/prepare.sh` and `scripts/aur/verify.sh` never publish. The AUR
+  credential, reviewed commit, and push remain maintainer-owned steps in the
+  [AUR runbook](packaging/aur/README.md).
+
+Useful focused commands include:
+
+```sh
+bash test/cli/workspace-test.sh
+bash test/release/npm-test.sh
+node test/packaging/aur-test.mjs
+node test/site/geo-test.mjs
+scripts/check list
+```
+
 ## Testing Desktop changes
 
 Automated tests should use disposable fake app bundles and temporary homes.
@@ -73,12 +102,10 @@ test without explicit sanitization.
 Dispatch the `Release` workflow from the current `main` commit with the exact
 tracked version. Its default `dry_run: true` path requires no Desktop
 attestation and makes no tag, registry, release, tap, or Pages changes. The
-always-run rehearsal executes the full suite and lint, the standalone installer
-against local fixtures, the Homebrew formula helper test, the pinned AUR
-metadata/package test, the npm tarball install smoke test, and a final clean
-check covering unstaged, staged, and untracked files. This verification job has
-read-only repository permissions, and its checkout does not persist a GitHub
-credential.
+always-run rehearsal invokes the same canonical `make check` gate used locally,
+then requires a clean checkout with no unstaged, staged, or untracked artifacts.
+This verification job has read-only repository permissions, and its checkout
+does not persist a GitHub credential.
 
 Only after the six cases above pass may a maintainer dispatch with
 `dry_run: false`. The `desktop_smoke_attestation` value may contain exactly two
@@ -127,8 +154,7 @@ dedicated-key, immutable-tag, clean-build, and public-verification requirements.
 Before opening a pull request:
 
 ```sh
-make test
-make lint
+make check
 ```
 
 If ShellCheck is unavailable, state that clearly. The pull request must include

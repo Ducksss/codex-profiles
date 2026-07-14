@@ -23,16 +23,22 @@ assert_contains() {
 [[ -x "$CHECK" ]] || fail "missing executable scripts/check"
 
 list_output="$("$CHECK" list)"
+check_source="$(<"$CHECK")"
 assert_contains "$list_output" $'shell\tbin/codex-profile' "runtime inventory"
 assert_contains "$list_output" $'shell\tinstall.sh' "installer inventory"
 assert_contains "$list_output" $'shell\tscripts/check' "dispatcher inventory"
+assert_contains "$list_output" $'shell\tscripts/update-homebrew-formula' "extensionless script inventory"
 assert_contains "$list_output" $'shell\tscripts/aur/lib.sh' "AUR helper inventory"
 assert_contains "$list_output" $'shell\tscripts/aur/prepare.sh' "AUR prepare inventory"
 assert_contains "$list_output" $'shell\tscripts/aur/verify.sh' "AUR verify inventory"
 assert_contains "$list_output" $'bash-test\ttest/install/check-test.sh' "Bash test inventory"
+assert_contains "$list_output" $'bash-test\ttest/install/dispatcher-input-test.sh' "dispatcher isolation inventory"
 assert_contains "$list_output" $'shell\ttest/lib/assertions.sh' "Bash helper inventory"
-assert_contains "$list_output" $'node\ttest/lib/assertions.mjs' "Node assertion inventory"
-assert_contains "$list_output" $'node\ttest/lib/fixtures.mjs' "Node fixture inventory"
+for obsolete_helper in test/lib/assertions.mjs test/lib/fixtures.mjs; do
+  if [[ "$list_output" == *$'\t'"$obsolete_helper"* ]]; then
+    fail "unused Node helper remains in inventory: $obsolete_helper"
+  fi
+done
 assert_contains "$list_output" $'bash-test\ttest/install/standalone-test.sh' "standalone test inventory"
 assert_contains "$list_output" $'bash-test\ttest/install/makefile-test.sh' "Make test inventory"
 assert_contains "$list_output" $'bash-test\ttest/install/npm-package-test.sh' "npm test inventory"
@@ -60,6 +66,22 @@ for suite in "${release_suites[@]}"; do
     assert_contains "$list_output" $'bash-test\t'"$suite" "release suite inventory"
   fi
 done
+
+release_scripts=(
+  scripts/release/lib.sh
+  scripts/release/verify-source.sh
+  scripts/release/preflight.sh
+  scripts/release/verify-state.sh
+  scripts/release/publish-tag.sh
+  scripts/release/publish-npm.sh
+  scripts/release/publish-github.sh
+  scripts/release/verify-distribution.sh
+  scripts/release/update-homebrew.sh
+  scripts/release/deploy-pages.sh
+)
+for script in "${release_scripts[@]}"; do
+  assert_contains "$list_output" $'shell\t'"$script" "release script inventory"
+done
 for old_path in test/release-workflow-test.sh test/release-helper-test.sh; do
   if [[ "$list_output" == *$'\t'"$old_path"* ]]; then
     fail "obsolete release test remains in inventory: $old_path"
@@ -83,6 +105,20 @@ fi
 
 if [[ "$list_output" == *'test/fixtures/'* ]]; then
   fail "fixture files must not appear in the executable inventory"
+fi
+assert_contains "$check_source" 'done < <(list_tests)' "globally sorted test execution"
+run_tests_source="$(awk '
+  /^run_tests\(\) \{/ { capture = 1 }
+  capture { print }
+  capture && /^}$/ { exit }
+' "$CHECK")"
+if [[ "$run_tests_source" == *'list_bash_tests'* \
+  || "$run_tests_source" == *'list_node_tests'* ]]; then
+  fail "test execution must not group suites by runtime"
+fi
+ripgrep_command="r""g "
+if [[ "$(<"$ROOT_DIR/test/install/check-test.sh")" == *"$ripgrep_command"* ]]; then
+  fail "dispatcher contracts must not require ripgrep"
 fi
 
 for old_path in \
@@ -137,6 +173,10 @@ actual_shell_paths="$(LC_ALL=C sort -u "$capture")"
 makefile="$(<"$ROOT_DIR/Makefile")"
 ci_workflow="$(<"$ROOT_DIR/.github/workflows/ci.yml")"
 package_json="$(<"$ROOT_DIR/package.json")"
+agents_guide="$(<"$ROOT_DIR/AGENTS.md")"
+contributing="$(<"$ROOT_DIR/CONTRIBUTING.md")"
+readme="$(<"$ROOT_DIR/README.md")"
+changelog="$(<"$ROOT_DIR/CHANGELOG.md")"
 
 assert_contains "$makefile" $'lint:\n\tscripts/check lint' "Make lint delegation"
 assert_contains "$makefile" $'test:\n\tscripts/check test' "Make test delegation"
@@ -152,6 +192,11 @@ if [[ "$ci_workflow" == *'name: Verify install target'* ]]; then
 fi
 
 assert_contains "$package_json" '"check": "make check"' "npm check alias"
+assert_contains "$agents_guide" 'make check' "agent verification entrypoint"
+assert_contains "$contributing" 'make check' "contributor verification entrypoint"
+assert_contains "$readme" 'make check' "README verification entrypoint"
+assert_contains "$changelog" 'scripts/check' "check architecture changelog"
+assert_contains "$changelog" 'directly tested channel scripts' "release architecture changelog"
 
 set +e
 assertion_probe="$({
@@ -163,23 +208,16 @@ set -e
 [[ "$assertion_status" -ne 0 ]] || fail "assert_equals mismatch must fail"
 assert_contains "$assertion_probe" 'FAIL: probe label' "shared assertion failure"
 
-# shellcheck disable=SC2016 # JavaScript template literal is intentionally quoted from Bash.
-node --input-type=module -e '
-  import { rm } from "node:fs/promises";
-  import { assertIncludes } from "./test/lib/assertions.mjs";
-  import { makeTempRoot, writeExecutable } from "./test/lib/fixtures.mjs";
-  const root = await makeTempRoot("codex-profile-helper-");
-  const executable = `${root}/probe`;
-  await writeExecutable(executable, "#!/bin/sh\\nexit 0\\n");
-  assertIncludes(executable, root, "fixture path");
-  await rm(root, { recursive: true, force: true });
-' >/dev/null
-
 definition_names="$TMP_ROOT/cli-definitions"
 invocation_names="$TMP_ROOT/cli-invocations"
-rg --no-filename -o -P '^test_[A-Za-z0-9_]+(?=\(\) \{)' \
-  "${cli_suites[@]/#/$ROOT_DIR/}" | LC_ALL=C sort > "$definition_names"
-rg --no-filename -o -P '^test_[A-Za-z0-9_]+$' \
+awk '
+  /^[A-Za-z0-9_]+\(\) \{$/ && /^test_/ {
+    name = $0
+    sub(/\(\) \{$/, "", name)
+    print name
+  }
+' "${cli_suites[@]/#/$ROOT_DIR/}" | LC_ALL=C sort > "$definition_names"
+awk '/^test_[A-Za-z0-9_]+$/ { print }' \
   "${cli_suites[@]/#/$ROOT_DIR/}" | LC_ALL=C sort > "$invocation_names"
 diff -u "$definition_names" "$invocation_names" \
   || fail "every CLI test must be defined and invoked exactly once"

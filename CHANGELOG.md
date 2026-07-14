@@ -20,6 +20,10 @@ and this project follows semantic versioning for tagged releases.
 
 ### Changed
 
+- Consolidated repository verification behind `scripts/check` and `make check`,
+  organized tests by product and operational responsibility, moved release
+  behavior into directly tested channel scripts, and replaced executable AUR
+  Markdown with non-pushing preparation and read-only verification commands.
 - Added practical GitHub Q&A guides for separate Codex CLI profiles, named
   ChatGPT Desktop windows, and the local-state isolation boundary.
 

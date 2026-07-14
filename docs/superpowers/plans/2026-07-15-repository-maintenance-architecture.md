@@ -563,3 +563,11 @@ Commit with subject `docs(refactor): document repository maintenance workflow`. 
 - [ ] **Step 7: Final verification from committed state**
 
 Re-run `make check`, `git diff --check HEAD^..HEAD`, and `git status --short`. Expected: checks pass and the worktree is clean.
+
+## Final implementation note
+
+The final simplicity review removed `test/lib/assertions.mjs`,
+`test/lib/fixtures.mjs`, and unused release-library primitives after proving
+that no real suite or release script consumed them. This intentional deviation
+keeps the design rule that shared helpers must serve more than one caller; Node
+suites continue to use built-in assertions and domain-local fixtures.

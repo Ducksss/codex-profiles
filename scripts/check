@@ -21,7 +21,11 @@ print_discovered_paths() {
 
 list_shell_sources() {
   {
-    printf '%s\n' bin/codex-profile install.sh scripts/check
+    printf '%s\n' \
+      bin/codex-profile \
+      install.sh \
+      scripts/check \
+      scripts/update-homebrew-formula
     find scripts test -type f -name '*.sh' -print0 \
       | print_discovered_paths
   } | LC_ALL=C sort -u
@@ -41,6 +45,12 @@ list_bash_tests() {
 
 list_node_tests() {
   find test -type f -name '*-test.mjs' -print0 \
+    | print_discovered_paths \
+    | LC_ALL=C sort
+}
+
+list_tests() {
+  find test -type f \( -name '*-test.sh' -o -name '*-test.mjs' \) -print0 \
     | print_discovered_paths \
     | LC_ALL=C sort
 }
@@ -76,12 +86,12 @@ run_tests() {
   run_syntax
 
   while IFS= read -r path; do
-    bash "$path" </dev/null
-  done < <(list_bash_tests)
-
-  while IFS= read -r path; do
-    node "$path" </dev/null
-  done < <(list_node_tests)
+    case "$path" in
+      *.sh) bash "$path" </dev/null ;;
+      *.mjs) node "$path" </dev/null ;;
+      *) die "unsupported test file: $path" ;;
+    esac
+  done < <(list_tests)
 }
 
 run_lint() {

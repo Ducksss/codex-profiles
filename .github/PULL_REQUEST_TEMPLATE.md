@@ -14,9 +14,8 @@
 
 ## Checklist
 
-- [ ] I ran `make test`.
-- [ ] I ran `make lint`; if the environment lacks ShellCheck, I documented that
-  instead.
+- [ ] I ran `make check`; if the environment lacks ShellCheck, I ran
+  `make test` and documented the missing lint result instead.
 - [ ] I did not add code that reads, copies, prints, parses, uploads, compares,
   or migrates auth tokens or ChatGPT cookies.
 - [ ] Desktop changes preserve the stock `app default` session and use the

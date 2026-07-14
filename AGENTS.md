@@ -21,27 +21,34 @@ It is community-maintained and is **not** an official OpenAI project.
 
 - `bin/codex-profile` — the entire CLI (Bash). Edit this for behavior changes.
 - `.agents/skills/` — repo-local Codex outreach workflow skills.
-- `test/cli/` — Bash behavior suites split by CLI responsibility.
-- `test/packaging/metadata-test.sh` — release metadata and packaging alias checks.
-- `test/site/geo-test.mjs` — validates the AI-readable `docs/` site (Node, no deps).
+- `scripts/check` — canonical syntax, test, lint, and full-check dispatcher.
+- `scripts/release/` — directly tested release-channel programs; workflow YAML
+  only maps permissions, inputs, secrets, and ordering.
+- `scripts/aur/` — non-pushing AUR preparation and read-only verification.
+- `test/` — suites grouped by `cli`, `install`, `packaging`, `release`, `site`,
+  and `outreach`; shared infrastructure lives in `test/lib` and fixtures in
+  `test/fixtures`.
 - `docs/` — GitHub Pages site plus `llms.txt`, `robots.txt`, `sitemap.xml`, GEO docs.
-- `Makefile` — `install`, `uninstall`, `lint`, `test`, `npm-package-test`.
+- `Makefile` — stable delegates including `check`, `test`, `lint`, install, and
+  package smoke targets.
 - `CHANGELOG.md` — Keep a Changelog format; add entries under `## Unreleased`.
 
 ## Setup, build, and test
 
-There is no build step. Run the full test suite (Bash syntax checks, CLI
-behavior, install smoke tests, the npm package smoke test, and the GEO docs
-validator):
+There is no build step. Run the complete local gate, including syntax, all
+behavior suites, and ShellCheck:
+
+```sh
+make check
+```
+
+For focused iteration, behavior tests and lint remain separate:
 
 ```sh
 make test
-```
-
-Lint the shell sources (requires ShellCheck):
-
-```sh
 make lint
+bash test/cli/profiles-test.sh
+node test/release/workflow-contract-test.mjs
 ```
 
 Install locally from source (copies `bin/codex-profile` to `~/.local/bin`):
@@ -69,7 +76,11 @@ Profile-to-path mapping: `default -> ~/.codex`; any other name `<x> -> ~/.codex-
 
 - Keep the CLI dependency-free: Bash plus standard POSIX/macOS tools only. Do not
   add a runtime users would have to install.
-- Run `make test` and `make lint` before proposing changes; both must pass.
+- Run `make check` before proposing changes. If ShellCheck is unavailable, run
+  `make test` and state the missing lint result explicitly.
+- Put repository automation under `scripts/`, keep workflow YAML declarative,
+  and place tests in the directory matching the responsibility they validate.
+  Shared test helpers must provide infrastructure rather than product policy.
 - Match the existing Bash style in `bin/codex-profile`: `set -euo pipefail`,
   `command_*` functions for subcommands, and the `die`/`note` helpers.
 - If you change the command surface, update `usage()` in `bin/codex-profile`,
@@ -87,6 +98,9 @@ Profile-to-path mapping: `default -> ~/.codex`; any other name `<x> -> ~/.codex-
   clones, metadata patching, ad-hoc signing, global quitting, or broad kills.
 - Keep `--instance`, `--rebuild`, and `app-instance` as deprecated
   compatibility spellings until a documented breaking release.
+- AUR scripts may prepare and verify only. The maintainer-owned, reviewed AUR
+  commit and push must remain an explicit operator step in
+  `packaging/aur/README.md`.
 
 ## Outreach ledger
 

@@ -112,8 +112,6 @@ test/
     assertions.sh
     cli-fixtures.sh
     command-shims.sh
-    assertions.mjs
-    fixtures.mjs
   cli/
     profiles-test.sh
     desktop-test.sh

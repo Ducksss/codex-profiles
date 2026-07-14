@@ -61,5 +61,5 @@ Pages site in `docs/`.
 
 ```sh
 node test/site/geo-test.mjs
-make test
+make check
 ```
