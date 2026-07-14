@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 INSTALLER="$ROOT_DIR/install.sh"
-VERSION="0.7.0"
+VERSION="0.8.0"
 ORIGINAL_PATH="$PATH"
 REAL_LN="$(command -v ln)"
 REAL_MV="$(command -v mv)"
@@ -117,21 +117,22 @@ fixture_dir="$tmp_dir/fixtures"
 fake_bin="$tmp_dir/fake-bin"
 mkdir -p "$fixture_dir" "$fake_bin" "$tmp_dir/home"
 
-write_cli_fixture "$fixture_dir/codex-profile-0.7.0" "$VERSION"
+current_fixture="$fixture_dir/codex-profile-$VERSION"
+write_cli_fixture "$current_fixture" "$VERSION"
 write_cli_fixture "$fixture_dir/codex-profile-0.6.0" "0.6.0"
 write_cli_fixture "$fixture_dir/runtime-mismatch" "$VERSION" "9.9.9"
 
 cat > "$fixture_dir/no-version" <<'NO_VERSION'
 #!/usr/bin/env bash
 case "${1:-help}" in
-  version|--version) printf 'codex-profile 0.7.0\n' ;;
+  version|--version) printf 'codex-profile 0.8.0\n' ;;
   *) printf 'fixture help\n' ;;
 esac
 NO_VERSION
 chmod 755 "$fixture_dir/no-version"
 
-cp "$fixture_dir/codex-profile-0.7.0" "$fixture_dir/duplicate-version"
-printf '%s\n' 'VERSION="0.7.0"' >> "$fixture_dir/duplicate-version"
+cp "$current_fixture" "$fixture_dir/duplicate-version"
+printf 'VERSION="%s"\n' "$VERSION" >> "$fixture_dir/duplicate-version"
 
 cat > "$fake_bin/curl" <<'FAKE_CURL'
 #!/bin/sh
@@ -300,30 +301,30 @@ grep -Fx "curl https://raw.githubusercontent.com/Ducksss/codex-profiles/v$VERSIO
 # Supplied exact tag bypasses latest lookup.
 case_dir="$tmp_dir/case-supplied-tag"
 prefix="$case_dir/prefix"
-run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "invalid-if-read" \
+run_installer "$prefix" "$current_fixture" "v$VERSION" "invalid-if-read" \
   "$fake_bin:$ORIGINAL_PATH" "" no "$case_dir/state"
 assert_success "supplied exact tag install"
-assert_installed "$prefix" "$fixture_dir/codex-profile-0.7.0" "$VERSION"
+assert_installed "$prefix" "$current_fixture" "$VERSION"
 [[ "$(wc -l < "$case_dir/state/transport.log" | tr -d ' ')" == "1" ]] \
   || fail "supplied tag unexpectedly queried the latest release"
 
 # An environment without curl must use wget for both lookup and download.
 case_dir="$tmp_dir/case-wget"
 prefix="$case_dir/prefix"
-run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "" "v$VERSION" \
+run_installer "$prefix" "$current_fixture" "" "v$VERSION" \
   "$wget_bin" "" no "$case_dir/state"
 assert_success "forced wget install"
-assert_installed "$prefix" "$fixture_dir/codex-profile-0.7.0" "$VERSION"
+assert_installed "$prefix" "$current_fixture" "$VERSION"
 [[ "$(grep -c '^wget ' "$case_dir/state/transport.log")" == "2" ]] \
   || fail "forced wget path did not perform both downloads with wget"
 ! grep -q '^curl ' "$case_dir/state/transport.log" || fail "forced wget path used curl"
 
 # Supplied tags must be exact immutable-looking release tags and fail before I/O.
-for malformed_tag in 0.7.0 main v0.7 v0.7.0/extra v0.7.0-rc1; do
+for malformed_tag in "$VERSION" main "v${VERSION%.*}" "v$VERSION/extra" "v$VERSION-rc1"; do
   safe_name="$(printf '%s' "$malformed_tag" | tr '/.' '__')"
   case_dir="$tmp_dir/case-malformed-$safe_name"
   prefix="$case_dir/prefix"
-  run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "$malformed_tag" "v$VERSION" \
+  run_installer "$prefix" "$current_fixture" "$malformed_tag" "v$VERSION" \
     "$fake_bin:$ORIGINAL_PATH" "" no "$case_dir/state"
   assert_failure "malformed supplied tag $malformed_tag"
   [[ ! -s "$case_dir/state/transport.log" ]] || fail "malformed supplied tag performed network I/O"
@@ -333,7 +334,7 @@ done
 # API-derived tags receive the same exact validation before fetching a payload.
 case_dir="$tmp_dir/case-malformed-latest"
 prefix="$case_dir/prefix"
-run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "" main \
+run_installer "$prefix" "$current_fixture" "" main \
   "$fake_bin:$ORIGINAL_PATH" "" no "$case_dir/state"
 assert_failure "malformed latest-release tag"
 [[ "$(wc -l < "$case_dir/state/transport.log" | tr -d ' ')" == "1" ]] \
@@ -376,16 +377,16 @@ assert_no_transaction_residue "$prefix/bin"
 case_dir="$tmp_dir/case-update"
 prefix="$case_dir/prefix"
 prepare_existing_install "$prefix" "$fixture_dir/codex-profile-0.6.0" codex-profile
-run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "v$VERSION" \
+run_installer "$prefix" "$current_fixture" "v$VERSION" "v$VERSION" \
   "$fake_bin:$ORIGINAL_PATH" "" no "$case_dir/state"
 assert_success "existing install update"
-assert_installed "$prefix" "$fixture_dir/codex-profile-0.7.0" "$VERSION"
+assert_installed "$prefix" "$current_fixture" "$VERSION"
 
 # Directory destinations must be rejected, never followed or populated.
 case_dir="$tmp_dir/case-canonical-directory"
 prefix="$case_dir/prefix"
 mkdir -p "$prefix/bin/codex-profile"
-run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "v$VERSION" \
+run_installer "$prefix" "$current_fixture" "v$VERSION" "v$VERSION" \
   "$fake_bin:$ORIGINAL_PATH" "" no "$case_dir/state"
 assert_failure "canonical directory destination"
 [[ -d "$prefix/bin/codex-profile" ]] || fail "canonical directory was removed"
@@ -399,7 +400,7 @@ prefix="$case_dir/prefix"
 mkdir -p "$prefix/bin/codex-profiles"
 cp "$fixture_dir/codex-profile-0.6.0" "$prefix/bin/codex-profile"
 cp "$prefix/bin/codex-profile" "$case_dir/canonical.before"
-run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "v$VERSION" \
+run_installer "$prefix" "$current_fixture" "v$VERSION" "v$VERSION" \
   "$fake_bin:$ORIGINAL_PATH" "" no "$case_dir/state"
 assert_failure "alias directory destination"
 cmp -s "$case_dir/canonical.before" "$prefix/bin/codex-profile" \
@@ -414,7 +415,7 @@ case_dir="$tmp_dir/case-ln-failure"
 prefix="$case_dir/prefix"
 prepare_existing_install "$prefix" "$fixture_dir/codex-profile-0.6.0" previous-codex
 cp "$prefix/bin/codex-profile" "$case_dir/canonical.before"
-run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "v$VERSION" \
+run_installer "$prefix" "$current_fixture" "v$VERSION" "v$VERSION" \
   "$fake_bin:$ORIGINAL_PATH" "" yes "$case_dir/state"
 assert_failure "forced ln failure"
 assert_existing_install_unchanged "$prefix" "$case_dir/canonical.before" previous-codex
@@ -424,7 +425,7 @@ case_dir="$tmp_dir/case-late-mv-failure"
 prefix="$case_dir/prefix"
 prepare_existing_install "$prefix" "$fixture_dir/codex-profile-0.6.0" previous-codex
 cp "$prefix/bin/codex-profile" "$case_dir/canonical.before"
-run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "v$VERSION" \
+run_installer "$prefix" "$current_fixture" "v$VERSION" "v$VERSION" \
   "$fake_bin:$ORIGINAL_PATH" codex-profiles no "$case_dir/state"
 assert_failure "forced late alias mv failure"
 assert_existing_install_unchanged "$prefix" "$case_dir/canonical.before" previous-codex
@@ -438,7 +439,7 @@ do
   prefix="$case_dir/prefix"
   prepare_existing_install "$prefix" "$fixture_dir/codex-profile-0.6.0" previous-codex
   cp "$prefix/bin/codex-profile" "$case_dir/canonical.before"
-  run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "v$VERSION" \
+  run_installer "$prefix" "$current_fixture" "v$VERSION" "v$VERSION" \
     "$fake_bin:$ORIGINAL_PATH" "" no "$case_dir/state" "$signal_destination"
   assert_failure "TERM after $signal_destination move with existing install"
   [[ -e "$case_dir/state/signal.marker" ]] \
@@ -451,7 +452,7 @@ done
 for signal_destination in codex-profile codex-profiles; do
   case_dir="$tmp_dir/case-signal-fresh-$signal_destination"
   prefix="$case_dir/prefix"
-  run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "v$VERSION" \
+  run_installer "$prefix" "$current_fixture" "v$VERSION" "v$VERSION" \
     "$fake_bin:$ORIGINAL_PATH" "" no "$case_dir/state" "$signal_destination"
   assert_failure "TERM after $signal_destination move with fresh install"
   [[ -e "$case_dir/state/signal.marker" ]] \
@@ -467,10 +468,10 @@ done
 case_dir="$tmp_dir/case-signal-after-commit"
 prefix="$case_dir/prefix"
 prepare_existing_install "$prefix" "$fixture_dir/codex-profile-0.6.0" previous-codex
-run_installer "$prefix" "$fixture_dir/codex-profile-0.7.0" "v$VERSION" "v$VERSION" \
+run_installer "$prefix" "$current_fixture" "v$VERSION" "v$VERSION" \
   "$fake_bin:$ORIGINAL_PATH" "" no "$case_dir/state" "" yes
 assert_failure "TERM after commit"
 [[ -e "$case_dir/state/signal.marker" ]] || fail "post-commit TERM injection did not run"
-assert_installed "$prefix" "$fixture_dir/codex-profile-0.7.0" "$VERSION"
+assert_installed "$prefix" "$current_fixture" "$VERSION"
 
 printf '%s\n' 'Standalone installer tests passed.'

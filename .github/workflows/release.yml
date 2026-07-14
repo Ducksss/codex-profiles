@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Exact tracked version to release (for example, 0.7.0)."
+        description: "Exact tracked version to release (for example, 0.8.0)."
         required: true
         type: string
       dry_run:

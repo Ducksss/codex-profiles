@@ -9,6 +9,7 @@ TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT HUP INT TERM
 
 VERIFY_SOURCE="$ROOT_DIR/scripts/release/verify-source.sh"
+VERSION="$(node -p "require('$ROOT_DIR/package.json').version")"
 FAKE_SHA="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 export FAKE_SHA
 
@@ -46,7 +47,7 @@ log_file="$TMP_ROOT/git.log"
 
 PATH="$fake_bin:$PATH" \
   RELEASE_TEST_LOG="$log_file" \
-  INPUT_VERSION="0.7.0" \
+  INPUT_VERSION="$VERSION" \
   DRY_RUN="true" \
   DESKTOP_SMOKE_ATTESTATION="" \
   GITHUB_REF="refs/heads/main" \
@@ -56,8 +57,8 @@ PATH="$fake_bin:$PATH" \
   "$VERIFY_SOURCE"
 
 for expected in \
-  'version=0.7.0' \
-  'tag=v0.7.0' \
+  "version=$VERSION" \
+  "tag=v$VERSION" \
   'tag_exists=false' \
   "commit=$FAKE_SHA"; do
   grep -Fx "$expected" "$output_file" >/dev/null \
@@ -66,7 +67,7 @@ done
 
 set +e
 invalid_output="$({
-  INPUT_VERSION="v0.7.0" \
+  INPUT_VERSION="v$VERSION" \
     DRY_RUN="true" \
     DESKTOP_SMOKE_ATTESTATION="" \
     GITHUB_REF="refs/heads/main" \
@@ -82,7 +83,7 @@ assert_contains "$invalid_output" 'not an exact X.Y.Z release version' "invalid 
 
 set +e
 attestation_output="$({
-  INPUT_VERSION="0.7.0" \
+  INPUT_VERSION="$VERSION" \
     DRY_RUN="false" \
     DESKTOP_SMOKE_ATTESTATION="" \
     GITHUB_REF="refs/heads/main" \
@@ -101,7 +102,7 @@ assert_contains "$attestation_output" \
 set +e
 unset_attestation_output="$({
   env -u DESKTOP_SMOKE_ATTESTATION -u GITHUB_STEP_SUMMARY \
-    INPUT_VERSION="0.7.0" \
+    INPUT_VERSION="$VERSION" \
     DRY_RUN="false" \
     GITHUB_REF="refs/heads/main" \
     GITHUB_SHA="$FAKE_SHA" \

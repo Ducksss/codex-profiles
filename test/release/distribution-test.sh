@@ -8,6 +8,7 @@ source "$ROOT_DIR/test/lib/command-shims.sh"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 cd "$ROOT_DIR"
+REPOSITORY_VERSION="$(node -p "require('./package.json').version")"
 
 standalone_fake_bin="$tmp_dir/standalone-fake-bin"
 standalone_installer_fixture="$tmp_dir/standalone-install.sh"
@@ -264,7 +265,7 @@ SH
 PATH="$aur_fake_bin:$PATH" \
   RELEASE_ROOT="$ROOT_DIR" \
   GITHUB_WORKSPACE="$ROOT_DIR" \
-  TAG="v0.7.0" \
+  TAG="v$REPOSITORY_VERSION" \
   "$ROOT_DIR/scripts/release/verify-distribution.sh" tagged-aur
 
 set +e
@@ -272,7 +273,7 @@ tag_mismatch_output="$({
   PATH="$aur_fake_bin:$PATH" \
     RELEASE_ROOT="$ROOT_DIR" \
     GITHUB_WORKSPACE="$ROOT_DIR" \
-    TAG="v0.8.0" \
+    TAG="v9.9.9" \
     "$ROOT_DIR/scripts/release/verify-distribution.sh" tagged-aur
 } 2>&1)"
 tag_mismatch_status=$?

@@ -71,7 +71,7 @@ value is read from the tagged `PKGBUILD` and verified against `.SRCINFO`.
 
 ```bash
 set -euo pipefail
-VERSION=0.7.0
+VERSION=0.8.0
 WORK_ROOT="$(mktemp -d)"
 curl -fsSL "https://api.github.com/repos/Ducksss/codex-profiles/releases/tags/v$VERSION" \
   -o "$WORK_ROOT/release.json"
