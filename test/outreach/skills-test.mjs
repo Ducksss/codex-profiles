@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = new URL('../..', import.meta.url).pathname;
 const read = (path) => readFileSync(join(root, path), 'utf8');
 const exists = (path) => {
   try {

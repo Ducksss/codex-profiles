@@ -245,9 +245,9 @@ fi
 verification_commands=(
   'make test'
   'make lint'
-  'bash test/install-script-test.sh'
+  'bash test/install/standalone-test.sh'
   'bash test/release-helper-test.sh'
-  'bash test/package-metadata-test.sh'
+  'bash test/packaging/metadata-test.sh'
   'make npm-package-test'
   'git diff --exit-code'
   'git diff --cached --exit-code'
@@ -1443,7 +1443,7 @@ grep -Fx $'\tscripts/check test' "$MAKEFILE" >/dev/null \
   || fail "Makefile test must delegate to scripts/check"
 
 check_inventory="$("$ROOT_DIR/scripts/check" list)"
-for test_file in test/install-script-test.sh test/release-workflow-test.sh; do
+for test_file in test/install/standalone-test.sh test/release-workflow-test.sh; do
   grep -Fx $'shell\t'"$test_file" <<< "$check_inventory" >/dev/null \
     || fail "scripts/check syntax and lint do not cover $test_file"
   grep -Fx $'bash-test\t'"$test_file" <<< "$check_inventory" >/dev/null \

@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
-const rootDir = dirname(testDir);
+const rootDir = dirname(dirname(testDir));
 const runbookPath = join(rootDir, "packaging", "aur", "README.md");
 const runbook = readFileSync(runbookPath, "utf8");
 const bashBlocks = [...runbook.matchAll(/^```bash\s*\n([\s\S]*?)^```\s*$/gm)]
@@ -295,7 +295,7 @@ try {
   rmSync(syntaxDir, { recursive: true, force: true });
 }
 
-const fixturesDir = join(testDir, "fixtures", "aur-rpc");
+const fixturesDir = join(rootDir, "test", "fixtures", "aur-rpc");
 const fixtures = Object.fromEntries(
   ["unclaimed", "expected-owner", "unexpected-owner", "exact-final-version"].map(
     (name) => [name, JSON.parse(readFileSync(join(fixturesDir, `${name}.json`), "utf8"))],
@@ -324,7 +324,7 @@ assert.equal(isExactFinal(fixtures["expected-owner"]), false);
 assert.equal(isExactFinal(fixtures["unexpected-owner"]), false);
 
 const releaseFixtures = JSON.parse(
-  readFileSync(join(testDir, "fixtures", "github-release-contract.json"), "utf8"),
+  readFileSync(join(rootDir, "test", "fixtures", "github-release-contract.json"), "utf8"),
 );
 const isImmutableFinalRelease = (payload) =>
   payload.tag_name === "v0.7.0" &&

@@ -54,26 +54,7 @@ install-smoke-test:
 		test ! -L "$$tmp_prefix/bin/codex-profiles"
 
 npm-package-test:
-	@set -eu; tmp_prefix="$$(mktemp -d)"; \
-		trap 'rm -rf "$$tmp_prefix"' EXIT HUP INT TERM; \
-		if command -v npm >/dev/null 2>&1; then \
-			pack_json="$$(npm pack --json --pack-destination "$$tmp_prefix")"; \
-			tarball_name="$$(node -e 'const p=JSON.parse(process.argv[1]); if (!Array.isArray(p) || p.length !== 1 || typeof p[0].filename !== "string") process.exit(1); process.stdout.write(p[0].filename);' "$$pack_json")"; \
-			case "$$tarball_name" in ''|*/*) exit 1;; esac; \
-			tarball="$$tmp_prefix/$$tarball_name"; \
-			test -f "$$tarball"; \
-			npm install -g --prefix "$$tmp_prefix" --cache "$$tmp_prefix/npm-cache" "$$tarball" >/dev/null; \
-			test -x "$$tmp_prefix/bin/codex-profile"; \
-			test -x "$$tmp_prefix/bin/codex-profiles"; \
-			test ! -L "$$tmp_prefix/lib/node_modules/codex-profile"; \
-			test -f "$$tmp_prefix/lib/node_modules/codex-profile/bin/codex-profile"; \
-			test ! -e "$$tmp_prefix/lib/node_modules/codex-profile/media"; \
-			"$$tmp_prefix/bin/codex-profile" help >/dev/null; \
-			version_output="$$("$$tmp_prefix/bin/codex-profiles" version)"; \
-			case "$$version_output" in 'codex-profile '[0-9]*.[0-9]*.[0-9]*) ;; *) exit 1;; esac; \
-		else \
-			printf '%s\n' 'npm not found; skipping npm package smoke test.'; \
-		fi
+	bash test/install/npm-package-test.sh
 
 # Operational helper for the outreach tracker (not part of the shipped CLI).
 # Usage: make outreach ARGS="list --owned"

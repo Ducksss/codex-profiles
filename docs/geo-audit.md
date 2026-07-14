@@ -24,7 +24,7 @@ Pages site in `docs/`.
 | FAQ schema only for visible content | Implemented | Every FAQPage question and exact answer is present in visible HTML. |
 | Two product scopes represented | Implemented | Schema and visible content distinguish Codex-only commands from whole-window ChatGPT Desktop launches. |
 | Profile mappings correct | Implemented | Default, personal, work, and edu map to `~/.codex`, `~/.codex-personal`, `~/.codex-work`, and `~/.codex-edu`. |
-| Automated validation | Implemented | `node test/geo-site-test.mjs` parses JSON-LD and checks schema/visible-FAQ alignment. |
+| Automated validation | Implemented | `node test/site/geo-test.mjs` parses JSON-LD and checks schema/visible-FAQ alignment. |
 
 ## Content Structure and Citation Readiness
 
@@ -60,6 +60,6 @@ Pages site in `docs/`.
 ## Validation Commands
 
 ```sh
-node test/geo-site-test.mjs
+node test/site/geo-test.mjs
 make test
 ```

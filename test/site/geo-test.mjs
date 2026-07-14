@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = new URL('../..', import.meta.url).pathname;
 const siteRoot = join(root, 'docs');
 const canonicalUrl = 'https://ducksss.github.io/codex-profiles/';
 

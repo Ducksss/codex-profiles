@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = new URL('../..', import.meta.url).pathname;
 const SCRIPT = `${ROOT}scripts/outreach-tracker.mjs`;
 const TABLES = {
   targets: 'tblTargets',

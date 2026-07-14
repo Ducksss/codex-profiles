@@ -22,8 +22,8 @@ It is community-maintained and is **not** an official OpenAI project.
 - `bin/codex-profile` — the entire CLI (Bash). Edit this for behavior changes.
 - `.agents/skills/` — repo-local Codex outreach workflow skills.
 - `test/codex-profile-test.sh` — Bash behavior test suite.
-- `test/package-metadata-test.sh` — release metadata and packaging alias checks.
-- `test/geo-site-test.mjs` — validates the AI-readable `docs/` site (Node, no deps).
+- `test/packaging/metadata-test.sh` — release metadata and packaging alias checks.
+- `test/site/geo-test.mjs` — validates the AI-readable `docs/` site (Node, no deps).
 - `docs/` — GitHub Pages site plus `llms.txt`, `robots.txt`, `sitemap.xml`, GEO docs.
 - `Makefile` — `install`, `uninstall`, `lint`, `test`, `npm-package-test`.
 - `CHANGELOG.md` — Keep a Changelog format; add entries under `## Unreleased`.

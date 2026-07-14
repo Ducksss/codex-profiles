@@ -189,9 +189,9 @@ jobs:
         run: |
           make test
           make lint
-          bash test/install-script-test.sh
+          bash test/install/standalone-test.sh
           bash test/release-helper-test.sh
-          bash test/package-metadata-test.sh
+          bash test/packaging/metadata-test.sh
           make npm-package-test
           git diff --exit-code
           git diff --cached --exit-code

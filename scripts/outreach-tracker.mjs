@@ -6,7 +6,7 @@
 // This is operational tooling for the agent.md distribution agent. It is NOT part
 // of the shipped CLI: it is excluded from the npm package (package.json `files`),
 // and it deliberately uses only the Node standard library + global fetch (Node 18+)
-// to stay dependency-free, matching test/geo-site-test.mjs.
+// to stay dependency-free, matching test/site/geo-test.mjs.
 //
 // Why it exists: multiple outreach agents run in parallel. Editing a shared
 // Markdown ledger would race (lost updates, duplicate submissions). Target
