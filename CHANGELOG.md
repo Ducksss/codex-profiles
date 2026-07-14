@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.8.0 - 2026-07-15
+
 ### Added
 
 - Added `init <profile> --share-with <source-profile>` for linked profiles that
@@ -20,8 +22,19 @@ and this project follows semantic versioning for tagged releases.
 
 ### Changed
 
+- Consolidated repository verification behind `scripts/check` and `make check`,
+  organized tests by product and operational responsibility, moved release
+  behavior into directly tested channel scripts, and replaced executable AUR
+  Markdown with non-pushing preparation and read-only verification commands.
 - Added practical GitHub Q&A guides for separate Codex CLI profiles, named
   ChatGPT Desktop windows, and the local-state isolation boundary.
+- Hardened release publication with bounded network requests, destination-
+  pinned npm and GitHub operations, secret-safe Homebrew authentication,
+  portable SHA-256 calculation, exact remote-tag postconditions, explicit
+  unset-input handling, and byte-for-byte public AUR verification against
+  immutable prepared package files.
+- Made canonical repository checks fail closed on inventory-discovery errors,
+  and reject option-like archive members before AUR extraction.
 
 ## 0.7.0 - 2026-07-13
 

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 fail() {
@@ -27,6 +27,7 @@ sha256_file() {
 }
 
 version="$(node -p "require('./package.json').version")"
+assert_equals "release version" "0.8.0" "$version"
 assert_equals "package-lock version" "$version" "$(node -p "require('./package-lock.json').version")"
 assert_equals "package-lock root version" "$version" "$(node -p "require('./package-lock.json').packages[''].version")"
 assert_equals "CLI version" "$version" "$(sed -n 's/^VERSION="\([^"]*\)"/\1/p' bin/codex-profile | head -n 1)"
@@ -74,12 +75,30 @@ grep -Eq "^## $changelog_version - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md \
 
 aur_runbook="packaging/aur/README.md"
 [[ -f "$aur_runbook" ]] || fail "AUR publication runbook is missing"
+for script in scripts/aur/prepare.sh scripts/aur/verify.sh; do
+  [[ -x "$script" ]] || fail "AUR command is missing or not executable: $script"
+  grep -F "$script" "$aur_runbook" >/dev/null \
+    || fail "AUR runbook does not invoke $script"
+done
+for directory in test/cli test/install test/packaging test/release test/site test/outreach; do
+  [[ -d "$directory" ]] || fail "responsibility-based test directory is missing: $directory"
+done
+[[ -d scripts/release ]] || fail "release script directory is missing"
+grep -F 'make check' README.md >/dev/null || fail "README omits the canonical check"
+grep -F 'make check' CONTRIBUTING.md >/dev/null || fail "CONTRIBUTING omits the canonical check"
+grep -F 'make check' AGENTS.md >/dev/null || fail "AGENTS omits the canonical check"
 grep -F '(packaging/aur/README.md)' CHANGELOG.md >/dev/null \
   || fail "CHANGELOG.md does not link the AUR publication runbook"
 grep -F '(packaging/aur/README.md)' CONTRIBUTING.md >/dev/null \
   || fail "CONTRIBUTING.md does not link the AUR publication runbook"
 grep -F '58126222+Ducksss@users.noreply.github.com' "$aur_runbook" >/dev/null \
   || fail "AUR runbook does not use Ducksss' ID-derived GitHub noreply identity"
+
+for guide in AGENTS.md CONTRIBUTING.md README.md packaging/aur/README.md; do
+  if grep -Eq 'test/(codex-profile-test|release-workflow-test|release-helper-test|aur-runbook-test)' "$guide"; then
+    fail "$guide contains an obsolete test path"
+  fi
+done
 
 # shellcheck disable=SC2016 # fixed strings intentionally contain shell variables
 grep -F 'ln -s codex-profile "$staged_alias"' install.sh > /dev/null \

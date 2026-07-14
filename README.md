@@ -402,7 +402,7 @@ directories, and it refuses sensitive-looking configuration keys.
 codex-profile upgrade --dry-run
 codex-profile upgrade
 codex-profile upgrade --prefix /usr/local
-codex-profile upgrade --ref v0.7.0
+codex-profile upgrade --ref v0.8.0
 ```
 
 The default checkout is cached under `~/.cache/codex-profile/source`. Review a
@@ -617,13 +617,16 @@ Answer these points accurately:
 ## Development
 
 ```sh
-make test
-make lint
+make test   # syntax and every Bash/Node behavior suite
+make lint   # ShellCheck over the canonical shell inventory
+make check  # complete local gate
 ```
 
-The suite covers syntax, profile mapping, CLI passthrough and discovery,
-Desktop local-state separation, compatibility spellings, status/doctor
-behavior, install paths, packaging, and the AI-readable Pages layer.
+Tests mirror the repository's CLI, install, packaging, release, site, and
+outreach responsibilities; `scripts/check list` prints the deterministic
+inventory. Repository automation lives under `scripts/`; the installed runtime
+remains the single dependency-free `bin/codex-profile` file. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for focused suite commands and test placement.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution requirements and
 [Discussion #1](https://github.com/Ducksss/codex-profiles/discussions/1) for

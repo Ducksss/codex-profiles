@@ -47,7 +47,7 @@ to base `appcezSUhDxz7uaQW` and requires Node 18+.
 Do not duplicate prior submissions unless there is a clear reason, such as a
 closed PR that needs a replacement.
 
-Do not resume new promotion until README/LAUNCH identify v0.7.0 as released and
+Do not resume new promotion until README/LAUNCH identify v0.8.0 as released and
 the current ChatGPT app verification gate is recorded as passed. Before
 updating an existing listing, preserve its original submission history and
 correct stale claims about app clones, `--instance`, or Codex-only Desktop

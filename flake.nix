@@ -11,7 +11,7 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         # Read the version from package.json so the flake never drifts from the
-        # rest of the release (see the version-sync guard in make test).
+        # rest of the release (see the version-sync guard in make check).
         version = (builtins.fromJSON (builtins.readFile ./package.json)).version;
       in
       {

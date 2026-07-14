@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('../..', import.meta.url));
 const siteRoot = join(root, 'docs');
 const canonicalUrl = 'https://ducksss.github.io/codex-profiles/';
 
@@ -156,7 +157,7 @@ for (const [label, guidance] of [
   );
   assert.doesNotMatch(
     normalizedGuidance,
-    /isolated\s+(?:local\s+)?ChatGPT desktop windows|named local ChatGPT desktop windows|account separation matters|local identity boundary|isolation boundary|profile isolation/i,
+    /isolated\s+(?:local\s+)?ChatGPT desktop windows|named local ChatGPT desktop windows|account separation matters|separate accounts|isolated accounts|identity isolation|local identity boundary|isolation boundary|profile isolation/i,
     `${label} must not imply verified account or identity isolation`
   );
 }
@@ -231,6 +232,8 @@ assert.deepEqual(
 assertContains(html, `Last updated ${releaseDate}.`, 'homepage footer');
 assertContains(audit, `${releaseDate} modification dates`, 'GEO audit sitemap date');
 assertContains(audit, `as of ${releaseDate}`, 'GEO audit facts date');
+assertContains(audit, 'make check', 'GEO audit validation command');
+assertContains(html, 'uses make check', 'homepage validation description');
 assertContains(
   llms,
   `The current release is \`${packageJson.version}\`, dated ${releaseDate}.`,

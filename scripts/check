@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+die() {
+  printf 'Error: %s\n' "$*" >&2
+  exit 1
+}
+
+print_discovered_inventory() {
+  local path
+
+  while IFS= read -r -d '' path; do
+    [[ "$path" != *$'\n'* && "$path" != *$'\t'* ]] \
+      || die "repository path contains a tab or newline: $path"
+    path="${path#./}"
+    case "$path" in
+      *.sh)
+        printf 'shell\t%s\n' "$path"
+        [[ "$path" != *-test.sh ]] || printf 'bash-test\t%s\n' "$path"
+        ;;
+      *.mjs)
+        printf 'node\t%s\n' "$path"
+        [[ "$path" != *-test.mjs ]] || printf 'node-test\t%s\n' "$path"
+        ;;
+      *) die "unsupported discovered source: $path" ;;
+    esac
+  done
+}
+
+build_inventory() {
+  {
+    printf 'shell\t%s\n' \
+      bin/codex-profile install.sh scripts/check scripts/update-homebrew-formula
+    find scripts test -type f \( -name '*.sh' -o -name '*.mjs' \) -print0 \
+      | print_discovered_inventory
+  } | LC_ALL=C sort -u
+}
+
+if ! CANONICAL_INVENTORY="$(build_inventory)"; then
+  die "could not build the canonical repository inventory"
+fi
+SHELL_SOURCES="$(awk -F '\t' '$1 == "shell" { print $2 }' <<< "$CANONICAL_INVENTORY")"
+NODE_SOURCES="$(awk -F '\t' '$1 == "node" { print $2 }' <<< "$CANONICAL_INVENTORY")"
+TESTS="$(
+  awk -F '\t' '$1 == "bash-test" || $1 == "node-test" { print $2 }' \
+    <<< "$CANONICAL_INVENTORY" \
+    | LC_ALL=C sort -u
+)"
+
+list_inventory() {
+  printf '%s\n' "$CANONICAL_INVENTORY"
+}
+
+run_syntax() {
+  local path
+
+  while IFS= read -r path; do
+    if [[ "$path" == "install.sh" ]]; then
+      sh -n "$path"
+    else
+      bash -n "$path"
+    fi
+  done <<< "$SHELL_SOURCES"
+
+  while IFS= read -r path; do
+    node --check "$path"
+  done <<< "$NODE_SOURCES"
+}
+
+run_tests() {
+  local path
+
+  run_syntax
+
+  while IFS= read -r path; do
+    case "$path" in
+      *.sh) bash "$path" </dev/null ;;
+      *.mjs) node "$path" </dev/null ;;
+      *) die "unsupported test file: $path" ;;
+    esac
+  done <<< "$TESTS"
+}
+
+run_lint() {
+  local path
+  local -a sources=()
+
+  command -v shellcheck >/dev/null 2>&1 \
+    || die "shellcheck is required for lint"
+
+  while IFS= read -r path; do
+    sources+=("$path")
+  done <<< "$SHELL_SOURCES"
+
+  shellcheck "${sources[@]}"
+}
+
+usage() {
+  printf '%s\n' 'Usage: scripts/check {list|syntax|test|lint|all}' >&2
+}
+
+case "${1:-}" in
+  list)
+    list_inventory | LC_ALL=C sort
+    ;;
+  syntax)
+    run_syntax
+    ;;
+  test)
+    run_tests
+    ;;
+  lint)
+    run_lint
+    ;;
+  all)
+    run_tests
+    run_lint
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

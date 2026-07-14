@@ -27,14 +27,8 @@ jobs:
       - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
-      - name: Run smoke tests
-        run: make test
-
-      - name: Run ShellCheck
-        run: make lint
-
-      - name: Validate package metadata
-        run: bash test/package-metadata-test.sh
+      - name: Run repository checks
+        run: make check
 
   macos:
     name: macOS smoke test
@@ -47,15 +41,6 @@ jobs:
 
       - name: Run smoke tests
         run: make test
-
-      - name: Verify install target
-        run: |
-          make install PREFIX="$RUNNER_TEMP/codex-profile-install"
-          "$RUNNER_TEMP/codex-profile-install/bin/codex-profile" help >/dev/null
-          "$RUNNER_TEMP/codex-profile-install/bin/codex-profiles" version | grep -E '^codex-profile ' >/dev/null
-          make uninstall PREFIX="$RUNNER_TEMP/codex-profile-install"
-          test ! -e "$RUNNER_TEMP/codex-profile-install/bin/codex-profile"
-          test ! -L "$RUNNER_TEMP/codex-profile-install/bin/codex-profiles"
 
   nix:
     name: Nix package

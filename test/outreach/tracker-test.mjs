@@ -3,10 +3,12 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
+import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('..', import.meta.url).pathname;
-const SCRIPT = `${ROOT}scripts/outreach-tracker.mjs`;
+const ROOT = fileURLToPath(new URL('../..', import.meta.url));
+const SCRIPT = join(ROOT, 'scripts', 'outreach-tracker.mjs');
 const TABLES = {
   targets: 'tblTargets',
   log: 'tblLog',

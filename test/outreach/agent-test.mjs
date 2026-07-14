@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('../..', import.meta.url));
 const agent = readFileSync(join(root, 'agent.md'), 'utf8');
 const normalizedAgent = agent.replace(/\s+/g, ' ');
 
@@ -65,5 +66,5 @@ const forbidden = [
 ];
 
 for (const text of forbidden) {
-  assert.ok(!agent.includes(text), `agent.md should not contain: ${text}`);
+  assert.ok(!normalizedAgent.includes(text), `agent.md should not contain: ${text}`);
 }
