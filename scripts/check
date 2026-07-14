@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+die() {
+  printf 'Error: %s\n' "$*" >&2
+  exit 1
+}
+
+print_discovered_paths() {
+  local path
+
+  while IFS= read -r -d '' path; do
+    [[ "$path" != *$'\n'* ]] || die "repository path contains a newline: $path"
+    printf '%s\n' "${path#./}"
+  done
+}
+
+list_shell_sources() {
+  {
+    printf '%s\n' bin/codex-profile install.sh scripts/check
+    find scripts test -type f -name '*.sh' -print0 \
+      | print_discovered_paths
+  } | LC_ALL=C sort -u
+}
+
+list_node_sources() {
+  find scripts test -type f -name '*.mjs' -print0 \
+    | print_discovered_paths \
+    | LC_ALL=C sort -u
+}
+
+list_bash_tests() {
+  find test -type f -name '*-test.sh' -print0 \
+    | print_discovered_paths \
+    | LC_ALL=C sort
+}
+
+list_node_tests() {
+  find test -type f -name '*-test.mjs' -print0 \
+    | print_discovered_paths \
+    | LC_ALL=C sort
+}
+
+list_inventory() {
+  local path
+
+  while IFS= read -r path; do printf 'shell\t%s\n' "$path"; done < <(list_shell_sources)
+  while IFS= read -r path; do printf 'bash-test\t%s\n' "$path"; done < <(list_bash_tests)
+  while IFS= read -r path; do printf 'node-test\t%s\n' "$path"; done < <(list_node_tests)
+  while IFS= read -r path; do printf 'node\t%s\n' "$path"; done < <(list_node_sources)
+}
+
+run_syntax() {
+  local path
+
+  while IFS= read -r path; do
+    if [[ "$path" == "install.sh" ]]; then
+      sh -n "$path"
+    else
+      bash -n "$path"
+    fi
+  done < <(list_shell_sources)
+
+  while IFS= read -r path; do
+    node --check "$path"
+  done < <(list_node_sources)
+}
+
+run_tests() {
+  local path
+
+  run_syntax
+
+  while IFS= read -r path; do
+    bash "$path"
+  done < <(list_bash_tests)
+
+  while IFS= read -r path; do
+    node "$path"
+  done < <(list_node_tests)
+}
+
+run_lint() {
+  local path
+  local -a sources=()
+
+  command -v shellcheck >/dev/null 2>&1 \
+    || die "shellcheck is required for lint"
+
+  while IFS= read -r path; do
+    sources+=("$path")
+  done < <(list_shell_sources)
+
+  shellcheck "${sources[@]}"
+}
+
+usage() {
+  printf '%s\n' 'Usage: scripts/check {list|syntax|test|lint|all}' >&2
+}
+
+case "${1:-}" in
+  list)
+    list_inventory | LC_ALL=C sort
+    ;;
+  syntax)
+    run_syntax
+    ;;
+  test)
+    run_tests
+    ;;
+  lint)
+    run_lint
+    ;;
+  all)
+    run_tests
+    run_lint
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

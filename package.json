@@ -44,6 +44,7 @@
     "linux"
   ],
   "scripts": {
+    "check": "make check",
     "pack:check": "npm pack --dry-run --silent",
     "test": "make test"
   },

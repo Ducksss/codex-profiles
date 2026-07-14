@@ -1437,16 +1437,17 @@ for step_name in "${shell_steps[@]}"; do
     || fail "release workflow step has invalid Bash syntax: $step_name"
 done
 
+grep -Fx $'\tscripts/check lint' "$MAKEFILE" >/dev/null \
+  || fail "Makefile lint must delegate to scripts/check"
+grep -Fx $'\tscripts/check test' "$MAKEFILE" >/dev/null \
+  || fail "Makefile test must delegate to scripts/check"
+
+check_inventory="$("$ROOT_DIR/scripts/check" list)"
 for test_file in test/install-script-test.sh test/release-workflow-test.sh; do
-  awk -v test_file="$test_file" '
-    index($0, "\tshellcheck ") == 1 && index($0, test_file) > 0 { found = 1 }
-    END { exit(found ? 0 : 1) }
-  ' "$MAKEFILE" \
-    || fail "Makefile lint does not cover $test_file"
-  grep -Fx $'\t'bash' -n '"$test_file" "$MAKEFILE" >/dev/null \
-    || fail "Makefile test does not syntax-check $test_file"
-  grep -Fx $'\t'bash' '"$test_file" "$MAKEFILE" >/dev/null \
-    || fail "Makefile test does not execute $test_file"
+  grep -Fx $'shell\t'"$test_file" <<< "$check_inventory" >/dev/null \
+    || fail "scripts/check syntax and lint do not cover $test_file"
+  grep -Fx $'bash-test\t'"$test_file" <<< "$check_inventory" >/dev/null \
+    || fail "scripts/check test does not execute $test_file"
 done
 
 printf '%s\n' 'Release workflow contract tests passed.'

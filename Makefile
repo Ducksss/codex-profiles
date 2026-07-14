@@ -1,7 +1,7 @@
 PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
 
-.PHONY: install uninstall lint test path-smoke-test install-smoke-test npm-package-test outreach
+.PHONY: install uninstall lint test check path-smoke-test install-smoke-test npm-package-test outreach
 
 install:
 	install -d "$(BINDIR)"
@@ -19,37 +19,13 @@ uninstall:
 	rm -f "$(BINDIR)/codex-profile" "$(BINDIR)/codex-profiles"
 
 lint:
-	shellcheck bin/codex-profile scripts/update-homebrew-formula test/codex-profile-test.sh test/install-script-test.sh test/makefile-smoke-test.sh test/package-metadata-test.sh test/release-helper-test.sh test/release-workflow-test.sh install.sh
-	@set -eu; runbook_shell="$$(mktemp)"; \
-		trap 'rm -f "$$runbook_shell"' EXIT HUP INT TERM; \
-		node test/aur-runbook-test.mjs --extract > "$$runbook_shell"; \
-		shellcheck "$$runbook_shell"
+	scripts/check lint
 
 test:
-	bash -n bin/codex-profile
-	bash -n scripts/update-homebrew-formula
-	bash -n test/codex-profile-test.sh
-	bash -n test/install-script-test.sh
-	bash -n test/makefile-smoke-test.sh
-	bash -n test/package-metadata-test.sh
-	bash -n test/release-helper-test.sh
-	bash -n test/release-workflow-test.sh
-	sh -n install.sh
-	bash test/install-script-test.sh
-	bash test/release-workflow-test.sh
-	node test/aur-runbook-test.mjs
-	node test/geo-site-test.mjs
-	node test/outreach-tracker-test.mjs
-	bash test/package-metadata-test.sh
-	bash test/release-helper-test.sh
-	node test/github-pipeline-skills-test.mjs
-	node test/outreach-agent-test.mjs
-	bin/codex-profile help >/dev/null
-	bash test/codex-profile-test.sh
-	bash test/makefile-smoke-test.sh
-	$(MAKE) path-smoke-test
-	$(MAKE) install-smoke-test
-	$(MAKE) npm-package-test
+	scripts/check test
+
+check:
+	scripts/check all
 
 path-smoke-test:
 	@set -eu; tmp_home="$$(mktemp -d)"; \
