@@ -1207,7 +1207,7 @@ command_launcher_create() {
 
   if launcher_load_state "$profile"; then
     old_path="$LAUNCHER_STATE_PATH"
-    if [[ "$LAUNCHER_STATE_NAME" == "$name" && "$LAUNCHER_STATE_COLOR" == "$color" ]] &&
+    if [[ "$force" != "yes" && "$LAUNCHER_STATE_NAME" == "$name" && "$LAUNCHER_STATE_COLOR" == "$color" ]] &&
       launcher_is_managed_for_profile "$old_path" "$profile"; then
       note "Already created launcher for $profile: $old_path"
       return 0

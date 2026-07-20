@@ -129,6 +129,11 @@ test_launcher_create_is_idempotent_and_force_replaces_managed_bundle() {
   assert_status 0
   assert_contains "Already created launcher for work"
 
+  printf 'tampered\n' > "$old_app/Contents/Resources/codex-profile/color"
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher create work --name "ChatGPT Work" --color green --force
+  assert_status 0
+  [[ "$(cat "$old_app/Contents/Resources/codex-profile/color")" == "green" ]] || fail "force did not rebuild an otherwise identical launcher"
+
   run_cmd launcher_env "$tmp" "$SCRIPT" launcher create work --name "ChatGPT Office" --color purple
   assert_status 1
   assert_contains "use --force to replace it"
