@@ -12,8 +12,10 @@ CODEX_PROFILE_APP_INSTANCE_ROOT="${CODEX_PROFILE_APP_INSTANCE_ROOT:-$HOME/Librar
 CODEX_PROFILE_UPGRADE_REPO="${CODEX_PROFILE_UPGRADE_REPO:-https://github.com/Ducksss/codex-profiles.git}"
 CODEX_PROFILE_UPGRADE_REF="${CODEX_PROFILE_UPGRADE_REF:-main}"
 CODEX_PROFILE_CONFIG_HOME="${CODEX_PROFILE_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/codex-profile}"
+CODEX_PROFILE_LAUNCHER_ROOT="${CODEX_PROFILE_LAUNCHER_ROOT:-$HOME/Applications}"
 WORKSPACE_REGISTRY="$CODEX_PROFILE_CONFIG_HOME/workspaces.tsv"
 WORKSPACE_GUARD_FILE="$CODEX_PROFILE_CONFIG_HOME/guard-mode"
+LAUNCHER_STATE_DIR="$CODEX_PROFILE_CONFIG_HOME/launchers"
 
 usage() {
   cat <<EOF
@@ -25,6 +27,10 @@ Usage:
   $PROGRAM login <profile> [codex-login-args...]
   $PROGRAM init <profile> [--share-with <source-profile>]
   $PROGRAM remove <profile> [--yes]
+  $PROGRAM launcher create <profile> [--name <display-name>] [--color <color>] [--force]
+  $PROGRAM launcher list [--json]
+  $PROGRAM launcher path <profile>
+  $PROGRAM launcher remove <profile> [--yes]
   $PROGRAM workspace bind <path> <profile> [--force]
   $PROGRAM workspace unbind <path>
   $PROGRAM workspace list [--json]
@@ -53,6 +59,7 @@ Examples:
   $PROGRAM init personal-2 --share-with personal
   $PROGRAM app personal ~/Dev/my-project
   $PROGRAM app work ~/Dev/client-project
+  $PROGRAM launcher create work --name "ChatGPT Work" --color green
   $PROGRAM cli personal exec "review this repo"
   $PROGRAM workspace bind ~/Dev/client-project work
   $PROGRAM run exec "review this repo"
@@ -86,6 +93,7 @@ Environment:
   CODEX_CLI       Override Codex CLI binary path.
   CODEX_BUNDLED_CLI  Override the bundled Codex CLI fallback path.
   CODEX_PROFILE_CONFIG_HOME  Override private workspace binding storage.
+  CODEX_PROFILE_LAUNCHER_ROOT  Override launcher install directory (default: ~/Applications).
   CODEX_PROFILE_APP_INSTANCE_ROOT  Legacy clone root (doctor only; never written).
   CODEX_PROFILE_UPGRADE_REPO    Override upgrade repository.
   CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref.
@@ -98,7 +106,7 @@ Desktop auth safety:
   silently override the selected window.
 
 Platform:
-  app requires macOS (it drives the ChatGPT desktop app).
+  app and launcher create require macOS (they drive the ChatGPT desktop app).
   All other commands run on macOS and Linux.
 EOF
 }
@@ -923,6 +931,429 @@ run_desktop_app() {
 command_app_instance() {
   note "Compatibility: app-instance is now an alias for app; named ChatGPT windows already use separate local state."
   command_app --instance "$@"
+}
+
+launcher_color_hex() {
+  case "$1" in
+    blue) printf '0A84FF\n' ;;
+    green) printf '30D158\n' ;;
+    teal) printf '64D2FF\n' ;;
+    purple) printf 'BF5AF2\n' ;;
+    pink) printf 'FF375F\n' ;;
+    red) printf 'FF453A\n' ;;
+    orange) printf 'FF9F0A\n' ;;
+    graphite) printf '8E8E93\n' ;;
+    *) return 1 ;;
+  esac
+}
+
+validate_launcher_name() {
+  local name="$1"
+
+  [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._\ -]*[A-Za-z0-9]$ || "$name" =~ ^[A-Za-z0-9]$ ]] ||
+    die "Invalid launcher name '$name'. Use letters, numbers, spaces, dots, dashes, or underscores."
+  [[ "${#name}" -le 80 ]] || die "Launcher names must be 80 characters or fewer."
+}
+
+launcher_bundle_identifier() {
+  local profile="$1" encoded
+
+  encoded="$(LC_ALL=C printf '%s' "$profile" | od -An -tx1 | tr -d ' \n')"
+  printf 'io.github.ducksss.codex-profile.launcher.p%s\n' "$encoded"
+}
+
+xml_escape() {
+  local value="$1"
+
+  value=${value//&/&amp;}
+  value=${value//</&lt;}
+  value=${value//>/&gt;}
+  value=${value//\"/&quot;}
+  value=${value//\'/&apos;}
+  printf '%s' "$value"
+}
+
+current_program_path() {
+  local candidate="$0" directory
+
+  if [[ "$candidate" != */* ]]; then
+    candidate="$(command -v -- "$candidate" 2> /dev/null || true)"
+  fi
+  [[ -n "$candidate" ]] || die "Cannot resolve the installed $PROGRAM executable."
+  if [[ "$candidate" != /* ]]; then
+    candidate="$PWD/$candidate"
+  fi
+  directory="$(cd -- "$(dirname -- "$candidate")" && pwd -P)" ||
+    die "Cannot resolve the installed $PROGRAM executable."
+  candidate="$directory/$(basename -- "$candidate")"
+  [[ -x "$candidate" && ! -d "$candidate" ]] ||
+    die "Installed $PROGRAM executable is not runnable: $candidate"
+  printf '%s\n' "$candidate"
+}
+
+launcher_state_file() {
+  printf '%s/%s.state\n' "$LAUNCHER_STATE_DIR" "$1"
+}
+
+ensure_launcher_directories() {
+  workspace_path_has_control_characters "$CODEX_PROFILE_LAUNCHER_ROOT" &&
+    die "Launcher root cannot contain tab, carriage-return, or newline control characters."
+  [[ ! -L "$CODEX_PROFILE_LAUNCHER_ROOT" ]] ||
+    die "Refusing symlinked launcher root: $CODEX_PROFILE_LAUNCHER_ROOT"
+  mkdir -p "$CODEX_PROFILE_LAUNCHER_ROOT" ||
+    die "Cannot create launcher root: $CODEX_PROFILE_LAUNCHER_ROOT"
+  [[ -d "$CODEX_PROFILE_LAUNCHER_ROOT" ]] ||
+    die "Launcher root is not a directory: $CODEX_PROFILE_LAUNCHER_ROOT"
+
+  [[ ! -L "$CODEX_PROFILE_CONFIG_HOME" ]] ||
+    die "Refusing symlinked config home: $CODEX_PROFILE_CONFIG_HOME"
+  mkdir -p "$LAUNCHER_STATE_DIR" || die "Cannot create launcher state directory: $LAUNCHER_STATE_DIR"
+  [[ ! -L "$LAUNCHER_STATE_DIR" && -d "$LAUNCHER_STATE_DIR" ]] ||
+    die "Refusing unsafe launcher state directory: $LAUNCHER_STATE_DIR"
+  chmod 700 "$CODEX_PROFILE_CONFIG_HOME" "$LAUNCHER_STATE_DIR" 2> /dev/null || true
+}
+
+launcher_load_state() {
+  local profile="$1" state_file
+
+  state_file="$(launcher_state_file "$profile")"
+  [[ -f "$state_file" && ! -L "$state_file" ]] || return 1
+  IFS= read -r LAUNCHER_STATE_PROFILE < "$state_file" || return 1
+  IFS= read -r LAUNCHER_STATE_NAME < <(sed -n '2p' "$state_file") || return 1
+  IFS= read -r LAUNCHER_STATE_COLOR < <(sed -n '3p' "$state_file") || return 1
+  IFS= read -r LAUNCHER_STATE_PATH < <(sed -n '4p' "$state_file") || return 1
+  [[ "$LAUNCHER_STATE_PROFILE" == "$profile" ]] || return 1
+  validate_launcher_name "$LAUNCHER_STATE_NAME"
+  launcher_color_hex "$LAUNCHER_STATE_COLOR" > /dev/null || return 1
+  [[ "$LAUNCHER_STATE_PATH" == "$CODEX_PROFILE_LAUNCHER_ROOT/$LAUNCHER_STATE_NAME.app" ]] || return 1
+}
+
+launcher_is_managed_for_profile() {
+  local path="$1" profile="$2" marker
+
+  [[ -d "$path" && ! -L "$path" ]] || return 1
+  marker="$path/Contents/Resources/codex-profile/profile"
+  [[ -f "$marker" && ! -L "$marker" ]] || return 1
+  [[ "$(cat "$marker")" == "$profile" ]]
+}
+
+launcher_write_state() {
+  local profile="$1" name="$2" color="$3" path="$4" state_file temp
+
+  state_file="$(launcher_state_file "$profile")"
+  temp="$(mktemp "$LAUNCHER_STATE_DIR/.${profile}.state.XXXXXX")" ||
+    die "Cannot create temporary launcher state."
+  if ! printf '%s\n%s\n%s\n%s\n' "$profile" "$name" "$color" "$path" > "$temp"; then
+    rm -f "$temp"
+    die "Cannot write temporary launcher state."
+  fi
+  chmod 600 "$temp" || {
+    rm -f "$temp"
+    die "Cannot set private permissions on temporary launcher state."
+  }
+  mv -f "$temp" "$state_file" || {
+    rm -f "$temp"
+    die "Cannot replace launcher state: $state_file"
+  }
+}
+
+launcher_find_source_icon() {
+  local app="$1" candidate
+
+  for candidate in \
+    "$app/Contents/Resources/icon-chatgpt.png" \
+    "$app/Contents/Resources/icon.png" \
+    "$app/Contents/Resources/icon-chatgpt.icns" \
+    "$app/Contents/Resources/electron.icns"; do
+    if [[ -f "$candidate" && ! -L "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+launcher_render_icon() {
+  local source_icon="$1" color_hex="$2" destination="$3" work_dir svg input tinted size suffix
+
+  command -v sips > /dev/null 2>&1 || die "macOS sips command not found."
+  command -v qlmanage > /dev/null 2>&1 || die "macOS qlmanage command not found."
+  command -v iconutil > /dev/null 2>&1 || die "macOS iconutil command not found."
+  work_dir="$(mktemp -d "${TMPDIR:-/tmp}/codex-profile-icon.XXXXXX")" ||
+    die "Cannot create temporary icon directory."
+  svg="$work_dir/icon.svg"
+  input="$work_dir/source.png"
+  tinted="$work_dir/icon.svg.png"
+  if ! sips -z 1024 1024 "$source_icon" --out "$input" > /dev/null; then
+    rm -rf "$work_dir"
+    die "Cannot prepare the ChatGPT icon."
+  fi
+  cat > "$svg" <<EOF
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <mask id="alpha" style="mask-type:alpha">
+      <image href="source.png" width="1024" height="1024"/>
+    </mask>
+  </defs>
+  <rect width="1024" height="1024" fill="#$color_hex" mask="url(#alpha)"/>
+  <image href="source.png" width="1024" height="1024" style="mix-blend-mode:multiply"/>
+</svg>
+EOF
+  if ! qlmanage -t -s 1024 -o "$work_dir" "$svg" > /dev/null 2>&1; then
+    rm -rf "$work_dir"
+    die "Cannot render the tinted ChatGPT icon with Quick Look."
+  fi
+  [[ -f "$tinted" ]] || {
+    rm -rf "$work_dir"
+    die "Tinted ChatGPT icon was not generated."
+  }
+
+  mkdir -p "$work_dir/AppIcon.iconset"
+  for size in 16 32 128 256 512; do
+    sips -z "$size" "$size" "$tinted" --out "$work_dir/AppIcon.iconset/icon_${size}x${size}.png" > /dev/null || {
+      rm -rf "$work_dir"
+      die "Cannot render launcher icon size ${size}x${size}."
+    }
+    suffix=$((size * 2))
+    sips -z "$suffix" "$suffix" "$tinted" --out "$work_dir/AppIcon.iconset/icon_${size}x${size}@2x.png" > /dev/null || {
+      rm -rf "$work_dir"
+      die "Cannot render launcher icon size ${size}x${size}@2x."
+    }
+  done
+  if ! iconutil -c icns "$work_dir/AppIcon.iconset" -o "$destination"; then
+    rm -rf "$work_dir"
+    die "Cannot package the launcher icon."
+  fi
+  rm -rf "$work_dir"
+}
+
+launcher_build_bundle() {
+  local bundle="$1" profile="$2" name="$3" color="$4"
+  local app source_icon color_hex bundle_id program_path escaped_name escaped_bundle_id
+
+  app="$(find_desktop_app)"
+  source_icon="$(launcher_find_source_icon "$app")" ||
+    die "ChatGPT app icon not found in: $app"
+  color_hex="$(launcher_color_hex "$color")" ||
+    die "Unsupported launcher color '$color'. Use blue, green, teal, purple, pink, red, orange, or graphite."
+  bundle_id="$(launcher_bundle_identifier "$profile")"
+  program_path="$(current_program_path)"
+  escaped_name="$(xml_escape "$name")"
+  escaped_bundle_id="$(xml_escape "$bundle_id")"
+
+  mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources/codex-profile"
+  cat > "$bundle/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDisplayName</key><string>$escaped_name</string>
+  <key>CFBundleExecutable</key><string>launch-profile</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundleIdentifier</key><string>$escaped_bundle_id</string>
+  <key>CFBundleName</key><string>$escaped_name</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>
+EOF
+  {
+    printf '#!/bin/bash\n'
+    printf 'exec %s app %s "$HOME"\n' "$(shell_squote "$program_path")" "$(shell_squote "$profile")"
+  } > "$bundle/Contents/MacOS/launch-profile"
+  chmod 755 "$bundle/Contents/MacOS/launch-profile"
+  printf '%s\n' "$profile" > "$bundle/Contents/Resources/codex-profile/profile"
+  printf '%s\n' "$name" > "$bundle/Contents/Resources/codex-profile/name"
+  printf '%s\n' "$color" > "$bundle/Contents/Resources/codex-profile/color"
+  launcher_render_icon "$source_icon" "$color_hex" "$bundle/Contents/Resources/AppIcon.icns"
+}
+
+command_launcher_create() {
+  local usage="Usage: $PROGRAM launcher create <profile> [--name <display-name>] [--color <color>] [--force]"
+  local profile="${1:-}" name="" color="blue" force=no path state_file old_path="" temp backup="" old_backup=""
+
+  [[ -n "$profile" && "$profile" != -* ]] || die "$usage"
+  shift || true
+  validate_profile "$profile"
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --name)
+        [[ -n "${2:-}" ]] || die "$usage"
+        name="$2"
+        shift
+        ;;
+      --color)
+        [[ -n "${2:-}" ]] || die "$usage"
+        color="$2"
+        shift
+        ;;
+      --force | -f) force=yes ;;
+      *) die "$usage" ;;
+    esac
+    shift
+  done
+  [[ -n "$name" ]] || name="ChatGPT $profile"
+  validate_launcher_name "$name"
+  launcher_color_hex "$color" > /dev/null ||
+    die "Unsupported launcher color '$color'. Use blue, green, teal, purple, pink, red, orange, or graphite."
+  profile_is_initialized "$profile" ||
+    die "Profile '$profile' is not initialized; run '$PROGRAM init $profile' first."
+  [[ "$(uname -s)" == "Darwin" ]] || die_macos_only launcher
+  ensure_launcher_directories
+  path="$CODEX_PROFILE_LAUNCHER_ROOT/$name.app"
+  state_file="$(launcher_state_file "$profile")"
+
+  if launcher_load_state "$profile"; then
+    old_path="$LAUNCHER_STATE_PATH"
+    if [[ "$LAUNCHER_STATE_NAME" == "$name" && "$LAUNCHER_STATE_COLOR" == "$color" ]] &&
+      launcher_is_managed_for_profile "$old_path" "$profile"; then
+      note "Already created launcher for $profile: $old_path"
+      return 0
+    fi
+    [[ "$force" == "yes" ]] ||
+      die "Launcher for '$profile' already exists at $old_path; use --force to replace it."
+    launcher_is_managed_for_profile "$old_path" "$profile" ||
+      die "Refusing to replace unmanaged launcher path: $old_path"
+  elif [[ -e "$state_file" || -L "$state_file" ]]; then
+    die "Refusing invalid launcher state: $state_file"
+  fi
+
+  if [[ -e "$path" || -L "$path" ]]; then
+    launcher_is_managed_for_profile "$path" "$profile" ||
+      die "Refusing to replace unmanaged app: $path"
+    [[ "$force" == "yes" ]] || die "Launcher already exists: $path"
+  fi
+
+  temp="$(mktemp -d "$CODEX_PROFILE_LAUNCHER_ROOT/.codex-profile-launcher.XXXXXX")" ||
+    die "Cannot create temporary launcher bundle."
+  if ! (launcher_build_bundle "$temp/$name.app" "$profile" "$name" "$color"); then
+    rm -rf "$temp"
+    die "Cannot build launcher for profile '$profile'."
+  fi
+
+  if [[ -e "$path" || -L "$path" ]]; then
+    backup="$CODEX_PROFILE_LAUNCHER_ROOT/.codex-profile-backup.$$.app"
+    [[ ! -e "$backup" && ! -L "$backup" ]] || {
+      rm -rf "$temp"
+      die "Refusing occupied launcher backup path: $backup"
+    }
+    mv "$path" "$backup" || {
+      rm -rf "$temp"
+      die "Cannot stage existing launcher for replacement: $path"
+    }
+  fi
+  if [[ -n "$old_path" && "$old_path" != "$path" ]]; then
+    old_backup="$CODEX_PROFILE_LAUNCHER_ROOT/.codex-profile-old.$$.app"
+    [[ ! -e "$old_backup" && ! -L "$old_backup" ]] || {
+      [[ -z "$backup" ]] || mv "$backup" "$path"
+      rm -rf "$temp"
+      die "Refusing occupied launcher backup path: $old_backup"
+    }
+    mv "$old_path" "$old_backup" || {
+      [[ -z "$backup" ]] || mv "$backup" "$path"
+      rm -rf "$temp"
+      die "Cannot stage old launcher for replacement: $old_path"
+    }
+  fi
+  if ! mv "$temp/$name.app" "$path"; then
+    [[ -z "$backup" ]] || mv "$backup" "$path"
+    [[ -z "$old_backup" ]] || mv "$old_backup" "$old_path"
+    rm -rf "$temp"
+    die "Cannot install launcher: $path"
+  fi
+  rm -rf "$temp"
+  if ! (launcher_write_state "$profile" "$name" "$color" "$path"); then
+    rm -rf "$path"
+    [[ -z "$backup" ]] || mv "$backup" "$path"
+    [[ -z "$old_backup" ]] || mv "$old_backup" "$old_path"
+    die "Cannot save launcher state for profile '$profile'."
+  fi
+  [[ -z "$backup" ]] || rm -rf "$backup"
+  [[ -z "$old_backup" ]] || rm -rf "$old_backup"
+  note "Created launcher for $profile: $path"
+  note "Name: $name"
+  note "Color: $color"
+  note "The signed ChatGPT app remains unchanged; the active ChatGPT window keeps its native identity."
+}
+
+command_launcher_list() {
+  local json=no state_file profile first=yes
+
+  if [[ "${1:-}" == "--json" || "${1:-}" == "-j" ]]; then json=yes; shift; fi
+  [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM launcher list [--json]"
+  if [[ "$json" == "yes" ]]; then printf '['; fi
+  if [[ -d "$LAUNCHER_STATE_DIR" && ! -L "$LAUNCHER_STATE_DIR" ]]; then
+    for state_file in "$LAUNCHER_STATE_DIR"/*.state; do
+      [[ -f "$state_file" && ! -L "$state_file" ]] || continue
+      profile="${state_file##*/}"
+      profile="${profile%.state}"
+      launcher_load_state "$profile" || die "Invalid launcher state: $state_file"
+      launcher_is_managed_for_profile "$LAUNCHER_STATE_PATH" "$profile" ||
+        die "Managed launcher is missing or invalid: $LAUNCHER_STATE_PATH"
+      if [[ "$json" == "yes" ]]; then
+        if [[ "$first" == "yes" ]]; then first=no; else printf ','; fi
+        printf '{"profile":'; json_string "$profile"
+        printf ',"name":'; json_string "$LAUNCHER_STATE_NAME"
+        printf ',"color":'; json_string "$LAUNCHER_STATE_COLOR"
+        printf ',"path":'; json_string "$LAUNCHER_STATE_PATH"
+        printf '}'
+      else
+        printf '%s\t%s\t%s\t%s\n' "$profile" "$LAUNCHER_STATE_NAME" "$LAUNCHER_STATE_COLOR" "$LAUNCHER_STATE_PATH"
+      fi
+    done
+  fi
+  if [[ "$json" == "yes" ]]; then printf ']\n'; fi
+}
+
+command_launcher_path() {
+  local profile="${1:-}"
+
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM launcher path <profile>"
+  shift || true
+  [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM launcher path <profile>"
+  validate_profile "$profile"
+  launcher_load_state "$profile" || die "No managed launcher for profile '$profile'."
+  launcher_is_managed_for_profile "$LAUNCHER_STATE_PATH" "$profile" ||
+    die "Managed launcher is missing or invalid: $LAUNCHER_STATE_PATH"
+  printf '%s\n' "$LAUNCHER_STATE_PATH"
+}
+
+command_launcher_remove() {
+  local profile="${1:-}" yes=no confirmation state_file
+
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM launcher remove <profile> [--yes]"
+  shift || true
+  if [[ "${1:-}" == "--yes" || "${1:-}" == "-y" ]]; then yes=yes; shift; fi
+  [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM launcher remove <profile> [--yes]"
+  validate_profile "$profile"
+  state_file="$(launcher_state_file "$profile")"
+  launcher_load_state "$profile" || die "No managed launcher for profile '$profile'."
+  launcher_is_managed_for_profile "$LAUNCHER_STATE_PATH" "$profile" ||
+    die "Refusing to remove unmanaged launcher path: $LAUNCHER_STATE_PATH"
+  if [[ "$yes" != "yes" ]]; then
+    printf "Type '%s' to remove launcher %s: " "$profile" "$LAUNCHER_STATE_PATH" >&2
+    IFS= read -r confirmation || die "Confirmation required."
+    [[ "$confirmation" == "$profile" ]] || die "Confirmation did not match; nothing removed."
+  fi
+  rm -rf -- "$LAUNCHER_STATE_PATH" || die "Cannot remove launcher: $LAUNCHER_STATE_PATH"
+  rm -f -- "$state_file" || die "Cannot remove launcher state: $state_file"
+  note "Removed launcher for $profile. Profile data was preserved."
+}
+
+command_launcher() {
+  local subcommand="${1:-}"
+
+  [[ -n "$subcommand" ]] || die "Usage: $PROGRAM launcher <create|list|path|remove> ..."
+  shift || true
+  case "$subcommand" in
+    create) command_launcher_create "$@" ;;
+    list) command_launcher_list "$@" ;;
+    path) command_launcher_path "$@" ;;
+    remove) command_launcher_remove "$@" ;;
+    *) die "Unknown launcher command '$subcommand'. Use create, list, path, or remove." ;;
+  esac
 }
 
 command_cli() {
@@ -2065,15 +2496,16 @@ command_completions() {
       cat <<'EOF'
 _codex_profile()
 {
-  local cur command prev profiles workspace_commands
+  local cur command prev profiles workspace_commands launcher_commands
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   command="${COMP_WORDS[1]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   workspace_commands="bind unbind list status guard"
+  launcher_commands="create list path remove"
 
   if [[ "$COMP_CWORD" -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "app app-instance cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help" -- "$cur") )
+    COMPREPLY=( $(compgen -W "app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help" -- "$cur") )
     return 0
   fi
 
@@ -2104,6 +2536,20 @@ _codex_profile()
       if [[ "$COMP_CWORD" -eq 2 || "$COMP_CWORD" -eq 3 ]]; then
         profiles="$(codex-profile list 2>/dev/null)"
         COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
+      fi
+      ;;
+    launcher)
+      if [[ "$COMP_CWORD" -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "$launcher_commands" -- "$cur") )
+      elif [[ ( "${COMP_WORDS[2]}" == "create" || "${COMP_WORDS[2]}" == "path" || "${COMP_WORDS[2]}" == "remove" ) && "$COMP_CWORD" -eq 3 ]]; then
+        profiles="$(codex-profile list 2>/dev/null)"
+        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
+      elif [[ "${COMP_WORDS[2]}" == "create" && "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "--name --color --force" -- "$cur") )
+      elif [[ "${COMP_WORDS[2]}" == "create" && "$prev" == "--color" ]]; then
+        COMPREPLY=( $(compgen -W "blue green teal purple pink red orange graphite" -- "$cur") )
+      elif [[ "${COMP_WORDS[2]}" == "list" && "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "--json" -- "$cur") )
       fi
       ;;
     workspace)
@@ -2138,14 +2584,17 @@ EOF
 #compdef codex-profile codex-profiles
 
 _codex_profile() {
-  local -a commands profiles shells app_flags init_flags workspace_commands run_flags workspace_json_flags
+  local -a commands profiles shells app_flags init_flags launcher_commands launcher_flags launcher_colors workspace_commands run_flags workspace_json_flags
   commands=(
-    app app-instance cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
+    app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
   )
   profiles=(${(f)"$(codex-profile list 2>/dev/null)"} default personal work)
   shells=(bash zsh fish)
   app_flags=(--instance --rebuild)
   init_flags=(--share-with)
+  launcher_commands=(create list path remove)
+  launcher_flags=(--name --color --force)
+  launcher_colors=(blue green teal purple pink red orange graphite)
   workspace_commands=(bind unbind list status guard)
   run_flags=(--app)
   workspace_json_flags=(--json)
@@ -2177,6 +2626,19 @@ _codex_profile() {
       ;;
     clone-config)
       if (( CURRENT == 3 || CURRENT == 4 )); then
+        _describe 'profile' profiles
+      fi
+      ;;
+    launcher)
+      if (( CURRENT == 3 )); then
+        _describe 'launcher command' launcher_commands
+      elif [[ "$words[3]" == "create" ]] && (( CURRENT == 4 )); then
+        _describe 'profile' profiles
+      elif [[ "$words[3]" == "create" && "$words[CURRENT-1]" == "--color" ]]; then
+        _describe 'color' launcher_colors
+      elif [[ "$words[3]" == "create" && "$words[CURRENT]" == -* ]]; then
+        _describe 'flag' launcher_flags
+      elif [[ "$words[3]" == "path" || "$words[3]" == "remove" ]] && (( CURRENT == 4 )); then
         _describe 'profile' profiles
       fi
       ;;
@@ -2212,12 +2674,18 @@ EOF
       cat <<'EOF'
 for codex_profile_command in codex-profile codex-profiles
     complete -c $codex_profile_command -f
-    complete -c $codex_profile_command -n '__fish_is_first_arg' -a 'app app-instance cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'
+    complete -c $codex_profile_command -n '__fish_is_first_arg' -a 'app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from app app-instance cli login init remove status path env use logs' -a '(codex-profile list 2>/dev/null) default personal work'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from app' -l instance -d 'Compatibility flag; named ChatGPT windows already use separate local state'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from app' -l rebuild -d 'Compatibility no-op; the signed app is never cloned'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from init' -l share-with -r -a '(codex-profile list 2>/dev/null) default personal work' -d 'Link the configuration allowlist from another profile'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from clone-config' -a '(codex-profile list 2>/dev/null) default personal work'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from launcher; and test (count (commandline -opc)) -eq 2' -a 'create list path remove'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from launcher; and __fish_seen_subcommand_from create path remove; and test (count (commandline -opc)) -eq 3' -a '(codex-profile list 2>/dev/null) default personal work'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from launcher; and __fish_seen_subcommand_from create' -l name -r
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from launcher; and __fish_seen_subcommand_from create' -l color -r -a 'blue green teal purple pink red orange graphite'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from launcher; and __fish_seen_subcommand_from create' -l force
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from launcher; and __fish_seen_subcommand_from list' -l json -d 'Emit JSON'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and test (count (commandline -opc)) -eq 2' -a 'bind unbind list status guard'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from bind; and test (count (commandline -opc)) -eq 3' -F
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from bind; and test (count (commandline -opc)) -eq 4' -a '(codex-profile list 2>/dev/null) default personal work'
@@ -2411,7 +2879,7 @@ main() {
   shift || true
 
   case "$command" in
-    status | doctor | workspace)
+    status | doctor | workspace | launcher)
       for arg in "$@"; do
         if [[ "$arg" == "--json" || "$arg" == "-j" ]]; then
           json_command=yes
@@ -2443,6 +2911,9 @@ main() {
       ;;
     remove)
       command_remove "$@"
+      ;;
+    launcher)
+      command_launcher "$@"
       ;;
     workspace)
       command_workspace "$@"

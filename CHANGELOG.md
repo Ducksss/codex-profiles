@@ -7,6 +7,13 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- Added managed macOS profile launchers with custom display names and a fixed
+  eight-color icon palette. Launchers keep the installed signed ChatGPT bundle
+  untouched, route to an initialized profile, and can be listed, inspected,
+  replaced, or removed without deleting profile data.
+
 ## 0.8.0 - 2026-07-15
 
 ### Added
