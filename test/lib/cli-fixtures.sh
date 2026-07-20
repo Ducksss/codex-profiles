@@ -131,6 +131,7 @@ if [[ "\${OPEN_LAUNCHED:-}" != "yes" ]]; then
 fi
 printf 'MESSAGE=%s\n' "$message"
 printf 'CODEX_HOME=%s\n' "\$CODEX_HOME"
+printf 'CODEX_ELECTRON_USER_DATA_PATH=%s\n' "\${CODEX_ELECTRON_USER_DATA_PATH:-}"
 printf 'ARGS=%s\n' "\$*"
 FAKE_CHATGPT_APP
   chmod 755 "$app/Contents/MacOS/ChatGPT"
