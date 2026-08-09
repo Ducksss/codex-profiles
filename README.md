@@ -175,6 +175,36 @@ edu      -> ~/.codex-edu
 client   -> ~/.codex-client
 ```
 
+Every launch picks one profile box. Shared skills are added to whichever box
+you pick:
+
+```mermaid
+flowchart TB
+    shared["SHARED BY EVERY PROFILE<br/>OpenAI bundled skills<br/>~/.agents/skills<br/>&lt;repo&gt;/.agents/skills"]
+
+    subgraph defaultBox["DEFAULT"]
+        default["~/.codex"]
+        defaultOwn["Its own<br/>login · config · sessions<br/>skills · plugins · automations"]
+        defaultApp["app default<br/>stock ChatGPT Desktop data"]
+        default --> defaultOwn
+        default --> defaultApp
+    end
+
+    subgraph namedBox["NAMED — example: work"]
+        named["~/.codex-work"]
+        namedOwn["Its own<br/>login · config · sessions<br/>skills · plugins · automations"]
+        namedApp["app work<br/>Desktop data in electron-user-data/"]
+        named --> namedOwn
+        named --> namedApp
+    end
+
+    shared --> default
+    shared --> named
+```
+
+The two profile boxes are siblings: `work` does not inherit anything from
+`default`. Only `init --share-with` creates the limited links documented below.
+
 For a named Desktop launch, local Electron data lives below that profile home:
 
 ```text
