@@ -47,6 +47,24 @@ to base `appcezSUhDxz7uaQW` and requires Node 18+.
 Do not duplicate prior submissions unless there is a clear reason, such as a
 closed PR that needs a replacement.
 
+## Dashboard and Platform Outreach
+
+Before any dashboard, directory form, launchpad, community, article site, or
+other non-GitHub platform work, invoke `$platform-outreach`. Follow its
+community-voice recipe, media preflight, draft-integrity, completion-state,
+ledger, and publication-gate requirements. Its stop-before-publication rules
+override the general submission authority in this file for these surfaces.
+
+For this project, use this verified visual hierarchy:
+
+- Product screenshot: `media/codex-profile-parallel-instances.png`
+- Cover, launch card, banner, or social preview:
+  `media/codex-profiles-saas-promo-frame.png`
+
+Complete the skill's media preflight before long-form copy and verify the
+rendered asset and crop. Write as Chai only when the authenticated project
+context verifies that identity.
+
 Do not resume new promotion until README/LAUNCH identify v0.8.0 as released and
 the current ChatGPT app verification gate is recorded as passed. Before
 updating an existing listing, preserve its original submission history and
