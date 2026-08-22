@@ -7,6 +7,13 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Changed
+
+- Release dry runs now preflight the npm and Homebrew tap credentials, so a
+  missing or unauthorized publish secret fails before a live run reaches the
+  tag and publish steps. The secrets stay scoped to that step rather than the
+  whole verification job.
+
 ## 0.9.0 - 2026-08-23
 
 ### Added
