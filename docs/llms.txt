@@ -119,8 +119,8 @@ histories, memories, connectors, plans, limits, or cloud tasks.
 
 ## Named and color-coded macOS launchers
 
-`codex-profile launcher create <profile> --name <display-name> --color <color>`
-creates a small unsigned app in `~/Applications` by default. Supported colors
+`codex-profile launcher create <profile> [--name <display-name>] [--color <color>]
+[--force]` creates a small unsigned app in `~/Applications` by default. Supported colors
 are blue, green, teal, purple, pink, red, orange, and graphite. The command
 derives a deterministic tint from the installed ChatGPT icon locally and does
 not redistribute OpenAI artwork.
