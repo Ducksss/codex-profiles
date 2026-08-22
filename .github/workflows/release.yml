@@ -64,6 +64,13 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      - name: Preflight publish credentials
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          scripts/release/preflight.sh
+
       - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
@@ -90,7 +97,7 @@ jobs:
           TAG: ${{ steps.release.outputs.tag }}
         run: |
           if [[ "$DRY_RUN" == "true" ]]; then
-            echo "Validated $TAG. Dry run made no release changes." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "Validated $TAG and publish credentials. Dry run made no release changes." | tee -a "$GITHUB_STEP_SUMMARY"
           else
             echo "Validated $TAG for live publication." | tee -a "$GITHUB_STEP_SUMMARY"
           fi

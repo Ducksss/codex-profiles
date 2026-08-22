@@ -60,6 +60,36 @@ for (const permission of ["contents: write", "id-token: write", "actions: write"
   assert.ok(publishJob.includes(`      ${permission}`), `publish job should grant ${permission}`);
 }
 
+// A dry run must prove a live run could authenticate, so the always-running
+// verify job preflights the publish credentials too.
+const credentialPreflight = stepBlock("Preflight publish credentials");
+assert.ok(
+  verifyJob.includes("      - name: Preflight publish credentials"),
+  "verify job should preflight publish credentials so dry runs catch missing secrets",
+);
+for (const literal of ["NPM_TOKEN: ${{ secrets.NPM_TOKEN }}", "TAP_TOKEN: ${{ secrets.TAP_TOKEN }}"]) {
+  assert.ok(credentialPreflight.includes(literal), `credential preflight should read ${literal}`);
+}
+assert.ok(
+  !credentialPreflight.includes("if: ${{ ! inputs.dry_run }}"),
+  "credential preflight must also run for dry runs",
+);
+// Job-level secrets would be readable by `make check`, which runs the whole
+// test suite. Keep them scoped to the preflight step.
+const verifyJobConfig = verifyJob.slice(0, verifyJob.indexOf("    steps:"));
+for (const secret of ["NPM_TOKEN", "TAP_TOKEN"]) {
+  assert.ok(
+    !verifyJobConfig.includes(secret),
+    `verify job must not expose ${secret} to every step; scope it to the preflight step`,
+  );
+}
+for (const secret of ["NPM_TOKEN", "TAP_TOKEN"]) {
+  assert.ok(
+    !stepBlock("Run full verification").includes(secret),
+    `full verification must not receive ${secret}`,
+  );
+}
+
 const publishSteps = [
   "Validate live release source",
   "Preflight release credential identities",
@@ -122,7 +152,9 @@ for (const script of [
   "deploy-pages.sh",
 ]) {
   const matches = workflow.match(new RegExp(`scripts/release/${script.replace(".", "\\.")}`, "g")) ?? [];
-  const expected = ["verify-distribution.sh", "publish-npm.sh", "publish-github.sh"].includes(script) ? 2 : 1;
+  const expected = ["verify-distribution.sh", "publish-npm.sh", "publish-github.sh", "preflight.sh"].includes(script)
+    ? 2
+    : 1;
   assert.equal(matches.length, expected, `${script} should be wired ${expected} time(s)`);
 }
 
