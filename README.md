@@ -338,7 +338,8 @@ codex-profile app work ~/Dev/work-app
 - `default` preserves the normal ChatGPT session and maps Codex state to
   `~/.codex`.
 - Every other name receives its own Electron user-data directory and matching
-  `CODEX_HOME`.
+  `CODEX_HOME`. The launcher supplies the Electron directory through both
+  `CODEX_ELECTRON_USER_DATA_PATH` and `--user-data-dir`.
 - The local boundary applies to the whole launched window: Chat and Work use
   its Electron context, while Codex also receives the matching `CODEX_HOME`.
   Account identity still must be verified in the relevant UI.

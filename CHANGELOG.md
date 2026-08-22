@@ -7,6 +7,11 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Changed
+
+- Named ChatGPT launches now mirror their Electron data directory through
+  `CODEX_ELECTRON_USER_DATA_PATH` as well as `--user-data-dir`.
+
 ## 0.8.0 - 2026-07-15
 
 ### Added
