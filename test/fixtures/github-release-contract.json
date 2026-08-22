@@ -4,27 +4,27 @@
     "immutable": true,
     "prerelease": false,
     "published_at": "2026-07-15T08:00:00Z",
-    "tag_name": "v0.8.0"
+    "tag_name": "v0.9.0"
   },
   "mutable": {
     "draft": false,
     "immutable": false,
     "prerelease": false,
     "published_at": "2026-07-15T08:00:00Z",
-    "tag_name": "v0.8.0"
+    "tag_name": "v0.9.0"
   },
   "draft": {
     "draft": true,
     "immutable": true,
     "prerelease": false,
     "published_at": "2026-07-15T08:00:00Z",
-    "tag_name": "v0.8.0"
+    "tag_name": "v0.9.0"
   },
   "wrongTag": {
     "draft": false,
     "immutable": true,
     "prerelease": false,
     "published_at": "2026-07-15T08:00:00Z",
-    "tag_name": "v0.8.1"
+    "tag_name": "v0.9.1"
   }
 }
