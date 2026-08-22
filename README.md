@@ -380,6 +380,12 @@ codex-profile launcher remove personal
 codex-profile launcher remove personal --yes
 ```
 
+Deleting a generated launcher in Finder is safe. `launcher list` reports the
+stale record on stderr and keeps listing the healthy launchers, `launcher
+create` rebuilds the missing app, and `launcher remove` clears the leftover
+record. A launcher path that exists but belongs to another profile is still
+refused rather than overwritten.
+
 #### Deprecated compatibility spellings
 
 The older spellings remain accepted for compatibility:

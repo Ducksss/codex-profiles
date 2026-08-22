@@ -208,10 +208,61 @@ test_launcher_remove_preserves_profile_data() {
   rm -rf "$tmp"
 }
 
+test_launcher_recovers_after_the_bundle_is_deleted_outside_the_cli() {
+  local tmp stale_app healthy_app json
+  tmp="$(mktemp -d)"
+  stale_app="$tmp/apps/Stale App.app"
+  healthy_app="$tmp/apps/Healthy App.app"
+  prepare_launcher_test "$tmp" personal
+  mkdir -p "$tmp/home/.codex-work"
+
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher create personal --name "Stale App" --color blue
+  assert_status 0
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher create work --name "Healthy App" --color red
+  assert_status 0
+
+  # The ordinary way a macOS user removes an app: drag the bundle to the Trash.
+  rm -rf "$stale_app"
+
+  # One stale record must not hide the launchers that are still healthy.
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher list
+  assert_status 0
+  assert_contains "Skipping personal"
+  assert_contains "work"$'\t'"Healthy App"
+
+  # --json keeps stdout parseable even while a record is stale.
+  json="$(launcher_env "$tmp" "$SCRIPT" launcher list --json 2> /dev/null)"
+  assert_equals "stale launcher json" '[{"profile":"work","name":"Healthy App","color":"red","path":"'"$healthy_app"'"}]' "$json"
+
+  # path explains how to recover instead of dead-ending.
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher path personal
+  assert_status 1
+  assert_contains "to recreate it"
+
+  # create heals the record rather than refusing it.
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher create personal --name "Stale App" --color blue
+  assert_status 0
+  assert_contains "Recorded launcher for personal is gone"
+  [[ -d "$stale_app" ]] || fail "create did not recreate a deleted launcher"
+
+  # remove clears a record whose bundle is already gone.
+  rm -rf "$stale_app"
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher remove personal --yes
+  assert_status 0
+  assert_contains "was already gone"
+  [[ ! -e "$tmp/config/launchers/personal.state" ]] || fail "stale launcher state survived removal"
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher list
+  assert_status 0
+  assert_not_contains "Skipping personal"
+
+  rm -rf "$tmp"
+}
+
 test_launcher_create_list_and_path_are_deterministic
 test_launcher_create_is_idempotent_and_force_replaces_managed_bundle
 test_launcher_refuses_invalid_inputs_and_unmanaged_collisions
 test_launcher_cleans_up_a_failed_icon_build
 test_launcher_remove_preserves_profile_data
+test_launcher_recovers_after_the_bundle_is_deleted_outside_the_cli
 
 printf 'launcher tests passed\n'

@@ -120,6 +120,10 @@ note() {
   printf '%s\n' "$*"
 }
 
+warn() {
+  printf 'Warning: %s\n' "$*" >&2
+}
+
 die_macos_only() {
   local subcommand="$1"
 
@@ -947,12 +951,19 @@ launcher_color_hex() {
   esac
 }
 
+is_valid_launcher_name() {
+  local name="$1"
+
+  [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._\ -]*[A-Za-z0-9]$ || "$name" =~ ^[A-Za-z0-9]$ ]] || return 1
+  [[ "${#name}" -le 80 ]]
+}
+
 validate_launcher_name() {
   local name="$1"
 
-  [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._\ -]*[A-Za-z0-9]$ || "$name" =~ ^[A-Za-z0-9]$ ]] ||
-    die "Invalid launcher name '$name'. Use letters, numbers, spaces, dots, dashes, or underscores."
   [[ "${#name}" -le 80 ]] || die "Launcher names must be 80 characters or fewer."
+  is_valid_launcher_name "$name" ||
+    die "Invalid launcher name '$name'. Use letters, numbers, spaces, dots, dashes, or underscores."
 }
 
 launcher_bundle_identifier() {
@@ -1023,9 +1034,15 @@ launcher_load_state() {
   IFS= read -r LAUNCHER_STATE_COLOR < <(sed -n '3p' "$state_file") || return 1
   IFS= read -r LAUNCHER_STATE_PATH < <(sed -n '4p' "$state_file") || return 1
   [[ "$LAUNCHER_STATE_PROFILE" == "$profile" ]] || return 1
-  validate_launcher_name "$LAUNCHER_STATE_NAME"
+  is_valid_launcher_name "$LAUNCHER_STATE_NAME" || return 1
   launcher_color_hex "$LAUNCHER_STATE_COLOR" > /dev/null || return 1
   [[ "$LAUNCHER_STATE_PATH" == "$CODEX_PROFILE_LAUNCHER_ROOT/$LAUNCHER_STATE_NAME.app" ]] || return 1
+}
+
+launcher_path_is_absent() {
+  local path="$1"
+
+  [[ ! -e "$path" && ! -L "$path" ]]
 }
 
 launcher_is_managed_for_profile() {
@@ -1161,6 +1178,7 @@ launcher_build_bundle() {
 EOF
   {
     printf '#!/bin/bash\n'
+    # shellcheck disable=SC2016 # the generated launcher expands $HOME at click time
     printf 'exec %s app %s "$HOME"\n' "$(shell_squote "$program_path")" "$(shell_squote "$profile")"
   } > "$bundle/Contents/MacOS/launch-profile"
   chmod 755 "$bundle/Contents/MacOS/launch-profile"
@@ -1207,15 +1225,19 @@ command_launcher_create() {
 
   if launcher_load_state "$profile"; then
     old_path="$LAUNCHER_STATE_PATH"
-    if [[ "$force" != "yes" && "$LAUNCHER_STATE_NAME" == "$name" && "$LAUNCHER_STATE_COLOR" == "$color" ]] &&
+    if launcher_path_is_absent "$old_path"; then
+      note "Recorded launcher for $profile is gone; recreating it."
+      old_path=""
+    elif [[ "$force" != "yes" && "$LAUNCHER_STATE_NAME" == "$name" && "$LAUNCHER_STATE_COLOR" == "$color" ]] &&
       launcher_is_managed_for_profile "$old_path" "$profile"; then
       note "Already created launcher for $profile: $old_path"
       return 0
+    else
+      [[ "$force" == "yes" ]] ||
+        die "Launcher for '$profile' already exists at $old_path; use --force to replace it."
+      launcher_is_managed_for_profile "$old_path" "$profile" ||
+        die "Refusing to replace unmanaged launcher path: $old_path"
     fi
-    [[ "$force" == "yes" ]] ||
-      die "Launcher for '$profile' already exists at $old_path; use --force to replace it."
-    launcher_is_managed_for_profile "$old_path" "$profile" ||
-      die "Refusing to replace unmanaged launcher path: $old_path"
   elif [[ -e "$state_file" || -L "$state_file" ]]; then
     die "Refusing invalid launcher state: $state_file"
   fi
@@ -1289,9 +1311,14 @@ command_launcher_list() {
       [[ -f "$state_file" && ! -L "$state_file" ]] || continue
       profile="${state_file##*/}"
       profile="${profile%.state}"
-      launcher_load_state "$profile" || die "Invalid launcher state: $state_file"
-      launcher_is_managed_for_profile "$LAUNCHER_STATE_PATH" "$profile" ||
-        die "Managed launcher is missing or invalid: $LAUNCHER_STATE_PATH"
+      if ! launcher_load_state "$profile"; then
+        warn "Skipping invalid launcher state: $state_file"
+        continue
+      fi
+      if ! launcher_is_managed_for_profile "$LAUNCHER_STATE_PATH" "$profile"; then
+        warn "Skipping $profile: launcher is missing or unmanaged: $LAUNCHER_STATE_PATH"
+        continue
+      fi
       if [[ "$json" == "yes" ]]; then
         if [[ "$first" == "yes" ]]; then first=no; else printf ','; fi
         printf '{"profile":'; json_string "$profile"
@@ -1316,7 +1343,7 @@ command_launcher_path() {
   validate_profile "$profile"
   launcher_load_state "$profile" || die "No managed launcher for profile '$profile'."
   launcher_is_managed_for_profile "$LAUNCHER_STATE_PATH" "$profile" ||
-    die "Managed launcher is missing or invalid: $LAUNCHER_STATE_PATH"
+    die "Launcher for '$profile' is missing or unmanaged at $LAUNCHER_STATE_PATH; run '$PROGRAM launcher create $profile' to recreate it or '$PROGRAM launcher remove $profile' to forget it."
   printf '%s\n' "$LAUNCHER_STATE_PATH"
 }
 
@@ -1330,6 +1357,11 @@ command_launcher_remove() {
   validate_profile "$profile"
   state_file="$(launcher_state_file "$profile")"
   launcher_load_state "$profile" || die "No managed launcher for profile '$profile'."
+  if launcher_path_is_absent "$LAUNCHER_STATE_PATH"; then
+    rm -f -- "$state_file" || die "Cannot remove launcher state: $state_file"
+    note "Launcher for $profile was already gone; cleared its record. Profile data was preserved."
+    return 0
+  fi
   launcher_is_managed_for_profile "$LAUNCHER_STATE_PATH" "$profile" ||
     die "Refusing to remove unmanaged launcher path: $LAUNCHER_STATE_PATH"
   if [[ "$yes" != "yes" ]]; then

@@ -17,7 +17,15 @@ and this project follows semantic versioning for tagged releases.
 ### Changed
 
 - Named ChatGPT launches now mirror their Electron data directory through
-  `CODEX_ELECTRON_USER_DATA_PATH` as well as `--user-data-dir`.
+  `CODEX_ELECTRON_USER_DATA_PATH` as well as `--user-data-dir`. The integrated
+  app treats that variable as the authoritative Electron user-data path, so the
+  selected `CODEX_HOME` also survives the app's login-shell environment load.
+  Repeat launches of one named profile now focus that profile's existing window
+  instead of starting a second instance against the same Electron data.
+- Launcher records survive a launcher deleted outside the CLI: `launcher list`
+  skips a stale record on stderr instead of failing the whole listing and
+  emitting truncated JSON, `launcher create` rebuilds the missing app, and
+  `launcher remove` clears the leftover record.
 
 ## 0.8.0 - 2026-07-15
 

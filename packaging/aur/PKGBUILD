@@ -12,7 +12,7 @@ source=(
   "LICENSE-$pkgver::https://raw.githubusercontent.com/Ducksss/codex-profiles/v$pkgver/LICENSE"
 )
 sha256sums=(
-  '798272aa58b2f8f9257552203ca89fb25f9921621d69046b980e337c968c2b50'
+  'bd6b1cae5ac81d6968c0edfac4122f5314626d3d54af73372e0bdc89c0082768'
   '9ff3b3e5b6a234802d746443539abda82c35d1581a98249b40636dd5acff4364'
 )
 
