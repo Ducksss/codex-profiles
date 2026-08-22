@@ -474,7 +474,7 @@ directories, and it refuses sensitive-looking configuration keys.
 codex-profile upgrade --dry-run
 codex-profile upgrade
 codex-profile upgrade --prefix /usr/local
-codex-profile upgrade --ref v0.8.0
+codex-profile upgrade --ref v0.9.0
 ```
 
 The default checkout is cached under `~/.cache/codex-profile/source`. Review a

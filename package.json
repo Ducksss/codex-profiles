@@ -1,6 +1,6 @@
 {
   "name": "codex-profile",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Named Codex CLI profiles with separate local ChatGPT desktop state.",
   "license": "MIT",
   "homepage": "https://ducksss.github.io/codex-profiles/",

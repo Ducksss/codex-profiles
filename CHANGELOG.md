@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.9.0 - 2026-08-23
+
 ### Added
 
 - Added managed macOS profile launchers with custom display names and a fixed
