@@ -80,13 +80,17 @@ test_completions_generate_shell_scripts() {
   assert_contains "workspace guard [off|warn|strict]"
   assert_contains "run [--] [codex-args...]"
   assert_contains "run --app [workspace]"
+  assert_contains "launcher create <profile>"
   assert_contains "CODEX_PROFILE_CONFIG_HOME"
+  assert_contains "CODEX_PROFILE_LAUNCHER_ROOT"
 
   run_cmd "$SCRIPT" completions bash
 
   assert_status 0
   assert_contains "complete -F _codex_profile codex-profile codex-profiles"
-  assert_contains 'compgen -W "app app-instance cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help"'
+  assert_contains 'compgen -W "app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help"'
+  assert_contains 'launcher_commands="create list path remove"'
+  assert_contains 'blue green teal purple pink red orange graphite'
   assert_contains 'workspace_commands="bind unbind list status guard"'
   # shellcheck disable=SC2016 # matching literal generated completion text
   assert_contains 'compgen -W "$workspace_commands"'
@@ -104,7 +108,9 @@ test_completions_generate_shell_scripts() {
 
   assert_status 0
   assert_contains "#compdef codex-profile codex-profiles"
-  assert_contains "app app-instance cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help"
+  assert_contains "app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help"
+  assert_contains "launcher_commands=(create list path remove)"
+  assert_contains "launcher_colors=(blue green teal purple pink red orange graphite)"
   assert_contains "workspace_commands=(bind unbind list status guard)"
   assert_contains "run_flags=(--app)"
   assert_contains "workspace_json_flags=(--json)"
@@ -120,7 +126,9 @@ test_completions_generate_shell_scripts() {
   assert_status 0
   assert_contains "for codex_profile_command in codex-profile codex-profiles"
   assert_contains "complete -c \$codex_profile_command"
-  assert_contains "-a 'app app-instance cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'"
+  assert_contains "-a 'app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'"
+  assert_contains "-a 'create list path remove'"
+  assert_contains "-a 'blue green teal purple pink red orange graphite'"
   assert_contains "-a 'bind unbind list status guard'"
   assert_contains "-l app"
   assert_contains "test (count (commandline -opc)) -eq 2"

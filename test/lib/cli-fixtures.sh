@@ -149,6 +149,7 @@ printf 'BUNDLED_CODEX_HOME=%s\n' "${CODEX_HOME:-}"
 printf 'BUNDLED_ARGS=%s\n' "$*"
 FAKE_BUNDLED_CODEX
   chmod 755 "$app/Contents/Resources/codex"
+  printf 'fake ChatGPT icon\n' > "$app/Contents/Resources/icon-chatgpt.png"
 }
 
 write_fake_chatgpt_open_tools() {

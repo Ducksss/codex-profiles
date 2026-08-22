@@ -72,6 +72,9 @@ codex-profile run --app
 codex-profile app default ~/Dev/main-project
 codex-profile app personal ~/Dev/personal-project
 codex-profile app work ~/Dev/work-project
+codex-profile launcher create default --name "ChatGPT Main" --color green
+codex-profile launcher create personal --name "ChatGPT Personal" --color blue
+codex-profile launcher list
 codex-profile status --json
 eval "$(codex-profile env work)"
 ```
@@ -113,6 +116,24 @@ local context; opening the same name again reuses that profile.
 
 This does not change or inspect server-side ChatGPT workspaces, policies,
 histories, memories, connectors, plans, limits, or cloud tasks.
+
+## Named and color-coded macOS launchers
+
+`codex-profile launcher create <profile> --name <display-name> --color <color>`
+creates a small unsigned app in `~/Applications` by default. Supported colors
+are blue, green, teal, purple, pink, red, orange, and graphite. The command
+derives a deterministic tint from the installed ChatGPT icon locally and does
+not redistribute OpenAI artwork.
+
+The generated app calls `codex-profile app <profile>` and never copies,
+modifies, or re-signs the installed ChatGPT bundle. Its custom identity is
+visible in Finder, Launchpad, and on a pinned Dock launcher. The active ChatGPT
+process retains its native name and icon. `launcher list [--json]`, `launcher
+path <profile>`, and `launcher remove <profile> [--yes]` inspect and remove only
+managed launchers; profile authentication and Electron data are preserved.
+
+`CODEX_PROFILE_LAUNCHER_ROOT` overrides the default `~/Applications` location.
+Changing a managed launcher's name or color requires `--force`.
 
 ## In-shell activation
 

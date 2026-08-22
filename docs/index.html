@@ -68,6 +68,7 @@
         "Stock ChatGPT desktop session through app default",
         "Named ChatGPT windows with separate local state",
         "Parallel named Desktop windows without app cloning or re-signing",
+        "Named color-coded macOS launchers that preserve the signed ChatGPT app",
         "Read-only profile status and doctor diagnostics",
         "Safe non-secret config cloning",
         "Bash, Zsh, and Fish completion generators",
@@ -89,7 +90,7 @@
       "url": "https://ducksss.github.io/codex-profiles/",
       "name": "codex-profiles - Named Codex homes and ChatGPT desktop windows",
       "description": "A machine-readable product page for codex-profiles and its separate Codex-local and ChatGPT Desktop scopes.",
-      "dateModified": "2026-07-15",
+      "dateModified": "2026-07-20",
       "isPartOf": {
         "@id": "https://ducksss.github.io/codex-profiles/#website"
       },
@@ -139,6 +140,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "app default uses ~/.codex and preserves the stock ChatGPT Desktop session by omitting a custom Electron user-data directory."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can profile launchers have different names and icon colors?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. On macOS, launcher create makes a small local app with a custom display name and one of eight deterministic icon colors. It opens the original signed ChatGPT app, whose active process keeps its native identity."
           }
         },
         {
@@ -758,6 +767,11 @@ codex-profile doctor</code></pre>
           <p>The launcher opens the installed ChatGPT app without cloning, patching, re-signing, quitting, or replacing it.</p>
         </article>
         <article class="item">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18h1.5a1.5 1.5 0 0 0 0-3H12a1.5 1.5 0 0 1 0-3h3a6 6 0 0 0 0-12h-3Z"/><circle cx="7.5" cy="10" r=".7"/><circle cx="10" cy="6.8" r=".7"/></svg></span>
+          <strong>Named color launchers</strong>
+          <p>Managed macOS launcher apps add custom Finder, Launchpad, and pinned Dock identities while keeping the active signed ChatGPT process native.</p>
+        </article>
+        <article class="item">
           <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6M12 19h8"/></svg></span>
           <strong>No runtime dependencies</strong>
           <p>The distributed command is Bash and is tested on macOS and Ubuntu/Linux.</p>
@@ -778,6 +792,7 @@ codex-profile doctor</code></pre>
             <tr><td>cli, login, env, use</td><td>Codex-local state under the selected CODEX_HOME only</td></tr>
             <tr><td>app default</td><td>Stock ChatGPT Desktop session plus ~/.codex</td></tr>
             <tr><td>app &lt;name&gt;</td><td>Named whole-window ChatGPT local state plus matching ~/.codex-&lt;name&gt;</td></tr>
+            <tr><td>launcher create &lt;name&gt;</td><td>Custom local macOS launcher identity; it routes to app &lt;name&gt; without changing the signed ChatGPT app</td></tr>
             <tr><td>status</td><td>Codex-local login state; not a Desktop account inspector</td></tr>
           </tbody>
         </table>
@@ -847,6 +862,10 @@ codex-profile doctor</code></pre>
         <article>
           <h3>What does app default do?</h3>
           <p>app default uses ~/.codex and preserves the stock ChatGPT Desktop session by omitting a custom Electron user-data directory.</p>
+        </article>
+        <article>
+          <h3>Can profile launchers have different names and icon colors?</h3>
+          <p>Yes. On macOS, <code>launcher create</code> makes a small local app with a custom display name and one of eight deterministic icon colors. It opens the original signed ChatGPT app, whose active process keeps its native identity.</p>
         </article>
         <article>
           <h3>Does codex-profiles verify that CLI and Desktop use the same account?</h3>
