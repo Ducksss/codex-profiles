@@ -7,6 +7,26 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- Added managed macOS profile launchers with custom display names and a fixed
+  eight-color icon palette. Launchers keep the installed signed ChatGPT bundle
+  untouched, route to an initialized profile, and can be listed, inspected,
+  replaced, or removed without deleting profile data.
+
+### Changed
+
+- Named ChatGPT launches now mirror their Electron data directory through
+  `CODEX_ELECTRON_USER_DATA_PATH` as well as `--user-data-dir`. The integrated
+  app treats that variable as the authoritative Electron user-data path, so the
+  selected `CODEX_HOME` also survives the app's login-shell environment load.
+  Repeat launches of one named profile now focus that profile's existing window
+  instead of starting a second instance against the same Electron data.
+- Launcher records survive a launcher deleted outside the CLI: `launcher list`
+  skips a stale record on stderr instead of failing the whole listing and
+  emitting truncated JSON, `launcher create` rebuilds the missing app, and
+  `launcher remove` clears the leftover record.
+
 ## 0.8.0 - 2026-07-15
 
 ### Added

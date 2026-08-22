@@ -338,11 +338,53 @@ codex-profile app work ~/Dev/work-app
 - `default` preserves the normal ChatGPT session and maps Codex state to
   `~/.codex`.
 - Every other name receives its own Electron user-data directory and matching
-  `CODEX_HOME`.
+  `CODEX_HOME`. The launcher supplies the Electron directory through both
+  `CODEX_ELECTRON_USER_DATA_PATH` and `--user-data-dir`.
 - The local boundary applies to the whole launched window: Chat and Work use
   its Electron context, while Codex also receives the matching `CODEX_HOME`.
   Account identity still must be verified in the relevant UI.
 - Opening a named window never quits the stock window or another profile.
+
+### Add named, color-coded macOS launchers
+
+Create small launcher apps for profiles you want to distinguish in Finder,
+Launchpad, or the Dock:
+
+```sh
+codex-profile launcher create default --name "ChatGPT Main" --color green
+codex-profile launcher create personal --name "ChatGPT Personal" --color blue
+codex-profile launcher list
+codex-profile launcher path personal
+```
+
+Supported colors are `blue`, `green`, `teal`, `purple`, `pink`, `red`,
+`orange`, and `graphite`. Launchers are stored in `~/Applications` by default;
+set `CODEX_PROFILE_LAUNCHER_ROOT` to use another directory. Creation derives a
+deterministically tinted icon from the installed ChatGPT artwork on the local
+Mac. The project does not redistribute that artwork.
+
+Each generated app is a small unsigned shell launcher. It calls
+`codex-profile app <profile>` and leaves the installed, signed ChatGPT bundle
+untouched. Its custom name and icon appear on the launcher in Finder,
+Launchpad, and when pinned to the Dock. After launch, the active ChatGPT process
+keeps ChatGPT's native name and icon because macOS is running the original
+signed app.
+
+Creating the same launcher twice is idempotent. Use `--force` to replace a
+managed launcher with a different name or color. Removal deletes only the
+managed launcher and its local metadata, not the profile or its authentication
+and Electron data:
+
+```sh
+codex-profile launcher remove personal
+codex-profile launcher remove personal --yes
+```
+
+Deleting a generated launcher in Finder is safe. `launcher list` reports the
+stale record on stderr and keeps listing the healthy launchers, `launcher
+create` rebuilds the missing app, and `launcher remove` clears the leftover
+record. A launcher path that exists but belongs to another profile is still
+refused rather than overwritten.
 
 #### Deprecated compatibility spellings
 
@@ -459,6 +501,10 @@ codex-profile cli <profile> [codex-args...]
 codex-profile login <profile> [codex-login-args...]
 codex-profile init <profile> [--share-with <source-profile>]
 codex-profile remove <profile> [--yes]
+codex-profile launcher create <profile> [--name <display-name>] [--color <color>] [--force]
+codex-profile launcher list [--json]
+codex-profile launcher path <profile>
+codex-profile launcher remove <profile> [--yes]
 codex-profile workspace bind <path> <profile> [--force]
 codex-profile workspace unbind <path>
 codex-profile workspace list [--json]
@@ -503,7 +549,8 @@ launch or log mode.
 | `CODEX_APP_BIN` | Deprecated executable override; accepted only for an executable inside an app bundle. |
 | `CODEX_CLI` | Use a specific Codex CLI. An invalid explicit override fails instead of silently selecting another binary. |
 | `CODEX_BUNDLED_CLI` | Optional fallback Codex CLI checked after `PATH` and before the selected app's bundled CLI. |
-| `CODEX_PROFILE_CONFIG_HOME` | Override the private directory containing workspace bindings and guard mode. |
+| `CODEX_PROFILE_CONFIG_HOME` | Override the private directory containing workspace bindings, guard mode, and launcher metadata. |
+| `CODEX_PROFILE_LAUNCHER_ROOT` | Override the macOS launcher install directory (default: `~/Applications`). |
 | `CODEX_PROFILE_UPGRADE_REPO` | Override the source-upgrade repository. |
 | `CODEX_PROFILE_UPGRADE_REF` | Override the source-upgrade git ref. |
 | `CODEX_PROFILE_UPGRADE_CACHE` | Override the source-upgrade cache. |
@@ -544,13 +591,13 @@ contains no profile data; disable it with `CODEX_PROFILE_NO_UPDATE_CHECK=1` or
 
 ## Platform support
 
-CLI-oriented commands are tested on macOS and Ubuntu/Linux:
+CLI-oriented commands and launcher inspection are tested on macOS and Ubuntu/Linux:
 
 ```text
 cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
 ```
 
-`app` is macOS-only. It detects the installed integrated `ChatGPT.app` and
+`app` and `launcher create` are macOS-only. They detect the installed integrated `ChatGPT.app` and
 retains legacy `Codex.app` detection for older installations. The launcher
 opens the original signed app with a profile-specific environment and user-data
 directory; it never copies or re-signs an application bundle.
