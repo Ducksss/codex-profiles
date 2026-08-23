@@ -94,6 +94,11 @@ Profile-to-path mapping: `default -> ~/.codex`; any other name `<x> -> ~/.codex-
 - Keep the scope contract explicit: `cli`/`login`/`env`/`use` are Codex-only;
   `app default` preserves stock ChatGPT Desktop state; named `app` launches use
   matching `CODEX_HOME` and Electron data for the entire ChatGPT window.
+- Do not add `--shared-home`, auth.json copying, or store-level session
+  symlinks. Current Codex Desktop canonicalizes rollout paths, so a `sessions/`
+  link that escapes `CODEX_HOME` breaks fork and side chats. Desktop identity
+  follows `CODEX_HOME/auth.json`, not Electron data alone. Downstream wrappers
+  may decouple those; this tool must not.
 - Desktop code must launch the original signed bundle. Do not reintroduce app
   clones, metadata patching, ad-hoc signing, global quitting, or broad kills.
 - Keep `--instance`, `--rebuild`, and `app-instance` as deprecated
@@ -120,7 +125,9 @@ log entry with the exact outcome, reason, and relevant link.
 - `init --share-with` links only the documented configuration allowlist. It
   keeps auth, sessions, logs, Electron data, caches, skills, and connector/app
   state separate and never reads or copies authentication data; linked config
-  and plugins remain mutually visible.
+  and plugins remain mutually visible. A later `doctor` check may flag
+  store-level escapes (`sessions`, `state_5.sqlite`, …) but must not treat the
+  `--share-with` allowlist as an escape.
 - `status` is Codex-local. Account equality between CLI and Desktop is not
   inspected or verified.
 - Local-state separation is not an account, OS, or server-side boundary. SSH
