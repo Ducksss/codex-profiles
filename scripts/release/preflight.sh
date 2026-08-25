@@ -7,8 +7,15 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/release/lib.sh
 source "$SCRIPT_DIR/lib.sh"
 cd "$ROOT_DIR"
+skip_homebrew="${SKIP_HOMEBREW:-false}"
+[[ "$skip_homebrew" == "true" || "$skip_homebrew" == "false" ]] || {
+  echo "SKIP_HOMEBREW must be true or false." >&2
+  exit 1
+}
 [[ -n "${NPM_TOKEN:-}" ]] || { echo "NPM_TOKEN is required." >&2; exit 1; }
-[[ -n "${TAP_TOKEN:-}" ]] || { echo "TAP_TOKEN is required." >&2; exit 1; }
+if [[ "$skip_homebrew" != "true" ]]; then
+  [[ -n "${TAP_TOKEN:-}" ]] || { echo "TAP_TOKEN is required." >&2; exit 1; }
+fi
 
 registry="https://registry.npmjs.org/"
 npm_user=""
@@ -35,6 +42,12 @@ if ! awk -v expected="$npm_user" '
   exit 1
 fi
 unset npm_owners npm_user
+
+if [[ "$skip_homebrew" == "true" ]]; then
+  echo "Skipping Homebrew tap credentials; this release leaves the tap unchanged."
+  echo "Release credential identities passed preflight."
+  exit 0
+fi
 
 tap_account_push=""
 if ! tap_account_push="$(
