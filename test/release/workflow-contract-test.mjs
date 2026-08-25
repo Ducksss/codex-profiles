@@ -29,6 +29,7 @@ const requiredLiterals = [
   "version:",
   "dry_run:",
   "desktop_smoke_attestation:",
+  "skip_homebrew:",
   "group: release",
   "cancel-in-progress: false",
   "needs: verify",
@@ -129,9 +130,30 @@ for (const [name, literals] of Object.entries({
 }
 
 for (const name of publishSteps.slice(1, -1)) {
-  assert.ok(
-    stepBlock(name).includes("if: ${{ ! inputs.dry_run }}"),
+  assert.match(
+    stepBlock(name),
+    /if: \$\{\{ ! inputs\.dry_run( &&[^}]*)? \}\}/,
     `${name} should remain live-only`,
+  );
+}
+
+// skip_homebrew lets a release publish npm, the GitHub Release, and Pages while
+// leaving the tap on its current version. Both preflights must learn about it,
+// or a skipped release would still demand tap credentials.
+for (const name of ["Preflight publish credentials", "Preflight release credential identities"]) {
+  assert.ok(
+    stepBlock(name).includes("SKIP_HOMEBREW: ${{ inputs.skip_homebrew }}"),
+    `${name} should receive skip_homebrew`,
+  );
+}
+assert.ok(
+  stepBlock("Update Homebrew tap").includes("if: ${{ ! inputs.dry_run && ! inputs.skip_homebrew }}"),
+  "the tap update should be skipped when skip_homebrew is set",
+);
+for (const name of ["Verification summary", "Release summary"]) {
+  assert.ok(
+    stepBlock(name).includes("SKIP_HOMEBREW: ${{ inputs.skip_homebrew }}"),
+    `${name} should report whether the tap was skipped`,
   );
 }
 

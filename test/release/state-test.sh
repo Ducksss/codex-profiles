@@ -100,6 +100,36 @@ set -e
 [[ "$missing_secret_status" -ne 0 ]] || fail "preflight accepted missing npm token"
 [[ "$missing_secret_output" != *'tap-token'* ]] || fail "preflight leaked tap token"
 
+set +e
+missing_tap_output="$({
+  PATH="$fake_bin:$PATH" RELEASE_TEST_LOG="$log_file" NPM_TOKEN="npm-token" TAP_TOKEN="" "$PREFLIGHT"
+} 2>&1)"
+missing_tap_status=$?
+set -e
+[[ "$missing_tap_status" -ne 0 ]] || fail "preflight accepted a missing tap token"
+[[ "$missing_tap_output" == *'TAP_TOKEN is required.'* ]] || fail "preflight did not name the missing tap token"
+
+# Skipping the tap must not require or consult tap credentials.
+: > "$log_file"
+skip_output="$(
+  PATH="$fake_bin:$PATH" RELEASE_TEST_LOG="$log_file" \
+    NPM_TOKEN="npm-token" TAP_TOKEN="" SKIP_HOMEBREW=true "$PREFLIGHT"
+)"
+[[ "$skip_output" == *'leaves the tap unchanged'* ]] || fail "skipped preflight did not report the skipped tap"
+grep -F 'npm:whoami --registry' "$log_file" >/dev/null || fail "skipped preflight skipped npm identity"
+! grep -F 'gh:api repos/Ducksss/homebrew-tap' "$log_file" >/dev/null \
+  || fail "skipped preflight still consulted the tap"
+
+set +e
+bad_flag_output="$({
+  PATH="$fake_bin:$PATH" RELEASE_TEST_LOG="$log_file" \
+    NPM_TOKEN="npm-token" TAP_TOKEN="tap-token" SKIP_HOMEBREW=yes "$PREFLIGHT"
+} 2>&1)"
+bad_flag_status=$?
+set -e
+[[ "$bad_flag_status" -ne 0 ]] || fail "preflight accepted a non-boolean SKIP_HOMEBREW"
+[[ "$bad_flag_output" == *'SKIP_HOMEBREW must be true or false.'* ]] || fail "preflight did not reject SKIP_HOMEBREW"
+
 run_verify_state() {
   local scenario="$1"
   local expected_status="$2"

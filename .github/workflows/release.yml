@@ -24,6 +24,11 @@ on:
         description: "Live release only: tested ChatGPT version and bundle ID; no account data."
         required: false
         type: string
+      skip_homebrew:
+        description: "Publish without updating the Homebrew tap; the tap stays on its current version."
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -68,6 +73,7 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          SKIP_HOMEBREW: ${{ inputs.skip_homebrew }}
         run: |
           scripts/release/preflight.sh
 
@@ -95,11 +101,15 @@ jobs:
       - name: Verification summary
         env:
           TAG: ${{ steps.release.outputs.tag }}
+          SKIP_HOMEBREW: ${{ inputs.skip_homebrew }}
         run: |
           if [[ "$DRY_RUN" == "true" ]]; then
             echo "Validated $TAG and publish credentials. Dry run made no release changes." | tee -a "$GITHUB_STEP_SUMMARY"
           else
             echo "Validated $TAG for live publication." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ "$SKIP_HOMEBREW" == "true" ]]; then
+            echo "Homebrew tap update is skipped; the tap keeps its current version." | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
   publish:
@@ -157,6 +167,7 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          SKIP_HOMEBREW: ${{ inputs.skip_homebrew }}
         run: |
           scripts/release/preflight.sh
 
@@ -226,7 +237,7 @@ jobs:
           scripts/release/verify-distribution.sh standalone
 
       - name: Update Homebrew tap
-        if: ${{ ! inputs.dry_run }}
+        if: ${{ ! inputs.dry_run && ! inputs.skip_homebrew }}
         env:
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
           V: ${{ needs.verify.outputs.version }}
@@ -246,5 +257,10 @@ jobs:
         env:
           V: ${{ needs.verify.outputs.version }}
           TAG: ${{ needs.verify.outputs.tag }}
+          SKIP_HOMEBREW: ${{ inputs.skip_homebrew }}
         run: |
           echo "Released codex-profile $V and verified Pages from $TAG." | tee -a "$GITHUB_STEP_SUMMARY"
+          if [[ "$SKIP_HOMEBREW" == "true" ]]; then
+            echo "The Homebrew tap was not updated; publish it separately for $V." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
