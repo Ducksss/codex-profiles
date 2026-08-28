@@ -310,11 +310,11 @@ The target must not already exist. `auth.json`, `sessions/`, `logs/`,
 `electron-user-data/`, caches, skills, and connector/app state are never
 linked. Do not add those store-level links by hand either: current Codex
 Desktop canonicalizes rollout paths, so a `sessions/` symlink that escapes the
-selected `CODEX_HOME` makes fork, side chats, archive, and rename fail. The
-command does not read or copy authentication data. Allowlisted
-links are live: edits from either profile affect the same source configuration,
-and plugins or configuration can themselves contain sensitive or executable
-content. Review the source before linking across trust domains.
+selected `CODEX_HOME` makes fork and side chats fail. The command does not read
+or copy authentication data. Allowlisted links are live: edits from either
+profile affect the same source configuration, and plugins or configuration can
+themselves contain sensitive or executable content. Review the source before
+linking across trust domains.
 
 ### Inspect Codex-local status
 
@@ -682,8 +682,10 @@ connectors, plans, limits, or cloud tasks.
 Current Codex Desktop resolves the rollout path before checking that it stays
 under `CODEX_HOME`. If `sessions/` or `state_5.sqlite` inside a named home is a
 symlink into another home, the resolved path is outside the selected home and
-fork, side chats, archive, and rename fail. `init --share-with` does not create
-those links. Do not symlink the session store.
+fork and side chats fail. A shared `state_5.sqlite` also breaks archive and
+delete, which scope rollouts to `sessions/` and name that directory in the
+error. `init --share-with` does not create those links. Do not symlink the
+session store.
 
 Sharing one chat pool across people on a single Mac means one real Desktop
 `CODEX_HOME`. Separate ChatGPT logins then need that account's `auth.json`

@@ -37,9 +37,10 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 - Do not symlink `sessions/`, `archived_sessions/`, `history.jsonl`,
   `session_index.jsonl`, or `state_5.sqlite` from a named home into another
   home. Current Codex Desktop canonicalizes rollout paths, then requires the
-  result to stay under `CODEX_HOME`. Those store-level links make fork, side
-  chats, archive, and rename fail with "rollout path must be in Codex home
-  directory".
+  result to stay under `CODEX_HOME`. Those store-level links make fork and
+  side chats fail with "rollout path must be in Codex home directory". A
+  shared `state_5.sqlite` also breaks archive and delete, which scope rollouts
+  to `sessions/` and name that directory in the error.
 - Desktop account identity follows `auth.json` in the active `CODEX_HOME`, not
   Electron user-data alone. Pointing a named window at a shared home without
   selecting that account's `auth.json` leaves the previous login on screen.
