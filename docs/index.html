@@ -189,6 +189,14 @@
             "@type": "Answer",
             "text": "Yes. Different names use separate local Electron state and can run side by side, while app default keeps the ordinary stock ChatGPT session."
           }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does fork fail with rollout path must be in Codex home directory?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Current Codex Desktop resolves the rollout path before checking that it stays under CODEX_HOME. A sessions/ or state_5.sqlite symlink from a named home into another home makes that check fail, so fork, side chats, archive, and rename break. init --share-with never creates those links. Do not symlink the session store. Sharing chats across people means one real Desktop CODEX_HOME. Separate ChatGPT logins then require selecting that account's auth.json; the account chip follows CODEX_HOME auth.json, not Electron user-data alone. This tool does not copy auth.json."
+          }
         }
       ]
     }
@@ -886,6 +894,10 @@ codex-profile doctor</code></pre>
         <article>
           <h3>Can multiple named ChatGPT windows run at once?</h3>
           <p>Yes. Different names use separate local Electron state and can run side by side, while app default keeps the ordinary stock ChatGPT session.</p>
+        </article>
+        <article>
+          <h3>Why does fork fail with rollout path must be in Codex home directory?</h3>
+          <p>Current Codex Desktop resolves the rollout path before checking that it stays under CODEX_HOME. A sessions/ or state_5.sqlite symlink from a named home into another home makes that check fail, so fork, side chats, archive, and rename break. init --share-with never creates those links. Do not symlink the session store. Sharing chats across people means one real Desktop CODEX_HOME. Separate ChatGPT logins then require selecting that account's auth.json; the account chip follows CODEX_HOME auth.json, not Electron user-data alone. This tool does not copy auth.json.</p>
         </article>
       </div>
     </section>

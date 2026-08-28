@@ -7,6 +7,14 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Documented
+
+- Explained that store-level session-store symlinks under a named `CODEX_HOME`
+  fail current Codex Desktop path containment, so fork and side chats break.
+  `init --share-with` does not create those links. Desktop account identity
+  follows `CODEX_HOME/auth.json`, not Electron user-data alone; this tool still
+  does not copy `auth.json`.
+
 ### Changed
 
 - Release dry runs now preflight the npm and Homebrew tap credentials, so a

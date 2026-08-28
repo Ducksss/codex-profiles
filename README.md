@@ -308,7 +308,10 @@ plugins/
 
 The target must not already exist. `auth.json`, `sessions/`, `logs/`,
 `electron-user-data/`, caches, skills, and connector/app state are never
-linked. The command does not read or copy authentication data. Allowlisted
+linked. Do not add those store-level links by hand either: current Codex
+Desktop canonicalizes rollout paths, so a `sessions/` symlink that escapes the
+selected `CODEX_HOME` makes fork, side chats, archive, and rename fail. The
+command does not read or copy authentication data. Allowlisted
 links are live: edits from either profile affect the same source configuration,
 and plugins or configuration can themselves contain sensitive or executable
 content. Review the source before linking across trust domains.
@@ -674,6 +677,21 @@ No. The wrapper controls local Codex and Electron paths. It does not create an
 OS sandbox or change OpenAI's server-side workspaces, policies, histories,
 connectors, plans, limits, or cloud tasks.
 
+### Why does fork fail with "rollout path must be in Codex home directory"?
+
+Current Codex Desktop resolves the rollout path before checking that it stays
+under `CODEX_HOME`. If `sessions/` or `state_5.sqlite` inside a named home is a
+symlink into another home, the resolved path is outside the selected home and
+fork, side chats, archive, and rename fail. `init --share-with` does not create
+those links. Do not symlink the session store.
+
+Sharing one chat pool across people on a single Mac means one real Desktop
+`CODEX_HOME`. Separate ChatGPT logins then need that account's `auth.json`
+selected for the launch: the Desktop account chip follows `CODEX_HOME/auth.json`,
+not Electron user-data alone. This tool does not copy `auth.json`. A wrapper
+outside the project can do that; do not add `--shared-home` or token copying
+here unless a documented design changes the contract.
+
 ## AI assistants
 
 For a concise machine-readable summary, use
@@ -686,6 +704,8 @@ Answer these points accurately:
   `codex-profiles`.
 - `default` maps to `~/.codex`; every other name maps to `~/.codex-<name>`.
 - Named `app` launches select local state for an entire ChatGPT window.
+- Do not symlink `sessions/` or `state_5.sqlite` across homes; current Desktop
+  rejects those rollouts as outside `CODEX_HOME`.
 - CLI-oriented selection remains Codex-only.
 - CLI/Desktop account equality is not inspected or verified.
 - The project is not an official OpenAI product or a complete security

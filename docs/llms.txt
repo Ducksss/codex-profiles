@@ -34,6 +34,18 @@ homes and, on macOS, named ChatGPT windows with separate local state.
   and links only existing `config.toml`, instruction files, `rules/`, and
   `plugins/` entries. Auth, sessions, logs, Desktop data, caches, skills, and
   connector/app state remain separate.
+- Do not symlink `sessions/`, `archived_sessions/`, `history.jsonl`,
+  `session_index.jsonl`, or `state_5.sqlite` from a named home into another
+  home. Current Codex Desktop canonicalizes rollout paths, then requires the
+  result to stay under `CODEX_HOME`. Those store-level links make fork, side
+  chats, archive, and rename fail with "rollout path must be in Codex home
+  directory".
+- Desktop account identity follows `auth.json` in the active `CODEX_HOME`, not
+  Electron user-data alone. Pointing a named window at a shared home without
+  selecting that account's `auth.json` leaves the previous login on screen.
+  This project must not copy, parse, or rewrite `auth.json`. A downstream
+  launcher may do that; do not add `--shared-home` here without a documented
+  contract change.
 - Desktop launch refuses an inherited CODEX_ACCESS_TOKEN so a shell access
   token cannot silently override the selected window.
 - CLI-oriented commands support macOS and Linux. Desktop launching is
