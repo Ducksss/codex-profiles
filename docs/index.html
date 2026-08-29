@@ -675,6 +675,8 @@
       transition: color 0.15s var(--ease), background 0.15s var(--ease);
     }
     .seg button .k { font-family: var(--font-mono); font-size: 0.8em; opacity: 0.65; margin-right: 6px; }
+    .seg button .sub { color: var(--muted-foreground); font-weight: 400; }
+    .seg button[aria-pressed="true"] .sub { color: inherit; opacity: 0.75; }
     .seg button[aria-pressed="true"] { color: var(--foreground); background: var(--background); box-shadow: var(--shadow-xs); }
     .seg button.danger[aria-pressed="true"] { color: #fff; background: var(--destructive); }
 
@@ -736,13 +738,21 @@
 
     .n-user .chip-bg { fill: #fafafa; }
     .n-user text { fill: #09090b; font-weight: 600; }
-    .n-profile .chip-bg { fill: #18181b; stroke: #3f3f46; stroke-width: 1.2; }
-    .n-profile.hot .chip-bg { stroke: #a1a1aa; }
-    .n-profile text { fill: #fafafa; font-weight: 500; }
+    .n-cmd .chip-bg { fill: #18181b; stroke: #3f3f46; stroke-width: 1.2; }
+    .n-cmd.hot .chip-bg { stroke: #a1a1aa; }
+    .n-cmd text { fill: #fafafa; font-weight: 500; }
+    .n-win .chip-bg { fill: #131316; stroke: #34343b; stroke-width: 1.1; }
+    .n-win.hot .chip-bg { stroke: #a1a1aa; }
+    .n-win text { fill: #d4d4d8; font-weight: 500; }
+    .n-win .win-dot { fill: #3f3f46; }
     .n-home .chip-bg { fill: #101013; stroke: #2b2b31; stroke-width: 1; }
-    .n-home text { fill: #a1a1aa; font-weight: 400; }
+    .n-home .home-title { fill: #e4e4e7; font-weight: 500; }
+    .n-home .home-rule { stroke: #232329; stroke-width: 1; }
+    .n-home .file { fill: #71717a; }
     .graph-stage[data-mode="shared"] .n-home .chip-bg { fill: #1a0f0f; stroke: rgba(239, 68, 68, 0.5); }
-    .graph-stage[data-mode="shared"] .n-home text { fill: #f87171; }
+    .graph-stage[data-mode="shared"] .n-home .home-title { fill: #f87171; }
+    .graph-stage[data-mode="shared"] .n-home .home-rule { stroke: rgba(239, 68, 68, 0.3); }
+    .graph-stage[data-mode="shared"] .n-home .file { fill: rgba(248, 113, 113, 0.7); }
 
     .tip {
       position: absolute;
@@ -881,6 +891,7 @@
       .graph-toolbar { flex-direction: column; align-items: flex-start; }
       .seg { width: 100%; }
       .seg button { flex: 1; text-align: center; }
+      .seg button .sub { display: none; }
       .tabs { width: 100%; }
       .tabs [role="tab"] { flex: 1; text-align: center; padding: 6px 8px; }
       .cta-cmd { width: 100%; justify-content: space-between; }
@@ -1012,19 +1023,20 @@
       <div class="section-head">
         <p class="eyebrow">Interactive · drag the nodes</p>
         <h2 id="how">How Codex homes map to disk</h2>
-        <p class="lede">Swapping <span class="mono">auth.json</span> by hand leaves every account writing to one shared <span class="mono">~/.codex</span>. With codex-profiles, every name selects a separate <span class="mono">CODEX_HOME</span>. A named Desktop launch adds local Electron data for the entire ChatGPT window; the default launch preserves the stock ChatGPT session. Toggle the two models below.</p>
+        <p class="lede">Swapping <span class="mono">auth.json</span> by hand leaves every account writing to one shared <span class="mono">~/.codex</span>. With codex-profiles, every name selects a separate <span class="mono">CODEX_HOME</span>: <span class="mono">cli</span> commands switch only Codex-local state, while <span class="mono">app</span> launches a whole ChatGPT window with its own Electron data — and <span class="mono">app default</span> preserves the stock session. Compare the three views below.</p>
       </div>
 
       <div class="graph-shell">
         <div class="graph-toolbar">
           <div class="seg" role="group" aria-label="Local-state model">
-            <button id="mode-isolated" type="button" aria-pressed="true"><span class="k">$</span>codex-profile</button>
+            <button id="mode-cli" type="button" aria-pressed="true"><span class="k">$</span>cli<span class="sub"> · Codex only</span></button>
+            <button id="mode-app" type="button" aria-pressed="false"><span class="k">$</span>app<span class="sub"> · whole window</span></button>
             <button id="mode-shared" class="danger" type="button" aria-pressed="false"><span class="k">~</span>swap auth.json</button>
           </div>
-          <span class="graph-hint" id="graph-hint">one CODEX_HOME per profile</span>
+          <span class="graph-hint" id="graph-hint">Codex-only scope — one CODEX_HOME per name; the open ChatGPT window is untouched</span>
         </div>
 
-        <div class="graph-stage" id="graph" data-mode="isolated">
+        <div class="graph-stage" id="graph" data-mode="cli">
           <div class="badge-shared">⚠ one shared ~/.codex — state bleeds between accounts</div>
           <div class="tip" id="graph-tip"></div>
           <div class="graph-fallback" id="graph-fallback">
@@ -1466,34 +1478,67 @@
       { id: "work", label: "work", home: "~/.codex-work" },
       { id: "edu", label: "edu", home: "~/.codex-edu" }
     ];
+    var CODEX_FILES = ["auth.json", "config.toml", "sessions/"];
     var FILES = "auth.json · config.toml · sessions · plugins · logs";
+
+    var HINTS = {
+      cli: "Codex-only scope — one CODEX_HOME per name; the open ChatGPT window is untouched",
+      app: "Whole-window scope — a named ChatGPT window plus its matching Codex home",
+      shared: "every profile shares one ~/.codex — tokens collide"
+    };
+
+    // column fractions per mode: you -> command -> (window) -> home
+    var COLS = {
+      cli: { user: 0.12, cmd: 0.44, home: 0.79 },
+      app: { user: 0.08, cmd: 0.31, win: 0.575, home: 0.85 },
+      shared: { user: 0.12, cmd: 0.44, home: 0.79 }
+    };
+
+    function homeOf(id) { return id === "default" ? "~/.codex" : "~/.codex-" + id; }
 
     // persistent node registry so positions survive a mode switch
     var reg = {};
     function getNode(id, type, label) {
-      if (!reg[id]) { reg[id] = { id: id, type: type, label: label }; }
-      else { reg[id].type = type; reg[id].label = label; }
+      if (!reg[id]) { reg[id] = { id: id }; }
+      reg[id].type = type;
+      reg[id].label = label;
       return reg[id];
     }
 
     function buildGraph(mode) {
-      var you = getNode("you", "user", "you"); you.row = 1.5;
+      var cols = COLS[mode];
+      var you = getNode("you", "user", "you"); you.row = 1.5; you.colFrac = cols.user;
       var nodes = [you];
       var links = [];
       PROFILES.forEach(function (p, i) {
-        var pn = getNode(p.id, "profile", p.label); pn.row = i;
-        nodes.push(pn);
+        var cmdLabel = mode === "shared" ? p.label : (mode + " " + p.id);
+        var cn = getNode(p.id, "cmd", cmdLabel); cn.row = i; cn.colFrac = cols.cmd; cn.profile = p.id;
+        nodes.push(cn);
         links.push({ source: "you", target: p.id });
         if (mode === "shared") {
           links.push({ source: p.id, target: "shared", shared: true });
         } else {
-          var hn = getNode("home-" + p.id, "home", p.home); hn.row = i;
+          var hn = getNode("home-" + p.id, "home", p.home);
+          hn.row = i; hn.colFrac = cols.home; hn.profile = p.id;
+          hn.files = (mode === "app" && p.id !== "default")
+            ? CODEX_FILES.concat(["electron-user-data/"])
+            : CODEX_FILES.slice();
+          if (mode === "app") {
+            var wn = getNode("win-" + p.id, "win", p.id === "default" ? "stock window" : p.id + " window");
+            wn.row = i; wn.colFrac = cols.win; wn.profile = p.id;
+            nodes.push(wn);
+            links.push({ source: p.id, target: "win-" + p.id });
+            links.push({ source: "win-" + p.id, target: "home-" + p.id });
+          } else {
+            links.push({ source: p.id, target: "home-" + p.id });
+          }
           nodes.push(hn);
-          links.push({ source: p.id, target: "home-" + p.id });
         }
       });
       if (mode === "shared") {
-        var sh = getNode("shared", "home", "~/.codex"); sh.row = 1.5;
+        var sh = getNode("shared", "home", "~/.codex");
+        sh.row = 1.5; sh.colFrac = cols.home; sh.profile = null;
+        sh.files = CODEX_FILES.slice();
         nodes.push(sh);
       }
       nodes.forEach(function (n) {
@@ -1505,12 +1550,8 @@
     var W = stage.clientWidth || 800;
     var H = stage.clientHeight || 520;
 
-    // layered left -> right columns: you -> profiles -> homes
-    function colX(d) {
-      if (d.type === "user") return W * 0.13;
-      if (d.type === "profile") return W * 0.45;
-      return W * 0.78;
-    }
+    // layered left -> right columns, fraction assigned per mode in buildGraph
+    function colX(d) { return W * (d.colFrac || 0.5); }
     // deterministic vertical slot per row (0..3), 1.5 = centered
     function rowY(row) { return H * ((row + 0.5) / 4); }
 
@@ -1522,8 +1563,8 @@
     var nodeLayer = svg.append("g");
 
     var sim = d3.forceSimulation()
-      .force("link", d3.forceLink().id(function (d) { return d.id; }).distance(140).strength(0.08))
-      .force("charge", d3.forceManyBody().strength(-140))
+      .force("link", d3.forceLink().id(function (d) { return d.id; }).distance(110).strength(0.08))
+      .force("charge", d3.forceManyBody().strength(-120))
       .force("collide", d3.forceCollide(30).strength(1))
       .force("x", d3.forceX(colX).strength(0.5))
       .force("y", d3.forceY(function (d) { return rowY(d.row); }).strength(0.22));
@@ -1543,11 +1584,13 @@
     var nodeSel = nodeLayer.selectAll("g.node");
     var current = { nodes: [], links: [] };
 
-    function dims(type) {
+    function dims(d) {
       var small = W < 560;
-      if (type === "user") return { w: 0, h: 0, r: small ? 27 : 33 };
-      if (type === "profile") return { w: small ? 84 : 104, h: 36, r: 0 };
-      return { w: small ? 124 : 158, h: 36, r: 0 };
+      if (d.type === "user") return { w: 0, h: 0, r: small ? 25 : 32 };
+      if (d.type === "cmd") return { w: small ? 88 : 116, h: 32, r: 0 };
+      if (d.type === "win") return { w: small ? 98 : 130, h: small ? 36 : 42, r: 0 };
+      var n = (d.files || []).length;
+      return { w: small ? 126 : 170, h: (small ? 26 : 30) + n * (small ? 11 : 13), r: 0 };
     }
 
     function render(mode) {
@@ -1568,48 +1611,79 @@
       nodeSel = nodeLayer.selectAll("g.node").data(g.nodes, function (d) { return d.id; });
       nodeSel.exit().remove();
       var enter = nodeSel.enter().append("g")
-        .attr("class", function (d) { return "node n-" + d.type; })
         .call(d3.drag().on("start", dragStart).on("drag", dragged).on("end", dragEnd))
         .on("mouseenter", hoverOn).on("mouseleave", hoverOff)
         .on("focus", hoverOn).on("blur", hoverOff)
         .attr("tabindex", 0);
-
-      enter.each(function (d) {
-        var el = d3.select(this);
-        var dm = dims(d.type);
-        if (d.type === "user") {
-          el.append("circle").attr("class", "ring").attr("r", dm.r + 6);
-          el.append("circle").attr("class", "chip chip-bg").attr("r", dm.r);
-          el.append("text").attr("text-anchor", "middle").attr("dy", "0.34em").attr("font-size", "13").text(d.label);
-        } else {
-          el.append("rect").attr("class", "ring").attr("x", -dm.w / 2 - 4).attr("y", -dm.h / 2 - 4)
-            .attr("width", dm.w + 8).attr("height", dm.h + 8).attr("rx", 10);
-          el.append("rect").attr("class", "chip chip-bg").attr("x", -dm.w / 2).attr("y", -dm.h / 2)
-            .attr("width", dm.w).attr("height", dm.h).attr("rx", 8);
-          el.append("text").attr("text-anchor", "middle").attr("dy", "0.34em")
-            .attr("font-size", d.type === "home" ? (W < 560 ? "10" : "11.5") : (W < 560 ? "11.5" : "13")).text(d.label);
-        }
-        var a11y = d.type === "home" ? ("Codex home " + d.label) : (d.type === "profile" ? ("profile " + d.label) : "your macOS user");
-        el.attr("aria-label", a11y).attr("role", "img");
-      });
       nodeSel = enter.merge(nodeSel);
+
+      // shapes are rebuilt on every render: labels, file rows, and node
+      // types change between modes while positions persist in the registry
+      nodeSel.attr("class", function (d) { return "node n-" + d.type; })
+        .each(function (d) {
+          var el = d3.select(this);
+          el.selectAll("*").remove();
+          var dm = dims(d);
+          var small = W < 560;
+          d._hw = d.type === "user" ? dm.r : dm.w / 2;
+          d._hh = d.type === "user" ? dm.r : dm.h / 2;
+          if (d.type === "user") {
+            el.append("circle").attr("class", "ring").attr("r", dm.r + 6);
+            el.append("circle").attr("class", "chip chip-bg").attr("r", dm.r);
+            el.append("text").attr("text-anchor", "middle").attr("dy", "0.34em").attr("font-size", "13").text(d.label);
+          } else {
+            el.append("rect").attr("class", "ring").attr("x", -dm.w / 2 - 4).attr("y", -dm.h / 2 - 4)
+              .attr("width", dm.w + 8).attr("height", dm.h + 8).attr("rx", 10);
+            el.append("rect").attr("class", "chip chip-bg").attr("x", -dm.w / 2).attr("y", -dm.h / 2)
+              .attr("width", dm.w).attr("height", dm.h).attr("rx", 8);
+            if (d.type === "cmd") {
+              el.append("text").attr("text-anchor", "middle").attr("dy", "0.34em")
+                .attr("font-size", small ? 11 : 12.5).text(d.label);
+            } else if (d.type === "win") {
+              var dotY = -dm.h / 2 + (small ? 9 : 10);
+              [0, 1, 2].forEach(function (k) {
+                el.append("circle").attr("class", "win-dot")
+                  .attr("cx", -dm.w / 2 + (small ? 10 : 12) + k * 8).attr("cy", dotY).attr("r", 2.2);
+              });
+              el.append("text").attr("text-anchor", "middle").attr("dy", "0.34em")
+                .attr("y", small ? 6 : 8).attr("font-size", small ? 9.5 : 11).text(d.label);
+            } else {
+              var x0 = -dm.w / 2 + (small ? 8 : 10);
+              var ruleY = -dm.h / 2 + (small ? 18 : 21);
+              el.append("text").attr("class", "home-title").attr("x", x0)
+                .attr("y", -dm.h / 2 + (small ? 13 : 15)).attr("font-size", small ? 9 : 11).text(d.label);
+              el.append("line").attr("class", "home-rule")
+                .attr("x1", -dm.w / 2).attr("x2", dm.w / 2).attr("y1", ruleY).attr("y2", ruleY);
+              (d.files || []).forEach(function (f, k) {
+                el.append("text").attr("class", "file")
+                  .attr("x", x0).attr("y", ruleY + (small ? 10 + k * 11 : 12 + k * 13))
+                  .attr("font-size", small ? 8.5 : 9.5).text(f);
+              });
+            }
+          }
+          var a11y;
+          if (d.type === "home") { a11y = "Codex home " + d.label + " containing " + (d.files || []).join(", "); }
+          else if (d.type === "cmd") { a11y = mode === "shared" ? ("profile " + d.label) : ("command codex-profile " + d.label); }
+          else if (d.type === "win") { a11y = d.profile === "default" ? "stock ChatGPT window" : ("named ChatGPT window " + d.profile); }
+          else { a11y = "your macOS user"; }
+          el.attr("aria-label", a11y).attr("role", "img");
+        });
 
       sim.nodes(g.nodes);
       sim.force("link").links(g.links);
+      sim.force("collide", d3.forceCollide(function (d) { return Math.max(d._hw || 26, d._hh || 26) + 12; }).strength(1));
       sim.alpha(0.9).restart();
       if (reduce) { for (var i = 0; i < 260; i++) sim.tick(); ticked(); sim.alpha(0); }
 
-      hintEl.textContent = mode === "shared"
-        ? "every profile shares one ~/.codex — tokens collide"
-        : "one CODEX_HOME per profile";
+      hintEl.textContent = HINTS[mode];
     }
 
     sim.on("tick", ticked);
     function ticked() {
-      var pad = 26;
       current.nodes.forEach(function (d) {
-        d.x = Math.max(pad, Math.min(W - pad, d.x));
-        d.y = Math.max(pad, Math.min(H - pad, d.y));
+        var px = (d._hw || 26) + 6, py = (d._hh || 26) + 6;
+        d.x = Math.max(px, Math.min(W - px, d.x));
+        d.y = Math.max(py, Math.min(H - py, d.y));
       });
       linkSel
         .attr("x1", function (d) { return d.source.x; })
@@ -1640,12 +1714,25 @@
     }
     function showTip(e, d) {
       var html;
-      if (d.type === "user") { html = "<b>you</b><br>your macOS user — one set of SSH keys, browser, and GitHub auth"; }
-      else if (d.type === "profile") {
-        var home = (stage.getAttribute("data-mode") === "shared") ? "~/.codex (shared)" : ("~/.codex" + (d.id === "default" ? "" : "-" + d.id));
-        html = "<b>" + d.label + "</b> &rarr; <b>" + home + "</b><div class='files'>" + FILES + "</div>";
+      var mode = stage.getAttribute("data-mode");
+      if (d.type === "user") {
+        html = "<b>you</b><br>your macOS user — one set of SSH keys, browser, and GitHub auth";
+      } else if (d.type === "cmd") {
+        if (mode === "shared") {
+          html = "<b>" + d.label + "</b> &rarr; <b>~/.codex (shared)</b><div class='files'>" + FILES + "</div>";
+        } else if (mode === "app") {
+          html = d.profile === "default"
+            ? "<b>codex-profile app default</b><br>opens the stock ChatGPT window and keeps ~/.codex — no custom user-data directory"
+            : "<b>codex-profile app " + d.profile + "</b><br>opens a named ChatGPT window with separate local state plus " + homeOf(d.profile) + " for Codex";
+        } else {
+          html = "<b>codex-profile cli " + d.profile + "</b><br>runs Codex with CODEX_HOME=" + homeOf(d.profile) + " — the open ChatGPT window is untouched";
+        }
+      } else if (d.type === "win") {
+        html = d.profile === "default"
+          ? "<b>stock ChatGPT window</b><br>your normal session, exactly as installed"
+          : "<b>" + d.profile + " window</b><br>whole-window state under " + homeOf(d.profile) + "/electron-user-data — the signed ChatGPT app is launched unmodified";
       } else {
-        html = "<b>" + d.label + "</b><div class='files'>" + FILES + "</div>";
+        html = "<b>" + d.label + "</b><div class='files'>" + (d.files ? d.files.join(" · ") : FILES) + "</div>";
       }
       tipEl.innerHTML = html;
       var sx = W ? (stage.clientWidth / W) : 1, sy = H ? (stage.clientHeight / H) : 1;
@@ -1657,14 +1744,17 @@
     }
 
     // mode toggle
-    var btnIso = document.getElementById("mode-isolated");
+    var btnCli = document.getElementById("mode-cli");
+    var btnApp = document.getElementById("mode-app");
     var btnShared = document.getElementById("mode-shared");
     function setMode(mode) {
-      btnIso.setAttribute("aria-pressed", String(mode === "isolated"));
+      btnCli.setAttribute("aria-pressed", String(mode === "cli"));
+      btnApp.setAttribute("aria-pressed", String(mode === "app"));
       btnShared.setAttribute("aria-pressed", String(mode === "shared"));
       render(mode);
     }
-    btnIso.addEventListener("click", function () { setMode("isolated"); });
+    btnCli.addEventListener("click", function () { setMode("cli"); });
+    btnApp.addEventListener("click", function () { setMode("app"); });
     btnShared.addEventListener("click", function () { setMode("shared"); });
 
     // responsive: keep viewBox synced to container size
@@ -1680,7 +1770,7 @@
       }, 200);
     });
 
-    render("isolated");
+    render("cli");
   })();
   </script>
 </body>
