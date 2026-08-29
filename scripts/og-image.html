@@ -12,77 +12,68 @@
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@700;800;900&family=Hanken+Grotesk:wght@500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 1200px; height: 630px; overflow: hidden; }
   body {
     position: relative;
-    font-family: "Hanken Grotesk", -apple-system, sans-serif;
-    background: #ffffff;
-    color: #09090b;
+    font-family: "Geist", -apple-system, sans-serif;
+    background: #09090b;
+    color: #fafafa;
   }
-  .wash {
+  .dots {
     position: absolute; inset: 0;
-    background:
-      radial-gradient(720px 420px at 88% -12%, rgba(139, 92, 246, 0.16), transparent 62%),
-      radial-gradient(640px 400px at 4% 108%, rgba(34, 211, 238, 0.14), transparent 60%);
-  }
-  .gridlines {
-    position: absolute; inset: 0;
-    background-image:
-      linear-gradient(rgba(9, 9, 11, 0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(9, 9, 11, 0.045) 1px, transparent 1px);
-    background-size: 44px 44px;
-    mask-image: radial-gradient(900px 560px at 30% 40%, #000 30%, transparent 78%);
-    -webkit-mask-image: radial-gradient(900px 560px at 30% 40%, #000 30%, transparent 78%);
+    background-image: radial-gradient(#26262b 1px, transparent 1px);
+    background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(ellipse 85% 90% at 35% 30%, #000 25%, transparent 75%);
+    mask-image: radial-gradient(ellipse 85% 90% at 35% 30%, #000 25%, transparent 75%);
   }
   .card { position: relative; z-index: 1; height: 100%; padding: 64px 72px; display: flex; flex-direction: column; }
-  .brand { display: flex; align-items: center; gap: 18px; }
-  .tile { width: 56px; height: 56px; border-radius: 13px; background: #0c0c0d; display: grid; place-items: center; }
-  .tile svg { width: 34px; height: 34px; }
-  .brand .name { font-family: "Schibsted Grotesk", sans-serif; font-weight: 800; font-size: 30px; letter-spacing: -0.02em; }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .tile { width: 52px; height: 52px; border-radius: 12px; background: #fafafa; display: grid; place-items: center; }
+  .tile svg { width: 30px; height: 30px; }
+  .brand .name { font-weight: 600; font-size: 27px; letter-spacing: -0.01em; }
   h1 {
-    margin-top: 52px;
-    font-family: "Schibsted Grotesk", sans-serif;
-    font-weight: 900;
-    font-size: 84px;
-    line-height: 0.98;
-    letter-spacing: -0.035em;
-    max-width: 760px;
+    margin-top: 56px;
+    font-weight: 700;
+    font-size: 82px;
+    line-height: 1.04;
+    letter-spacing: -0.045em;
+    max-width: 780px;
   }
   h1 .code {
-    font-family: "JetBrains Mono", monospace;
-    font-weight: 700;
-    font-size: 0.86em;
-    background: linear-gradient(96deg, #7c3aed 10%, #06b6d4 90%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    font-family: "Geist Mono", monospace;
+    font-weight: 600;
+    font-size: 0.78em;
+    letter-spacing: -0.02em;
+    background: #18181b;
+    border: 2px solid #26262b;
+    border-radius: 16px;
+    padding: 0 0.22em 0.05em;
+    vertical-align: 0.05em;
+    color: #fafafa;
   }
-  .sub { margin-top: 26px; font-size: 30px; font-weight: 500; color: #52525b; max-width: 690px; line-height: 1.35; }
-  .badges { margin-top: auto; display: flex; gap: 14px; font-family: "JetBrains Mono", monospace; font-size: 19px; color: #52525b; }
-  .badges span { border: 1.5px solid #e4e4e7; background: rgba(255, 255, 255, 0.75); border-radius: 999px; padding: 9px 20px; }
+  .sub { margin-top: 30px; font-size: 29px; font-weight: 500; color: #a1a1aa; max-width: 700px; line-height: 1.4; letter-spacing: -0.01em; }
+  .badges { margin-top: auto; display: flex; gap: 12px; font-family: "Geist Mono", monospace; font-size: 18px; color: #a1a1aa; }
+  .badges span { border: 1.5px solid #26262b; border-radius: 999px; padding: 8px 18px; }
   .term {
-    position: absolute; right: -70px; top: 150px; z-index: 2;
-    width: 460px; border-radius: 18px;
-    background: #0c0c0d; border: 1px solid #26262b;
-    box-shadow: 0 40px 90px -30px rgba(9, 9, 11, 0.5);
-    font-family: "JetBrains Mono", monospace; font-size: 19px;
-    transform: rotate(-3deg);
+    position: absolute; right: -50px; top: 168px; z-index: 2;
+    width: 430px; border-radius: 14px;
+    background: #0c0c0e; border: 1.5px solid #26262b;
+    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8);
+    font-family: "Geist Mono", monospace; font-size: 18px;
   }
-  .term-bar { display: flex; gap: 9px; padding: 18px 20px; border-bottom: 1px solid #222227; }
-  .term-bar i { width: 13px; height: 13px; border-radius: 50%; }
-  .b1 { background: #8b5cf6; } .b2 { background: #22d3ee; } .b3 { background: #f59e0b; }
-  .term-body { padding: 22px 24px 28px; line-height: 2.0; color: #d6d6d9; }
-  .pl { color: #71717a; } .cmd { color: #fafafa; } .arg { color: #67e8f9; } .ok { color: #34d399; } .out { color: #71717a; }
+  .term-bar { display: flex; gap: 8px; padding: 16px 18px; border-bottom: 1.5px solid #1f1f23; }
+  .term-bar i { width: 12px; height: 12px; border-radius: 50%; background: #2c2c32; }
+  .term-body { padding: 20px 22px 26px; line-height: 2.05; color: #d4d4d8; }
+  .pl { color: #52525b; } .cmd { color: #fafafa; } .arg { color: #a1a1aa; } .ok { color: #4ade80; } .out { color: #71717a; }
 </style>
 </head>
 <body>
-  <div class="wash"></div>
-  <div class="gridlines"></div>
+  <div class="dots"></div>
   <div class="term">
-    <div class="term-bar"><i class="b1"></i><i class="b2"></i><i class="b3"></i></div>
+    <div class="term-bar"><i></i><i></i><i></i></div>
     <div class="term-body">
       <div><span class="pl">$</span> <span class="cmd">codex-profile</span> <span class="arg">init work</span></div>
       <div><span class="ok">✓</span> <span class="out">created ~/.codex-work</span></div>
@@ -94,9 +85,8 @@
     <div class="brand">
       <div class="tile">
         <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
-          <path d="M17 21l13 11-13 11" fill="none" stroke="url(#g)" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <rect x="35" y="40" width="13" height="6.5" rx="3.25" fill="url(#g)"/>
+          <path d="M17 21l13 11-13 11" fill="none" stroke="#09090b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="35" y="40" width="13" height="7" rx="3.5" fill="#09090b"/>
         </svg>
       </div>
       <span class="name">codex-profiles</span>
@@ -104,7 +94,7 @@
     <h1>One <span class="code">~/.codex</span> is not enough.</h1>
     <p class="sub">Named Codex homes — and named ChatGPT windows with separate local state. Auth files are never copied.</p>
     <div class="badges">
-      <span>single-file Bash</span>
+      <span>single-file bash</span>
       <span>zero deps</span>
       <span>macOS + Linux</span>
       <span>MIT</span>
