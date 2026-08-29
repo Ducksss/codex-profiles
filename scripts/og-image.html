@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  Source for docs/og-image.png (1200x630 social card).
+  Regenerate with headless Chrome:
+
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu \
+    --screenshot="$PWD/docs/og-image.png" --window-size=1200,630 --hide-scrollbars \
+    --virtual-time-budget=10000 "file://$PWD/scripts/og-image.html"
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    position: relative;
+    font-family: "Geist", -apple-system, sans-serif;
+    background: #09090b;
+    color: #fafafa;
+  }
+  .dots {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(#26262b 1px, transparent 1px);
+    background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(ellipse 85% 90% at 35% 30%, #000 25%, transparent 75%);
+    mask-image: radial-gradient(ellipse 85% 90% at 35% 30%, #000 25%, transparent 75%);
+  }
+  .card { position: relative; z-index: 1; height: 100%; padding: 64px 72px; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .tile { width: 52px; height: 52px; border-radius: 12px; background: #fafafa; display: grid; place-items: center; }
+  .tile svg { width: 30px; height: 30px; }
+  .brand .name { font-weight: 600; font-size: 27px; letter-spacing: -0.01em; }
+  h1 {
+    margin-top: 56px;
+    font-weight: 700;
+    font-size: 82px;
+    line-height: 1.04;
+    letter-spacing: -0.045em;
+    max-width: 780px;
+  }
+  h1 .code {
+    font-family: "Geist Mono", monospace;
+    font-weight: 600;
+    font-size: 0.78em;
+    letter-spacing: -0.02em;
+    background: #18181b;
+    border: 2px solid #26262b;
+    border-radius: 16px;
+    padding: 0 0.22em 0.05em;
+    vertical-align: 0.05em;
+    color: #fafafa;
+  }
+  .sub { margin-top: 30px; font-size: 29px; font-weight: 500; color: #a1a1aa; max-width: 700px; line-height: 1.4; letter-spacing: -0.01em; }
+  .badges { margin-top: auto; display: flex; gap: 12px; font-family: "Geist Mono", monospace; font-size: 18px; color: #a1a1aa; }
+  .badges span { border: 1.5px solid #26262b; border-radius: 999px; padding: 8px 18px; }
+  .term {
+    position: absolute; right: -50px; top: 168px; z-index: 2;
+    width: 430px; border-radius: 14px;
+    background: #0c0c0e; border: 1.5px solid #26262b;
+    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8);
+    font-family: "Geist Mono", monospace; font-size: 18px;
+  }
+  .term-bar { display: flex; gap: 8px; padding: 16px 18px; border-bottom: 1.5px solid #1f1f23; }
+  .term-bar i { width: 12px; height: 12px; border-radius: 50%; background: #2c2c32; }
+  .term-body { padding: 20px 22px 26px; line-height: 2.05; color: #d4d4d8; }
+  .pl { color: #52525b; } .cmd { color: #fafafa; } .arg { color: #a1a1aa; } .ok { color: #4ade80; } .out { color: #71717a; }
+</style>
+</head>
+<body>
+  <div class="dots"></div>
+  <div class="term">
+    <div class="term-bar"><i></i><i></i><i></i></div>
+    <div class="term-body">
+      <div><span class="pl">$</span> <span class="cmd">codex-profile</span> <span class="arg">init work</span></div>
+      <div><span class="ok">✓</span> <span class="out">created ~/.codex-work</span></div>
+      <div><span class="pl">$</span> <span class="cmd">codex-profile</span> <span class="arg">app work</span></div>
+      <div><span class="ok">✓</span> <span class="out">named window launched</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="brand">
+      <div class="tile">
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17 21l13 11-13 11" fill="none" stroke="#09090b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="35" y="40" width="13" height="7" rx="3.5" fill="#09090b"/>
+        </svg>
+      </div>
+      <span class="name">codex-profiles</span>
+    </div>
+    <h1>One <span class="code">~/.codex</span> is not enough.</h1>
+    <p class="sub">Named Codex homes — and named ChatGPT windows with separate local state. Auth files are never copied.</p>
+    <div class="badges">
+      <span>single-file bash</span>
+      <span>zero deps</span>
+      <span>macOS + Linux</span>
+      <span>MIT</span>
+    </div>
+  </div>
+</body>
+</html>
