@@ -720,6 +720,22 @@
       z-index: 3;
     }
     .graph-stage[data-mode="shared"] .badge-shared { display: inline-flex; }
+    .badge-skills {
+      position: absolute;
+      bottom: 12px; left: 12px;
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 11px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.04);
+      color: #71717a;
+      border: 1px solid #232329;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      z-index: 3;
+      max-width: calc(100% - 24px);
+    }
+    .graph-stage[data-mode="shared"] .badge-skills { display: none; }
 
     /* graph nodes/links styled via class */
     .lnk { stroke: #3f3f46; stroke-width: 1.5; stroke-linecap: round; opacity: 0.8; transition: opacity 0.25s, stroke 0.25s; }
@@ -1038,6 +1054,7 @@
 
         <div class="graph-stage" id="graph" data-mode="cli">
           <div class="badge-shared">⚠ one shared ~/.codex — state bleeds between accounts</div>
+          <div class="badge-skills">shared by every profile — bundled skills · ~/.agents/skills · &lt;repo&gt;/.agents/skills</div>
           <div class="tip" id="graph-tip"></div>
           <div class="graph-fallback" id="graph-fallback">
             <h3>Local-state separation at a glance</h3>
@@ -1048,7 +1065,7 @@
               <li><code>personal</code> &rarr; <code>~/.codex-personal</code></li>
               <li><code>edu</code> &rarr; <code>~/.codex-edu</code></li>
             </ul>
-            <p>Each named Desktop profile additionally uses <code>~/.codex-&lt;name&gt;/electron-user-data</code>. Local-state separation is not an account, OS, or server-side boundary.</p>
+            <p>Each home holds its own login, config, sessions, skills, plugins, and automations; profiles are siblings and inherit nothing from each other. OpenAI bundled skills, <code>~/.agents/skills</code>, and <code>&lt;repo&gt;/.agents/skills</code> are shared by every profile. Each named Desktop profile additionally uses <code>~/.codex-&lt;name&gt;/electron-user-data</code>. Local-state separation is not an account, OS, or server-side boundary.</p>
           </div>
         </div>
       </div>
@@ -1478,8 +1495,8 @@
       { id: "work", label: "work", home: "~/.codex-work" },
       { id: "edu", label: "edu", home: "~/.codex-edu" }
     ];
-    var CODEX_FILES = ["auth.json", "config.toml", "sessions/"];
-    var FILES = "auth.json · config.toml · sessions · plugins · logs";
+    var CODEX_FILES = ["auth.json", "config.toml", "sessions/", "skills/"];
+    var FILES = "login · config · sessions · skills · plugins · automations";
 
     var HINTS = {
       cli: "Codex-only scope — one CODEX_HOME per name; the open ChatGPT window is untouched",
@@ -1671,7 +1688,9 @@
 
       sim.nodes(g.nodes);
       sim.force("link").links(g.links);
-      sim.force("collide", d3.forceCollide(function (d) { return Math.max(d._hw || 26, d._hh || 26) + 12; }).strength(1));
+      // vertical half-height only: columns keep nodes apart horizontally, and a
+      // width-based radius would shove same-column cards out of their rows
+      sim.force("collide", d3.forceCollide(function (d) { return (d._hh || 26) + 10; }).strength(1));
       sim.alpha(0.9).restart();
       if (reduce) { for (var i = 0; i < 260; i++) sim.tick(); ticked(); sim.alpha(0); }
 
@@ -1732,7 +1751,7 @@
           ? "<b>stock ChatGPT window</b><br>your normal session, exactly as installed"
           : "<b>" + d.profile + " window</b><br>whole-window state under " + homeOf(d.profile) + "/electron-user-data — the signed ChatGPT app is launched unmodified";
       } else {
-        html = "<b>" + d.label + "</b><div class='files'>" + (d.files ? d.files.join(" · ") : FILES) + "</div>";
+        html = "<b>" + d.label + "</b><br>its own " + FILES + " — siblings: profiles inherit nothing from each other";
       }
       tipEl.innerHTML = html;
       var sx = W ? (stage.clientWidth / W) : 1, sy = H ? (stage.clientHeight / H) : 1;
