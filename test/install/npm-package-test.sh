@@ -13,7 +13,9 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 0
 fi
 
-pack_json="$(npm pack --json --pack-destination "$TMP_PREFIX")"
+pack_json="$(npm pack --json \
+  --cache "$TMP_PREFIX/npm-cache" \
+  --pack-destination "$TMP_PREFIX")"
 tarball_name="$(
   node -e '
     const value = JSON.parse(process.argv[1]);
