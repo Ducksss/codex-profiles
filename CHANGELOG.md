@@ -10,10 +10,11 @@ and this project follows semantic versioning for tagged releases.
 ### Documented
 
 - Explained that store-level session-store symlinks under a named `CODEX_HOME`
-  fail current Codex Desktop path containment, so fork and side chats break.
-  `init --share-with` does not create those links. Desktop account identity
-  follows `CODEX_HOME/auth.json`, not Electron user-data alone; this tool still
-  does not copy `auth.json`.
+  fail current Codex Desktop path containment, so fork and side chats break. A
+  shared `state_5.sqlite` also breaks archive and delete, which name the
+  `sessions` directory in the error. `init --share-with` does not create those
+  links. Desktop account identity follows `CODEX_HOME/auth.json`, not Electron
+  user-data alone; this tool still does not copy `auth.json`.
 
 ### Changed
 
