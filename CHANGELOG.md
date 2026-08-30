@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.9.1 - 2026-08-30
+
 ### Documented
 
 - Explained that store-level session-store symlinks under a named `CODEX_HOME`
@@ -16,16 +18,11 @@ and this project follows semantic versioning for tagged releases.
   links. Desktop account identity follows `CODEX_HOME/auth.json`, not Electron
   user-data alone; this tool still does not copy `auth.json`.
 
-### Changed
+### Tests
 
-- Release dry runs now preflight the npm and Homebrew tap credentials, so a
-  missing or unauthorized publish secret fails before a live run reaches the
-  tag and publish steps. The secrets stay scoped to that step rather than the
-  whole verification job.
-- Added a `skip_homebrew` release input that publishes npm, the GitHub Release,
-  and Pages without touching the Homebrew tap. A skipped release neither
-  requires nor consults tap credentials, and both run summaries state that the
-  tap keeps its current version.
+- The npm package smoke test now gives `npm pack` the same throwaway cache the
+  install step already used, so a broken or unwritable user npm cache no longer
+  fails the test for reasons unrelated to the package.
 
 ## 0.9.0 - 2026-08-23
 
@@ -48,6 +45,14 @@ and this project follows semantic versioning for tagged releases.
   skips a stale record on stderr instead of failing the whole listing and
   emitting truncated JSON, `launcher create` rebuilds the missing app, and
   `launcher remove` clears the leftover record.
+- Release dry runs now preflight the npm and Homebrew tap credentials, so a
+  missing or unauthorized publish secret fails before a live run reaches the
+  tag and publish steps. The secrets stay scoped to that step rather than the
+  whole verification job.
+- Added a `skip_homebrew` release input that publishes npm, the GitHub Release,
+  and Pages without touching the Homebrew tap. A skipped release neither
+  requires nor consults tap credentials, and both run summaries state that the
+  tap keeps its current version.
 
 ## 0.8.0 - 2026-07-15
 
