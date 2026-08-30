@@ -1,11 +1,11 @@
 # GitHub Monitoring Status Map
 
 Use this map when rechecking existing outreach links. Record the source URL and
-the observed state in the Airtable log.
+the observed state in the tracker log.
 
-## External state to Airtable
+## External state to tracker
 
-| External state | Airtable status | Next action |
+| External state | Tracker status | Next action |
 | --- | --- | --- |
 | PR open, no new maintainer response | `PR Open` | Recheck on a dated cadence |
 | Issue open, no new maintainer response | `Issue Open` | Recheck on a dated cadence |

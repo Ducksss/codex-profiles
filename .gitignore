@@ -11,9 +11,11 @@ Thumbs.db
 .env.*
 !.env.example
 
-# Secrets (never commit outreach tracker tokens)
+# Secrets (never commit outreach tracker credentials or snapshots)
 *.airtable-token
 *-token
+*outreach-neon-private*.pem
+*outreach-snapshot*.json
 
 # Logs and temporary files
 *.log

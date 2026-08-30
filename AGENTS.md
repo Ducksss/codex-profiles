@@ -110,10 +110,11 @@ Profile-to-path mapping: `default -> ~/.codex`; any other name `<x> -> ~/.codex-
 ## Outreach ledger
 
 When doing outreach, directory submissions, PR distribution, or follow-up work,
-keep Airtable as the durable source of truth. Preserve existing platform
-records; do not delete or overwrite history. For meaningful updates, update the
-target row's status, last-checked date, next action, and notes, then append a
-log entry with the exact outcome, reason, and relevant link.
+keep the Neon-backed outreach tracker as the durable source of truth. Preserve
+existing platform records; do not delete or overwrite history. For meaningful
+updates, update the target row's status, last-checked date, next action, and
+notes, then append a log entry with the exact outcome, reason, and relevant
+link.
 
 ## Safety boundaries (state these accurately)
 

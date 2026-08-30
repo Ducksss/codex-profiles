@@ -74,8 +74,12 @@ assert_contains "$list_output" $'bash-test\ttest/packaging/metadata-test.sh' "me
 assert_contains "$list_output" $'node-test\ttest/packaging/aur-test.mjs' "AUR test inventory"
 assert_contains "$list_output" $'node-test\ttest/site/geo-test.mjs' "site test inventory"
 assert_contains "$list_output" $'node-test\ttest/outreach/tracker-test.mjs' "outreach tracker inventory"
+assert_contains "$list_output" $'node-test\ttest/outreach/migration-test.mjs' "outreach migration inventory"
+assert_contains "$list_output" $'node-test\ttest/outreach/neon-schema-test.mjs' "outreach Neon schema inventory"
 assert_contains "$list_output" $'node-test\ttest/outreach/agent-test.mjs' "outreach agent inventory"
 assert_contains "$list_output" $'node-test\ttest/outreach/skills-test.mjs' "outreach skills inventory"
+assert_contains "$list_output" $'node\tscripts/migrate-outreach-to-neon.mjs' "outreach migration utility inventory"
+assert_contains "$list_output" $'node\tscripts/outreach-tracker.mjs' "outreach tracker utility inventory"
 
 release_suites=(
   test/release/source-test.sh

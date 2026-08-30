@@ -1,6 +1,6 @@
 ---
 name: github-lead-qualification
-description: Use when qualifying Airtable GitHub lead candidates for codex-profiles after lead generation and before any closing draft. Not for discovery, drafting, outreach, submission, or monitoring.
+description: Use when qualifying outreach-tracker GitHub lead candidates for codex-profiles after lead generation and before any closing draft. Not for discovery, drafting, outreach, submission, or monitoring.
 ---
 
 # GitHub Lead Qualification
@@ -8,19 +8,19 @@ description: Use when qualifying Airtable GitHub lead candidates for codex-profi
 ## Purpose
 
 Decide whether GitHub lead-gen candidates are real fits for `codex-profiles`,
-then update Airtable with evidence and a next phase. This skill consumes
-Airtable targets whose `Next Action = Run lead qualification`.
+then update the outreach tracker with evidence and a next phase. This skill
+consumes tracker targets whose `Next Action = Run lead qualification`.
 
 ## Required Context
 
 Read `README.md` for current product positioning, `LAUNCH.md` for policy gates,
-and the selected Airtable target for live outreach state. Load
+and the selected tracker target for live outreach state. Load
 `references/icp-rules.md` before scoring.
 
 ## Boundaries
 
-- Update Airtable `Targets` and append `Log` entries only.
-- Consume Airtable targets whose `Next Action = Run lead qualification`.
+- Update tracker `Targets` and append `Log` entries only.
+- Consume tracker targets whose `Next Action = Run lead qualification`.
 - Use `Log.Workflow = lead-qualification` for every meaningful decision.
 - Assign exactly one of `ICP: yes`, `ICP: maybe`, or `ICP: no`.
 - Set `Priority`, `Status`, `Last Checked`, `Next Action`, and evidence.
@@ -68,21 +68,20 @@ node scripts/outreach-tracker.mjs release <key> --by <run-id>
 ```
 
 Target upserts are idempotent by `Key`, so retry an upsert after a definite
-failure. Logs are append-only: retry a log only when the first request definitely
-failed; if its outcome is ambiguous, preserve the decision in target notes,
-report the partial audit blocker, and do not append a possible duplicate blindly.
+failure. Logs are append-only and each tracker invocation supplies a mutation
+operation id, so a transport retry cannot append the same event twice.
 
 ## Workflow
 
 1. Select unqualified GitHub targets whose next action is lead qualification.
 2. Read the target repository, list, directory, or guidelines enough to judge
    fit and contribution route.
-3. Check GitHub for existing open PRs and issues and Airtable for duplicate
+3. Check GitHub for existing open PRs and issues and the tracker for duplicate
    repository URLs or keys before marking a target drafting-ready.
    - If an existing submission is open, preserve the target and history, set
      `Issue Open` or `PR Open` and route the canonical link to monitoring. Do
      not create a closing draft.
-   - If multiple Airtable rows describe the same repository, preserve them,
+   - If multiple tracker rows describe the same repository, preserve them,
      set a concrete dedupe blocker, and route the conflict through `Merge Queue`.
 4. Apply `references/icp-rules.md`; record evidence links and the truthful-fit
    rationale.
@@ -90,7 +89,7 @@ report the partial audit blocker, and do not append a possible duplicate blindly
    - `Backlog` only for `ICP: yes` with a valid PR-first or issue-first route,
      no duplicate open PR or issue, and a concrete next action.
    - `Deferred` for `ICP: maybe`, temporary blockers, gated flows, or
-     unresolved Airtable dedupe conflicts.
+     unresolved tracker dedupe conflicts.
    - `Dead` for permanent `ICP: no` mismatches.
 6. Set `Priority`: `P0` for direct Codex, agent, or CLI listing fit; `P1` for
    likely Codex or `CODEX_HOME` workflow fit; `P2` for broader devtool
@@ -101,5 +100,5 @@ report the partial audit blocker, and do not append a possible duplicate blindly
 
 ## Output
 
-Return a concise Airtable handoff: targets qualified, ICP counts, blockers,
+Return a concise tracker handoff: targets qualified, ICP counts, blockers,
 targets ready for closing draft, and any records that need dedupe cleanup.

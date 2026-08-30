@@ -1,7 +1,7 @@
 # GitHub Lead Gen Search Patterns
 
 Use these lanes for `codex-profiles` candidate discovery. Keep searches
-repository-first and skip results that cannot become a useful Airtable target.
+repository-first and skip results that cannot become a useful tracker target.
 
 ## Codex/Codex CLI/CODEX_HOME repositories
 

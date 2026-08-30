@@ -7,6 +7,18 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- Added a dependency-free Airtable-to-Neon migration utility, restricted Neon
+  schema, public RS256 JWKS, Merge Queue commands, and integration coverage for
+  transactional imports, RLS/grants, append-only history, and atomic claims.
+
+### Changed
+
+- Moved the operational outreach source of truth from Airtable to a dedicated
+  Neon Data API project while preserving legacy records, raw source snapshots,
+  command output, exit codes, relationships, and the 30-day deletion gate.
+
 ## 0.9.1 - 2026-08-30
 
 ### Documented

@@ -6,17 +6,16 @@ public feedback loops.
 
 ## Where Tracking Lives
 
-Outreach tracking moved to Airtable. This file holds only positioning, channel
-copy, launch order, and policy — the parts that rarely change and are not
-per-target state.
+Outreach tracking lives in the external outreach tracker. This file holds only
+positioning, channel copy, launch order, and policy — the parts that rarely
+change and are not per-target state.
 
-- Live tracker: Airtable base `appcezSUhDxz7uaQW` — `Targets` (one row per
-  platform), `Log` (append-only event history), and `Claims`
-  (append-preserving workflow leases).
+- Live tracker: Neon project `codex-profiles-outreach`, branch `main`, database
+  `neondb` — `Targets`, append-only `Log`, `Claims`, `Bots`, and `Merge Queue`.
 - Read and write it through `scripts/outreach-tracker.mjs` (see `agent.md`), not
   by editing this file. Do not re-add tracking tables here: concurrent runs would
   race on them, which is exactly why tracking moved out.
-- Pre-Airtable history:
+- Pre-tracker history:
   [`archive/launch-ledger-history.md`](archive/launch-ledger-history.md) and this
   file's git history.
 - Current outreach posture: broad near-identical awesome-list PRs are paused.
@@ -263,7 +262,7 @@ inspected or compared.
 ## Policy Gates
 
 Apply these before any outreach action; record the specific target status in the
-Airtable tracker, not here.
+outreach tracker, not here.
 
 - Broad awesome-list PRs remain paused after Taskade declined PR #22 on
   2026-06-02 and cited the pattern of near-identical `Add codex-profiles` PRs.
