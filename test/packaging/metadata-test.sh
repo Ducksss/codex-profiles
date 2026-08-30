@@ -27,7 +27,7 @@ sha256_file() {
 }
 
 version="$(node -p "require('./package.json').version")"
-assert_equals "release version" "0.9.0" "$version"
+assert_equals "release version" "0.9.1" "$version"
 assert_equals "package-lock version" "$version" "$(node -p "require('./package-lock.json').version")"
 assert_equals "package-lock root version" "$version" "$(node -p "require('./package-lock.json').packages[''].version")"
 assert_equals "CLI version" "$version" "$(sed -n 's/^VERSION="\([^"]*\)"/\1/p' bin/codex-profile | head -n 1)"

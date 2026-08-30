@@ -65,7 +65,7 @@ Complete the skill's media preflight before long-form copy and verify the
 rendered asset and crop. Write as Chai only when the authenticated project
 context verifies that identity.
 
-Do not resume new promotion until README/LAUNCH identify v0.9.0 as released and
+Do not resume new promotion until README/LAUNCH identify v0.9.1 as released and
 the current ChatGPT app verification gate is recorded as passed. Before
 updating an existing listing, preserve its original submission history and
 correct stale claims about app clones, `--instance`, or Codex-only Desktop

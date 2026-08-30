@@ -100,7 +100,7 @@ const archive = createArchive("release");
 const prepared = join(tempRoot, "prepared");
 const prepareArgs = [
   "--version",
-  "0.9.0",
+  "0.9.1",
   "--release-json",
   releaseJson,
   "--archive",
@@ -111,7 +111,7 @@ const prepareArgs = [
 
 const preparedResult = run(prepare, prepareArgs);
 assertSuccess(preparedResult, "immutable release preparation");
-assert.match(preparedResult.stdout, /Prepared codex-profile 0\.9\.0-1/);
+assert.match(preparedResult.stdout, /Prepared codex-profile 0\.9\.1-1/);
 assert.deepEqual(readdirSync(prepared).sort(), [".SRCINFO", "LICENSE", "PKGBUILD"]);
 for (const file of ["PKGBUILD", ".SRCINFO", "LICENSE"]) {
   assert.equal(
@@ -122,11 +122,11 @@ for (const file of ["PKGBUILD", ".SRCINFO", "LICENSE"]) {
   assert.equal(statSync(join(prepared, file)).mode & 0o777, 0o644, `${file} mode`);
 }
 
-const prefixedArchive = createArchive("prefixed-release", () => {}, "codex-profiles-0.9.0");
+const prefixedArchive = createArchive("prefixed-release", () => {}, "codex-profiles-0.9.1");
 assertSuccess(
   run(prepare, [
     "--version",
-    "0.9.0",
+    "0.9.1",
     "--release-json",
     releaseJson,
     "--archive",
@@ -141,7 +141,7 @@ const optionLikeArchive = createArchive("option-like-release", () => {}, "--chec
 assertFailure(
   run(prepare, [
     "--version",
-    "0.9.0",
+    "0.9.1",
     "--release-json",
     releaseJson,
     "--archive",
@@ -158,7 +158,7 @@ for (const [name, fixture] of Object.entries(releaseFixtures)) {
   writeJson(fixturePath, fixture);
   const result = run(prepare, [
     "--version",
-    "0.9.0",
+    "0.9.1",
     "--release-json",
     fixturePath,
     "--archive",
@@ -174,7 +174,7 @@ for (const [name, fixture] of Object.entries(releaseFixtures)) {
 }
 
 assertFailure(
-  run(prepare, ["--version", "v0.9.0", ...prepareArgs.slice(2, -1), join(tempRoot, "bad-version")]),
+  run(prepare, ["--version", "v0.9.1", ...prepareArgs.slice(2, -1), join(tempRoot, "bad-version")]),
   "prefixed version",
   "exact X.Y.Z version",
 );
@@ -186,7 +186,7 @@ const tamperedArchive = createArchive("tampered-source", (fixtureRoot) => {
 assertFailure(
   run(prepare, [
     "--version",
-    "0.9.0",
+    "0.9.1",
     "--release-json",
     releaseJson,
     "--archive",
@@ -200,12 +200,12 @@ assertFailure(
 
 const mismatchedMetadataArchive = createArchive("mismatched-metadata", (fixtureRoot) => {
   const path = join(fixtureRoot, "packaging", "aur", "PKGBUILD");
-  writeFileSync(path, readFileSync(path, "utf8").replace("pkgver=0.9.0", "pkgver=0.9.1"));
+  writeFileSync(path, readFileSync(path, "utf8").replace("pkgver=0.9.1", "pkgver=0.9.2"));
 });
 assertFailure(
   run(prepare, [
     "--version",
-    "0.9.0",
+    "0.9.1",
     "--release-json",
     releaseJson,
     "--archive",
@@ -273,7 +273,7 @@ const verifyEnv = {
 };
 const verifyArgs = [
   "--version",
-  "0.9.0",
+  "0.9.1",
   "--checkout",
   prepared,
   "--expected",
@@ -325,7 +325,7 @@ for (const [fixture, state, succeeds] of rpcScenarios) {
     verify,
     [
       "--version",
-      "0.9.0",
+      "0.9.1",
       "--checkout",
       prepared,
       "--rpc-json",
