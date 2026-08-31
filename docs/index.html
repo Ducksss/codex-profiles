@@ -204,7 +204,7 @@
           "name": "Why does fork fail with rollout path must be in Codex home directory?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Current Codex Desktop resolves the rollout path before checking that it stays under CODEX_HOME. A sessions/ or state_5.sqlite symlink from a named home into another home makes that check fail, so fork and side chats break. A shared state_5.sqlite also breaks archive and delete, which scope rollouts to sessions/ and name that directory in the error. init --share-with never creates those links. Do not symlink the session store. Sharing chats across people means one real Desktop CODEX_HOME. Separate ChatGPT logins then require selecting that account's auth.json; the account chip follows CODEX_HOME auth.json, not Electron user-data alone. This tool does not copy auth.json."
+            "text": "Current Codex Desktop resolves the rollout path before checking that it stays under CODEX_HOME. A sessions/ or state_5.sqlite symlink from a named home into another home makes that check fail, so fork and side chats break. A shared state_5.sqlite also breaks archive and delete, which restrict rollout paths to sessions/ and mention that directory in the error. init --share-with never creates those links. Do not symlink the session store. Sharing chats across people means one real Desktop CODEX_HOME. Separate ChatGPT logins then require selecting that account's auth.json; the account chip follows CODEX_HOME auth.json, not Electron user-data alone. This tool does not copy auth.json."
           }
         }
       ]
@@ -1225,7 +1225,7 @@
         </article>
         <article>
           <h3>Why does fork fail with rollout path must be in Codex home directory?</h3>
-          <p>Current Codex Desktop resolves the rollout path before checking that it stays under CODEX_HOME. A sessions/ or state_5.sqlite symlink from a named home into another home makes that check fail, so fork and side chats break. A shared state_5.sqlite also breaks archive and delete, which scope rollouts to sessions/ and name that directory in the error. init --share-with never creates those links. Do not symlink the session store. Sharing chats across people means one real Desktop CODEX_HOME. Separate ChatGPT logins then require selecting that account's auth.json; the account chip follows CODEX_HOME auth.json, not Electron user-data alone. This tool does not copy auth.json.</p>
+          <p>Current Codex Desktop resolves the rollout path before checking that it stays under CODEX_HOME. A sessions/ or state_5.sqlite symlink from a named home into another home makes that check fail, so fork and side chats break. A shared state_5.sqlite also breaks archive and delete, which restrict rollout paths to sessions/ and mention that directory in the error. init --share-with never creates those links. Do not symlink the session store. Sharing chats across people means one real Desktop CODEX_HOME. Separate ChatGPT logins then require selecting that account's auth.json; the account chip follows CODEX_HOME auth.json, not Electron user-data alone. This tool does not copy auth.json.</p>
         </article>
       </div>
     </section>
