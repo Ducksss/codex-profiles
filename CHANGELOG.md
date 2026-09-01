@@ -29,7 +29,8 @@ and this project follows semantic versioning for tagged releases.
   changes, and made package tests distinguish published tags from new release
   candidates.
 - Honored configured retry backoff when Neon or Airtable omits `Retry-After`,
-  and stopped placing the Neon database password in `psql` process arguments.
+  rejected credential-bearing non-URL database strings, and stopped placing
+  the Neon database password in `psql` process arguments.
 
 ## 0.9.1 - 2026-08-30
 
