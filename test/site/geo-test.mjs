@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import { createPublicKey } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,6 +36,7 @@ const securityPolicy = read('SECURITY.md');
 const pagesWorkflow = read('.github/workflows/pages.yml');
 const changelog = read('CHANGELOG.md');
 const packageJson = JSON.parse(read('package.json'));
+const outreachJwks = JSON.parse(read('docs/outreach-jwks.json'));
 
 const escapedVersion = packageJson.version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const releaseHeading = changelog.match(
@@ -70,7 +72,24 @@ assert.ok(fileExists('docs/llms.txt'), 'docs/llms.txt should exist');
 assert.ok(fileExists('docs/geo-audit.md'), 'docs/geo-audit.md should exist');
 assert.ok(fileExists('docs/geo-measurement.md'), 'docs/geo-measurement.md should exist');
 assert.ok(fileExists('docs/.nojekyll'), 'docs/.nojekyll should exist');
+assert.ok(fileExists('docs/outreach-jwks.json'), 'public outreach JWKS should exist');
+assert.ok(fileExists('docs/outreach-tracker.md'), 'outreach tracker runbook should exist');
 assert.ok(fileExists('.github/workflows/pages.yml'), 'Pages deploy workflow should exist');
+
+assert.equal(outreachJwks.keys.length, 1, 'outreach JWKS should publish one active key');
+const outreachJwk = outreachJwks.keys[0];
+assert.equal(outreachJwk.kty, 'RSA');
+assert.equal(outreachJwk.alg, 'RS256');
+assert.equal(outreachJwk.use, 'sig');
+assert.ok(outreachJwk.kid, 'outreach JWKS should include a key id');
+for (const privateField of ['d', 'p', 'q', 'dp', 'dq', 'qi']) {
+  assert.equal(outreachJwk[privateField], undefined, `JWKS must not expose ${privateField}`);
+}
+assert.equal(
+  createPublicKey({ key: outreachJwk, format: 'jwk' }).asymmetricKeyDetails.modulusLength,
+  3072,
+  'outreach signing key should be 3072 bits'
+);
 
 assertContains(
   html,

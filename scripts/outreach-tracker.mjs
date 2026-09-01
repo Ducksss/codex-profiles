@@ -1,25 +1,14 @@
 #!/usr/bin/env node
 
-// Outreach tracker: concurrency-safe read/write for the codex-profiles outreach
-// ledger, which lives in Airtable (base "codex-profiles Outreach Tracker").
+// Concurrency-safe outreach ledger backed by Neon Postgres through its Data API.
+// This is operational tooling and is excluded from the published CLI package.
+// It intentionally uses only Node's standard library and global fetch.
 //
-// This is operational tooling for the agent.md distribution agent. It is NOT part
-// of the shipped CLI: it is excluded from the npm package (package.json `files`),
-// and it deliberately uses only the Node standard library + global fetch (Node 18+)
-// to stay dependency-free, matching test/site/geo-test.mjs.
-//
-// Why it exists: multiple outreach agents run in parallel. Editing a shared
-// Markdown ledger would race (lost updates, duplicate submissions). Target
-// upserts deduplicate on `Key`; append-preserving Claims records elect one live
-// workflow per target without letting a stale release clear another workflow.
-//
-// Config (env):
-//   AIRTABLE_TOKEN        Personal access token. If unset, read from a file.
-//   AIRTABLE_TOKEN_FILE   Token file path (default ~/.codex-outreach-airtable-token).
-//   AIRTABLE_BASE         Base id (default appcezSUhDxz7uaQW).
-//   AIRTABLE_API_ROOT     API root override (used by the local test harness).
-//   AIRTABLE_*_TABLE      Table id/name overrides (used by the local test harness).
-//   OUTREACH_*_MS         Lease/retry timing overrides (used by tests).
+// Config:
+//   NEON_DATA_API_URL    Branch Data API URL ending in /rest/v1.
+//   NEON_JWT_KEY_FILE    RS256 private key (default ~/.codex-outreach-neon-private.pem).
+//   OUTREACH_CLAIM_TTL_MS      Lease duration (default 15 minutes).
+//   OUTREACH_RETRY_DELAY_MS    Initial transient retry delay (default 500ms).
 //
 // Commands:
 //   list [--status S] [--priority P] [--channel C] [--owned] [--json]
@@ -31,19 +20,26 @@
 //                 --last-version-told .. --notes ..]
 //   set-status <key> <status>
 //   log --target <key> --workflow <id> --action <A> [--result T] [--link URL]
+//   queue list [--status Pending|Merged|Rejected] [--json]
+//   queue enqueue <key> --by <workflow> --target-data <text>
+//                 [--linked-target <target-key>] [--notes <text>]
+//   queue resolve <key> --by <workflow> --status Merged|Rejected
+//                 [--linked-target <target-key>] [--duplicate-of <queue-key>]
+//                 [--notes <text>]
 
-import { readFileSync } from 'node:fs';
+import { createHash, createPublicKey, randomUUID, sign } from 'node:crypto';
+import { readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { randomUUID } from 'node:crypto';
 
-const API_ROOT = (process.env.AIRTABLE_API_ROOT || 'https://api.airtable.com/v0').replace(/\/$/, '');
-const BASE = process.env.AIRTABLE_BASE || 'appcezSUhDxz7uaQW';
-const TARGETS = process.env.AIRTABLE_TARGETS_TABLE || 'tblHOr51tpYHiaYWQ';
-const LOG = process.env.AIRTABLE_LOG_TABLE || 'tbloEavouTn5Z7fOw';
-const CLAIMS = process.env.AIRTABLE_CLAIMS_TABLE || 'tbleL9s7CGUpxJDY7';
-let activeToken = '';
+const EXIT = { OK: 0, ERROR: 1, USAGE: 2, CLAIM_LOST: 3 };
+const JWT_AUDIENCE = 'codex-profiles-outreach';
+const JWT_SUBJECT = 'codex-profiles-outreach-agent';
+const JWT_ROLE = 'outreach_tracker';
+const PAGE_SIZE = 1000;
+let activePrivateKey = '';
+let activeJwt = '';
 
 function durationFromEnv(name, fallback) {
   const raw = process.env[name];
@@ -51,142 +47,146 @@ function durationFromEnv(name, fallback) {
   const parsed = Number(raw);
   if (!Number.isSafeInteger(parsed) || parsed < 0) {
     process.stderr.write(`${name} must be a non-negative integer.\n`);
-    process.exit(2);
+    process.exit(EXIT.USAGE);
   }
   return parsed;
 }
 
 const CLAIM_TTL_MS = durationFromEnv('OUTREACH_CLAIM_TTL_MS', 15 * 60 * 1000);
-const CLAIM_SETTLE_MS = durationFromEnv('OUTREACH_CLAIM_SETTLE_MS', 2000);
-const RETRY_DELAY_MS = durationFromEnv('OUTREACH_RETRY_DELAY_MS', 30_000);
-
-// Exit codes: 0 ok, 1 API/runtime error, 2 usage error, 3 claim lost.
-const EXIT = { OK: 0, ERROR: 1, USAGE: 2, CLAIM_LOST: 3 };
+const RETRY_DELAY_MS = durationFromEnv('OUTREACH_RETRY_DELAY_MS', 500);
 
 function fail(code, message) {
   let safeMessage = String(message);
-  for (const secret of new Set([activeToken, process.env.AIRTABLE_TOKEN?.trim()])) {
+  for (const secret of new Set([activePrivateKey, activeJwt])) {
     if (secret) safeMessage = safeMessage.split(secret).join('[REDACTED]');
   }
   process.stderr.write(`${safeMessage}\n`);
   process.exit(code);
 }
 
-function token() {
-  if (process.env.AIRTABLE_TOKEN) return process.env.AIRTABLE_TOKEN.trim();
-  const path = process.env.AIRTABLE_TOKEN_FILE || join(homedir(), '.codex-outreach-airtable-token');
+function dataApiUrl() {
+  const value = process.env.NEON_DATA_API_URL?.replace(/\/$/, '');
+  if (!value) fail(EXIT.USAGE, 'No Neon endpoint: set NEON_DATA_API_URL.');
+  if (!/^https:\/\//.test(value) && !/^http:\/\/127\.0\.0\.1(?::\d+)?/.test(value)) {
+    fail(EXIT.USAGE, 'NEON_DATA_API_URL must use HTTPS.');
+  }
+  return value;
+}
+
+function base64url(value) {
+  return Buffer.from(value).toString('base64url');
+}
+
+function jwkThumbprint(jwk) {
+  const canonical = JSON.stringify({ e: jwk.e, kty: jwk.kty, n: jwk.n });
+  return createHash('sha256').update(canonical).digest('base64url');
+}
+
+function privateKey() {
+  if (activePrivateKey) return activePrivateKey;
+  const path = process.env.NEON_JWT_KEY_FILE
+    || join(homedir(), '.codex-outreach-neon-private.pem');
+  let info;
   try {
-    return readFileSync(path, 'utf8').trim();
+    info = statSync(path);
+    activePrivateKey = readFileSync(path, 'utf8');
   } catch {
-    fail(EXIT.USAGE, `No token: set AIRTABLE_TOKEN or create ${path}`);
+    fail(EXIT.USAGE, `No signing key: create ${path} or set NEON_JWT_KEY_FILE.`);
   }
+  if (!info.isFile()) fail(EXIT.USAGE, `Signing key is not a regular file: ${path}`);
+  if ((info.mode & 0o077) !== 0) {
+    fail(EXIT.USAGE, `Signing key must have mode 0600: ${path}`);
+  }
+  try {
+    const jwk = createPublicKey(activePrivateKey).export({ format: 'jwk' });
+    if (jwk.kty !== 'RSA') fail(EXIT.USAGE, 'Signing key must be RSA.');
+  } catch (error) {
+    fail(EXIT.USAGE, `Invalid signing key: ${error.message}`);
+  }
+  return activePrivateKey;
 }
 
-const TOKEN = token();
-activeToken = TOKEN;
+function jwt() {
+  const key = privateKey();
+  const publicJwk = createPublicKey(key).export({ format: 'jwk' });
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64url(JSON.stringify({
+    alg: 'RS256', typ: 'JWT', kid: jwkThumbprint(publicJwk),
+  }));
+  const payload = base64url(JSON.stringify({
+    aud: JWT_AUDIENCE,
+    sub: JWT_SUBJECT,
+    role: JWT_ROLE,
+    iat: now,
+    nbf: now - 30,
+    exp: now + 300,
+    jti: randomUUID(),
+  }));
+  const signingInput = `${header}.${payload}`;
+  activeJwt = `${signingInput}.${sign('RSA-SHA256', Buffer.from(signingInput), key).toString('base64url')}`;
+  return activeJwt;
+}
 
-// --- Airtable REST helper (with one 429 back-off retry) ------------------------
+function transientStatus(status) {
+  return status === 429 || status === 502 || status === 503 || status === 504;
+}
 
-async function api(method, table, { search, body } = {}) {
-  let url = `${API_ROOT}/${encodeURIComponent(BASE)}/${encodeURIComponent(table)}`;
-  if (search) url += `?${search}`;
-  const init = {
-    method,
-    headers: { Authorization: `Bearer ${TOKEN}` },
-  };
-  if (body) {
-    init.headers['Content-Type'] = 'application/json';
-    init.body = JSON.stringify(body);
-  }
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await fetch(url, init);
-    if (res.status === 429) {
-      // Airtable caps at 5 req/s per base; back off the documented 30s once.
-      if (attempt === 0) {
-        await sleep(RETRY_DELAY_MS);
-        continue;
+async function rpcRequest(name, body, { start } = {}) {
+  const url = `${dataApiUrl()}/rpc/${name}`;
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const token = jwt();
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    };
+    if (start !== undefined) {
+      headers.Range = `${start}-${start + PAGE_SIZE - 1}`;
+      headers.Prefer = 'count=exact';
+    }
+    try {
+      const response = await fetch(url, {
+        method: 'POST', headers, body: JSON.stringify(body),
+      });
+      const text = await response.text();
+      if (response.ok) {
+        return {
+          rows: text ? JSON.parse(text) : [],
+          contentRange: response.headers.get('content-range'),
+        };
       }
+      lastError = new Error(`Neon RPC ${name} -> ${response.status}: ${text}`);
+      if (!transientStatus(response.status) || attempt === 2) throw lastError;
+      const retryAfter = Number(response.headers.get('retry-after'));
+      await sleep(Number.isFinite(retryAfter) ? retryAfter * 1000 : RETRY_DELAY_MS * 2 ** attempt);
+    } catch (error) {
+      lastError = error;
+      if (attempt === 2 || /Neon RPC/.test(error.message)) throw error;
+      await sleep(RETRY_DELAY_MS * 2 ** attempt);
     }
-    const text = await res.text();
-    if (!res.ok) {
-      fail(EXIT.ERROR, `Airtable ${method} ${table} -> ${res.status}: ${text}`);
-    }
-    return text ? JSON.parse(text) : {};
   }
+  throw lastError;
 }
 
-// Escape a value for use inside an Airtable formula string literal.
-const lit = (value) => `"${String(value)
-  .replace(/\\/g, '\\\\')
-  .replace(/"/g, '\\"')
-  .replace(/\r/g, '\\r')
-  .replace(/\n/g, '\\n')}"`;
-
-async function getRecords(table, { filterByFormula, fields } = {}) {
-  const records = [];
-  let offset;
-  do {
-    const params = new URLSearchParams({ pageSize: '100' });
-    if (filterByFormula) params.set('filterByFormula', filterByFormula);
-    if (fields) for (const f of fields) params.append('fields[]', f);
-    if (offset) params.set('offset', offset);
-    const data = await api('GET', table, { search: params.toString() });
-    records.push(...data.records);
-    offset = data.offset;
-  } while (offset);
-  return records;
+function rowArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value === null || value === undefined) return [];
+  return [value];
 }
 
-async function resolveTarget(key) {
-  const [record] = await getRecords(TARGETS, { filterByFormula: `{Key}=${lit(key)}` });
-  if (!record) fail(EXIT.ERROR, `No target with Key=${key}`);
-  return record;
+async function rpcRows(name, body, { paginate = false } = {}) {
+  if (!paginate) return rowArray((await rpcRequest(name, body)).rows);
+  const rows = [];
+  for (let start = 0; ; start += PAGE_SIZE) {
+    const page = await rpcRequest(name, body, { start });
+    const pageRows = rowArray(page.rows);
+    rows.push(...pageRows);
+    const totalMatch = page.contentRange?.match(/\/(\d+)$/);
+    if (pageRows.length < PAGE_SIZE || (totalMatch && rows.length >= Number(totalMatch[1]))) break;
+  }
+  return rows;
 }
-
-// Upsert on Key so concurrent writers merge into one row instead of duplicating.
-async function upsertTarget(fields) {
-  return api('PATCH', TARGETS, {
-    body: {
-      performUpsert: { fieldsToMergeOn: ['Key'] },
-      records: [{ fields }],
-      typecast: true,
-    },
-  });
-}
-
-async function upsertClaim(fields) {
-  return api('PATCH', CLAIMS, {
-    body: {
-      performUpsert: { fieldsToMergeOn: ['Key'] },
-      records: [{ fields }],
-      typecast: true,
-    },
-  });
-}
-
-async function updateClaims(records) {
-  if (!records.length) return { records: [] };
-  return api('PATCH', CLAIMS, {
-    body: { records, typecast: true },
-  });
-}
-
-async function appendLog({ target, workflow, action, result, link }) {
-  const fields = {
-    Event: `${action} — ${target}`,
-    Timestamp: new Date().toISOString(),
-    Workflow: workflow || '',
-    Action: action,
-  };
-  if (result) fields.Result = result;
-  if (link) fields.Link = link;
-  // Link to the Target record when it exists (log is append-only).
-  const [rec] = await getRecords(TARGETS, { filterByFormula: `{Key}=${lit(target)}`, fields: ['Key'] });
-  if (rec) fields.Target = [rec.id];
-  return api('POST', LOG, { body: { records: [{ fields }], typecast: true } });
-}
-
-// --- Arg parsing ---------------------------------------------------------------
 
 function parseArgs(argv) {
   const positionals = [];
@@ -245,21 +245,15 @@ function assertDate(value, flag) {
   }
 }
 
-// Map --flags to Target field names.
 function fieldsFromFlags(flags) {
   const map = {
-    name: 'Name',
-    channel: 'Channel',
-    status: 'Status',
-    priority: 'Priority',
-    link: 'Link',
-    'next-action': 'Next Action',
-    'last-version-told': 'Last Version Told',
-    notes: 'Notes',
+    name: 'Name', channel: 'Channel', status: 'Status', priority: 'Priority',
+    link: 'Link', 'next-action': 'Next Action',
+    'last-version-told': 'Last Version Told', notes: 'Notes',
   };
   const fields = {};
-  for (const [flag, col] of Object.entries(map)) {
-    if (flags[flag] !== undefined) fields[col] = flags[flag];
+  for (const [flag, column] of Object.entries(map)) {
+    if (flags[flag] !== undefined) fields[column] = flags[flag];
   }
   if (flags['last-checked'] !== undefined) {
     if (flags['last-checked'] === true) fail(EXIT.USAGE, '--last-checked requires YYYY-MM-DD.');
@@ -270,7 +264,38 @@ function fieldsFromFlags(flags) {
   return fields;
 }
 
-// --- Output --------------------------------------------------------------------
+function setIf(fields, key, value, { boolean = false } = {}) {
+  if (value !== null && value !== undefined && (!boolean || value === true)) fields[key] = value;
+}
+
+function targetFields(row) {
+  const fields = { Key: row.key };
+  setIf(fields, 'Name', row.name);
+  setIf(fields, 'Status', row.status);
+  setIf(fields, 'Priority', row.priority);
+  setIf(fields, 'Channel', row.channel);
+  setIf(fields, 'Link', row.link);
+  setIf(fields, 'Owned?', row.owned, { boolean: true });
+  setIf(fields, 'Last Checked', row.last_checked);
+  setIf(fields, 'Next Action', row.next_action);
+  setIf(fields, 'Last Version Told', row.last_version_told);
+  setIf(fields, 'Notes', row.notes);
+  return fields;
+}
+
+function queueFields(row) {
+  const fields = { Key: row.key, Status: row.status };
+  setIf(fields, 'Timestamp', row.proposed_at);
+  setIf(fields, 'Proposed By Workflow', row.proposed_by_workflow);
+  setIf(fields, 'Target Data', row.target_data);
+  setIf(fields, 'Notes', row.notes);
+  setIf(fields, 'Resolved At', row.resolved_at);
+  setIf(fields, 'Resolved By Workflow', row.resolved_by_workflow);
+  if (row.proposed_by?.length) fields['Proposed By'] = row.proposed_by;
+  if (row.linked_targets?.length) fields['Linked Target'] = row.linked_targets;
+  if (row.duplicate_of?.length) fields['Duplicate Of'] = row.duplicate_of;
+  return fields;
+}
 
 const COLS = ['Key', 'Name', 'Status', 'Priority', 'Channel', 'Owned?', 'Last Checked', 'Next Action'];
 
@@ -279,64 +304,61 @@ function printTable(records) {
     process.stdout.write('(no matching targets)\n');
     return;
   }
-  const rows = records.map((r) => COLS.map((c) => {
-    const v = r.fields[c];
-    if (v === true) return 'yes';
-    if (v === undefined || v === false) return '';
-    return String(v);
+  const rows = records.map((record) => COLS.map((column) => {
+    const value = record[column];
+    if (value === true) return 'yes';
+    if (value === undefined || value === false) return '';
+    return String(value);
   }));
-  const widths = COLS.map((c, i) => Math.min(40, Math.max(c.length, ...rows.map((row) => row[i].length))));
-  const fmt = (cells) => cells.map((cell, i) => cell.slice(0, widths[i]).padEnd(widths[i])).join('  ');
-  process.stdout.write(`${fmt(COLS)}\n`);
-  process.stdout.write(`${widths.map((w) => '-'.repeat(w)).join('  ')}\n`);
-  for (const row of rows) process.stdout.write(`${fmt(row)}\n`);
+  const widths = COLS.map((column, index) => Math.min(40,
+    Math.max(column.length, ...rows.map((row) => row[index].length))));
+  const format = (cells) => cells.map((cell, index) =>
+    cell.slice(0, widths[index]).padEnd(widths[index])).join('  ');
+  process.stdout.write(`${format(COLS)}\n`);
+  process.stdout.write(`${widths.map((width) => '-'.repeat(width)).join('  ')}\n`);
+  for (const row of rows) process.stdout.write(`${format(row)}\n`);
   process.stdout.write(`\n${records.length} target(s)\n`);
 }
 
-// --- Commands ------------------------------------------------------------------
+function printQueue(records) {
+  if (!records.length) {
+    process.stdout.write('(no matching queue items)\n');
+    return;
+  }
+  for (const record of records) {
+    process.stdout.write(`${record.Key}\t${record.Status}\t${record['Target Data'] || ''}\n`);
+  }
+  process.stdout.write(`\n${records.length} queue item(s)\n`);
+}
 
 async function cmdList(flags) {
   assertFlags(flags, ['status', 'priority', 'channel', 'owned', 'json']);
   for (const name of ['status', 'priority', 'channel']) {
     if (flags[name] !== undefined) requiredFlag(flags, name, `--${name} requires a value.`);
   }
-  const clauses = [];
-  if (flags.status) clauses.push(`{Status}=${lit(flags.status)}`);
-  if (flags.priority) clauses.push(`{Priority}=${lit(flags.priority)}`);
-  if (flags.channel) clauses.push(`{Channel}=${lit(flags.channel)}`);
-  if (flags.owned) clauses.push('{Owned?}=1');
-  const filterByFormula = clauses.length ? (clauses.length === 1 ? clauses[0] : `AND(${clauses.join(',')})`) : undefined;
-  const records = await getRecords(TARGETS, { filterByFormula });
-  records.sort((a, b) => (a.fields.Key || '').localeCompare(b.fields.Key || ''));
-  if (flags.json) {
-    process.stdout.write(`${JSON.stringify(records.map((r) => r.fields), null, 2)}\n`);
-  } else {
-    printTable(records);
-  }
+  const rows = await rpcRows('tracker_list_targets', {
+    p_status: flags.status || null,
+    p_priority: flags.priority || null,
+    p_channel: flags.channel || null,
+    p_owned: flags.owned ? true : null,
+  }, { paginate: true });
+  const records = rows.map(targetFields);
+  if (flags.json) process.stdout.write(`${JSON.stringify(records, null, 2)}\n`);
+  else printTable(records);
+}
+
+async function getTarget(key) {
+  const [row] = await rpcRows('tracker_get_target', { p_key: key });
+  if (!row) fail(EXIT.ERROR, `No target with Key=${key}`);
+  return targetFields(row);
 }
 
 async function cmdGet(positionals, flags) {
   assertFlags(flags, ['json']);
   assertPositionals(positionals, 1, 1, 'usage: get <key> [--json]');
-  const key = positionals[0];
-  const rec = await resolveTarget(key);
-  if (flags.json) process.stdout.write(`${JSON.stringify(rec.fields, null, 2)}\n`);
-  else printTable([rec]);
-}
-
-async function targetClaims(key) {
-  return getRecords(CLAIMS, { filterByFormula: `{Target Key}=${lit(key)}` });
-}
-
-function isActiveClaim(record, now = Date.now()) {
-  const expiresAt = Date.parse(record.fields['Expires At'] || '');
-  return !record.fields['Released At'] && Number.isFinite(expiresAt) && expiresAt > now;
-}
-
-function compareClaims(a, b) {
-  const created = Date.parse(a.createdTime) - Date.parse(b.createdTime);
-  if (created !== 0) return created;
-  return String(a.fields.Key).localeCompare(String(b.fields.Key));
+  const record = await getTarget(positionals[0]);
+  if (flags.json) process.stdout.write(`${JSON.stringify(record, null, 2)}\n`);
+  else printTable([record]);
 }
 
 async function cmdClaim(positionals, flags) {
@@ -344,39 +366,19 @@ async function cmdClaim(positionals, flags) {
   assertPositionals(positionals, 1, 1, 'usage: claim <key> --by <workflowId>');
   const key = positionals[0];
   const by = requiredFlag(flags, 'by', 'usage: claim <key> --by <workflowId>');
-  const target = await resolveTarget(key);
-  const existing = (await targetClaims(key)).filter((claim) => isActiveClaim(claim));
-  const owned = existing.find((claim) => claim.fields.Workflow === by);
-  if (owned) {
-    process.stdout.write(`Claimed ${key} as ${by} (${owned.fields.Key}).\n`);
-    return;
-  }
-  if (existing.length) {
-    const holder = existing.sort(compareClaims)[0];
-    fail(EXIT.CLAIM_LOST, `Claim lost: ${key} is held by ${holder.fields.Workflow}.`);
-  }
-
-  const claimedAt = new Date();
-  const claimKey = `${key}:${by}:${randomUUID()}`;
-  await upsertClaim({
-    Key: claimKey,
-    'Target Key': key,
-    Target: [target.id],
-    Workflow: by,
-    'Claimed At': claimedAt.toISOString(),
-    'Expires At': new Date(claimedAt.getTime() + CLAIM_TTL_MS).toISOString(),
+  const [result] = await rpcRows('tracker_claim', {
+    p_key: key,
+    p_workflow: by,
+    p_ttl_ms: CLAIM_TTL_MS,
+    p_operation_id: randomUUID(),
   });
-
-  await sleep(CLAIM_SETTLE_MS);
-  const contenders = (await targetClaims(key)).filter((claim) => isActiveClaim(claim)).sort(compareClaims);
-  const winner = contenders[0];
-  if (!winner || winner.fields.Key !== claimKey) {
-    const own = contenders.find((claim) => claim.fields.Key === claimKey);
-    if (own) await updateClaims([{ id: own.id, fields: { 'Released At': new Date().toISOString() } }]);
-    fail(EXIT.CLAIM_LOST, `Claim lost: ${key} is held by ${winner?.fields.Workflow || 'another workflow'}.`);
+  if (result?.outcome === 'lost') {
+    fail(EXIT.CLAIM_LOST, `Claim lost: ${key} is held by ${result.holder}.`);
   }
-  await appendLog({ target: key, workflow: by, action: 'Claimed' });
-  process.stdout.write(`Claimed ${key} as ${by} (${claimKey}).\n`);
+  if (!result || !['claimed', 'owned'].includes(result.outcome)) {
+    fail(EXIT.ERROR, `Unexpected claim result for ${key}.`);
+  }
+  process.stdout.write(`Claimed ${key} as ${by} (${result.claim_key}).\n`);
 }
 
 async function cmdRelease(positionals, flags) {
@@ -384,30 +386,27 @@ async function cmdRelease(positionals, flags) {
   assertPositionals(positionals, 1, 1, 'usage: release <key> --by <workflowId>');
   const key = positionals[0];
   const by = requiredFlag(flags, 'by', 'usage: release <key> --by <workflowId>');
-  await resolveTarget(key);
-  const claims = await targetClaims(key);
-  const owned = claims.filter((claim) => claim.fields.Workflow === by);
-  if (!owned.length) fail(EXIT.CLAIM_LOST, `Release refused: ${by} has never claimed ${key}.`);
-  const active = owned.filter((claim) => isActiveClaim(claim));
-  if (!active.length) {
+  const [result] = await rpcRows('tracker_release', {
+    p_key: key, p_workflow: by, p_operation_id: randomUUID(),
+  });
+  if (result?.outcome === 'never') {
+    fail(EXIT.CLAIM_LOST, `Release refused: ${by} has never claimed ${key}.`);
+  }
+  if (result?.outcome === 'inactive') {
     process.stdout.write(`No active claim for ${key} as ${by}.\n`);
     return;
   }
-  const releasedAt = new Date().toISOString();
-  await updateClaims(active.map((claim) => ({ id: claim.id, fields: { 'Released At': releasedAt } })));
-  await appendLog({ target: key, workflow: by, action: 'Released Claim' });
+  if (result?.outcome !== 'released') fail(EXIT.ERROR, `Unexpected release result for ${key}.`);
   process.stdout.write(`Released ${key}.\n`);
 }
 
 async function cmdUpsert(positionals, flags) {
-  assertFlags(flags, ['name', 'channel', 'status', 'priority', 'link', 'owned', 'last-checked', 'next-action', 'last-version-told', 'notes']);
+  assertFlags(flags, ['name', 'channel', 'status', 'priority', 'link', 'owned',
+    'last-checked', 'next-action', 'last-version-told', 'notes']);
   assertPositionals(positionals, 1, 1, 'usage: upsert <key> [--name ... --status ... ...]');
-  for (const name of Object.keys(flags)) {
-    requiredFlag(flags, name, `--${name} requires a value.`);
-  }
+  for (const name of Object.keys(flags)) requiredFlag(flags, name, `--${name} requires a value.`);
   const key = positionals[0];
-  const fields = { Key: key, ...fieldsFromFlags(flags) };
-  await upsertTarget(fields);
+  await rpcRows('tracker_upsert_target', { p_key: key, p_patch: fieldsFromFlags(flags) });
   process.stdout.write(`Upserted ${key}.\n`);
 }
 
@@ -415,8 +414,9 @@ async function cmdSetStatus(positionals, flags) {
   assertFlags(flags, []);
   assertPositionals(positionals, 2, 2, 'usage: set-status <key> <status>');
   const [key, status] = positionals;
-  await upsertTarget({ Key: key, Status: status });
-  await appendLog({ target: key, action: 'Status Change', result: `-> ${status}` });
+  await rpcRows('tracker_set_status', {
+    p_key: key, p_status: status, p_operation_id: randomUUID(),
+  });
   process.stdout.write(`Set ${key} status to ${status}.\n`);
 }
 
@@ -429,17 +429,72 @@ async function cmdLog(flags) {
   for (const name of ['result', 'link']) {
     if (flags[name] !== undefined) requiredFlag(flags, name, `--${name} requires a value.`);
   }
-  await appendLog({
-    target,
-    workflow,
-    action,
-    result: flags.result,
-    link: flags.link,
+  await rpcRows('tracker_append_log', {
+    p_target_key: target,
+    p_workflow: workflow,
+    p_action: action,
+    p_result: flags.result || null,
+    p_link: flags.link || null,
+    p_operation_id: randomUUID(),
   });
   process.stdout.write(`Logged "${action}" for ${target}.\n`);
 }
 
-// --- Dispatch ------------------------------------------------------------------
+async function cmdQueue(positionals, flags) {
+  const [subcommand, key, ...extra] = positionals;
+  if (extra.length) fail(EXIT.USAGE, `Unexpected queue argument: ${extra[0]}`);
+  if (subcommand === 'list') {
+    assertPositionals(positionals, 1, 1, 'usage: queue list [--status Pending|Merged|Rejected] [--json]');
+    assertFlags(flags, ['status', 'json']);
+    if (flags.status !== undefined) requiredFlag(flags, 'status', '--status requires a value.');
+    const rows = await rpcRows('tracker_list_queue', { p_status: flags.status || null }, { paginate: true });
+    const records = rows.map(queueFields);
+    if (flags.json) process.stdout.write(`${JSON.stringify(records, null, 2)}\n`);
+    else printQueue(records);
+    return;
+  }
+  if (subcommand === 'enqueue') {
+    const usage = 'usage: queue enqueue <key> --by <workflow> --target-data <text> [--linked-target <target-key>] [--notes <text>]';
+    assertPositionals(positionals, 2, 2, usage);
+    assertFlags(flags, ['by', 'target-data', 'linked-target', 'notes']);
+    const by = requiredFlag(flags, 'by', usage);
+    const targetData = requiredFlag(flags, 'target-data', usage);
+    for (const name of ['linked-target', 'notes']) {
+      if (flags[name] !== undefined) requiredFlag(flags, name, `--${name} requires a value.`);
+    }
+    await rpcRows('tracker_enqueue', {
+      p_key: key,
+      p_workflow: by,
+      p_target_data: targetData,
+      p_linked_target: flags['linked-target'] || null,
+      p_notes: flags.notes || null,
+    });
+    process.stdout.write(`Queued ${key}.\n`);
+    return;
+  }
+  if (subcommand === 'resolve') {
+    const usage = 'usage: queue resolve <key> --by <workflow> --status Merged|Rejected [--linked-target <target-key>] [--duplicate-of <queue-key>] [--notes <text>]';
+    assertPositionals(positionals, 2, 2, usage);
+    assertFlags(flags, ['by', 'status', 'linked-target', 'duplicate-of', 'notes']);
+    const by = requiredFlag(flags, 'by', usage);
+    const status = requiredFlag(flags, 'status', usage);
+    if (!['Merged', 'Rejected'].includes(status)) fail(EXIT.USAGE, '--status must be Merged or Rejected.');
+    for (const name of ['linked-target', 'duplicate-of', 'notes']) {
+      if (flags[name] !== undefined) requiredFlag(flags, name, `--${name} requires a value.`);
+    }
+    await rpcRows('tracker_resolve_queue', {
+      p_key: key,
+      p_workflow: by,
+      p_status: status,
+      p_linked_target: flags['linked-target'] || null,
+      p_duplicate_of: flags['duplicate-of'] || null,
+      p_notes: flags.notes || null,
+    });
+    process.stdout.write(`Resolved ${key} as ${status}.\n`);
+    return;
+  }
+  fail(EXIT.USAGE, 'usage: queue list|enqueue|resolve ...');
+}
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -452,10 +507,11 @@ async function main() {
     case 'upsert': return cmdUpsert(positionals, flags);
     case 'set-status': return cmdSetStatus(positionals, flags);
     case 'log': return cmdLog(flags);
+    case 'queue': return cmdQueue(positionals, flags);
     default:
-      process.stderr.write('Commands: list | get | claim | release | upsert | set-status | log\n');
+      process.stderr.write('Commands: list | get | claim | release | upsert | set-status | log | queue\n');
       process.exit(command ? EXIT.USAGE : EXIT.OK);
   }
 }
 
-main().catch((err) => fail(EXIT.ERROR, err?.stack || String(err)));
+main().catch((error) => fail(EXIT.ERROR, error?.stack || String(error)));

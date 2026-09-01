@@ -1,6 +1,6 @@
 ---
 name: github-lead-gen
-description: Use when running GitHub lead generation for codex-profiles. Finds repository candidates and performs shallow Airtable intake before lead qualification. Not for drafting, outreach, or monitoring.
+description: Use when running GitHub lead generation for codex-profiles. Finds repository candidates and performs shallow tracker intake before lead qualification. Not for drafting, outreach, or monitoring.
 ---
 
 # GitHub Lead Gen
@@ -8,20 +8,20 @@ description: Use when running GitHub lead generation for codex-profiles. Finds r
 ## Purpose
 
 Find GitHub repository candidates for `codex-profiles`, dedupe them against
-Airtable, and hand them off for later qualification. This skill only handles
+the outreach tracker, and hand them off for later qualification. This skill only handles
 candidate discovery and shallow intake.
 
 ## Required Context
 
 Before searching, read current product positioning from `README.md`, policy
-gates from `LAUNCH.md`, and live distribution state from the Airtable tracker.
+gates from `LAUNCH.md`, and live distribution state from the outreach tracker.
 Load `references/search-patterns.md` for approved search lanes and example
 queries.
 
 ## Boundaries
 
-- Create or update Airtable `Targets` only.
-- Dedupe against existing Airtable targets before creating records.
+- Create or update tracker `Targets` only.
+- Dedupe against existing tracker targets before creating records.
 - Use `Log.Workflow = github-lead-gen` for every meaningful intake decision.
 - Set `Next Action = Run lead qualification` on every accepted candidate.
 - Record only a shallow candidate reason; do not assign final ICP.
@@ -31,7 +31,7 @@ queries.
 
 ## Accepted Input
 
-- A new repository candidate with no matching Airtable target, or an existing
+- A new repository candidate with no matching tracker target, or an existing
   target that needs shallow lead-generation evidence refreshed.
 - Do not overwrite a qualified or submitted target's `Status`, ICP decision, or
   phase-specific `Next Action`.
@@ -76,7 +76,7 @@ node scripts/outreach-tracker.mjs release <key> --by <run-id>
    social-only surfaces.
 3. For each candidate, capture the repository URL, likely channel, shallow
    reason, evidence URL, and duplicate key.
-4. Search Airtable `Targets` by deterministic key and repository URL using the
+4. Search tracker `Targets` by deterministic key and repository URL using the
    tracker; do not maintain a side ledger.
 5. If an existing target is found, update only stale lead-gen fields and append
    a `github-lead-gen` log entry.
@@ -90,7 +90,7 @@ node scripts/outreach-tracker.mjs release <key> --by <run-id>
    - `Priority`: leave blank unless the repository is obviously Codex-specific.
    - `Next Action`: `Run lead qualification`.
    - `Notes`: shallow candidate reason and source query.
-7. Stop after Airtable intake. The next workflow is lead qualification.
+7. Stop after tracker intake. The next workflow is lead qualification.
 
 ## Output
 
@@ -100,4 +100,4 @@ Return a concise handoff:
 - Existing targets updated.
 - Duplicates skipped.
 - Search lanes tried.
-- Any Airtable or GitHub access blockers.
+- Any tracker or GitHub access blockers.
