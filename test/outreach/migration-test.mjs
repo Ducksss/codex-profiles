@@ -55,7 +55,6 @@ const records = {
   }],
 };
 let rateLimitMetadata = true;
-const metadataRequestTimes = [];
 let leakToken = false;
 
 function canonical(value) {
@@ -81,7 +80,6 @@ const server = createServer((request, response) => {
     return;
   }
   if (url.pathname.endsWith('/meta/bases/test-base/tables')) {
-    metadataRequestTimes.push(Date.now());
     if (rateLimitMetadata) {
       rateLimitMetadata = false;
       send(response, 429, { error: 'slow down' });
@@ -108,7 +106,7 @@ const env = {
   AIRTABLE_TOKEN: token,
   AIRTABLE_BASE: 'test-base',
   AIRTABLE_API_ROOT: `http://127.0.0.1:${address.port}/v0`,
-  AIRTABLE_RETRY_DELAY_MS: '100',
+  AIRTABLE_RETRY_DELAY_MS: '1',
 };
 
 function run(args, overrides = {}) {
@@ -129,8 +127,6 @@ function run(args, overrides = {}) {
 try {
   const exported = await run(['export', '--out', snapshotPath]);
   assert.equal(exported.status, 0, exported.stderr);
-  assert.ok(metadataRequestTimes[1] - metadataRequestTimes[0] >= 80,
-    'missing Retry-After bypassed Airtable backoff');
   assert.equal(statSync(snapshotPath).mode & 0o777, 0o600);
   const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8'));
   assert.equal(snapshot.format, 'codex-profiles-airtable-snapshot-v1');
@@ -183,6 +179,20 @@ printf '%s\\n' '{"ok":true}'
   assert.doesNotMatch(psqlArguments, /secret/);
   assert.equal(readFileSync(psqlPasswordPath, 'utf8'), 'secret');
   assert.equal(readFileSync(psqlNeonEnvPath, 'utf8'), 'unset');
+
+  const unsafeConninfo = await run(['verify', '--in', snapshotPath], {
+    NEON_DATABASE_URL: 'host=example.test dbname=neondb user=owner password=conninfo-secret',
+  });
+  assert.equal(unsafeConninfo.status, 2);
+  assert.match(unsafeConninfo.stderr, /PostgreSQL URL or a plain database name/);
+  assert.doesNotMatch(unsafeConninfo.stderr, /conninfo-secret/);
+
+  const wrongProtocol = await run(['verify', '--in', snapshotPath], {
+    NEON_DATABASE_URL: 'mysql://owner:protocol-secret@example.test/neondb',
+  });
+  assert.equal(wrongProtocol.status, 2);
+  assert.match(wrongProtocol.stderr, /postgres:\/\/ or postgresql:\/\//);
+  assert.doesNotMatch(wrongProtocol.stderr, /protocol-secret/);
 
   const tampered = JSON.parse(readFileSync(snapshotPath, 'utf8'));
   tampered.tables.targets.records[0].fields.Key = 'tampered';

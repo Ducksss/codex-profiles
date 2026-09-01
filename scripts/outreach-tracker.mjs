@@ -32,6 +32,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { retryAfterDelay } from './retry-after.mjs';
 
 const EXIT = { OK: 0, ERROR: 1, USAGE: 2, CLAIM_LOST: 3 };
 const JWT_AUDIENCE = 'codex-profiles-outreach';
@@ -131,15 +132,6 @@ function transientStatus(status) {
   return status === 429 || status === 502 || status === 503 || status === 504;
 }
 
-function retryDelay(response, fallback) {
-  const value = response.headers.get('retry-after');
-  if (value === null) return fallback;
-  const seconds = Number(value);
-  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
-  const at = Date.parse(value);
-  return Number.isFinite(at) ? Math.max(0, at - Date.now()) : fallback;
-}
-
 async function rpcRequest(name, body, { start } = {}) {
   const url = `${dataApiUrl()}/rpc/${name}`;
   let lastError;
@@ -167,7 +159,10 @@ async function rpcRequest(name, body, { start } = {}) {
       }
       lastError = new Error(`Neon RPC ${name} -> ${response.status}: ${text}`);
       if (!transientStatus(response.status) || attempt === 2) throw lastError;
-      await sleep(retryDelay(response, RETRY_DELAY_MS * 2 ** attempt));
+      await sleep(retryAfterDelay(
+        response.headers.get('retry-after'),
+        RETRY_DELAY_MS * 2 ** attempt,
+      ));
     } catch (error) {
       lastError = error;
       if (attempt === 2 || /Neon RPC/.test(error.message)) throw error;

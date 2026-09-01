@@ -25,6 +25,7 @@ import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { retryAfterDelay } from './retry-after.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const FORMAT = 'codex-profiles-airtable-snapshot-v1';
@@ -175,15 +176,6 @@ function retryDelay() {
   return value;
 }
 
-function responseRetryDelay(response, fallback) {
-  const value = response.headers.get('retry-after');
-  if (value === null) return fallback;
-  const seconds = Number(value);
-  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
-  const at = Date.parse(value);
-  return Number.isFinite(at) ? Math.max(0, at - Date.now()) : fallback;
-}
-
 async function airtableGet(url, airtableToken) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -195,7 +187,10 @@ async function airtableGet(url, airtableToken) {
       if (!RETRY_STATUSES.has(response.status) || attempt === 2) {
         fail(`Airtable GET -> ${response.status}: ${text}`);
       }
-      await sleep(responseRetryDelay(response, retryDelay() * 2 ** attempt));
+      await sleep(retryAfterDelay(
+        response.headers.get('retry-after'),
+        retryDelay() * 2 ** attempt,
+      ));
     } catch (error) {
       if (attempt === 2) fail(`Airtable GET failed: ${error.message}`);
       await sleep(retryDelay() * 2 ** attempt);
@@ -340,7 +335,12 @@ function databaseConnection() {
   secrets.add(value);
   const env = { ...process.env };
   delete env.NEON_DATABASE_URL;
-  if (!/^postgres(?:ql)?:\/\//.test(value)) return { argument: value, env };
+  if (!value.includes('://')) {
+    if (/\s|=/.test(value)) {
+      fail('NEON_DATABASE_URL must be a PostgreSQL URL or a plain database name.', 2);
+    }
+    return { argument: value, env };
+  }
   let parsed;
   try {
     parsed = new URL(value);
@@ -351,7 +351,12 @@ function databaseConnection() {
     fail('NEON_DATABASE_URL must use postgres:// or postgresql://.', 2);
   }
   if (parsed.password) {
-    const password = decodeURIComponent(parsed.password);
+    let password;
+    try {
+      password = decodeURIComponent(parsed.password);
+    } catch (error) {
+      fail(`Invalid password encoding in NEON_DATABASE_URL: ${error.message}`, 2);
+    }
     secrets.add(password);
     env.PGPASSWORD = password;
     parsed.password = '';
