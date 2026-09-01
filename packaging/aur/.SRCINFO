@@ -1,0 +1,12 @@
+pkgbase = codex-profile
+	pkgdesc = Switch Codex CLI and Desktop accounts with isolated CODEX_HOME profiles
+	pkgver = 0.6.0
+	pkgrel = 1
+	url = https://github.com/Ducksss/codex-profiles
+	arch = any
+	license = MIT
+	depends = bash
+	source = codex-profile-0.6.0.tar.gz::https://github.com/Ducksss/codex-profiles/archive/refs/tags/v0.6.0.tar.gz
+	sha256sums = 2d949af33d6b24499b25abf19d25c1fa6d758e35c3e0a649c7872bade90d083b
+
+pkgname = codex-profile

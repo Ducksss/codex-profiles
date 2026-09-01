@@ -1,0 +1,54 @@
+{
+  "name": "codex-profile",
+  "version": "0.6.0",
+  "description": "Switch Codex CLI/Desktop profiles and run experimental parallel Desktop instances.",
+  "license": "MIT",
+  "homepage": "https://ducksss.github.io/codex-profiles/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ducksss/codex-profiles.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ducksss/codex-profiles/issues"
+  },
+  "keywords": [
+    "ai-tools",
+    "automation",
+    "chatgpt",
+    "codex",
+    "codex-account-switcher",
+    "codex-cli",
+    "codex-desktop",
+    "codex-home",
+    "codex-profiles",
+    "developer-tools",
+    "openai",
+    "openai-codex",
+    "productivity",
+    "vibe-coding"
+  ],
+  "bin": {
+    "codex-profile": "bin/codex-profile",
+    "codex-profiles": "bin/codex-profile"
+  },
+  "files": [
+    "bin/codex-profile",
+    "CHANGELOG.md",
+    "docs",
+    "LICENSE",
+    "media",
+    "README.md",
+    "SECURITY.md"
+  ],
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "scripts": {
+    "pack:check": "npm pack --dry-run --silent",
+    "test": "make test"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

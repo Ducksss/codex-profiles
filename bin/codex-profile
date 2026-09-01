@@ -1,0 +1,1648 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+PROGRAM="${0##*/}"
+VERSION="0.6.0"
+CODEX_APP="${CODEX_APP:-/Applications/Codex.app}"
+CODEX_APP_BIN="${CODEX_APP_BIN:-$CODEX_APP/Contents/MacOS/Codex}"
+CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-$CODEX_APP/Contents/Resources/codex}"
+CODEX_PROFILE_QUIT_ATTEMPTS="${CODEX_PROFILE_QUIT_ATTEMPTS:-30}"
+CODEX_PROFILE_QUIT_SLEEP="${CODEX_PROFILE_QUIT_SLEEP:-0.5}"
+CODEX_PROFILE_APP_INSTANCE_ROOT="${CODEX_PROFILE_APP_INSTANCE_ROOT:-$HOME/Library/Application Support/codex-profile/app-instances}"
+CODEX_PROFILE_UPGRADE_REPO="${CODEX_PROFILE_UPGRADE_REPO:-https://github.com/Ducksss/codex-profiles.git}"
+CODEX_PROFILE_UPGRADE_REF="${CODEX_PROFILE_UPGRADE_REF:-main}"
+
+usage() {
+  cat <<EOF
+$PROGRAM - run Codex with isolated CODEX_HOME profiles
+
+Usage:
+  $PROGRAM app <profile> [--instance] [--rebuild] [workspace]
+  $PROGRAM cli <profile> [codex-args...]
+  $PROGRAM login <profile> [codex-login-args...]
+  $PROGRAM init <profile>
+  $PROGRAM remove <profile> [--yes]
+  $PROGRAM status [profile]
+  $PROGRAM status --json [profile]
+  $PROGRAM path <profile>
+  $PROGRAM env <profile> [--shell <bash|zsh|fish>]
+  $PROGRAM use <profile>
+  $PROGRAM logs <profile> [--instance] [--path|--tail [lines]]
+  $PROGRAM clone-config <source-profile> <target-profile> [--force]
+  $PROGRAM list
+  $PROGRAM doctor [--json]
+  $PROGRAM completions <bash|zsh|fish>
+  $PROGRAM shell-init <bash|zsh|fish>
+  $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
+  $PROGRAM version
+  $PROGRAM help
+
+Examples:
+  $PROGRAM login personal
+  $PROGRAM init work
+  $PROGRAM app personal ~/Dev/my-project
+  $PROGRAM app work --instance ~/Dev/client-project
+  $PROGRAM cli personal exec "review this repo"
+  $PROGRAM status
+  eval "\$($PROGRAM env work)"     # set CODEX_HOME for this shell
+  $PROGRAM use work               # same, via the shell-init wrapper
+  $PROGRAM logs personal --tail 50
+  $PROGRAM clone-config personal work
+  $PROGRAM upgrade
+
+Desktop (app):
+  default         Switch Codex Desktop to <profile> (quits the running app first).
+  --instance      Run a parallel Codex Desktop clone for <profile>, alongside
+                  any others (experimental, macOS only).
+  --rebuild       Force-rebuild that clone; only valid together with --instance.
+
+Profiles:
+  default         -> ~/.codex
+  any other name  -> ~/.codex-<profile>
+
+Environment:
+  CODEX_APP       Override Codex.app path.
+  CODEX_APP_BIN   Override Codex Desktop binary path.
+  CODEX_CLI       Override Codex CLI binary path.
+  CODEX_PROFILE_APP_INSTANCE_ROOT  Override the experimental app --instance clone root.
+  CODEX_PROFILE_UPGRADE_REPO    Override upgrade repository.
+  CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref.
+  CODEX_PROFILE_UPGRADE_CACHE   Override upgrade cache checkout.
+  CODEX_PROFILE_UPGRADE_PREFIX  Override upgrade install prefix.
+  CODEX_PROFILE_NO_UPDATE_CHECK  Disable the daily update check (also honors DO_NOT_TRACK).
+
+Platform:
+  app requires macOS (it drives the Codex Desktop app).
+  All other commands run on macOS and Linux.
+EOF
+}
+
+die() {
+  printf 'Error: %s\n' "$*" >&2
+  exit 1
+}
+
+note() {
+  printf '%s\n' "$*"
+}
+
+die_macos_only() {
+  local subcommand="$1"
+
+  die "$PROGRAM $subcommand is only available on macOS (it drives the Codex Desktop app)."
+}
+
+is_valid_profile_name() {
+  local profile="$1"
+
+  [[ "$profile" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]
+}
+
+validate_profile() {
+  local profile="$1"
+
+  if ! is_valid_profile_name "$profile"; then
+    die "Invalid profile '$profile'. Use letters, numbers, dots, dashes, or underscores."
+  fi
+}
+
+codex_home_for_profile() {
+  local profile="$1"
+
+  validate_profile "$profile"
+
+  if [[ "$profile" == "default" ]]; then
+    printf '%s/.codex\n' "$HOME"
+  else
+    printf '%s/.codex-%s\n' "$HOME" "$profile"
+  fi
+}
+
+discovered_profile_is_managed() {
+  local profile="$1"
+  local dir="$2"
+  local expected
+
+  is_valid_profile_name "$profile" || return 1
+  expected="$(codex_home_for_profile "$profile")"
+  [[ "$expected" == "$dir" ]]
+}
+
+discover_profiles() {
+  local include_default="${1:-yes}"
+  local dir profile
+
+  if [[ "$include_default" == "yes" && -d "$HOME/.codex" ]]; then
+    printf 'default\n'
+  fi
+
+  for dir in "$HOME"/.codex-*; do
+    [[ -d "$dir" ]] || continue
+    profile="${dir##*/.codex-}"
+    discovered_profile_is_managed "$profile" "$dir" || continue
+    printf '%s\n' "$profile"
+  done
+}
+
+ensure_home() {
+  local codex_home="$1"
+
+  mkdir -p "$codex_home" || die "Cannot create directory: $codex_home"
+  [[ -d "$codex_home" ]] || die "Not a directory: $codex_home"
+  chmod 700 "$codex_home" || die "Cannot set private permissions on: $codex_home"
+}
+
+codex_desktop_running() {
+  pgrep -x Codex > /dev/null 2>&1 && return 0
+  pgrep -f "$CODEX_BUNDLED_CLI app-server" > /dev/null 2>&1 && return 0
+  return 1
+}
+
+force_quit_codex_app() {
+  osascript -e 'tell application "Codex" to quit' > /dev/null 2>&1 || true
+  pkill -x Codex > /dev/null 2>&1 || true
+  pkill -f "$CODEX_BUNDLED_CLI app-server" > /dev/null 2>&1 || true
+}
+
+codex_cli_error_message() {
+  if [[ -n "${CODEX_CLI:-}" ]]; then
+    printf 'CODEX_CLI is set but not executable: %s\n' "$CODEX_CLI"
+    return 0
+  fi
+
+  printf 'Codex CLI not found. Install Codex or set CODEX_CLI=/path/to/codex.\n'
+}
+
+try_find_codex_cli() {
+  if [[ -n "${CODEX_CLI:-}" ]]; then
+    [[ -x "$CODEX_CLI" ]] || return 1
+    printf '%s\n' "$CODEX_CLI"
+    return 0
+  fi
+
+  if command -v codex > /dev/null 2>&1; then
+    command -v codex
+    return 0
+  fi
+
+  if [[ -x "$CODEX_BUNDLED_CLI" ]]; then
+    printf '%s\n' "$CODEX_BUNDLED_CLI"
+    return 0
+  fi
+
+  return 1
+}
+
+find_codex_cli() {
+  local codex_cli
+
+  if codex_cli="$(try_find_codex_cli)"; then
+    printf '%s\n' "$codex_cli"
+    return 0
+  fi
+
+  die "$(codex_cli_error_message)"
+}
+
+quit_codex_app() {
+  local attempt quit_attempts="$CODEX_PROFILE_QUIT_ATTEMPTS"
+
+  [[ "$quit_attempts" =~ ^[0-9]+$ ]] || quit_attempts=30
+  (( quit_attempts < 1 )) && quit_attempts=1
+
+  if ! codex_desktop_running; then
+    return 0
+  fi
+
+  note "Quitting existing Codex app..."
+  osascript -e 'tell application "Codex" to quit' > /dev/null 2>&1 || true
+
+  for ((attempt = 0; attempt < quit_attempts; attempt++)); do
+    if ! codex_desktop_running; then
+      return 0
+    fi
+    sleep "$CODEX_PROFILE_QUIT_SLEEP"
+  done
+
+  note "Codex did not quit cleanly; forcing shutdown..."
+  force_quit_codex_app
+
+  for ((attempt = 0; attempt < quit_attempts; attempt++)); do
+    if ! codex_desktop_running; then
+      return 0
+    fi
+    sleep "$CODEX_PROFILE_QUIT_SLEEP"
+  done
+
+  die "Codex or its app-server is still running. Quit Codex with Cmd+Q, then retry."
+}
+
+command_app() {
+  local usage="Usage: $PROGRAM app <profile> [--instance] [--rebuild] [workspace]"
+  local instance=no rebuild=no
+  local profile="" workspace="" profile_set=no workspace_set=no positional_only=no
+
+  while [[ "$#" -gt 0 ]]; do
+    if [[ "$positional_only" == no ]]; then
+      case "$1" in
+        --instance)
+          instance=yes
+          shift
+          continue
+          ;;
+        --rebuild)
+          rebuild=yes
+          shift
+          continue
+          ;;
+        --)
+          positional_only=yes
+          shift
+          continue
+          ;;
+        --*)
+          die "$usage"
+          ;;
+      esac
+    fi
+
+    if [[ "$profile_set" == no ]]; then
+      profile="$1"
+      profile_set=yes
+    elif [[ "$workspace_set" == no ]]; then
+      workspace="$1"
+      workspace_set=yes
+    else
+      die "$usage"
+    fi
+    shift
+  done
+
+  [[ "$profile_set" == yes ]] || die "$usage"
+  [[ "$workspace_set" == yes ]] || workspace="$PWD"
+
+  if [[ "$rebuild" == yes && "$instance" == no ]]; then
+    die "$PROGRAM app --rebuild only applies together with --instance."
+  fi
+
+  if [[ "$instance" == yes ]]; then
+    run_app_instance "$profile" "$rebuild" "$workspace"
+  else
+    run_app_switch "$profile" "$workspace"
+  fi
+}
+
+# Default `app` behavior: quit any running Codex Desktop, then relaunch the
+# stock app bound to the profile's CODEX_HOME. One window at a time.
+run_app_switch() {
+  local profile="$1"
+  local workspace="$2"
+  local codex_home
+
+  if [[ ! -x "$CODEX_APP_BIN" ]]; then
+    [[ "$(uname -s)" == "Darwin" ]] || die_macos_only app
+    die "Codex Desktop binary not found at $CODEX_APP_BIN"
+  fi
+
+  codex_home="$(codex_home_for_profile "$profile")"
+  ensure_home "$codex_home"
+  quit_codex_app
+
+  local log_dir="$codex_home/logs"
+  local log_file="$log_dir/desktop.log"
+  ensure_home "$log_dir"
+  (umask 077 && : > "$log_file")
+  chmod 600 "$log_file" 2> /dev/null || true
+
+  note "Launching Codex Desktop with CODEX_HOME=$codex_home"
+  note "Log: $log_file"
+  (umask 077 && nohup env CODEX_HOME="$codex_home" "$CODEX_APP_BIN" > "$log_file" 2>&1 &)
+
+  local codex_cli
+  if codex_cli="$(try_find_codex_cli)"; then
+    (sleep 1 && env CODEX_HOME="$codex_home" "$codex_cli" app "$workspace" > /dev/null 2>&1 &)
+  fi
+}
+
+bundle_identifier_profile_suffix() {
+  local profile="$1"
+  local encoded
+
+  encoded="$(printf '%s' "$profile" | LC_ALL=C od -An -tx1 -v | tr -d '[:space:]')" || die "Cannot encode profile name for app instance bundle identifier."
+  printf 'p%s\n' "$encoded"
+}
+
+app_instance_bundle_identifier_for_profile() {
+  local profile="$1"
+  local bundle_suffix
+
+  bundle_suffix="$(bundle_identifier_profile_suffix "$profile")"
+  printf 'com.openai.codex.profile.%s\n' "$bundle_suffix"
+}
+
+app_instance_dir_for_profile() {
+  local profile="$1"
+
+  validate_profile "$profile"
+  printf '%s/%s\n' "$CODEX_PROFILE_APP_INSTANCE_ROOT" "$profile"
+}
+
+app_instance_app_for_profile() {
+  local profile="$1"
+  local instance_dir
+
+  instance_dir="$(app_instance_dir_for_profile "$profile")"
+  printf '%s/Codex %s.app\n' "$instance_dir" "$profile"
+}
+
+patch_app_instance_metadata() {
+  local profile="$1"
+  local app="$2"
+  local plist="$app/Contents/Info.plist"
+  local bundle_id display_name
+
+  [[ -f "$plist" ]] || die "Codex app clone is missing Info.plist: $plist"
+
+  bundle_id="$(app_instance_bundle_identifier_for_profile "$profile")"
+  display_name="Codex $profile"
+
+  if ! command -v plutil > /dev/null 2>&1; then
+    note "Warning: plutil not found; app instance metadata was not patched."
+    return 0
+  fi
+
+  plutil -replace CFBundleIdentifier -string "$bundle_id" "$plist" > /dev/null || die "Cannot patch app instance bundle identifier."
+  plutil -replace CFBundleDisplayName -string "$display_name" "$plist" > /dev/null || die "Cannot patch app instance display name."
+
+  if command -v codesign > /dev/null 2>&1; then
+    codesign --force --deep --sign - "$app" > /dev/null 2>&1 || die "Cannot re-sign app instance: $app"
+  else
+    note "Warning: codesign not found; patched app instance may not launch on macOS."
+  fi
+}
+
+app_instance_plist_value() {
+  local app="$1"
+  local key="$2"
+  local plist="$app/Contents/Info.plist"
+
+  [[ -f "$plist" ]] || return 1
+  command -v plutil > /dev/null 2>&1 || return 2
+  plutil -extract "$key" raw -o - "$plist" 2> /dev/null
+}
+
+app_instance_is_incompatible() {
+  local profile="$1"
+  local app="$2"
+  local plist="$app/Contents/Info.plist"
+  local bundle_id bundle_name display_name expected_bundle_id expected_display_name
+
+  [[ -f "$plist" ]] || return 0
+  command -v plutil > /dev/null 2>&1 || return 1
+
+  bundle_name="$(app_instance_plist_value "$app" CFBundleName)" || return 0
+  [[ "$bundle_name" == "Codex" ]] || return 0
+
+  expected_bundle_id="$(app_instance_bundle_identifier_for_profile "$profile")"
+  bundle_id="$(app_instance_plist_value "$app" CFBundleIdentifier)" || return 0
+  [[ "$bundle_id" == "$expected_bundle_id" ]] || return 0
+
+  expected_display_name="Codex $profile"
+  display_name="$(app_instance_plist_value "$app" CFBundleDisplayName)" || return 0
+  [[ "$display_name" == "$expected_display_name" ]] || return 0
+
+  return 1
+}
+
+create_app_instance_bundle() {
+  local profile="$1"
+  local instance_dir instance_app tmp_app source_bin
+
+  if [[ ! -d "$CODEX_APP" ]]; then
+    [[ "$(uname -s)" == "Darwin" ]] || die_macos_only "app --instance"
+    die "Codex.app not found at $CODEX_APP"
+  fi
+  source_bin="$CODEX_APP/Contents/MacOS/Codex"
+  [[ -x "$source_bin" ]] || die "Codex Desktop binary not found at $source_bin"
+
+  ensure_home "$CODEX_PROFILE_APP_INSTANCE_ROOT"
+  instance_dir="$(app_instance_dir_for_profile "$profile")"
+  ensure_home "$instance_dir"
+  instance_app="$(app_instance_app_for_profile "$profile")"
+  tmp_app="$instance_dir/.Codex $profile.app.tmp.$$"
+
+  rm -rf -- "$tmp_app"
+  cp -R "$CODEX_APP" "$tmp_app" || die "Cannot copy Codex.app to app instance: $tmp_app"
+  patch_app_instance_metadata "$profile" "$tmp_app"
+
+  if [[ -e "$instance_app" ]]; then
+    rm -rf -- "$instance_app" || die "Cannot replace app instance: $instance_app"
+  fi
+
+  mv "$tmp_app" "$instance_app" || die "Cannot install app instance: $instance_app"
+}
+
+ensure_app_instance_bundle() {
+  local profile="$1"
+  local rebuild="$2"
+  local instance_app instance_bin
+
+  instance_app="$(app_instance_app_for_profile "$profile")"
+  instance_bin="$instance_app/Contents/MacOS/Codex"
+
+  if [[ "$rebuild" == "yes" ]]; then
+    note "Rebuilding app instance for $profile"
+    create_app_instance_bundle "$profile"
+    return 0
+  fi
+
+  if [[ -x "$instance_bin" ]] && app_instance_is_incompatible "$profile" "$instance_app"; then
+    note "Rebuilding app instance for $profile because existing clone is incompatible"
+    create_app_instance_bundle "$profile"
+    return 0
+  fi
+
+  if [[ ! -x "$instance_bin" ]]; then
+    note "Creating app instance for $profile"
+    create_app_instance_bundle "$profile"
+  fi
+}
+
+# Deprecated back-compat alias for `app --instance`. Undocumented; kept so
+# existing scripts and muscle memory keep working. Prefer `app --instance`.
+command_app_instance() {
+  command_app --instance "$@"
+}
+
+# Opt-in `app --instance` behavior: launch a profile-specific Codex Desktop
+# clone alongside any running Codex, with its own Electron user data. macOS only.
+run_app_instance() {
+  local profile="$1"
+  local rebuild="$2"
+  local workspace="$3"
+
+  local codex_home instance_app instance_bin user_data_dir log_dir log_file
+  codex_home="$(codex_home_for_profile "$profile")"
+  ensure_home "$codex_home"
+  ensure_app_instance_bundle "$profile" "$rebuild"
+
+  instance_app="$(app_instance_app_for_profile "$profile")"
+  instance_bin="$instance_app/Contents/MacOS/Codex"
+  [[ -x "$instance_bin" ]] || die "Codex app instance binary not found at $instance_bin"
+  command -v open > /dev/null 2>&1 || die "macOS open command not found; app --instance is macOS-only."
+
+  user_data_dir="$codex_home/electron-user-data"
+  ensure_home "$user_data_dir"
+
+  log_dir="$codex_home/logs"
+  log_file="$log_dir/desktop-instance.log"
+  ensure_home "$log_dir"
+  (umask 077 && : > "$log_file")
+  chmod 600 "$log_file" 2> /dev/null || true
+
+  note "Launching experimental Codex Desktop instance for $profile"
+  note "CODEX_HOME=$codex_home"
+  note "App bundle: $instance_app"
+  note "Electron user data: $user_data_dir"
+  note "Log: $log_file"
+  (umask 077 && open -n --env "CODEX_HOME=$codex_home" --stdout "$log_file" --stderr "$log_file" -a "$instance_app" "$workspace" --args "--user-data-dir=$user_data_dir") || die "Cannot launch app instance: $instance_app"
+}
+
+command_cli() {
+  local profile="${1:-}"
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM cli <profile> [codex-args...]"
+  shift || true
+
+  local codex_home codex_cli
+  codex_home="$(codex_home_for_profile "$profile")"
+  ensure_home "$codex_home"
+  codex_cli="$(find_codex_cli)"
+
+  exec env CODEX_HOME="$codex_home" "$codex_cli" "$@"
+}
+
+command_login() {
+  local profile="${1:-}"
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM login <profile> [codex-login-args...]"
+  shift || true
+
+  local codex_home codex_cli
+  codex_home="$(codex_home_for_profile "$profile")"
+  ensure_home "$codex_home"
+  codex_cli="$(find_codex_cli)"
+
+  exec env CODEX_HOME="$codex_home" "$codex_cli" login "$@"
+}
+
+command_init() {
+  local profile="${1:-}"
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM init <profile>"
+  shift || true
+  [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM init <profile>"
+
+  local codex_home existed
+  codex_home="$(codex_home_for_profile "$profile")"
+  existed=no
+  [[ -d "$codex_home" ]] && existed=yes
+
+  ensure_home "$codex_home"
+
+  if [[ "$existed" == "yes" ]]; then
+    note "Already initialized $profile ($codex_home)"
+  else
+    note "Initialized $profile ($codex_home)"
+  fi
+}
+
+command_remove() {
+  local profile="${1:-}"
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM remove <profile> [--yes]"
+  shift || true
+
+  local yes=no
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --yes | -y)
+        yes=yes
+        ;;
+      *)
+        die "Usage: $PROGRAM remove <profile> [--yes]"
+        ;;
+    esac
+    shift
+  done
+
+  local codex_home confirmation
+  codex_home="$(codex_home_for_profile "$profile")"
+
+  if [[ ! -d "$codex_home" ]]; then
+    note "Not initialized $profile ($codex_home)"
+    return 0
+  fi
+
+  if [[ "$yes" != "yes" ]]; then
+    printf "Type '%s' to permanently remove %s: " "$profile" "$codex_home" >&2
+    if ! IFS= read -r confirmation && [[ -z "$confirmation" ]]; then
+      die "Confirmation required."
+    fi
+    if [[ "$confirmation" != "$profile" ]]; then
+      die "Confirmation did not match; nothing removed."
+    fi
+  fi
+
+  rm -rf -- "$codex_home" || die "Cannot remove profile home: $codex_home"
+  note "Removed $profile ($codex_home)"
+}
+
+command_status_one() {
+  local profile="$1"
+  local codex_home codex_cli
+  local status_output status_code
+
+  codex_home="$(codex_home_for_profile "$profile")"
+
+  if [[ ! -d "$codex_home" ]]; then
+    printf '%s (%s): Not initialized\n' "$profile" "$codex_home"
+    return 0
+  fi
+
+  codex_cli="$(find_codex_cli)"
+
+  printf '%s (%s): ' "$profile" "$codex_home"
+
+  set +e
+  status_output="$(env CODEX_HOME="$codex_home" "$codex_cli" login status 2>&1)"
+  status_code=$?
+  set -e
+
+  printf '%s\n' "$status_output"
+
+  if [[ "$status_code" -eq 0 || "$status_output" == "Not logged in" ]]; then
+    return 0
+  fi
+
+  return "$status_code"
+}
+
+json_escape() {
+  local value="$1"
+
+  value=${value//\\/\\\\}
+  value=${value//\"/\\\"}
+  value=${value//$'\b'/\\b}
+  value=${value//$'\f'/\\f}
+  value=${value//$'\n'/\\n}
+  value=${value//$'\r'/\\r}
+  value=${value//$'\t'/\\t}
+  value=${value//$'\001'/\\u0001}
+  value=${value//$'\002'/\\u0002}
+  value=${value//$'\003'/\\u0003}
+  value=${value//$'\004'/\\u0004}
+  value=${value//$'\005'/\\u0005}
+  value=${value//$'\006'/\\u0006}
+  value=${value//$'\007'/\\u0007}
+  value=${value//$'\013'/\\u000b}
+  value=${value//$'\016'/\\u000e}
+  value=${value//$'\017'/\\u000f}
+  value=${value//$'\020'/\\u0010}
+  value=${value//$'\021'/\\u0011}
+  value=${value//$'\022'/\\u0012}
+  value=${value//$'\023'/\\u0013}
+  value=${value//$'\024'/\\u0014}
+  value=${value//$'\025'/\\u0015}
+  value=${value//$'\026'/\\u0016}
+  value=${value//$'\027'/\\u0017}
+  value=${value//$'\030'/\\u0018}
+  value=${value//$'\031'/\\u0019}
+  value=${value//$'\032'/\\u001a}
+  value=${value//$'\033'/\\u001b}
+  value=${value//$'\034'/\\u001c}
+  value=${value//$'\035'/\\u001d}
+  value=${value//$'\036'/\\u001e}
+  value=${value//$'\037'/\\u001f}
+  printf '%s' "$value"
+}
+
+json_string() {
+  printf '"'
+  json_escape "$1"
+  printf '"'
+}
+
+json_status_object() {
+  local profile="$1"
+  local codex_home codex_cli status_output status_code state
+
+  codex_home="$(codex_home_for_profile "$profile")"
+
+  if [[ ! -d "$codex_home" ]]; then
+    printf '{"name":'
+    json_string "$profile"
+    printf ',"home":'
+    json_string "$codex_home"
+    printf ',"state":"not_initialized","status":"Not initialized","exit_code":0}'
+    return 0
+  fi
+
+  if ! codex_cli="$(try_find_codex_cli)"; then
+    printf '{"name":'
+    json_string "$profile"
+    printf ',"home":'
+    json_string "$codex_home"
+    printf ',"state":"error","status":'
+    json_string "$(codex_cli_error_message)"
+    printf ',"exit_code":1}'
+    return 1
+  fi
+
+  set +e
+  status_output="$(env CODEX_HOME="$codex_home" "$codex_cli" login status 2>&1)"
+  status_code=$?
+  set -e
+
+  if [[ "$status_code" -eq 0 ]]; then
+    state=ok
+  elif [[ "$status_output" == "Not logged in" ]]; then
+    state=not_logged_in
+  else
+    state=error
+  fi
+
+  printf '{"name":'
+  json_string "$profile"
+  printf ',"home":'
+  json_string "$codex_home"
+  printf ',"state":'
+  json_string "$state"
+  printf ',"status":'
+  json_string "$status_output"
+  printf ',"exit_code":%s}' "$status_code"
+
+  if [[ "$state" == "error" ]]; then
+    return "$status_code"
+  fi
+
+  return 0
+}
+
+json_emit_status_profiles_array() {
+  local requested_profile="${1:-}"
+  local status_code=0
+  local first=yes
+  local profile object object_status
+
+  printf '['
+
+  if [[ -n "$requested_profile" ]]; then
+    set +e
+    object="$(json_status_object "$requested_profile")"
+    object_status=$?
+    set -e
+    printf '%s' "$object"
+    printf ']'
+    return "$object_status"
+  fi
+
+  for profile in default $(discover_profiles no); do
+    if [[ "$first" == "yes" ]]; then
+      first=no
+    else
+      printf ','
+    fi
+
+    set +e
+    object="$(json_status_object "$profile")"
+    object_status=$?
+    set -e
+    printf '%s' "$object"
+
+    if [[ "$object_status" -ne 0 ]]; then
+      status_code="$object_status"
+    fi
+  done
+
+  printf ']'
+  return "$status_code"
+}
+
+command_status_json() {
+  local profile="${1:-}"
+  local status_code=0
+
+  printf '{"profiles":'
+  set +e
+  json_emit_status_profiles_array "$profile"
+  status_code=$?
+  set -e
+  printf '}\n'
+
+  return "$status_code"
+}
+
+command_status() {
+  local status_code=0
+  local json=no
+  local profile=""
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --json | -j)
+        json=yes
+        ;;
+      -*)
+        die "Unknown status option '$1'."
+        ;;
+      *)
+        [[ -z "$profile" ]] || die "Usage: $PROGRAM status [--json] [profile]"
+        profile="$1"
+        ;;
+    esac
+    shift
+  done
+
+  if [[ "$json" == "yes" ]]; then
+    command_status_json "$profile"
+    return $?
+  fi
+
+  if [[ -n "$profile" ]]; then
+    command_status_one "$profile"
+    return $?
+  fi
+
+  command_status_one default || status_code=$?
+
+  local profile
+  for profile in $(discover_profiles no); do
+    command_status_one "$profile" || status_code=$?
+  done
+
+  return "$status_code"
+}
+
+command_list() {
+  discover_profiles yes
+}
+
+command_path() {
+  local profile="${1:-}"
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM path <profile>"
+  codex_home_for_profile "$profile"
+}
+
+shell_squote() {
+  local value="$1"
+
+  value=${value//\'/\'\\\'\'}
+  printf "'%s'" "$value"
+}
+
+fish_squote() {
+  local value="$1"
+
+  value=${value//\\/\\\\}
+  value=${value//\'/\\\'}
+  printf "'%s'" "$value"
+}
+
+command_env() {
+  local profile="" shell="posix"
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --shell)
+        [[ -n "${2:-}" ]] || die "Usage: $PROGRAM env <profile> [--shell <bash|zsh|fish>]"
+        shell="$2"
+        shift
+        ;;
+      -*)
+        die "Usage: $PROGRAM env <profile> [--shell <bash|zsh|fish>]"
+        ;;
+      *)
+        [[ -z "$profile" ]] || die "Usage: $PROGRAM env <profile> [--shell <bash|zsh|fish>]"
+        profile="$1"
+        ;;
+    esac
+    shift
+  done
+
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM env <profile> [--shell <bash|zsh|fish>]"
+
+  local codex_home
+  codex_home="$(codex_home_for_profile "$profile")"
+
+  if [[ ! -d "$codex_home" ]]; then
+    printf "%s: profile '%s' is not initialized (%s); run '%s init %s' or '%s login %s'.\n" \
+      "$PROGRAM" "$profile" "$codex_home" "$PROGRAM" "$profile" "$PROGRAM" "$profile" >&2
+  fi
+
+  case "$shell" in
+    fish)
+      printf 'set -gx CODEX_HOME %s\n' "$(fish_squote "$codex_home")"
+      printf 'set -gx CODEX_PROFILE_NAME %s\n' "$(fish_squote "$profile")"
+      ;;
+    posix | sh | bash | zsh)
+      printf 'export CODEX_HOME=%s\n' "$(shell_squote "$codex_home")"
+      printf 'export CODEX_PROFILE_NAME=%s\n' "$(shell_squote "$profile")"
+      ;;
+    *)
+      die "Unsupported shell '$shell'. Use bash, zsh, or fish."
+      ;;
+  esac
+}
+
+command_use() {
+  local profile="${1:-}"
+  local shell_hint="bash"
+
+  case "${SHELL:-}" in
+    */fish) shell_hint="fish" ;;
+    */zsh) shell_hint="zsh" ;;
+  esac
+
+  die "$(printf "'%s use' changes CODEX_HOME in your current shell, so it must run through the shell wrapper.\nAdd the wrapper to your shell startup file, then reopen your shell:\n  bash/zsh:  eval \"\$(%s shell-init %s)\"\n  fish:      %s shell-init fish | source\nThen: %s use %s\nOne-off (no wrapper): eval \"\$(%s env %s)\"" \
+    "$PROGRAM" "$PROGRAM" "$shell_hint" "$PROGRAM" "$PROGRAM" "${profile:-<profile>}" "$PROGRAM" "${profile:-<profile>}")"
+}
+
+command_logs() {
+  local profile="${1:-}"
+  [[ -n "$profile" ]] || die "Usage: $PROGRAM logs <profile> [--instance] [--path|--tail [lines]]"
+  shift || true
+
+  local mode="cat"
+  local log_name="desktop.log"
+  local lines=50
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --instance)
+        log_name="desktop-instance.log"
+        ;;
+      --path)
+        mode="path"
+        ;;
+      --tail)
+        mode="tail"
+        if [[ -n "${2:-}" && "$2" != -* ]]; then
+          lines="$2"
+          shift
+        fi
+        ;;
+      -*)
+        die "Unknown logs option '$1'."
+        ;;
+      *)
+        die "Usage: $PROGRAM logs <profile> [--instance] [--path|--tail [lines]]"
+        ;;
+    esac
+    shift
+  done
+
+  [[ "$lines" =~ ^[0-9]+$ ]] || die "Tail line count must be a non-negative integer."
+
+  local codex_home log_file missing_label
+  codex_home="$(codex_home_for_profile "$profile")"
+  log_file="$codex_home/logs/$log_name"
+  missing_label="$log_name"
+  if [[ "$log_name" == "desktop.log" ]]; then
+    missing_label="desktop log"
+  elif [[ "$log_name" == "desktop-instance.log" ]]; then
+    missing_label="desktop instance log"
+  fi
+
+  if [[ "$mode" == "path" ]]; then
+    printf '%s\n' "$log_file"
+    return 0
+  fi
+
+  [[ -f "$log_file" ]] || die "No $missing_label for $profile ($log_file)."
+
+  if [[ "$mode" == "tail" ]]; then
+    tail -n "$lines" "$log_file"
+  else
+    cat "$log_file"
+  fi
+}
+
+config_file_looks_sensitive() {
+  local file="$1"
+
+  grep -Eiq '(auth|token|secret|password|passwd|credential|api[_-]?key|access[_-]?key|private[_-]?key|oauth|bearer)' "$file"
+}
+
+command_clone_config() {
+  local source_profile="" target_profile="" force=no
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --force | -f)
+        force=yes
+        ;;
+      -*)
+        die "Usage: $PROGRAM clone-config <source-profile> <target-profile> [--force]"
+        ;;
+      *)
+        if [[ -z "$source_profile" ]]; then
+          source_profile="$1"
+        elif [[ -z "$target_profile" ]]; then
+          target_profile="$1"
+        else
+          die "Usage: $PROGRAM clone-config <source-profile> <target-profile> [--force]"
+        fi
+        ;;
+    esac
+    shift
+  done
+
+  [[ -n "$source_profile" && -n "$target_profile" ]] || die "Usage: $PROGRAM clone-config <source-profile> <target-profile> [--force]"
+  [[ "$source_profile" != "$target_profile" ]] || die "Source and target profiles must be different."
+
+  local source_home target_home
+  source_home="$(codex_home_for_profile "$source_profile")"
+  target_home="$(codex_home_for_profile "$target_profile")"
+
+  [[ -d "$source_home" ]] || die "Source profile is not initialized: $source_profile ($source_home)"
+  ensure_home "$target_home"
+
+  local safe_files=("config.toml" "AGENTS.md")
+  local file source_file target_file copied failed
+  copied=0
+  failed=0
+
+  for file in "${safe_files[@]}"; do
+    source_file="$source_home/$file"
+    target_file="$target_home/$file"
+    [[ -f "$source_file" ]] || continue
+
+    if [[ -L "$source_file" ]]; then
+      note "Refusing to copy $file because it is a symlink."
+      failed=1
+      continue
+    fi
+
+    if config_file_looks_sensitive "$source_file"; then
+      note "Refusing to copy $file because it contains sensitive-looking keys."
+      failed=1
+      continue
+    fi
+
+    if [[ -L "$target_file" ]]; then
+      note "Refusing to overwrite $file because the target is a symlink."
+      failed=1
+      continue
+    fi
+
+    if [[ -e "$target_file" && "$force" != "yes" ]]; then
+      note "Refusing to overwrite $file in $target_home. Use --force to overwrite."
+      failed=1
+      continue
+    fi
+
+    install -m 600 "$source_file" "$target_file" || die "Cannot copy $file to $target_home"
+    note "Copied $file"
+    copied=$((copied + 1))
+  done
+
+  if [[ "$failed" -ne 0 ]]; then
+    return 1
+  fi
+
+  if [[ "$copied" -eq 0 ]]; then
+    note "No safe config files found to clone from $source_profile."
+  fi
+}
+
+command_version() {
+  printf 'codex-profile %s\n' "$VERSION"
+}
+
+upgrade_cache_dir() {
+  if [[ -n "${CODEX_PROFILE_UPGRADE_CACHE:-}" ]]; then
+    printf '%s\n' "$CODEX_PROFILE_UPGRADE_CACHE"
+  elif [[ -n "${XDG_CACHE_HOME:-}" ]]; then
+    printf '%s/codex-profile/source\n' "$XDG_CACHE_HOME"
+  else
+    printf '%s/.cache/codex-profile/source\n' "$HOME"
+  fi
+}
+
+upgrade_prefix() {
+  printf '%s\n' "${CODEX_PROFILE_UPGRADE_PREFIX:-$HOME/.local}"
+}
+
+upgrade_print_plan() {
+  local repo="$1"
+  local ref="$2"
+  local cache="$3"
+  local prefix="$4"
+
+  note "Upgrade plan"
+  note "Repository: $repo"
+  note "Ref: $ref"
+  note "Cache: $cache"
+  note "Install prefix: $prefix"
+}
+
+version_core() {
+  local value="$1"
+
+  value="${value#codex-profile }"
+  value="${value%%$'\n'*}"
+  value="${value%%-*}"
+  printf '%s\n' "$value"
+}
+
+version_is_older_than_current() {
+  local candidate="$1"
+  local current="$VERSION"
+  local candidate_core current_core
+  local candidate_parts current_parts candidate_part current_part index
+
+  candidate_core="$(version_core "$candidate")"
+  current_core="$(version_core "$current")"
+
+  IFS=. read -r -a candidate_parts <<< "$candidate_core"
+  IFS=. read -r -a current_parts <<< "$current_core"
+
+  for index in 0 1 2; do
+    candidate_part="${candidate_parts[$index]:-0}"
+    current_part="${current_parts[$index]:-0}"
+
+    [[ "$candidate_part" =~ ^[0-9]+$ ]] || return 1
+    [[ "$current_part" =~ ^[0-9]+$ ]] || return 1
+
+    if ((10#$candidate_part < 10#$current_part)); then
+      return 0
+    fi
+    if ((10#$candidate_part > 10#$current_part)); then
+      return 1
+    fi
+  done
+
+  return 1
+}
+
+update_check_state_file() {
+  if [[ -n "${CODEX_PROFILE_UPDATE_CACHE:-}" ]]; then
+    printf '%s\n' "$CODEX_PROFILE_UPDATE_CACHE"
+  elif [[ -n "${XDG_CACHE_HOME:-}" ]]; then
+    printf '%s/codex-profile/update-check\n' "$XDG_CACHE_HOME"
+  else
+    printf '%s/.cache/codex-profile/update-check\n' "$HOME"
+  fi
+}
+
+update_check_fetch_latest() {
+  local url body
+  url="${CODEX_PROFILE_UPDATE_URL:-https://registry.npmjs.org/codex-profile/latest}"
+
+  if [[ -f "$url" ]]; then
+    body="$(cat "$url" 2> /dev/null)" || return 1
+  elif command -v curl > /dev/null 2>&1; then
+    body="$(curl -fsSL --max-time 5 "$url" 2> /dev/null)" || return 1
+  elif command -v wget > /dev/null 2>&1; then
+    body="$(wget -qO- --timeout=5 "$url" 2> /dev/null)" || return 1
+  else
+    return 1
+  fi
+
+  printf '%s' "$body" \
+    | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+    | head -n 1
+}
+
+update_version_is_newer() {
+  local candidate="$1"
+  local candidate_core current_core
+  local candidate_parts current_parts candidate_part current_part index
+
+  candidate_core="$(version_core "$candidate")"
+  current_core="$(version_core "$VERSION")"
+
+  IFS=. read -r -a candidate_parts <<< "$candidate_core"
+  IFS=. read -r -a current_parts <<< "$current_core"
+
+  for index in 0 1 2; do
+    candidate_part="${candidate_parts[$index]:-0}"
+    current_part="${current_parts[$index]:-0}"
+
+    [[ "$candidate_part" =~ ^[0-9]+$ ]] || return 1
+    [[ "$current_part" =~ ^[0-9]+$ ]] || return 1
+
+    if ((10#$candidate_part > 10#$current_part)); then
+      return 0
+    fi
+    if ((10#$candidate_part < 10#$current_part)); then
+      return 1
+    fi
+  done
+
+  return 1
+}
+
+update_check_refresh() {
+  local state_file="$1"
+  local now="$2"
+  local prev_version="$3"
+  local latest tmp
+
+  latest="$(update_check_fetch_latest 2> /dev/null || true)"
+  [[ -n "$latest" ]] || latest="$prev_version"
+
+  mkdir -p "$(dirname "$state_file")" 2> /dev/null || return 0
+  tmp="$state_file.$$"
+  if printf '%s %s\n' "$now" "$latest" > "$tmp" 2> /dev/null; then
+    mv "$tmp" "$state_file" 2> /dev/null || rm -f "$tmp" 2> /dev/null || true
+  fi
+}
+
+update_check_disabled() {
+  [[ -n "${CODEX_PROFILE_NO_UPDATE_CHECK:-}" ]] && return 0
+  [[ -n "${DO_NOT_TRACK:-}" && "${DO_NOT_TRACK}" != "0" ]] && return 0
+  return 1
+}
+
+maybe_check_for_update() {
+  update_check_disabled && return 0
+
+  # Interactive terminals only, unless a test hook forces the check.
+  if [[ -z "${CODEX_PROFILE_FORCE_UPDATE_CHECK:-}" ]]; then
+    [[ -t 1 ]] || return 0
+  fi
+
+  local state_file now interval last cached_epoch="" cached_version=""
+  state_file="$(update_check_state_file)"
+  now="$(date +%s 2> /dev/null)" || return 0
+  [[ "$now" =~ ^[0-9]+$ ]] || return 0
+  interval="${CODEX_PROFILE_UPDATE_INTERVAL:-86400}"
+  [[ "$interval" =~ ^[0-9]+$ ]] || interval=86400
+
+  if [[ -f "$state_file" ]]; then
+    read -r cached_epoch cached_version < "$state_file" 2> /dev/null || true
+    if [[ -n "$cached_version" ]] && update_version_is_newer "$cached_version"; then
+      printf "codex-profile %s available (you have %s); run '%s upgrade' or 'npm i -g codex-profile'.\n" \
+        "$cached_version" "$VERSION" "$PROGRAM" >&2
+    fi
+  fi
+
+  last="${cached_epoch:-0}"
+  [[ "$last" =~ ^[0-9]+$ ]] || last=0
+
+  if ((now - last >= interval)); then
+    if [[ -n "${CODEX_PROFILE_UPDATE_SYNC:-}" ]]; then
+      update_check_refresh "$state_file" "$now" "$cached_version"
+    else
+      (update_check_refresh "$state_file" "$now" "$cached_version") > /dev/null 2>&1 &
+    fi
+  fi
+
+  return 0
+}
+
+script_declared_version_output() {
+  local script="$1"
+  local declared_version
+
+  declared_version="$(sed -n 's/^VERSION="\([^"]*\)".*/\1/p' "$script" | sed -n '1p')"
+  [[ -n "$declared_version" ]] || return 1
+  printf 'codex-profile %s\n' "$declared_version"
+}
+
+upgrade_checkout_ref() {
+  local cache="$1"
+  local ref="$2"
+
+  git -C "$cache" fetch --tags --prune origin
+  if git -C "$cache" show-ref --verify --quiet "refs/remotes/origin/$ref"; then
+    git -C "$cache" checkout --quiet -B "$ref" "origin/$ref"
+  else
+    git -C "$cache" checkout --quiet "$ref"
+  fi
+}
+
+command_upgrade() {
+  local dry_run=no
+  local prefix
+  local ref="$CODEX_PROFILE_UPGRADE_REF"
+  local repo="$CODEX_PROFILE_UPGRADE_REPO"
+  local cache
+  prefix="$(upgrade_prefix)"
+  cache="$(upgrade_cache_dir)"
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --dry-run | -n)
+        dry_run=yes
+        ;;
+      --prefix)
+        [[ -n "${2:-}" ]] || die "Usage: $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]"
+        prefix="$2"
+        shift
+        ;;
+      --ref)
+        [[ -n "${2:-}" ]] || die "Usage: $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]"
+        ref="$2"
+        shift
+        ;;
+      *)
+        die "Usage: $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]"
+        ;;
+    esac
+    shift
+  done
+
+  [[ -n "$repo" ]] || die "Upgrade repository cannot be empty."
+  [[ -n "$ref" ]] || die "Upgrade ref cannot be empty."
+  [[ -n "$cache" ]] || die "Upgrade cache cannot be empty."
+  [[ -n "$prefix" ]] || die "Upgrade prefix cannot be empty."
+  [[ "$repo" != -* ]] || die "Upgrade repository must not start with '-'."
+  [[ "$ref" != -* ]] || die "Upgrade ref must not start with '-'."
+
+  upgrade_print_plan "$repo" "$ref" "$cache" "$prefix"
+
+  if [[ "$dry_run" == "yes" ]]; then
+    return 0
+  fi
+
+  command -v git > /dev/null 2>&1 || die "git is required to upgrade codex-profile."
+  command -v make > /dev/null 2>&1 || die "make is required to upgrade codex-profile."
+
+  if [[ -e "$cache" && ! -d "$cache/.git" ]]; then
+    die "Upgrade cache exists but is not a git checkout: $cache"
+  fi
+
+  if [[ ! -d "$cache/.git" ]]; then
+    mkdir -p "$(dirname "$cache")" || die "Cannot create upgrade cache parent: $(dirname "$cache")"
+    git clone "$repo" "$cache"
+    upgrade_checkout_ref "$cache" "$ref"
+  else
+    local origin dirty
+    origin="$(git -C "$cache" remote get-url origin 2> /dev/null || true)"
+    [[ "$origin" == "$repo" ]] || die "Cached upgrade checkout origin differs from $repo: $origin"
+
+    dirty="$(git -C "$cache" status --porcelain)"
+    [[ -z "$dirty" ]] || die "Cached upgrade checkout has local changes: $cache"
+
+    upgrade_checkout_ref "$cache" "$ref"
+  fi
+
+  [[ -f "$cache/Makefile" ]] || die "Upgrade checkout is missing Makefile: $cache"
+  [[ -f "$cache/bin/codex-profile" ]] || die "Upgrade checkout is missing bin/codex-profile: $cache"
+
+  local candidate_version
+  candidate_version="$(script_declared_version_output "$cache/bin/codex-profile" || true)"
+  [[ -n "$candidate_version" ]] || die "Refusing to install candidate without a declared VERSION."
+  if [[ -n "$candidate_version" ]] && version_is_older_than_current "$candidate_version"; then
+    die "Refusing to install older $candidate_version over codex-profile $VERSION."
+  fi
+
+  make -C "$cache" install PREFIX="$prefix"
+
+  local installed version_output
+  installed="$prefix/bin/codex-profile"
+  [[ -x "$installed" ]] || die "Upgrade did not install executable: $installed"
+  version_output="$("$installed" version 2> /dev/null || "$installed" --version 2> /dev/null || true)"
+  [[ -n "$version_output" ]] || version_output="codex-profile version unknown"
+  note "Installed $version_output to $installed"
+}
+
+command_completions() {
+  local shell="${1:-}"
+  [[ -n "$shell" ]] || die "Usage: $PROGRAM completions <bash|zsh|fish>"
+  shift || true
+  [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM completions <bash|zsh|fish>"
+
+  case "$shell" in
+    bash)
+      cat <<'EOF'
+_codex_profile()
+{
+  local cur command profiles
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  command="${COMP_WORDS[1]}"
+
+  if [[ "$COMP_CWORD" -eq 1 ]]; then
+    COMPREPLY=( $(compgen -W "app cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help" -- "$cur") )
+    return 0
+  fi
+
+  case "$command" in
+    app)
+      if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "--instance --rebuild" -- "$cur") )
+      elif [[ "$COMP_CWORD" -eq 2 ]]; then
+        profiles="$(codex-profile list 2>/dev/null)"
+        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
+      fi
+      ;;
+    app-instance|cli|login|init|remove|status|path|env|use|logs)
+      if [[ "$COMP_CWORD" -eq 2 ]]; then
+        profiles="$(codex-profile list 2>/dev/null)"
+        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
+      fi
+      ;;
+    clone-config)
+      if [[ "$COMP_CWORD" -eq 2 || "$COMP_CWORD" -eq 3 ]]; then
+        profiles="$(codex-profile list 2>/dev/null)"
+        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
+      fi
+      ;;
+    completions|shell-init)
+      if [[ "$COMP_CWORD" -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
+      fi
+      ;;
+  esac
+}
+complete -F _codex_profile codex-profile
+EOF
+      ;;
+    zsh)
+      cat <<'EOF'
+#compdef codex-profile
+
+_codex_profile() {
+  local -a commands profiles shells app_flags
+  commands=(
+    app cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help
+  )
+  profiles=(${(f)"$(codex-profile list 2>/dev/null)"} default personal work)
+  shells=(bash zsh fish)
+  app_flags=(--instance --rebuild)
+
+  if (( CURRENT == 2 )); then
+    _describe 'command' commands
+    return
+  fi
+
+  case "$words[2]" in
+    app)
+      if [[ "$words[CURRENT]" == -* ]]; then
+        _describe 'flag' app_flags
+      elif (( CURRENT == 3 )); then
+        _describe 'profile' profiles
+      fi
+      ;;
+    app-instance|cli|login|init|remove|status|path|env|use|logs)
+      if (( CURRENT == 3 )); then
+        _describe 'profile' profiles
+      fi
+      ;;
+    clone-config)
+      if (( CURRENT == 3 || CURRENT == 4 )); then
+        _describe 'profile' profiles
+      fi
+      ;;
+    completions|shell-init)
+      if (( CURRENT == 3 )); then
+        _describe 'shell' shells
+      fi
+      ;;
+  esac
+}
+
+_codex_profile "$@"
+EOF
+      ;;
+    fish)
+      cat <<'EOF'
+complete -c codex-profile -f
+complete -c codex-profile -n '__fish_is_first_arg' -a 'app cli login init remove status path env use logs clone-config list doctor completions shell-init upgrade version help'
+complete -c codex-profile -n '__fish_seen_subcommand_from app app-instance cli login init remove status path env use logs' -a '(codex-profile list 2>/dev/null) default personal work'
+complete -c codex-profile -n '__fish_seen_subcommand_from app' -l instance -d 'Run a parallel Codex Desktop clone alongside others (experimental)'
+complete -c codex-profile -n '__fish_seen_subcommand_from app' -l rebuild -d 'Rebuild the app --instance clone (only with --instance)'
+complete -c codex-profile -n '__fish_seen_subcommand_from clone-config' -a '(codex-profile list 2>/dev/null) default personal work'
+complete -c codex-profile -n '__fish_seen_subcommand_from completions shell-init' -a 'bash zsh fish'
+EOF
+      ;;
+    *)
+      die "Unsupported shell '$shell'. Use bash, zsh, or fish."
+      ;;
+  esac
+}
+
+command_shell_init() {
+  local shell="${1:-}"
+  [[ -n "$shell" ]] || die "Usage: $PROGRAM shell-init <bash|zsh|fish>"
+  shift || true
+  [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM shell-init <bash|zsh|fish>"
+
+  case "$shell" in
+    bash | zsh)
+      cat <<'EOF'
+codex-profile() {
+  if [ "${1:-}" = "use" ]; then
+    shift
+    local __codex_profile_env
+    __codex_profile_env="$(command codex-profile env "$@")" || return $?
+    eval "$__codex_profile_env"
+  else
+    command codex-profile "$@"
+  fi
+}
+codex-profiles() { codex-profile "$@"; }
+EOF
+      ;;
+    fish)
+      cat <<'EOF'
+function codex-profile
+    if test (count $argv) -ge 1; and test "$argv[1]" = use
+        set -l __cp_env (command codex-profile env --shell fish $argv[2..-1]); or return $status
+        printf '%s\n' $__cp_env | source
+    else
+        command codex-profile $argv
+    end
+end
+
+function codex-profiles
+    codex-profile $argv
+end
+EOF
+      ;;
+    *)
+      die "Unsupported shell '$shell'. Use bash, zsh, or fish."
+      ;;
+  esac
+}
+
+command_doctor() {
+  local json=no
+  local codex_cli
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --json | -j)
+        json=yes
+        ;;
+      *)
+        die "Usage: $PROGRAM doctor [--json]"
+        ;;
+    esac
+    shift
+  done
+
+  if [[ "$json" == "yes" ]]; then
+    local desktop_found=false cli_version status_code=0
+    [[ -x "$CODEX_APP_BIN" ]] && desktop_found=true
+
+    printf '{"desktop":{"found":%s,"path":' "$desktop_found"
+    json_string "$CODEX_APP_BIN"
+    printf '}'
+
+    if codex_cli="$(try_find_codex_cli)"; then
+      cli_version="$("$codex_cli" --version 2>&1 || true)"
+      printf ',"cli":{"found":true,"path":'
+      json_string "$codex_cli"
+      printf ',"version":'
+      json_string "$cli_version"
+      printf '},"status":{"skipped":false,"profiles":'
+      set +e
+      json_emit_status_profiles_array
+      status_code=$?
+      set -e
+      printf '}}\n'
+      return "$status_code"
+    fi
+
+    printf ',"cli":{"found":false,"path":null,"version":null},"status":{"skipped":true,"reason":'
+    json_string "$(codex_cli_error_message)"
+    printf '}}\n'
+    return 0
+  fi
+
+  note "Codex profile doctor"
+  note ""
+
+  if [[ -x "$CODEX_APP_BIN" ]]; then
+    note "Desktop: $CODEX_APP_BIN"
+  else
+    note "Desktop: missing ($CODEX_APP_BIN)"
+  fi
+
+  if codex_cli="$(find_codex_cli 2> /dev/null)"; then
+    note "CLI: $codex_cli"
+    "$codex_cli" --version || true
+  else
+    note "CLI: missing"
+    note ""
+    note "Status: skipped"
+    return 0
+  fi
+
+  note ""
+  command_status
+}
+
+main() {
+  local command="${1:-help}"
+  shift || true
+
+  maybe_check_for_update || true
+
+  case "$command" in
+    app)
+      command_app "$@"
+      ;;
+    app-instance)
+      command_app_instance "$@"
+      ;;
+    cli)
+      command_cli "$@"
+      ;;
+    login)
+      command_login "$@"
+      ;;
+    init)
+      command_init "$@"
+      ;;
+    remove)
+      command_remove "$@"
+      ;;
+    status)
+      command_status "$@"
+      ;;
+    path)
+      command_path "$@"
+      ;;
+    env)
+      command_env "$@"
+      ;;
+    use)
+      command_use "$@"
+      ;;
+    logs)
+      command_logs "$@"
+      ;;
+    clone-config)
+      command_clone_config "$@"
+      ;;
+    list)
+      command_list
+      ;;
+    doctor)
+      command_doctor "$@"
+      ;;
+    completions)
+      command_completions "$@"
+      ;;
+    shell-init)
+      command_shell_init "$@"
+      ;;
+    upgrade)
+      command_upgrade "$@"
+      ;;
+    version | --version)
+      command_version
+      ;;
+    help | -h | --help)
+      usage
+      ;;
+    *)
+      die "Unknown command '$command'. See '$PROGRAM help'."
+      ;;
+  esac
+}
+
+main "$@"

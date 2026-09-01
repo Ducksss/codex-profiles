@@ -1,0 +1,1763 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>codex-profiles - Isolated Codex CLI and Desktop profiles</title>
+  <meta name="description" content="codex-profiles is a dependency-free Bash CLI for switching Codex CLI and Desktop profiles with isolated CODEX_HOME directories on macOS and Linux.">
+  <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
+  <link rel="canonical" href="https://ducksss.github.io/codex-profiles/">
+  <link rel="license" href="https://github.com/Ducksss/codex-profiles/blob/main/LICENSE">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="codex-profiles - Isolated Codex CLI and Desktop profiles">
+  <meta property="og:description" content="Switch Codex CLI and Desktop accounts with separate CODEX_HOME directories instead of copying token files.">
+  <meta property="og:url" content="https://ducksss.github.io/codex-profiles/">
+  <meta property="og:image" content="https://raw.githubusercontent.com/Ducksss/codex-profiles/main/media/codex-profile-parallel-instances.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://github.com/Ducksss/codex-profiles#organization",
+      "name": "Ducksss open-source projects",
+      "url": "https://github.com/Ducksss",
+      "sameAs": [
+        "https://github.com/Ducksss/codex-profiles",
+        "https://www.npmjs.com/package/codex-profile"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://ducksss.github.io/codex-profiles/#website",
+      "name": "codex-profiles",
+      "url": "https://ducksss.github.io/codex-profiles/",
+      "publisher": {
+        "@id": "https://github.com/Ducksss/codex-profiles#organization"
+      },
+      "inLanguage": "en"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://ducksss.github.io/codex-profiles/#software",
+      "name": "codex-profiles",
+      "alternateName": "codex-profile",
+      "url": "https://ducksss.github.io/codex-profiles/",
+      "description": "codex-profiles is a dependency-free Bash CLI for switching Codex CLI and Desktop profiles with isolated CODEX_HOME directories on macOS and Linux.",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "Command-line tool",
+      "operatingSystem": [
+        "macOS",
+        "Linux"
+      ],
+      "softwareVersion": "0.6.0",
+      "license": "https://github.com/Ducksss/codex-profiles/blob/main/LICENSE",
+      "codeRepository": "https://github.com/Ducksss/codex-profiles",
+      "downloadUrl": "https://www.npmjs.com/package/codex-profile",
+      "installUrl": "https://www.npmjs.com/package/codex-profile",
+      "discussionUrl": "https://github.com/Ducksss/codex-profiles/discussions/1",
+      "maintainer": {
+        "@id": "https://github.com/Ducksss/codex-profiles#organization"
+      },
+      "featureList": [
+        "Isolated CODEX_HOME directories per profile",
+        "Codex CLI launch support",
+        "Codex Desktop launch support",
+        "Experimental parallel Desktop windows via app --instance",
+        "Read-only profile status and doctor diagnostics",
+        "Safe non-secret config cloning",
+        "Bash, Zsh, and Fish completion generators",
+        "Source-style self-upgrade with dry-run preview"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock",
+        "url": "https://www.npmjs.com/package/codex-profile"
+      }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://ducksss.github.io/codex-profiles/#webpage",
+      "url": "https://ducksss.github.io/codex-profiles/",
+      "name": "codex-profiles - Isolated Codex CLI and Desktop profiles",
+      "description": "A machine-readable product page for codex-profiles, a Bash utility for Codex profile isolation.",
+      "isPartOf": {
+        "@id": "https://ducksss.github.io/codex-profiles/#website"
+      },
+      "mainEntity": {
+        "@id": "https://ducksss.github.io/codex-profiles/#software"
+      },
+      "breadcrumb": {
+        "@id": "https://ducksss.github.io/codex-profiles/#breadcrumb"
+      },
+      "inLanguage": "en"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://ducksss.github.io/codex-profiles/#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "codex-profiles",
+          "item": "https://ducksss.github.io/codex-profiles/"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://ducksss.github.io/codex-profiles/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is codex-profiles?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "codex-profiles is a small Bash command that launches Codex CLI or Codex Desktop with a selected CODEX_HOME directory."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why use separate CODEX_HOME directories?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Separate CODEX_HOME directories keep Codex auth, config, sessions, plugins, caches, logs, and local state separated by profile."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does codex-profiles copy auth tokens?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. codex-profiles does not read, copy, print, parse, or migrate auth tokens."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which platforms does codex-profiles support?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "CLI-oriented commands are tested on macOS and Linux, while Desktop app launch commands are macOS-oriented."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I install codex-profiles?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Install from npm with npm install -g codex-profile or from Homebrew with brew install Ducksss/tap/codex-profile."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can an AI assistant tell me how to run codex-profiles?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Point your AI assistant or coding agent at the GitHub repository and this llms.txt file, then ask it to install codex-profile and run codex-profile cli work to start Codex on an isolated work profile. Coding agents working inside a clone of the repository can read its AGENTS.md file for setup, test, and usage instructions."
+          }
+        }
+      ]
+    }
+  ]
+}
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #ffffff;
+      --paper-2: #f4f4f5;
+      --surface: #ffffff;
+      --ink: #0a0a0b;
+      --ink-2: #27272a;
+      --muted: #71717a;
+      --line: #e8e8ea;
+      --line-2: #d4d4d8;
+      --brand: #0a0a0b;
+      --brand-ink: #0a0a0b;
+      --teal: #52525b;
+      --teal-ink: #3f3f46;
+      --amber: #52525b;
+      --danger: #3f3f46;
+      --danger-soft: #f4f4f5;
+      --grad: linear-gradient(102deg, #0a0a0b, #3f3f46);
+      --grad-soft: #f4f4f5;
+      --shadow-sm: 0 1px 2px rgba(9, 9, 11, 0.05), 0 2px 6px rgba(9, 9, 11, 0.05);
+      --shadow: 0 6px 16px rgba(9, 9, 11, 0.07), 0 18px 40px -18px rgba(9, 9, 11, 0.16);
+      --shadow-lg: 0 24px 60px -22px rgba(9, 9, 11, 0.24);
+      --radius: 16px;
+      --radius-sm: 11px;
+      --grid: rgba(9, 9, 11, 0.035);
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --maxw: 1140px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      line-height: 1.6;
+      background-color: var(--paper);
+      background-image:
+        radial-gradient(1200px 700px at 84% -10%, rgba(9, 9, 11, 0.05), transparent 60%),
+        radial-gradient(900px 520px at 2% -6%, rgba(9, 9, 11, 0.035), transparent 55%);
+      background-repeat: no-repeat;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+    }
+
+    a { color: var(--brand-ink); text-underline-offset: 3px; }
+    a:hover { color: var(--brand); }
+
+    code, pre, .mono {
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .wrap { width: min(var(--maxw), calc(100% - 40px)); margin: 0 auto; }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .eyebrow::before {
+      content: "";
+      width: 22px;
+      height: 1px;
+      background: var(--line-2);
+      opacity: 1;
+    }
+
+    /* ---------- Hero ---------- */
+    .hero {
+      position: relative;
+      padding: clamp(54px, 9vw, 104px) 0 clamp(40px, 6vw, 72px);
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: clamp(28px, 4vw, 56px);
+      align-items: center;
+    }
+    h1.wordmark {
+      margin: 18px 0 0;
+      font-family: "Schibsted Grotesk", sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.9rem, 7.4vw, 5.2rem);
+      line-height: 0.94;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+    }
+    .wordmark .caret {
+      color: var(--brand);
+      margin-left: 0.01em;
+      animation: blink 1.1s steps(2, start) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .hero-copy {
+      max-width: 33ch;
+      margin: 22px 0 0;
+      font-size: 1.16rem;
+      color: var(--muted);
+    }
+    .hero-copy strong { color: var(--ink-2); font-weight: 600; }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .button {
+      min-height: 46px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 20px;
+      border-radius: 11px;
+      font-weight: 600;
+      font-size: 0.97rem;
+      text-decoration: none;
+      transition: transform 0.18s var(--ease), box-shadow 0.18s var(--ease), border-color 0.18s var(--ease);
+    }
+    .button.primary {
+      color: #fff;
+      background: var(--brand);
+      box-shadow: 0 8px 18px -6px rgba(9, 9, 11, 0.35);
+    }
+    .button.primary:hover { transform: translateY(-2px); box-shadow: 0 14px 26px -8px rgba(9, 9, 11, 0.42); }
+    .button.ghost {
+      color: var(--ink-2);
+      background: var(--surface);
+      border: 1px solid var(--line-2);
+      box-shadow: var(--shadow-sm);
+    }
+    .button.ghost:hover { transform: translateY(-2px); border-color: var(--brand); color: var(--brand-ink); }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-top: 26px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+    .meta-row span { display: inline-flex; align-items: center; gap: 7px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.10); }
+
+    /* ---------- Terminal card ---------- */
+    .term {
+      position: relative;
+      border-radius: var(--radius);
+      background: #0c0c0d;
+      border: 1px solid #1f1f22;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.86rem;
+    }
+    .term::after {
+      content: "";
+      position: absolute; inset: 0;
+      background: radial-gradient(120% 80% at 90% -10%, rgba(255, 255, 255, 0.06), transparent 55%),
+                  radial-gradient(90% 70% at -10% 0%, rgba(255, 255, 255, 0.035), transparent 52%);
+      pointer-events: none;
+    }
+    .term-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 15px;
+      border-bottom: 1px solid #1f1f22;
+      color: #8a8a90;
+      font-size: 0.74rem;
+    }
+    .term-bar i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+    .term-bar .b1 { background: #45454a; } .term-bar .b2 { background: #56565b; } .term-bar .b3 { background: #67676d; }
+    .term-bar .title { margin-left: 6px; letter-spacing: 0.02em; }
+    .term-body { padding: 18px 18px 22px; color: #d6d6d9; line-height: 1.85; position: relative; z-index: 1; }
+    .term-body .pl { color: #8a8a90; }
+    .term-body .cmd { color: #f4f4f5; }
+    .term-body .arg { color: #adadb3; }
+    .term-body .out { color: #76767c; }
+    .term-body .ok { color: #d4d4d8; }
+    .term-line { display: block; white-space: pre-wrap; word-break: break-word; }
+
+    /* ---------- Sections ---------- */
+    main { display: block; }
+    .section { padding: clamp(40px, 6vw, 72px) 0; }
+    .section-head { max-width: 64ch; margin-bottom: clamp(22px, 3vw, 34px); }
+    h2 {
+      margin: 12px 0 0;
+      font-family: "Schibsted Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+      line-height: 1.06;
+      letter-spacing: -0.02em;
+    }
+    .lede { margin: 14px 0 0; font-size: 1.06rem; color: var(--muted); max-width: 70ch; }
+    p { margin: 0; }
+
+    .command {
+      margin-top: 22px;
+      display: grid;
+      gap: 4px;
+      padding: 20px 22px;
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-left: 3px solid transparent;
+      border-image: var(--grad) 1;
+      border-image-slice: 0 0 0 1;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+    }
+    .command pre { margin: 0; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .command code { font-size: 0.92rem; color: var(--ink-2); }
+
+    /* ---------- Graph ---------- */
+    .graph-shell {
+      display: grid;
+      gap: 16px;
+    }
+    .graph-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .seg {
+      display: inline-flex;
+      padding: 4px;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--line-2);
+      border-radius: 13px;
+      box-shadow: var(--shadow-sm);
+    }
+    .seg button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.86rem;
+      font-weight: 600;
+      padding: 9px 15px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: color 0.18s var(--ease), background 0.18s var(--ease), box-shadow 0.18s var(--ease);
+    }
+    .seg button .k { font-family: "JetBrains Mono", monospace; font-size: 0.78em; opacity: 0.7; margin-right: 6px; }
+    .seg button[aria-pressed="true"] { color: #fff; background: var(--brand); box-shadow: 0 6px 14px -6px rgba(9, 9, 11, 0.4); }
+    .seg button.danger[aria-pressed="true"] { color: #fff; background: var(--danger); box-shadow: 0 6px 14px -6px rgba(9, 9, 11, 0.3); }
+    .seg button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+    .graph-hint {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+
+    .graph-stage {
+      position: relative;
+      width: 100%;
+      height: clamp(420px, 56vw, 560px);
+      border-radius: var(--radius);
+      background:
+        radial-gradient(120% 120% at 50% 0%, rgba(9, 9, 11, 0.035), transparent 60%),
+        var(--surface);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .graph-stage::before {
+      content: "";
+      position: absolute; inset: 0;
+      background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 26px 26px;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .graph-stage svg { width: 100%; height: 100%; display: block; touch-action: none; position: relative; z-index: 1; }
+    .badge-shared {
+      position: absolute;
+      top: 14px; left: 14px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 10px;
+      background: var(--paper-2);
+      color: var(--ink-2);
+      border: 1px solid var(--line-2);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.72rem;
+      z-index: 3;
+    }
+    .graph-stage[data-mode="shared"] .badge-shared { display: inline-flex; }
+
+    /* graph nodes/links styled via class */
+    .lnk { stroke: url(#linkGrad); stroke-width: 2.2; stroke-linecap: round; opacity: 0.55; transition: opacity 0.25s, stroke 0.25s; }
+    .lnk.is-shared { stroke: var(--danger); stroke-dasharray: 5 6; opacity: 0.7; }
+    .lnk.dim { opacity: 0.12; }
+    .lnk.hot { opacity: 0.95; stroke-width: 3; }
+
+    .node { cursor: grab; }
+    .node:active { cursor: grabbing; }
+    .node text { font-family: "JetBrains Mono", monospace; pointer-events: none; }
+    .chip { transition: opacity 0.25s, transform 0.25s; }
+    .node.dim .chip { opacity: 0.22; }
+    .node .ring { fill: none; stroke: var(--brand); stroke-width: 2; opacity: 0; transition: opacity 0.2s; }
+    .node.hot .ring { opacity: 0.85; }
+
+    .n-user .chip-bg { fill: url(#nodeGrad); }
+    .n-user text { fill: #fff; font-weight: 700; }
+    .n-profile .chip-bg { fill: var(--surface); stroke: var(--line-2); stroke-width: 1.4; }
+    .n-profile.hot .chip-bg { stroke: var(--brand); }
+    .n-profile text { fill: var(--ink); font-weight: 600; }
+    .n-home .chip-bg { fill: #f4f4f5; stroke: #e4e4e7; stroke-width: 1.2; }
+    .n-home text { fill: var(--ink-2); font-weight: 500; }
+    .graph-stage[data-mode="shared"] .n-home .chip-bg { fill: #e4e4e7; stroke: #b9b9c0; }
+    .graph-stage[data-mode="shared"] .n-home text { fill: var(--ink); }
+
+    .tip {
+      position: absolute;
+      z-index: 4;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.15s, transform 0.15s;
+      max-width: 230px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #0c0c0d;
+      color: #e8e8ea;
+      box-shadow: var(--shadow-lg);
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+    .tip.show { opacity: 1; transform: translateY(0); }
+    .tip b { color: #f4f4f5; font-family: "JetBrains Mono", monospace; font-size: 0.82em; }
+    .tip .files { margin-top: 5px; color: #a1a1aa; font-family: "JetBrains Mono", monospace; font-size: 0.74em; }
+
+    .graph-fallback { padding: 28px 24px; color: var(--muted); position: relative; z-index: 2; }
+    .graph-fallback h3 { margin: 0 0 10px; color: var(--ink); font-family: "Schibsted Grotesk", sans-serif; }
+    .graph-fallback ul { margin: 12px 0 0; padding-left: 20px; }
+    .graph-fallback li { margin-bottom: 6px; }
+    .graph-fallback code { background: var(--paper-2); padding: 1px 6px; border-radius: 5px; font-size: 0.85em; }
+
+    /* ---------- Feature grid ---------- */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .item {
+      min-width: 0;
+      padding: 22px 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), border-color 0.2s var(--ease);
+    }
+    .item:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--line-2); }
+    .item .ic {
+      width: 38px; height: 38px;
+      display: grid; place-items: center;
+      border-radius: 10px;
+      background: var(--grad-soft);
+      color: var(--brand-ink);
+      margin-bottom: 14px;
+    }
+    .item .ic svg { width: 20px; height: 20px; }
+    .item strong { display: block; margin-bottom: 6px; color: var(--ink); font-size: 1.02rem; }
+    .item p { color: var(--muted); font-size: 0.95rem; }
+
+    /* ---------- Showcase ---------- */
+    .showcase {
+      position: relative;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .showcase img { display: block; width: 100%; height: auto; }
+    .showcase figcaption {
+      padding: 14px 20px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.76rem;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      background: var(--paper);
+    }
+
+    /* ---------- Facts table ---------- */
+    .facts { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 22px; align-items: start; }
+    .table { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow-sm); }
+    table { width: 100%; border-collapse: collapse; min-width: 480px; }
+    th, td { padding: 13px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 0.94rem; }
+    th { color: var(--ink); background: var(--paper-2); font-family: "JetBrains Mono", monospace; font-size: 0.76rem; letter-spacing: 0.04em; text-transform: uppercase; }
+    td:first-child { font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+    td { color: var(--muted); }
+    tr:last-child td { border-bottom: 0; }
+
+    /* ---------- FAQ ---------- */
+    .faq-list { display: grid; gap: 12px; }
+    .faq-list article {
+      padding: 20px 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+      transition: border-color 0.2s var(--ease);
+    }
+    .faq-list article:hover { border-color: var(--line-2); }
+    .faq-list h3 { margin: 0 0 8px; font-size: 1.04rem; color: var(--ink); display: flex; gap: 10px; align-items: baseline; }
+    .faq-list h3::before { content: "?"; font-family: "JetBrains Mono", monospace; color: var(--brand); font-weight: 700; }
+    .faq-list p { color: var(--muted); font-size: 0.95rem; }
+
+    /* ---------- Footer ---------- */
+    footer { border-top: 1px solid var(--line); margin-top: 30px; }
+    footer .wrap { padding: 30px 20px 56px; display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: center; justify-content: space-between; }
+    footer p { color: var(--muted); font-size: 0.9rem; }
+    footer nav { display: flex; gap: 18px; font-family: "JetBrains Mono", monospace; font-size: 0.8rem; }
+
+    /* ---------- Reveal animation ---------- */
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s var(--ease), transform 0.7s var(--ease); }
+    .reveal.in { opacity: 1; transform: none; }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 900px) {
+      .hero-grid { grid-template-columns: 1fr; }
+      .term { order: 2; }
+      .facts { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      .grid { grid-template-columns: 1fr; }
+      .graph-toolbar { flex-direction: column; align-items: flex-start; }
+      .seg { width: 100%; }
+      .seg button { flex: 1; text-align: center; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .wordmark .cursor { animation: none; }
+      .reveal { transition: none; opacity: 1; transform: none; }
+      * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+    }
+  </style>
+  <style id="editorial-redesign">
+    :root {
+      --paper: #ffffff;
+      --paper-2: #f1f1f1;
+      --surface: #ffffff;
+      --ink: #000000;
+      --ink-2: #161616;
+      --muted: #666666;
+      --line: #000000;
+      --line-2: #bdbdbd;
+      --brand: #000000;
+      --brand-ink: #000000;
+      --personal: #ff7373;
+      --work: #9cd5fe;
+      --school: #9bf396;
+      --client: #ffd0b8;
+      --focus: #2f6bff;
+      --danger: #ff7373;
+      --danger-soft: #fff0f0;
+      --shadow-sm: none;
+      --shadow: none;
+      --shadow-lg: 0 28px 54px -26px rgba(0, 0, 0, 0.65);
+      --radius: 2px;
+      --radius-sm: 0;
+      --grid: rgba(0, 0, 0, 0.08);
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --maxw: 95rem;
+      --gutter: clamp(20px, 4.25vw, 68px);
+    }
+
+    * {
+      scrollbar-color: #6b6b6b #ededed;
+      scrollbar-width: thin;
+    }
+    *::-webkit-scrollbar { width: 12px; height: 12px; }
+    *::-webkit-scrollbar-track { background: #ededed; }
+    *::-webkit-scrollbar-thumb { background: #6b6b6b; border: 3px solid #ededed; }
+    *::-webkit-scrollbar-thumb:hover { background: #000; }
+    html { scroll-padding-top: 110px; }
+    h2[id] { scroll-margin-top: 110px; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 17px;
+      line-height: 1.55;
+    }
+    a { color: inherit; }
+    a:hover { color: inherit; }
+    a:focus-visible,
+    button:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 3px solid var(--focus) !important;
+      outline-offset: 4px;
+    }
+    .wrap { width: min(var(--maxw), calc(100% - (var(--gutter) * 2))); }
+    .skip-link {
+      position: fixed;
+      z-index: 100;
+      top: 8px;
+      left: 8px;
+      padding: 10px 14px;
+      color: #fff;
+      background: #000;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      transform: translateY(-160%);
+    }
+    .skip-link:focus { transform: none; }
+
+    .site-nav {
+      position: sticky;
+      z-index: 20;
+      top: 0;
+      background: rgba(255, 255, 255, 0.96);
+      border-bottom: 1px solid #000;
+      backdrop-filter: blur(12px);
+    }
+    .site-nav-inner {
+      min-height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 32px;
+    }
+    .site-mark {
+      flex: 0 0 auto;
+      font-family: "Schibsted Grotesk", sans-serif;
+      font-size: 1.18rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      text-decoration: none;
+    }
+    .site-links {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: clamp(18px, 2.5vw, 40px);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.76rem;
+    }
+    .site-links a { text-decoration: none; }
+    .site-links a:not(.nav-cta) { border-bottom: 1px solid transparent; }
+    .site-links a:not(.nav-cta):hover { border-bottom-color: #000; }
+    .nav-cta {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 16px;
+      color: #fff;
+      background: #000;
+      border: 1px solid #000;
+    }
+    .nav-cta:hover { color: #000; background: var(--school); }
+
+    .hero {
+      padding: 0;
+      border-bottom: 1px solid #000;
+      overflow: hidden;
+    }
+    .hero-grid {
+      min-height: 0;
+      grid-template-columns: minmax(0, 1fr) minmax(500px, 1fr);
+      gap: clamp(34px, 4vw, 64px);
+      align-items: center;
+      padding-top: clamp(44px, 5vw, 72px);
+      padding-bottom: clamp(46px, 5vw, 76px);
+    }
+    h1.wordmark {
+      max-width: none;
+      margin: 0;
+      color: #000;
+      font-size: clamp(4.1rem, 6.25vw, 7.5rem);
+      font-weight: 800;
+      line-height: 0.88;
+      letter-spacing: -0.065em;
+    }
+    .wordmark > span { display: block; }
+    .hero-copy {
+      max-width: 34ch;
+      margin-top: 30px;
+      color: #222;
+      font-size: clamp(1.12rem, 1.55vw, 1.42rem);
+      line-height: 1.38;
+    }
+    .hero-copy strong { color: #000; font-weight: 500; }
+    .actions { gap: 14px; margin-top: 34px; }
+    .button {
+      min-height: 50px;
+      padding: 12px 19px;
+      border: 1px solid #000;
+      border-radius: 0;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+      font-weight: 500;
+      transition: color 160ms var(--ease), background 160ms var(--ease), transform 160ms var(--ease);
+    }
+    .button::after { content: "↗"; margin-left: 10px; }
+    .button.primary { color: #fff; background: #000; box-shadow: none; }
+    .button.primary:hover { color: #000; background: var(--school); box-shadow: none; transform: translateY(-2px); }
+    .button.ghost { color: #000; background: #fff; border-color: #000; box-shadow: none; }
+    .button.ghost:hover { color: #000; background: var(--paper-2); border-color: #000; transform: translateY(-2px); }
+    .meta-row {
+      gap: 0;
+      margin-top: 34px;
+      border-top: 1px solid #000;
+      border-bottom: 1px solid #000;
+      color: #000;
+      font-size: 0.67rem;
+    }
+    .meta-row span { min-height: 36px; padding: 7px 14px; border-right: 1px solid #000; }
+    .meta-row span:first-child { padding-left: 0; }
+    .meta-row span:last-child { border-right: 0; }
+    .dot { background: var(--school); box-shadow: 0 0 0 1px #000; }
+
+    .term {
+      overflow: visible;
+      padding: clamp(22px, 2.5vw, 34px);
+      color: #fff;
+      background: #111;
+      border: 1px solid #000;
+      border-radius: 2px;
+      box-shadow: var(--shadow-lg);
+    }
+    .term::before,
+    .term::after {
+      content: "";
+      position: absolute;
+      z-index: 3;
+      width: 13px;
+      height: 13px;
+      border: 2px solid #555;
+      border-radius: 50%;
+      background: #070707;
+      box-shadow: none;
+      pointer-events: none;
+    }
+    .term::before { top: 13px; left: 13px; }
+    .term::after { right: 13px; bottom: 13px; inset: auto 13px 13px auto; }
+    .term-bar {
+      min-height: 40px;
+      padding: 0 4px 14px 26px;
+      border-bottom: 0;
+      color: #d7d7d7;
+      font-size: 0.74rem;
+    }
+    .term-bar i { display: none; }
+    .term-bar .title::before { content: ">_  "; color: var(--school); }
+    .term-body {
+      min-height: 210px;
+      padding: 24px;
+      color: #fff;
+      background: #000;
+      border: 1px solid #383838;
+      line-height: 1.75;
+    }
+    .term-body .pl { color: var(--school); }
+    .term-body .arg { color: var(--work); }
+    .term-body .out { color: #bdbdbd; }
+    .term-body .ok { color: var(--school); }
+    .profile-keys {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: clamp(10px, 1.4vw, 18px);
+      margin-top: 28px;
+    }
+    .profile-key {
+      position: relative;
+      min-width: 0;
+      padding-top: 8px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.68rem;
+      text-align: center;
+    }
+    .profile-key b {
+      min-height: 64px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid #555;
+      background: linear-gradient(#252525, #0c0c0c);
+      box-shadow: inset 0 1px rgba(255,255,255,.12), 0 7px 0 #050505;
+      font-weight: 500;
+      text-overflow: ellipsis;
+    }
+    .profile-key::before {
+      content: "";
+      position: absolute;
+      z-index: 2;
+      top: 0;
+      left: 12%;
+      width: 76%;
+      height: 4px;
+      background: var(--signal);
+      box-shadow: 0 0 13px var(--signal);
+    }
+    .profile-key::after {
+      content: "";
+      width: 10px;
+      height: 10px;
+      display: block;
+      margin: 16px auto 0;
+      border: 1px solid #fff;
+      border-radius: 50%;
+      background: var(--signal);
+      box-shadow: 0 0 12px var(--signal);
+    }
+    .personal { --signal: var(--personal); }
+    .work { --signal: var(--work); }
+    .school { --signal: var(--school); }
+    .client { --signal: var(--client); }
+
+    main { overflow: clip; }
+    section.section { padding-top: clamp(72px, 9vw, 138px); padding-bottom: clamp(72px, 9vw, 138px); }
+    .section-head { max-width: 75ch; margin-bottom: clamp(34px, 5vw, 70px); }
+    .eyebrow {
+      gap: 12px;
+      color: #000;
+      font-size: 0.68rem;
+      letter-spacing: 0.09em;
+    }
+    .eyebrow::before { width: 42px; background: currentColor; }
+    h2 {
+      margin-top: 15px;
+      font-size: clamp(3.4rem, 7.2vw, 7.7rem);
+      font-weight: 800;
+      line-height: 0.91;
+      letter-spacing: -0.06em;
+    }
+    .lede { margin-top: 24px; color: #222; font-size: clamp(1.05rem, 1.5vw, 1.32rem); line-height: 1.45; }
+
+    .answer-band {
+      color: #fff;
+      background: #000;
+      box-shadow: 0 0 0 100vmax #000;
+      clip-path: inset(0 -100vmax);
+    }
+    .answer-band .section-head {
+      display: grid;
+      grid-template-columns: minmax(240px, .75fr) minmax(0, 1.25fr);
+      gap: 50px;
+      align-items: start;
+      max-width: none;
+      margin-bottom: 40px;
+    }
+    .answer-band .eyebrow,
+    .answer-band h2,
+    .answer-band .lede { color: #fff; }
+    .answer-band h2 { margin: 0; font-size: clamp(2.5rem, 4vw, 4.8rem); letter-spacing: -0.045em; }
+    .answer-band .lede { max-width: 62ch; margin: 0; color: #cfcfcf; }
+    .command {
+      margin: 0;
+      padding: 24px 0;
+      border: 0;
+      border-top: 1px solid #666;
+      border-bottom: 1px solid #666;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    .command code { color: #fff; font-size: clamp(.75rem, 1.2vw, .94rem); }
+
+    #how { max-width: 8.5ch; }
+    .graph-shell { gap: 20px; }
+    .graph-toolbar { padding-bottom: 16px; border-bottom: 1px solid #000; }
+    .seg { padding: 0; gap: 0; border-color: #000; border-radius: 0; box-shadow: none; }
+    .seg button {
+      min-height: 46px;
+      padding: 10px 18px;
+      border-right: 1px solid #000;
+      border-radius: 0;
+      font-family: "JetBrains Mono", monospace;
+      font-size: .72rem;
+      font-weight: 500;
+    }
+    .seg button:last-child { border-right: 0; }
+    .seg button[aria-pressed="true"] { color: #fff; background: #000; box-shadow: none; }
+    .seg button.danger[aria-pressed="true"] { color: #000; background: var(--personal); box-shadow: none; }
+    .graph-hint { color: #000; font-size: .7rem; }
+    .graph-stage {
+      height: clamp(430px, 52vw, 630px);
+      border-color: #000;
+      border-radius: 0;
+      background: #fff;
+      box-shadow: none;
+    }
+    .graph-stage::before { background-size: 36px 36px; opacity: .55; }
+    .n-user .chip-bg { fill: #000; }
+    .n-profile .chip-bg,
+    .n-home .chip-bg { fill: #fff; stroke: #000; }
+    .n-profile[data-profile="personal"] .chip-bg,
+    .n-home[data-profile="personal"] .chip-bg { stroke: var(--personal); stroke-width: 3; }
+    .n-profile[data-profile="work"] .chip-bg,
+    .n-home[data-profile="work"] .chip-bg { stroke: var(--work); stroke-width: 3; }
+    .n-profile[data-profile="school"] .chip-bg,
+    .n-home[data-profile="school"] .chip-bg { stroke: var(--school); stroke-width: 3; }
+    .n-profile[data-profile="client"] .chip-bg,
+    .n-home[data-profile="client"] .chip-bg { stroke: var(--client); stroke-width: 3; }
+    .lnk.p-personal { stroke: var(--personal); }
+    .lnk.p-work { stroke: var(--work); }
+    .lnk.p-school { stroke: var(--school); }
+    .lnk.p-client { stroke: var(--client); }
+    .lnk.is-shared { stroke: #000; }
+    .tip { border: 1px solid #fff; border-radius: 0; box-shadow: 8px 8px 0 rgba(0,0,0,.18); }
+
+    .features-section { padding-top: 0 !important; }
+    .features-section .section-head { max-width: none; margin-bottom: 34px; border-top: 1px solid #000; padding-top: 28px; }
+    .features-section h2 { font-size: clamp(2.8rem, 5vw, 5.8rem); }
+    .feature-ledger {
+      counter-reset: feature;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+      border-top: 1px solid #000;
+      border-left: 1px solid #000;
+    }
+    .feature-ledger .item {
+      counter-increment: feature;
+      min-height: 260px;
+      padding: 26px;
+      border: 0;
+      border-right: 1px solid #000;
+      border-bottom: 1px solid #000;
+      border-radius: 0;
+      background: #fff;
+      box-shadow: none;
+      transition: color 160ms var(--ease), background 160ms var(--ease);
+    }
+    .feature-ledger .item:nth-child(4) { color: #fff; background: #000; }
+    .feature-ledger .item:nth-child(4) p,
+    .feature-ledger .item:nth-child(4) strong { color: #fff; }
+    .feature-ledger .item:hover { transform: none; box-shadow: none; background: var(--paper-2); }
+    .feature-ledger .item:nth-child(4):hover { background: #151515; }
+    .feature-ledger .item::before {
+      content: counter(feature, decimal-leading-zero);
+      display: block;
+      margin-bottom: 48px;
+      color: var(--signal, #000);
+      font-family: "JetBrains Mono", monospace;
+      font-size: .72rem;
+    }
+    .feature-ledger .item:nth-child(1) { --signal: var(--personal); }
+    .feature-ledger .item:nth-child(2) { --signal: var(--work); }
+    .feature-ledger .item:nth-child(3) { --signal: var(--school); }
+    .feature-ledger .item:nth-child(4) { --signal: var(--school); }
+    .feature-ledger .item:nth-child(5) { --signal: var(--client); }
+    .feature-ledger .item .ic { display: none; }
+    .feature-ledger .item strong { max-width: 12ch; color: #000; font-family: "Schibsted Grotesk", sans-serif; font-size: clamp(1.5rem, 2.2vw, 2.25rem); line-height: 1; }
+    .feature-ledger .item p { max-width: 34ch; margin-top: 20px; color: #333; }
+
+    .showcase-band {
+      background: var(--work);
+      box-shadow: 0 0 0 100vmax var(--work);
+      clip-path: inset(0 -100vmax);
+    }
+    .showcase-band .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, .8fr) minmax(320px, .55fr);
+      gap: 48px;
+      align-items: end;
+      max-width: none;
+    }
+    .showcase-band h2 { max-width: 8.5ch; }
+    .showcase-band .lede { margin-bottom: 7px; }
+    .showcase { border-color: #000; border-radius: 0; background: #000; box-shadow: none; }
+    .showcase img { aspect-ratio: 16 / 9; object-fit: cover; object-position: center top; }
+    .showcase figcaption { padding: 16px 0 0; color: #000; border-top: 1px solid #000; background: var(--work); }
+
+    .facts-section .section-head { margin-bottom: 38px; }
+    .facts-section h2 { font-size: clamp(3.2rem, 6vw, 6.8rem); }
+    .facts { grid-template-columns: minmax(220px, .55fr) minmax(0, 1.45fr); gap: clamp(32px, 7vw, 110px); }
+    .table { border: 0; border-radius: 0; box-shadow: none; }
+    table { min-width: 620px; border-top: 1px solid #000; }
+    th, td { padding: 19px 14px; border-bottom-color: #000; }
+    th { color: #000; background: #fff; }
+    td:first-child { font-family: "JetBrains Mono", monospace; font-size: .72rem; font-weight: 500; text-transform: uppercase; }
+    td { color: #111; }
+
+    .faq-section { border-top: 1px solid #000; }
+    .faq-section h2 { max-width: 9ch; }
+    .faq-list { counter-reset: faq; gap: 0; border-top: 1px solid #000; }
+    .faq-list article {
+      counter-increment: faq;
+      position: relative;
+      display: grid;
+      grid-template-columns: 62px minmax(250px, .65fr) minmax(0, 1.35fr);
+      gap: 20px;
+      align-items: start;
+      padding: 24px 0;
+      border: 0;
+      border-bottom: 1px solid #000;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .faq-list article::before { content: counter(faq, decimal-leading-zero); font-family: "JetBrains Mono", monospace; font-size: .72rem; }
+    .faq-list h3 { margin: 0; color: #000; font-size: 1.02rem; line-height: 1.35; }
+    .faq-list h3::before { display: none; }
+    .faq-list p { color: #333; font-size: .95rem; }
+
+    .trust-band {
+      background: var(--client);
+      box-shadow: 0 0 0 100vmax var(--client);
+      clip-path: inset(0 -100vmax);
+    }
+    .trust-band .section-head {
+      display: grid;
+      grid-template-columns: minmax(300px, .85fr) minmax(0, 1.15fr);
+      gap: 50px;
+      align-items: end;
+      max-width: none;
+    }
+    .trust-band h2 { max-width: 8ch; font-size: clamp(3.6rem, 6.6vw, 7rem); }
+    .trust-band .grid { grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid #000; border-left: 1px solid #000; }
+    .trust-band .item { min-height: 210px; padding: 26px; border: 0; border-right: 1px solid #000; border-bottom: 1px solid #000; border-radius: 0; background: transparent; box-shadow: none; }
+    .trust-band .item:hover { transform: none; background: rgba(255,255,255,.22); box-shadow: none; }
+    .trust-band .item strong { color: #000; font-family: "JetBrains Mono", monospace; font-size: .74rem; text-transform: uppercase; }
+    .trust-band .item p { margin-top: 28px; color: #111; }
+
+    footer { margin-top: 0; color: #fff; background: #000; border-top: 0; }
+    footer .wrap {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
+      gap: 70px;
+      align-items: end;
+      padding: clamp(72px, 9vw, 138px) 0 48px;
+    }
+    .footer-cta {
+      max-width: 9ch;
+      margin: 0;
+      font-family: "Schibsted Grotesk", sans-serif;
+      font-size: clamp(3.9rem, 7vw, 7.6rem);
+      font-weight: 800;
+      line-height: .9;
+      letter-spacing: -.06em;
+    }
+    .profile-strip { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 38px; border: 1px solid #777; }
+    .profile-strip span { min-width: 0; padding: 11px 12px; border-right: 1px solid #777; font-family: "JetBrains Mono", monospace; font-size: .66rem; text-transform: uppercase; }
+    .profile-strip span:last-child { border-right: 0; }
+    .profile-strip i { width: 9px; height: 9px; display: inline-block; margin-right: 8px; border-radius: 50%; background: var(--signal); }
+    .footer-command { padding: 24px 0; border-top: 1px solid #777; border-bottom: 1px solid #777; color: #e2e2e2; font-family: "JetBrains Mono", monospace; font-size: .78rem; line-height: 1.9; }
+    footer nav { justify-content: space-between; margin-top: 30px; font-size: .72rem; }
+    footer a:hover { color: var(--school); }
+    .footer-note { grid-column: 1 / -1; padding-top: 34px; border-top: 1px solid #444; color: #aaa; font-size: .75rem; }
+
+    .reveal { transform: translateY(22px); transition-duration: .55s; }
+
+    @media (max-width: 1050px) {
+      .hero-grid { grid-template-columns: 1fr; min-height: 0; }
+      h1.wordmark { max-width: 10.5ch; }
+      .term { width: min(820px, 100%); }
+      .feature-ledger { grid-template-columns: repeat(2, 1fr); }
+      .showcase-band .section-head,
+      .trust-band .section-head { grid-template-columns: 1fr; }
+      .facts { grid-template-columns: 1fr; }
+      .faq-list article { grid-template-columns: 48px minmax(220px, .8fr) minmax(0, 1.2fr); }
+    }
+    @media (max-width: 760px) {
+      .site-links a:not(.nav-cta) { display: none; }
+      .hero-grid { padding-top: 62px; padding-bottom: 70px; }
+      h1.wordmark { font-size: clamp(3.65rem, 17vw, 6.8rem); }
+      .profile-keys { grid-template-columns: repeat(2, 1fr); row-gap: 28px; }
+      .answer-band .section-head,
+      footer .wrap { grid-template-columns: 1fr; }
+      .answer-band .eyebrow { grid-column: 1 / -1; }
+      h2 { font-size: clamp(3.15rem, 15vw, 5.8rem); }
+      .feature-ledger,
+      .trust-band .grid { grid-template-columns: 1fr; }
+      .feature-ledger .item { min-height: 220px; }
+      .faq-list article { grid-template-columns: 42px 1fr; }
+      .faq-list p { grid-column: 2; }
+      footer nav { flex-wrap: wrap; justify-content: flex-start; gap: 18px 28px; }
+    }
+    @media (max-width: 480px) {
+      :root { --gutter: 18px; }
+      .site-nav-inner { min-height: 62px; }
+      .nav-cta { padding-inline: 12px; font-size: .68rem; }
+      .hero-copy { font-size: 1.05rem; }
+      .actions { display: grid; }
+      .button { justify-content: space-between; }
+      .meta-row span { width: 50%; border-bottom: 1px solid #000; }
+      .meta-row span:nth-child(2) { border-right: 0; }
+      .meta-row span:nth-child(n+3) { border-bottom: 0; }
+      .term { padding: 18px; }
+      .term-body { padding: 16px; font-size: .72rem; }
+      .profile-key b { min-height: 56px; }
+      .graph-toolbar { align-items: stretch; }
+      .seg { width: 100%; }
+      .seg button { flex: 1; }
+      .graph-hint { display: block; }
+      .graph-stage { height: 460px; }
+      .profile-strip { grid-template-columns: repeat(2, 1fr); }
+      .profile-strip span:nth-child(2) { border-right: 0; }
+      .profile-strip span:nth-child(-n+2) { border-bottom: 1px solid #777; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .reveal { opacity: 1; transform: none; }
+    }
+    @media (forced-colors: active) {
+      * { scrollbar-color: auto; }
+      .profile-key::before,
+      .profile-key::after,
+      .profile-strip i { forced-color-adjust: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <nav class="site-nav" aria-label="Site navigation">
+    <div class="wrap site-nav-inner">
+      <a class="site-mark" href="#top" aria-label="codex-profiles home">codex-profiles</a>
+      <div class="site-links">
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#showcase-title">Desktop</a>
+        <a href="#faq">FAQ</a>
+        <a class="nav-cta" href="https://github.com/Ducksss/codex-profiles">View on GitHub ↗</a>
+      </div>
+    </div>
+  </nav>
+  <header class="hero" id="top">
+    <div class="wrap hero-grid">
+      <div class="hero-lede">
+        <h1 class="wordmark"><span>Two profiles.</span><span>One Mac.</span><span>No token swapping.</span></h1>
+        <p class="hero-copy">Switch Codex CLI and Desktop accounts with <strong>isolated CODEX_HOME directories.</strong></p>
+        <nav class="actions" aria-label="Primary links">
+          <a class="button primary" href="https://www.npmjs.com/package/codex-profile">Install codex-profile</a>
+          <a class="button ghost" href="https://github.com/Ducksss/codex-profiles">View on GitHub</a>
+        </nav>
+        <div class="meta-row">
+          <span><i class="dot"></i> MIT licensed</span>
+          <span>macOS + Linux</span>
+          <span>zero runtime deps</span>
+          <span>v0.6.0</span>
+        </div>
+      </div>
+
+      <div class="term" role="img" aria-label="Terminal example: install codex-profile, then run Codex on isolated work and personal profiles">
+        <div class="term-bar"><i class="b1"></i><i class="b2"></i><i class="b3"></i><span class="title">~/dev — codex-profile</span></div>
+        <div class="term-body">
+          <span class="term-line"><span class="pl">$</span> <span class="cmd">codex-profile status</span></span>
+          <span class="term-line"><span class="out">active</span>      <span class="arg">work</span></span>
+          <span class="term-line"><span class="out">CODEX_HOME</span>  <span class="cmd">~/.codex-work</span></span>
+          <span class="term-line"><span class="out">state</span>       <span class="ok">isolated</span></span>
+          <span class="term-line">&nbsp;</span>
+          <span class="term-line"><span class="pl">$</span> <span class="cmd">codex-profile cli work</span></span>
+          <span class="term-line"><span class="ok">✓</span> <span class="out">Codex launched on work</span></span>
+        </div>
+        <div class="profile-keys" role="list" aria-label="Example isolated profiles">
+          <span class="profile-key personal" role="listitem"><b>personal</b></span>
+          <span class="profile-key work" role="listitem"><b>work</b></span>
+          <span class="profile-key school" role="listitem"><b>school</b></span>
+          <span class="profile-key client" role="listitem"><b>client</b></span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="section wrap reveal answer-band" aria-labelledby="answer">
+      <div class="section-head">
+        <p class="eyebrow">What it is</p>
+        <h2 id="answer">Direct answer</h2>
+        <p class="lede">codex-profiles is a dependency-free Bash CLI for launching Codex CLI or Codex Desktop with a selected CODEX_HOME profile. It gives each profile its own auth, config, sessions, plugins, caches, logs, and local state.</p>
+      </div>
+      <div class="command" aria-label="Install commands">
+        <pre><code>npm install -g codex-profile
+brew install Ducksss/tap/codex-profile
+codex-profile doctor</code></pre>
+      </div>
+    </section>
+
+    <section class="section wrap reveal" aria-labelledby="how">
+      <div class="section-head">
+        <p class="eyebrow">Interactive isolation model · drag the nodes</p>
+        <h2 id="how">One home for every profile.</h2>
+        <p class="lede">Every profile is its own <span class="mono">CODEX_HOME</span> directory, so auth and local state never overlap. Flip the switch to see why this beats swapping a single <span class="mono">auth.json</span> around.</p>
+      </div>
+
+      <div class="graph-shell">
+        <div class="graph-toolbar">
+          <form class="seg" id="isolation-controls" role="group" aria-label="Isolation model" novalidate>
+            <button id="mode-isolated" type="submit" name="mode" value="isolated" aria-pressed="true"><span class="k">$</span>codex-profile</button>
+            <button id="mode-shared" class="danger" type="submit" name="mode" value="shared" aria-pressed="false"><span class="k">~</span>swap auth.json</button>
+          </form>
+          <span class="graph-hint" id="graph-hint">one CODEX_HOME per profile</span>
+        </div>
+
+        <div class="graph-stage" id="graph" data-mode="isolated">
+          <div class="badge-shared">⚠ one shared ~/.codex — state bleeds between accounts</div>
+          <div class="tip" id="graph-tip"></div>
+          <div class="graph-fallback" id="graph-fallback">
+            <h3>Profile isolation at a glance</h3>
+            <p>One macOS user fans out into separate Codex profiles, each mapped to its own isolated home directory:</p>
+            <ul>
+              <li><code>default</code> &rarr; <code>~/.codex</code></li>
+              <li><code>work</code> &rarr; <code>~/.codex-work</code></li>
+              <li><code>personal</code> &rarr; <code>~/.codex-personal</code></li>
+              <li><code>edu</code> &rarr; <code>~/.codex-edu</code></li>
+            </ul>
+            <p>Each home keeps its own auth, config, sessions, plugins, caches, and logs. Unlike swapping a single <code>auth.json</code>, codex-profiles never copies or migrates tokens.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap reveal features-section" aria-labelledby="features">
+      <div class="section-head">
+        <p class="eyebrow">Capabilities</p>
+        <h2 id="features">What it does</h2>
+      </div>
+      <div class="grid feature-ledger">
+        <article class="item">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h18"/></svg></span>
+          <strong>Profile isolation</strong>
+          <p>Each profile maps to its own Codex home, such as default to ~/.codex and work to ~/.codex-work.</p>
+        </article>
+        <article class="item">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg></span>
+          <strong>CLI and Desktop launch</strong>
+          <p>Run Codex CLI commands or launch Codex Desktop with the selected profile environment.</p>
+        </article>
+        <article class="item">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="9" height="9" rx="1.5"/><rect x="12" y="12" width="9" height="9" rx="1.5"/></svg></span>
+          <strong>Parallel Desktop instances</strong>
+          <p>On macOS, app --instance can launch profile-specific Codex app clones with separate Electron user data.</p>
+        </article>
+        <article class="item">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+          <strong>Read-only diagnostics</strong>
+          <p>list, status, and doctor inspect profiles without creating missing directories for typos.</p>
+        </article>
+        <article class="item">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="12" rx="2"/><path d="M8 20h10a2 2 0 0 0 2-2V8"/></svg></span>
+          <strong>Safe config cloning</strong>
+          <p>clone-config copies only known non-secret root config files and refuses sensitive-looking keys.</p>
+        </article>
+        <article class="item">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6M12 19h8"/></svg></span>
+          <strong>No runtime dependencies</strong>
+          <p>The distributed command is Bash and is tested on macOS and Ubuntu/Linux.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section wrap reveal showcase-band" aria-labelledby="showcase-title">
+      <div class="section-head">
+        <p class="eyebrow">Desktop proof</p>
+        <h2 id="showcase-title">Two profiles, side by side.</h2>
+        <p class="lede">The experimental <span class="mono">app --instance</span> flag runs two Codex Desktop profiles at once — each with its own app clone, CODEX_HOME, and Electron user data.</p>
+      </div>
+      <figure class="showcase" style="margin:0">
+        <img src="https://raw.githubusercontent.com/Ducksss/codex-profiles/main/media/codex-profile-parallel-instances.png" width="2400" height="1500" loading="lazy" alt="Two Codex Desktop profile instances running side by side, each showing its own account panel">
+        <figcaption>codex-profile app personal --instance · codex-profile app work --instance</figcaption>
+      </figure>
+    </section>
+
+    <section class="section wrap reveal facts-section" aria-labelledby="facts">
+      <div class="section-head">
+        <p class="eyebrow">For citation</p>
+        <h2 id="facts">Citation-ready facts</h2>
+      </div>
+      <div class="facts">
+        <p class="lede">Use these facts when citing or summarizing the project. They match the README, package metadata, and structured data on this page.</p>
+        <div class="table">
+          <table>
+            <thead>
+              <tr>
+                <th>Fact</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Project</td>
+                <td>codex-profiles, installed as codex-profile on npm</td>
+              </tr>
+              <tr>
+                <td>Purpose</td>
+                <td>Switch Codex profiles by setting CODEX_HOME instead of copying auth tokens</td>
+              </tr>
+              <tr>
+                <td>Platforms</td>
+                <td>macOS and Linux for CLI-oriented commands; macOS for Desktop app launch workflows</td>
+              </tr>
+              <tr>
+                <td>License</td>
+                <td>MIT</td>
+              </tr>
+              <tr>
+                <td>Official URLs</td>
+                <td>GitHub: https://github.com/Ducksss/codex-profiles; npm: https://www.npmjs.com/package/codex-profile</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap reveal faq-section" aria-labelledby="faq">
+      <div class="section-head">
+        <p class="eyebrow">Questions</p>
+        <h2 id="faq">Questions, answered.</h2>
+      </div>
+      <div class="faq-list">
+        <article>
+          <h3>What is codex-profiles?</h3>
+          <p>codex-profiles is a small Bash command that launches Codex CLI or Codex Desktop with a selected CODEX_HOME directory.</p>
+        </article>
+        <article>
+          <h3>Why use separate CODEX_HOME directories?</h3>
+          <p>Separate CODEX_HOME directories keep Codex auth, config, sessions, plugins, caches, logs, and local state separated by profile.</p>
+        </article>
+        <article>
+          <h3>Does codex-profiles copy auth tokens?</h3>
+          <p>No. codex-profiles does not read, copy, print, parse, or migrate auth tokens.</p>
+        </article>
+        <article>
+          <h3>Which platforms does codex-profiles support?</h3>
+          <p>CLI-oriented commands are tested on macOS and Linux, while Desktop app launch commands are macOS-oriented.</p>
+        </article>
+        <article>
+          <h3>How do I install codex-profiles?</h3>
+          <p>Install from npm with npm install -g codex-profile or from Homebrew with brew install Ducksss/tap/codex-profile.</p>
+        </article>
+        <article>
+          <h3>Can an AI assistant tell me how to run codex-profiles?</h3>
+          <p>Yes. Point your AI assistant or coding agent at the GitHub repository and this llms.txt file, then ask it to install codex-profile and run codex-profile cli work to start Codex on an isolated work profile. Coding agents working inside a clone of the repository can read its AGENTS.md file for setup, test, and usage instructions.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section wrap reveal trust-band" aria-labelledby="trust">
+      <div class="section-head">
+        <p class="eyebrow">Trust</p>
+        <h2 id="trust">The boundary is local state.</h2>
+        <p class="lede">The project avoids token copying and treats CODEX_HOME as the isolation boundary. It documents the remaining shared operating-system credentials, includes a security model, and validates behavior with Bash and package smoke tests.</p>
+      </div>
+      <div class="grid">
+        <article class="item">
+          <strong>Security boundary</strong>
+          <p>codex-profiles sets environment variables and creates private profile directories. It does not claim VM, container, or separate macOS account isolation.</p>
+        </article>
+        <article class="item">
+          <strong>Validation</strong>
+          <p>The repository uses make test for Bash syntax checks, CLI behavior tests, install smoke tests, and npm package checks.</p>
+        </article>
+        <article class="item">
+          <strong>Machine-readable docs</strong>
+          <p>This page is supported by robots.txt, sitemap.xml, llms.txt, visible FAQ answers, and JSON-LD structured data.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div>
+        <p class="footer-cta">Pick a profile. Keep your context.</p>
+        <div class="profile-strip" aria-label="Example profile signal colors">
+          <span class="personal"><i></i>personal</span>
+          <span class="work"><i></i>work</span>
+          <span class="school"><i></i>school</span>
+          <span class="client"><i></i>client</span>
+        </div>
+      </div>
+      <div>
+        <div class="footer-command" aria-label="Quick start command">
+          <div>$ npm install -g codex-profile</div>
+          <div>$ codex-profile init work</div>
+          <div>$ codex-profile cli work</div>
+          <div># launches Codex with the “work” profile</div>
+        </div>
+        <nav aria-label="Footer links">
+          <a href="https://github.com/Ducksss/codex-profiles">GitHub ↗</a>
+          <a href="https://www.npmjs.com/package/codex-profile">npm ↗</a>
+          <a href="https://ducksss.github.io/codex-profiles/llms.txt">llms.txt ↗</a>
+          <a href="https://github.com/Ducksss/codex-profiles/blob/main/LICENSE">License ↗</a>
+        </nav>
+      </div>
+      <p class="footer-note">codex-profiles is community-maintained and is not affiliated with OpenAI. Last updated 2026-06-30.</p>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+  <script>
+  (function () {
+    "use strict";
+
+    // ---- Scroll reveal (gated by reduced motion) ----
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var reveals = document.querySelectorAll(".reveal");
+    if (reduce || !("IntersectionObserver" in window)) {
+      reveals.forEach(function (n) { n.classList.add("in"); });
+    } else {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.12 });
+      reveals.forEach(function (n) { io.observe(n); });
+    }
+
+    // ---- Graph ----
+    var stage = document.getElementById("graph");
+    var fallback = document.getElementById("graph-fallback");
+    var tipEl = document.getElementById("graph-tip");
+    var hintEl = document.getElementById("graph-hint");
+    if (!window.d3 || !stage) { return; } // CDN failed -> keep readable fallback
+    fallback.style.display = "none";
+
+    var d3 = window.d3;
+    var PROFILES = [
+      { id: "personal", label: "personal", home: "~/.codex-personal" },
+      { id: "work", label: "work", home: "~/.codex-work" },
+      { id: "school", label: "school", home: "~/.codex-school" },
+      { id: "client", label: "client", home: "~/.codex-client" }
+    ];
+    var FILES = "auth.json · config.toml · sessions · plugins · logs";
+
+    // persistent node registry so positions survive a mode switch
+    var reg = {};
+    function getNode(id, type, label) {
+      if (!reg[id]) { reg[id] = { id: id, type: type, label: label }; }
+      else { reg[id].type = type; reg[id].label = label; }
+      return reg[id];
+    }
+
+    function buildGraph(mode) {
+      var you = getNode("you", "user", "you"); you.row = 1.5;
+      var nodes = [you];
+      var links = [];
+      PROFILES.forEach(function (p, i) {
+        var pn = getNode(p.id, "profile", p.label); pn.row = i;
+        nodes.push(pn);
+        links.push({ source: "you", target: p.id });
+        if (mode === "shared") {
+          links.push({ source: p.id, target: "shared", shared: true });
+        } else {
+          var hn = getNode("home-" + p.id, "home", p.home); hn.row = i;
+          nodes.push(hn);
+          links.push({ source: p.id, target: "home-" + p.id });
+        }
+      });
+      if (mode === "shared") {
+        var sh = getNode("shared", "home", "~/.codex"); sh.row = 1.5;
+        nodes.push(sh);
+      }
+      nodes.forEach(function (n) {
+        if (n.x === undefined || n.x === null) { n.x = colX(n); n.y = rowY(n.row); }
+      });
+      return { nodes: nodes, links: links };
+    }
+
+    var W = stage.clientWidth || 800;
+    var H = stage.clientHeight || 520;
+
+    // layered left -> right columns: you -> profiles -> homes
+    function colX(d) {
+      if (d.type === "user") return W * 0.13;
+      if (d.type === "profile") return W * 0.45;
+      return W * 0.78;
+    }
+    // deterministic vertical slot per row (0..3), 1.5 = centered
+    function rowY(row) { return H * ((row + 0.5) / 4); }
+
+    var svg = d3.select(stage).append("svg")
+      .attr("viewBox", "0 0 " + W + " " + H)
+      .attr("preserveAspectRatio", "xMidYMid meet");
+
+    // defs: gradients + glow
+    var defs = svg.append("defs");
+    var ng = defs.append("linearGradient").attr("id", "nodeGrad").attr("x1", "0").attr("y1", "0").attr("x2", "1").attr("y2", "1");
+    ng.append("stop").attr("offset", "0%").attr("stop-color", "#3f3f46");
+    ng.append("stop").attr("offset", "100%").attr("stop-color", "#0a0a0b");
+    var lg = defs.append("linearGradient").attr("id", "linkGrad").attr("x1", "0").attr("y1", "0").attr("x2", "1").attr("y2", "1");
+    lg.append("stop").attr("offset", "0%").attr("stop-color", "#d4d4d8");
+    lg.append("stop").attr("offset", "100%").attr("stop-color", "#b4b4ba");
+    var f = defs.append("filter").attr("id", "glow").attr("x", "-60%").attr("y", "-60%").attr("width", "220%").attr("height", "220%");
+    f.append("feGaussianBlur").attr("stdDeviation", "5").attr("result", "b");
+    var fm = f.append("feMerge");
+    fm.append("feMergeNode").attr("in", "b");
+    fm.append("feMergeNode").attr("in", "SourceGraphic");
+
+    var linkLayer = svg.append("g");
+    var nodeLayer = svg.append("g");
+
+    var sim = d3.forceSimulation()
+      .force("link", d3.forceLink().id(function (d) { return d.id; }).distance(140).strength(0.08))
+      .force("charge", d3.forceManyBody().strength(-140))
+      .force("collide", d3.forceCollide(30).strength(1))
+      .force("x", d3.forceX(colX).strength(0.5))
+      .force("y", d3.forceY(function (d) { return rowY(d.row); }).strength(0.22));
+
+    // adjacency for hover highlighting
+    var adj = {};
+    function computeAdj(links) {
+      adj = {};
+      links.forEach(function (l) {
+        var s = l.source.id || l.source, t = l.target.id || l.target;
+        (adj[s] = adj[s] || {})[t] = true;
+        (adj[t] = adj[t] || {})[s] = true;
+      });
+    }
+
+    var linkSel = linkLayer.selectAll("line");
+    var nodeSel = nodeLayer.selectAll("g.node");
+    var current = { nodes: [], links: [] };
+
+    function dims(type) {
+      var small = W < 560;
+      if (type === "user") return { w: 0, h: 0, r: small ? 27 : 33 };
+      if (type === "profile") return { w: small ? 84 : 104, h: 36, r: 0 };
+      return { w: small ? 124 : 158, h: 36, r: 0 };
+    }
+
+    function render(mode) {
+      var g = buildGraph(mode);
+      current = g;
+      computeAdj(g.links);
+      stage.setAttribute("data-mode", mode);
+
+      // LINKS
+      linkSel = linkLayer.selectAll("line").data(g.links, function (d) {
+        return (d.source.id || d.source) + ">" + (d.target.id || d.target);
+      });
+      linkSel.exit().remove();
+      linkSel = linkSel.enter().append("line").attr("class", "lnk").merge(linkSel)
+        .attr("class", function (d) {
+          var s = d.source.id || d.source;
+          var t = d.target.id || d.target;
+          var profile = PROFILES.map(function (p) { return p.id; }).filter(function (id) {
+            return s === id || t === id || s === "home-" + id || t === "home-" + id;
+          })[0];
+          return "lnk" + (profile ? " p-" + profile : "") + (mode === "shared" ? " is-shared" : "");
+        });
+
+      // NODES
+      nodeSel = nodeLayer.selectAll("g.node").data(g.nodes, function (d) { return d.id; });
+      nodeSel.exit().remove();
+      var enter = nodeSel.enter().append("g")
+        .attr("class", function (d) { return "node n-" + d.type; })
+        .attr("data-profile", function (d) { return d.id.replace(/^home-/, ""); })
+        .call(d3.drag().on("start", dragStart).on("drag", dragged).on("end", dragEnd))
+        .on("mouseenter", hoverOn).on("mouseleave", hoverOff)
+        .on("focus", hoverOn).on("blur", hoverOff)
+        .attr("tabindex", 0);
+
+      enter.each(function (d) {
+        var el = d3.select(this);
+        var dm = dims(d.type);
+        if (d.type === "user") {
+          el.append("circle").attr("class", "ring").attr("r", dm.r + 7);
+          el.append("circle").attr("class", "chip chip-bg").attr("r", dm.r).attr("filter", "url(#glow)");
+          el.append("text").attr("text-anchor", "middle").attr("dy", "0.34em").attr("font-size", "13").text(d.label);
+        } else {
+          el.append("rect").attr("class", "ring").attr("x", -dm.w / 2 - 5).attr("y", -dm.h / 2 - 5)
+            .attr("width", dm.w + 10).attr("height", dm.h + 10).attr("rx", 12);
+          el.append("rect").attr("class", "chip chip-bg").attr("x", -dm.w / 2).attr("y", -dm.h / 2)
+            .attr("width", dm.w).attr("height", dm.h).attr("rx", 10);
+          el.append("text").attr("text-anchor", "middle").attr("dy", "0.34em")
+            .attr("font-size", d.type === "home" ? (W < 560 ? "10" : "11.5") : (W < 560 ? "11.5" : "13")).text(d.label);
+        }
+        var a11y = d.type === "home" ? ("Codex home " + d.label) : (d.type === "profile" ? ("profile " + d.label) : "your macOS user");
+        el.attr("aria-label", a11y).attr("role", "img");
+      });
+      nodeSel = enter.merge(nodeSel);
+
+      sim.nodes(g.nodes);
+      sim.force("link").links(g.links);
+      sim.alpha(0.9).restart();
+      if (reduce) { for (var i = 0; i < 260; i++) sim.tick(); ticked(); sim.alpha(0); }
+
+      hintEl.textContent = mode === "shared"
+        ? "every profile shares one ~/.codex — tokens collide"
+        : "one CODEX_HOME per profile";
+    }
+
+    sim.on("tick", ticked);
+    function ticked() {
+      var pad = 26;
+      current.nodes.forEach(function (d) {
+        d.x = Math.max(pad, Math.min(W - pad, d.x));
+        d.y = Math.max(pad, Math.min(H - pad, d.y));
+      });
+      linkSel
+        .attr("x1", function (d) { return d.source.x; })
+        .attr("y1", function (d) { return d.source.y; })
+        .attr("x2", function (d) { return d.target.x; })
+        .attr("y2", function (d) { return d.target.y; });
+      nodeSel.attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; });
+    }
+
+    function dragStart(e, d) { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+    function dragged(e, d) { d.fx = e.x; d.fy = e.y; }
+    function dragEnd(e, d) { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }
+
+    function hoverOn(e, d) {
+      var near = adj[d.id] || {};
+      nodeSel.classed("dim", function (n) { return n.id !== d.id && !near[n.id]; });
+      nodeSel.classed("hot", function (n) { return n.id === d.id; });
+      linkSel.classed("dim", function (l) {
+        var s = l.source.id, t = l.target.id; return !((s === d.id || t === d.id)); });
+      linkSel.classed("hot", function (l) {
+        var s = l.source.id, t = l.target.id; return (s === d.id || t === d.id); });
+      showTip(e, d);
+    }
+    function hoverOff() {
+      nodeSel.classed("dim", false).classed("hot", false);
+      linkSel.classed("dim", false).classed("hot", false);
+      tipEl.classList.remove("show");
+    }
+    function showTip(e, d) {
+      tipEl.replaceChildren();
+      function addStrong(value) {
+        var strong = document.createElement("b");
+        strong.textContent = value;
+        tipEl.appendChild(strong);
+      }
+      function addFiles() {
+        var files = document.createElement("div");
+        files.className = "files";
+        files.textContent = FILES;
+        tipEl.appendChild(files);
+      }
+      if (d.type === "user") {
+        addStrong("you");
+        tipEl.appendChild(document.createElement("br"));
+        tipEl.appendChild(document.createTextNode("your macOS user — one set of SSH keys, browser, and GitHub auth"));
+      } else if (d.type === "profile") {
+        var home = (stage.getAttribute("data-mode") === "shared") ? "~/.codex (shared)" : ("~/.codex-" + d.id);
+        addStrong(d.label);
+        tipEl.appendChild(document.createTextNode(" → "));
+        addStrong(home);
+        addFiles();
+      } else {
+        addStrong(d.label);
+        addFiles();
+      }
+      var sx = W ? (stage.clientWidth / W) : 1, sy = H ? (stage.clientHeight / H) : 1;
+      var px = d.x * sx + 16, py = d.y * sy + 16;
+      if (px > stage.clientWidth - 240) px = d.x * sx - 230;
+      tipEl.style.left = Math.max(8, px) + "px";
+      tipEl.style.top = Math.max(8, py) + "px";
+      tipEl.classList.add("show");
+    }
+
+    // mode toggle
+    var controls = document.getElementById("isolation-controls");
+    var btnIso = document.getElementById("mode-isolated");
+    var btnShared = document.getElementById("mode-shared");
+    function setMode(mode) {
+      btnIso.setAttribute("aria-pressed", String(mode === "isolated"));
+      btnShared.setAttribute("aria-pressed", String(mode === "shared"));
+      render(mode);
+    }
+    controls.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var mode = event.submitter && event.submitter.value;
+      if (mode === "isolated" || mode === "shared") { setMode(mode); }
+    });
+
+    // responsive: keep viewBox synced to container size
+    var rt;
+    window.addEventListener("resize", function () {
+      clearTimeout(rt);
+      rt = setTimeout(function () {
+        W = stage.clientWidth || W; H = stage.clientHeight || H;
+        svg.attr("viewBox", "0 0 " + W + " " + H);
+        sim.force("x", d3.forceX(colX).strength(0.5));
+        sim.force("y", d3.forceY(function (d) { return rowY(d.row); }).strength(0.22));
+        sim.alpha(0.5).restart();
+      }, 200);
+    });
+
+    render("isolated");
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest an improvement or new workflow.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow is hard today?
+      placeholder: I want to switch profiles from...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What should codex-profiles do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other ways you tried to solve this.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: This does not require reading, copying, printing, uploading, or rewriting Codex auth tokens.
+          required: true
