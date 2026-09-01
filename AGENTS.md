@@ -90,7 +90,11 @@ Profile-to-path mapping: `default -> ~/.codex`; any other name `<x> -> ~/.codex-
   `package-lock.json` version fields, `docs/index.html`,
   `packaging/aur/PKGBUILD`, and `packaging/aur/.SRCINFO`. CI and the GEO test
   enforce this synchronization.
-- Document user-facing changes under `## Unreleased` in `CHANGELOG.md`.
+- Document user-facing changes under `## Unreleased` in `CHANGELOG.md`. Release
+  preparation then promotes those entries into a dated `## <version> - <date>`
+  section matching the newly tracked version, and the GEO test requires that
+  dated heading to exist. Leave already-tagged entries in the section whose tag
+  shipped them.
 - Keep the scope contract explicit: `cli`/`login`/`env`/`use` are Codex-only;
   `app default` preserves stock ChatGPT Desktop state; named `app` launches use
   matching `CODEX_HOME` and Electron data for the entire ChatGPT window.

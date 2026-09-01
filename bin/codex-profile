@@ -922,7 +922,7 @@ run_desktop_app() {
   note "Log: $log_file"
 
   if [[ "$profile" == "default" ]]; then
-    (umask 077 && open -n --env "CODEX_HOME=$codex_home" --stdout "$log_file" --stderr "$log_file" -a "$app" "$workspace") \
+    (umask 077 && open -n --env "CODEX_HOME=$codex_home" --env "CODEX_ELECTRON_USER_DATA_PATH=" --stdout "$log_file" --stderr "$log_file" -a "$app" "$workspace") \
       || die "Cannot launch $product app: $app"
   else
     (umask 077 && open -n --env "CODEX_HOME=$codex_home" --env "CODEX_ELECTRON_USER_DATA_PATH=$user_data_dir" --stdout "$log_file" --stderr "$log_file" -a "$app" "$workspace" --args "--user-data-dir=$user_data_dir") \
