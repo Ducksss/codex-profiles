@@ -175,6 +175,15 @@ function retryDelay() {
   return value;
 }
 
+function responseRetryDelay(response, fallback) {
+  const value = response.headers.get('retry-after');
+  if (value === null) return fallback;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const at = Date.parse(value);
+  return Number.isFinite(at) ? Math.max(0, at - Date.now()) : fallback;
+}
+
 async function airtableGet(url, airtableToken) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -186,8 +195,7 @@ async function airtableGet(url, airtableToken) {
       if (!RETRY_STATUSES.has(response.status) || attempt === 2) {
         fail(`Airtable GET -> ${response.status}: ${text}`);
       }
-      const retryAfter = Number(response.headers.get('retry-after'));
-      await sleep(Number.isFinite(retryAfter) ? retryAfter * 1000 : retryDelay() * 2 ** attempt);
+      await sleep(responseRetryDelay(response, retryDelay() * 2 ** attempt));
     } catch (error) {
       if (attempt === 2) fail(`Airtable GET failed: ${error.message}`);
       await sleep(retryDelay() * 2 ** attempt);
@@ -326,18 +334,37 @@ function compareSnapshots(baseline, next) {
   return changes;
 }
 
-function databaseUrl() {
+function databaseConnection() {
   const value = process.env.NEON_DATABASE_URL;
   if (!value) fail('NEON_DATABASE_URL is required.', 2);
   secrets.add(value);
-  return value;
+  const env = { ...process.env };
+  delete env.NEON_DATABASE_URL;
+  if (!/^postgres(?:ql)?:\/\//.test(value)) return { argument: value, env };
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch (error) {
+    fail(`Invalid NEON_DATABASE_URL: ${error.message}`, 2);
+  }
+  if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) {
+    fail('NEON_DATABASE_URL must use postgres:// or postgresql://.', 2);
+  }
+  if (parsed.password) {
+    const password = decodeURIComponent(parsed.password);
+    secrets.add(password);
+    env.PGPASSWORD = password;
+    parsed.password = '';
+  }
+  return { argument: parsed.toString(), env };
 }
 
 function psql(args, input) {
+  const connection = databaseConnection();
   for (let attempt = 0; attempt < 3; attempt++) {
-    const result = spawnSync('psql', ['-X', databaseUrl(), ...args], {
+    const result = spawnSync('psql', ['-X', connection.argument, ...args], {
       cwd: ROOT,
-      env: process.env,
+      env: connection.env,
       input,
       encoding: 'utf8',
       maxBuffer: 128 * 1024 * 1024,

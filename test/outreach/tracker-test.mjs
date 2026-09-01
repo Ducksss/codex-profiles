@@ -34,6 +34,7 @@ let nextLogId = 1;
 let failNext;
 let failAfterNext;
 let requests = 0;
+let requestTimes = [];
 
 function decodeJson(segment) {
   return JSON.parse(Buffer.from(segment, 'base64url').toString('utf8'));
@@ -173,6 +174,7 @@ function send(response, status, body, headers = {}) {
 
 const server = createServer(async (request, response) => {
   requests++;
+  requestTimes.push(Date.now());
   const token = authenticate(request);
   const name = new URL(request.url, 'http://localhost').pathname.split('/').at(-1);
   const body = await readJson(request);
@@ -269,6 +271,12 @@ try {
   const retried = await run(['get', 'alpha', '--json']);
   assert.equal(retried.status, 0, retried.stderr);
   assert.ok(requests >= 2);
+
+  requestTimes = [];
+  failNext = { status: 503, message: 'temporarily unavailable' };
+  const delayedRetry = await run(['get', 'alpha', '--json'], { OUTREACH_RETRY_DELAY_MS: '100' });
+  assert.equal(delayedRetry.status, 0, delayedRetry.stderr);
+  assert.ok(requestTimes[1] - requestTimes[0] >= 80, 'missing Retry-After bypassed backoff');
 
   failNext = { status: 500, includeToken: true };
   const failed = await run(['get', 'alpha']);

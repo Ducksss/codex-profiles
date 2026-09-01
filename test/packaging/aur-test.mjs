@@ -24,6 +24,10 @@ const prepare = join(rootDir, "scripts", "aur", "prepare.sh");
 const verify = join(rootDir, "scripts", "aur", "verify.sh");
 const runbookPath = join(rootDir, "packaging", "aur", "README.md");
 const fixturesDir = join(rootDir, "test", "fixtures");
+const trackedPkgbuild = readFileSync(join(rootDir, "packaging", "aur", "PKGBUILD"), "utf8");
+const packageVersion = trackedPkgbuild.match(/^pkgver=(.+)$/m)?.[1];
+
+assert.ok(packageVersion, "tracked PKGBUILD must declare pkgver");
 
 assert.ok(existsSync(prepare), "scripts/aur/prepare.sh must exist");
 assert.ok(existsSync(verify), "scripts/aur/verify.sh must exist");
@@ -61,6 +65,25 @@ function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function releaseSource(path) {
+  const tag = `v${packageVersion}`;
+  const tagged = spawnSync("git", ["show", `${tag}:${path}`], {
+    cwd: rootDir,
+    encoding: null,
+  });
+  if (tagged.status === 0) return tagged.stdout;
+  const shallow = spawnSync("git", ["rev-parse", "--is-shallow-repository"], {
+    cwd: rootDir,
+    encoding: "utf8",
+  });
+  assert.notEqual(
+    shallow.stdout.trim(),
+    "true",
+    `release tag ${tag} is unavailable in a shallow checkout; fetch tags`,
+  );
+  return readFileSync(join(rootDir, path));
+}
+
 const releaseFixtures = JSON.parse(
   readFileSync(join(fixturesDir, "github-release-contract.json"), "utf8"),
 );
@@ -79,8 +102,8 @@ function createArchive(name, mutate = () => {}, prefix = "") {
       join(contentRoot, "packaging", "aur", path),
     );
   }
-  cpSync(join(rootDir, "bin", "codex-profile"), join(contentRoot, "bin", "codex-profile"));
-  cpSync(join(rootDir, "LICENSE"), join(contentRoot, "LICENSE"));
+  writeFileSync(join(contentRoot, "bin", "codex-profile"), releaseSource("bin/codex-profile"));
+  writeFileSync(join(contentRoot, "LICENSE"), releaseSource("LICENSE"));
   mutate(contentRoot);
   const archivePaths = [
     "packaging/aur/PKGBUILD",
@@ -116,7 +139,9 @@ assert.deepEqual(readdirSync(prepared).sort(), [".SRCINFO", "LICENSE", "PKGBUILD
 for (const file of ["PKGBUILD", ".SRCINFO", "LICENSE"]) {
   assert.equal(
     readFileSync(join(prepared, file), "utf8"),
-    readFileSync(join(rootDir, file === "LICENSE" ? file : join("packaging", "aur", file)), "utf8"),
+    file === "LICENSE"
+      ? releaseSource("LICENSE").toString("utf8")
+      : readFileSync(join(rootDir, "packaging", "aur", file), "utf8"),
     `${file} should be staged byte-for-byte from the immutable archive`,
   );
   assert.equal(statSync(join(prepared, file)).mode & 0o777, 0o644, `${file} mode`);
@@ -265,9 +290,13 @@ for (const command of ["git", "ssh"]) {
 }
 
 const rpcDir = join(fixturesDir, "aur-rpc");
+const publicSourceRoot = join(tempRoot, "public-release-source");
+mkdirSync(join(publicSourceRoot, "bin"), { recursive: true });
+writeFileSync(join(publicSourceRoot, "bin", "codex-profile"), releaseSource("bin/codex-profile"));
+writeFileSync(join(publicSourceRoot, "LICENSE"), releaseSource("LICENSE"));
 const verifyEnv = {
   PATH: `${fakeBin}:${process.env.PATH}`,
-  AUR_TEST_SOURCE_ROOT: rootDir,
+  AUR_TEST_SOURCE_ROOT: publicSourceRoot,
   AUR_TEST_RPC_JSON: join(rpcDir, "exact-final-version.json"),
   AUR_TEST_COMMAND_LOG: commandLog,
 };
@@ -343,7 +372,7 @@ for (const [fixture, state, succeeds] of rpcScenarios) {
 
 const tamperedSourceRoot = join(tempRoot, "tampered-public-source");
 mkdirSync(join(tamperedSourceRoot, "bin"), { recursive: true });
-cpSync(join(rootDir, "LICENSE"), join(tamperedSourceRoot, "LICENSE"));
+writeFileSync(join(tamperedSourceRoot, "LICENSE"), releaseSource("LICENSE"));
 writeFileSync(join(tamperedSourceRoot, "bin", "codex-profile"), "tampered\n");
 assertFailure(
   run(verify, verifyArgs, { ...verifyEnv, AUR_TEST_SOURCE_ROOT: tamperedSourceRoot }),
