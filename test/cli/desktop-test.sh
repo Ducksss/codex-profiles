@@ -60,7 +60,8 @@ test_app_default_reuses_the_stock_chatgpt_session() {
   write_fake_chatgpt_open_tools "$fake_bin"
 
   run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
-    CHATGPT_APP="$chatgpt_app" "$SCRIPT" app default "$tmp/workspace"
+    CHATGPT_APP="$chatgpt_app" CODEX_ELECTRON_USER_DATA_PATH="$tmp/inherited-electron-user-data" \
+    "$SCRIPT" app default "$tmp/workspace"
 
   assert_status 0
   assert_contains "Desktop scope: stock ChatGPT session"
