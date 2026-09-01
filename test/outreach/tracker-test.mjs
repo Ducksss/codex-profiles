@@ -298,6 +298,10 @@ try {
   assert.ok(runCClaim, 'run-c claim was not persisted');
   runCClaim.expires = Date.now() - 1;
   assert.equal((await run(['claim', 'alpha', '--by', 'run-d'])).status, 0);
+  const runDClaim = claims.find((claim) =>
+    claim.target === 'alpha' && claim.workflow === 'run-d' && !claim.released);
+  assert.ok(runDClaim, 'run-d claim was not persisted');
+  runDClaim.expires = Number.MAX_SAFE_INTEGER;
   assert.equal((await run(['release', 'alpha', '--by', 'run-c'])).status, 0);
   assert.equal((await run(['claim', 'alpha', '--by', 'run-e'])).status, 3);
 

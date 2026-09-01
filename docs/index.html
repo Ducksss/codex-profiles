@@ -8,13 +8,19 @@
   <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
   <link rel="canonical" href="https://ducksss.github.io/codex-profiles/">
   <link rel="license" href="https://github.com/Ducksss/codex-profiles/blob/main/LICENSE">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f1ea">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#11110f">
   <meta property="og:type" content="website">
   <meta property="og:title" content="codex-profiles - Named Codex homes and ChatGPT desktop windows">
   <meta property="og:description" content="Select named Codex homes and named ChatGPT windows with separate local state without copying authentication files.">
   <meta property="og:url" content="https://ducksss.github.io/codex-profiles/">
-  <meta property="og:image" content="https://raw.githubusercontent.com/Ducksss/codex-profiles/main/media/codex-profile-parallel-instances.png">
+  <meta property="og:image" content="https://ducksss.github.io/codex-profiles/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="codex-profiles - named Codex homes and ChatGPT desktop windows with separate local state">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://ducksss.github.io/codex-profiles/og-image.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
@@ -152,6 +158,14 @@
         },
         {
           "@type": "Question",
+          "name": "Does codex-profiles verify that CLI and Desktop use the same account?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. CLI and Desktop sessions can be authenticated independently, and codex-profiles does not inspect account identifiers or credentials to compare them."
+          }
+        },
+        {
+          "@type": "Question",
           "name": "Does codex-profiles copy auth tokens?",
           "acceptedAnswer": {
             "@type": "Answer",
@@ -188,6 +202,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "Yes. Point your AI assistant or coding agent at the GitHub repository and this llms.txt file, then ask it to install codex-profile and run codex-profile cli work to start Codex on an isolated work profile. Coding agents working inside a clone of the repository can read its AGENTS.md file for setup, test, and usage instructions."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does fork fail with rollout path must be in Codex home directory?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Current Codex Desktop resolves the rollout path before checking that it stays under CODEX_HOME. A sessions/ or state_5.sqlite symlink from a named home into another home makes that check fail, so fork and side chats break. A shared state_5.sqlite also breaks archive and delete, which restrict rollout paths to sessions/ and mention that directory in the error. init --share-with never creates those links. Do not symlink the session store. Sharing chats across people means one real Desktop CODEX_HOME. Separate ChatGPT logins then require selecting that account's auth.json; the account chip follows CODEX_HOME auth.json, not Electron user-data alone. This tool does not copy auth.json."
           }
         }
       ]
@@ -1431,6 +1453,10 @@ codex-profile doctor</code></pre>
           <p>app default uses ~/.codex and preserves the stock ChatGPT Desktop session without a custom Electron user-data directory.</p>
         </article>
         <article>
+          <h3>Does codex-profiles verify that CLI and Desktop use the same account?</h3>
+          <p>No. CLI and Desktop sessions can be authenticated independently, and codex-profiles does not inspect account identifiers or credentials to compare them.</p>
+        </article>
+        <article>
           <h3>Does codex-profiles copy auth tokens?</h3>
           <p>No. codex-profiles does not read, copy, print, parse, upload, compare, or migrate authentication tokens or ChatGPT cookies.</p>
         </article>
@@ -1449,6 +1475,10 @@ codex-profile doctor</code></pre>
         <article>
           <h3>Can an AI assistant tell me how to run codex-profiles?</h3>
           <p>Yes. Point your AI assistant or coding agent at the GitHub repository and this llms.txt file, then ask it to install codex-profile and run codex-profile cli work to start Codex on an isolated work profile. Coding agents working inside a clone of the repository can read its AGENTS.md file for setup, test, and usage instructions.</p>
+        </article>
+        <article>
+          <h3>Why does fork fail with rollout path must be in Codex home directory?</h3>
+          <p>Current Codex Desktop resolves the rollout path before checking that it stays under CODEX_HOME. A sessions/ or state_5.sqlite symlink from a named home into another home makes that check fail, so fork and side chats break. A shared state_5.sqlite also breaks archive and delete, which restrict rollout paths to sessions/ and mention that directory in the error. init --share-with never creates those links. Do not symlink the session store. Sharing chats across people means one real Desktop CODEX_HOME. Separate ChatGPT logins then require selecting that account's auth.json; the account chip follows CODEX_HOME auth.json, not Electron user-data alone. This tool does not copy auth.json.</p>
         </article>
       </div>
     </section>
@@ -1684,7 +1714,7 @@ codex-profile doctor</code></pre>
           el.append("text").attr("text-anchor", "middle").attr("dy", "0.34em")
             .attr("font-size", d.type === "home" ? (W < 560 ? "10" : "11.5") : (W < 560 ? "11.5" : "13")).text(d.label);
         }
-        var a11y = d.type === "home" ? ("Codex home " + d.label) : (d.type === "profile" ? ("profile " + d.label) : "your macOS user");
+        var a11y = d.type === "home" ? ("Codex home " + d.label + " containing " + FILES) : (d.type === "profile" ? ("profile " + d.label) : "your macOS user");
         el.attr("aria-label", a11y).attr("role", "img");
       });
       nodeSel = enter.merge(nodeSel);
