@@ -7,9 +7,9 @@ Run a developer-cred distribution pass for
 
 Find genuinely relevant GitHub repositories, curated lists, directories, and
 developer-tool catalogs where `codex-profiles` belongs. Qualify repository-first
-leads, keep Airtable current, and draft high-quality PRs, issues, listing
-requests, or maintainer requests whenever the fit is clear and the target's
-contribution rules allow it.
+leads, keep the outreach tracker current, and draft high-quality PRs, issues,
+listing requests, or maintainer requests whenever the fit is clear and the
+target's contribution rules allow it.
 
 ## Project Context
 
@@ -32,17 +32,19 @@ Start every run by reading:
 - `LAUNCH.md` for positioning, channel copy, launch order, and the current
   policy gates. It no longer holds tracking data.
 
-Outreach tracking — every target, its status, and each event — lives in Airtable,
-not in `LAUNCH.md`. Read and write it only through the tracker helper:
+Outreach tracking — every target, its status, and each event — lives in the
+Neon-backed outreach tracker, not in `LAUNCH.md`. Read and write it only through
+the tracker helper:
 
 ```sh
 node scripts/outreach-tracker.mjs list                  # state of all targets
 node scripts/outreach-tracker.mjs list --status "PR Open"
 ```
 
-The helper needs a token: set `AIRTABLE_TOKEN`, or place it at
-`~/.codex-outreach-airtable-token` (`AIRTABLE_TOKEN_FILE` overrides). It defaults
-to base `appcezSUhDxz7uaQW` and requires Node 18+.
+Set `NEON_DATA_API_URL`; the helper signs five-minute RS256 tokens with
+`~/.codex-outreach-neon-private.pem` (`NEON_JWT_KEY_FILE` overrides). The key
+must be a mode-`0600` regular file. Setup, rotation, recovery, and migration
+commands are documented in `docs/outreach-tracker.md`. Node 18+ is required.
 
 Do not duplicate prior submissions unless there is a clear reason, such as a
 closed PR that needs a replacement.
@@ -88,11 +90,11 @@ Before researching or drafting anything:
 - Reconcile existing tracker entries (open PRs and issues, plus deferred and
   pending targets) before discovering new targets.
 
-## Airtable Source Of Truth
+## Outreach Tracker Source Of Truth
 
-Use the existing `Codex Profile` Airtable base as the durable operating ledger.
-Do not create a new base, table, CRM, spreadsheet, or side ledger for this
-workflow.
+Use the dedicated `codex-profiles-outreach` Neon project as the durable
+operating ledger. Do not create another database, CRM, spreadsheet, or side
+ledger for this workflow.
 
 - Targets stays the main pipeline table.
 - Log stays append-only history.
@@ -102,7 +104,7 @@ workflow.
 Primary lead unit: repository.
 Primary close: accepted listing/PR.
 
-Automation may research, score, dedupe, update Airtable, and draft artifacts.
+Automation may research, score, dedupe, update the tracker, and draft artifacts.
 Do not submit, open, post, comment, email, DM, or otherwise contact externally
 without explicit approval for that exact action.
 
@@ -112,7 +114,7 @@ current, then append a `Log` record with the exact outcome, blocker or reason,
 and relevant URL. Preserve records even when a target is blocked, skipped,
 submitted, or later needs a major update.
 
-## Airtable Field Contract
+## Outreach Tracker Field Contract
 
 - `Targets.Key`: deterministic slug such as `gh-owner-repo`,
   `awesome-owner-repo`, or `if-owner-repo`.
@@ -142,18 +144,18 @@ Truthfulness gate:
 - Do not invent a company, startup, region, market, customer story, or use case
   to force a listing fit.
 
-No closing draft or external action may start until Airtable records an
-`ICP: yes` decision from the qualification phase. Keep Airtable as the handoff;
-chat context is disposable.
+No closing draft or external action may start until the tracker records an
+`ICP: yes` decision from the qualification phase. Keep the tracker as the
+handoff; chat context is disposable.
 
 ## GitHub Lead Workflow
 
 Run the GitHub pipeline as four small phase contexts. Each phase writes its
-handoff to Airtable through `Targets.Next Action` and an append-only `Log`
+handoff to the tracker through `Targets.Next Action` and an append-only `Log`
 record.
 
 - Use the repo-local GitHub Lead Gen skill at
-  `.agents/skills/github-lead-gen` for candidate discovery and shallow Airtable
+  `.agents/skills/github-lead-gen` for candidate discovery and shallow tracker
   intake.
 - Use the repo-local GitHub Lead Qualification skill at
   `.agents/skills/github-lead-qualification` for ICP, status, priority,
@@ -166,11 +168,11 @@ record.
   submitted-target rechecks.
 
 Do not collapse phases into one long context unless the user explicitly asks.
-Do not skip Airtable handoffs between phases.
+Do not skip tracker handoffs between phases.
 
 ## Pipeline Views
 
-Use these operational views when triaging Airtable:
+Use these operational views when triaging the tracker:
 
 - Today: `P0` or `P1` targets in `Backlog` or `Active` with a concrete next
   action.
@@ -186,7 +188,7 @@ Every run must satisfy these scenarios:
 
 - Duplicate repo discovered: no new `Target`; append `Log` or route to
   `Merge Queue`.
-- Existing open PR found outside Airtable: reconcile to one `Target`, set
+- Existing open PR found outside the tracker: reconcile to one `Target`, set
   status `PR Open`, and log the source.
 - Awesome list has a matching section and contribution pattern: mark `P0` and
   draft the PR.
@@ -234,15 +236,16 @@ node scripts/outreach-tracker.mjs claim <key> --by <run-id>
 node scripts/outreach-tracker.mjs release <key> --by <run-id>
 ```
 
-Claims are append-preserving rows in Airtable's `Claims` table. Never reuse a
-run id: release only changes rows owned by the exact `--by` workflow, so a stale
-run cannot clear another workflow's lease.
+Claims are append-preserving rows in the tracker's `Claims` table. PostgreSQL
+advisory locks elect exactly one contender. Never reuse a run id: release only
+changes rows owned by the exact `--by` workflow, so a stale run cannot clear
+another workflow's lease.
 
 ## Automation Authority
 
 You have full internal execution authority for this distribution pass: research,
 read repositories, inspect rules, score fit, dedupe, draft artifacts, and update
-Airtable or repo-local ledgers.
+the outreach tracker or repo-local ledgers.
 
 Use available authenticated GitHub CLI access, GitHub API access, browser
 sessions, local credentials, and repository permissions that are already
@@ -266,7 +269,7 @@ Defer when:
 
 When contribution rules are ambiguous but the repository is relevant, make a
 best-effort judgment. Prefer drafting an issue over drafting a PR for borderline
-cases, and document the rationale in Airtable (`upsert` the target and `log` the
+cases, and document the rationale in the tracker (`upsert` the target and `log` the
 decision).
 
 ## Candidate Priorities
@@ -369,7 +372,7 @@ Repo: https://github.com/Ducksss/codex-profiles
 
 ## Required Logging
 
-Record everything in the Airtable tracker, never in `LAUNCH.md`.
+Record everything in the outreach tracker, never in `LAUNCH.md`.
 
 For every candidate considered, `upsert` its target row (dedup is on `Key`, so
 choose a stable slug such as `awesome-foo-bar` and reuse it on later runs):
@@ -402,7 +405,7 @@ event.
 
 ## Durable State
 
-Outreach state now lives in Airtable, so a normal run makes **no repository
+Outreach state lives in Neon, so a normal run makes **no repository
 commit**. Before finishing:
 
 - Verify every target touched this run is reflected in the tracker — `upsert`ed

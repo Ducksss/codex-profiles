@@ -1,25 +1,25 @@
 ---
 name: github-monitoring
-description: Use when reconciling existing GitHub PRs, issues, listings, or Airtable outreach targets for codex-profiles after submission or review. Not for lead discovery, qualification, drafting, or outreach.
+description: Use when reconciling existing GitHub PRs, issues, listings, or outreach-tracker targets for codex-profiles after submission or review. Not for lead discovery, qualification, drafting, or outreach.
 ---
 
 # GitHub Monitoring
 
 ## Purpose
 
-Recheck existing GitHub outreach work, reconcile Airtable, and route any new
+Recheck existing GitHub outreach work, reconcile the tracker, and route any new
 work back to the correct phase. This skill does not create leads or drafts.
 
 ## Required Context
 
-Read policy gates in `LAUNCH.md`, the live Airtable target, and the existing PR,
+Read policy gates in `LAUNCH.md`, the live tracker target, and the existing PR,
 issue, listing, or submission URL. Load `references/status-map.md` before
 updating status.
 
 ## Boundaries
 
-- Recheck existing PRs, issues, listings, and Airtable target links.
-- Update Airtable `Targets` and append `Log` entries only.
+- Recheck existing PRs, issues, listings, and tracker target links.
+- Update tracker `Targets` and append `Log` entries only.
 - Use `Log.Workflow = monitoring` for every meaningful recheck.
 - Do not discover new leads.
 - Do not draft PRs, issues, comments, emails, DMs, forum posts, listing submissions, or maintainer replies.
@@ -84,7 +84,7 @@ source URL in both the log and the corresponding appended target note.
    If the link is missing or inaccessible, recover the canonical URL from the
    preserved target notes or append-only log. If it cannot be recovered, keep
    the row, set `Deferred`, and record the exact repair blocker and recheck.
-3. Apply `references/status-map.md` to map the external state to Airtable.
+3. Apply `references/status-map.md` to map the external state to tracker status.
 4. Update `Status`, `Last Checked`, `Next Action`, and `Notes`:
    - Merged or accepted listing: set `Listed` and clear next action unless a
      follow-up is required.

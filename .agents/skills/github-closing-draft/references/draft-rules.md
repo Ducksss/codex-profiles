@@ -6,7 +6,7 @@ this skill.
 
 ## Required checks
 
-- Confirm the Airtable target is `ICP: yes` and the next action is closing
+- Confirm the tracker target is `ICP: yes` and the next action is closing
   draft.
 - Recheck the target's contribution rules, templates, accepted examples, and
   duplicate PRs or issues.
@@ -34,7 +34,7 @@ this skill.
 - Do not reuse this repo's branch, commit, PR title, or checklist conventions
   when the target repository shows a different convention.
 
-## Airtable handoff
+## Tracker handoff
 
 - Store the draft text or artifact link in the target notes or draft field.
 - Set `Next Action = Await approval to submit draft`.

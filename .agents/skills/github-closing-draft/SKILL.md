@@ -1,6 +1,6 @@
 ---
 name: github-closing-draft
-description: Use when drafting GitHub PRs, issues, listing copy, or maintainer requests for qualified codex-profiles Airtable targets. Not for discovery, qualification, monitoring, outreach, or submission.
+description: Use when drafting GitHub PRs, issues, listing copy, or maintainer requests for qualified codex-profiles tracker targets. Not for discovery, qualification, monitoring, outreach, or submission.
 ---
 
 # GitHub Closing Draft
@@ -8,20 +8,20 @@ description: Use when drafting GitHub PRs, issues, listing copy, or maintainer r
 ## Purpose
 
 Create target-specific draft artifacts for qualified `codex-profiles` leads and
-leave them approval-gated in Airtable. This skill drafts only; it never opens,
+leave them approval-gated in the outreach tracker. This skill drafts only; it never opens,
 posts, submits, comments, emails, or sends anything externally.
 
 ## Required Context
 
-Read `README.md`, policy gates in `LAUNCH.md`, the live Airtable target, and the
+Read `README.md`, policy gates in `LAUNCH.md`, the live tracker target, and the
 target's contribution rules or submission guidelines. Load
 `references/draft-rules.md` before writing copy.
 
 ## Boundaries
 
-- Consume only Airtable targets with `ICP: yes`.
+- Consume only tracker targets with `ICP: yes`.
 - Use `Log.Workflow = closing` for every meaningful draft decision.
-- Update Airtable with the draft, evidence, and approval blocker.
+- Update the tracker with the draft, evidence, and approval blocker.
 - Set `Next Action = Await approval to submit draft` after a draft is ready.
 - Follow the target repository's conventions over `codex-profiles` conventions.
 - Do not perform lead discovery.
@@ -63,7 +63,7 @@ node scripts/outreach-tracker.mjs release <key> --by <run-id>
 
 ## Workflow
 
-1. Select Airtable targets marked `ICP: yes` with `Next Action = Run closing draft`.
+1. Select tracker targets marked `ICP: yes` with `Next Action = Run closing draft`.
 2. Recheck duplicate PRs, issues, or existing listings before drafting.
 3. Read contribution rules, templates, accepted examples, and target scope.
 4. Identify the target repository's file ordering, wording, commit conventions,
@@ -76,7 +76,7 @@ node scripts/outreach-tracker.mjs release <key> --by <run-id>
      projects.
    - Forum, social, or manual-gated target: prepare copy only and hold.
 6. Keep claims narrow and source-backed using `references/draft-rules.md`.
-7. Update Airtable with the draft artifact location or text, set the approval
+7. Update the tracker with the draft artifact location or text, set the approval
    next action, and append a `closing` log entry.
 
 ## Output
