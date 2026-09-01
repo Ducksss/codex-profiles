@@ -24,6 +24,8 @@ const secondPath = join(temporary, 'second.json');
 const keyPath = join(temporary, 'private.pem');
 const jwksPath = join(temporary, 'jwks.json');
 const psqlArgumentsPath = join(temporary, 'psql-arguments');
+const psqlPasswordPath = join(temporary, 'psql-password');
+const psqlNeonEnvPath = join(temporary, 'psql-neon-env');
 const fakePsqlPath = join(temporary, 'psql');
 const token = 'migration-test-secret';
 const tableSchemas = [
@@ -53,6 +55,7 @@ const records = {
   }],
 };
 let rateLimitMetadata = true;
+const metadataRequestTimes = [];
 let leakToken = false;
 
 function canonical(value) {
@@ -78,9 +81,10 @@ const server = createServer((request, response) => {
     return;
   }
   if (url.pathname.endsWith('/meta/bases/test-base/tables')) {
+    metadataRequestTimes.push(Date.now());
     if (rateLimitMetadata) {
       rateLimitMetadata = false;
-      send(response, 429, { error: 'slow down' }, { 'retry-after': '0' });
+      send(response, 429, { error: 'slow down' });
       return;
     }
     send(response, 200, { tables: tableSchemas });
@@ -104,7 +108,7 @@ const env = {
   AIRTABLE_TOKEN: token,
   AIRTABLE_BASE: 'test-base',
   AIRTABLE_API_ROOT: `http://127.0.0.1:${address.port}/v0`,
-  AIRTABLE_RETRY_DELAY_MS: '1',
+  AIRTABLE_RETRY_DELAY_MS: '100',
 };
 
 function run(args, overrides = {}) {
@@ -125,6 +129,8 @@ function run(args, overrides = {}) {
 try {
   const exported = await run(['export', '--out', snapshotPath]);
   assert.equal(exported.status, 0, exported.stderr);
+  assert.ok(metadataRequestTimes[1] - metadataRequestTimes[0] >= 80,
+    'missing Retry-After bypassed Airtable backoff');
   assert.equal(statSync(snapshotPath).mode & 0o777, 0o600);
   const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8'));
   assert.equal(snapshot.format, 'codex-profiles-airtable-snapshot-v1');
@@ -159,6 +165,8 @@ try {
 
   writeFileSync(fakePsqlPath, `#!/bin/sh
 printf '%s\\n' "$@" > "$PSQL_ARGS_FILE"
+printf '%s' "$PGPASSWORD" > "$PSQL_PASSWORD_FILE"
+printf '%s' "\${NEON_DATABASE_URL-unset}" > "$PSQL_NEON_ENV_FILE"
 printf '%s\\n' '{"ok":true}'
 `, { mode: 0o700 });
   const databaseUrl = 'postgresql://owner:secret@example.test/neondb?sslmode=require';
@@ -166,9 +174,15 @@ printf '%s\\n' '{"ok":true}'
     NEON_DATABASE_URL: databaseUrl,
     PATH: `${temporary}:${process.env.PATH}`,
     PSQL_ARGS_FILE: psqlArgumentsPath,
+    PSQL_PASSWORD_FILE: psqlPasswordPath,
+    PSQL_NEON_ENV_FILE: psqlNeonEnvPath,
   });
   assert.equal(verified.status, 0, verified.stderr);
-  assert.ok(readFileSync(psqlArgumentsPath, 'utf8').split('\n').includes(databaseUrl));
+  const psqlArguments = readFileSync(psqlArgumentsPath, 'utf8');
+  assert.match(psqlArguments, /postgresql:\/\/owner@example\.test\/neondb\?sslmode=require/);
+  assert.doesNotMatch(psqlArguments, /secret/);
+  assert.equal(readFileSync(psqlPasswordPath, 'utf8'), 'secret');
+  assert.equal(readFileSync(psqlNeonEnvPath, 'utf8'), 'unset');
 
   const tampered = JSON.parse(readFileSync(snapshotPath, 'utf8'));
   tampered.tables.targets.records[0].fields.Key = 'tampered';

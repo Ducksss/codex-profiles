@@ -18,6 +18,18 @@ and this project follows semantic versioning for tagged releases.
 - Moved the operational outreach source of truth from Airtable to a dedicated
   Neon Data API project while preserving legacy records, raw source snapshots,
   command output, exit codes, relationships, and the 30-day deletion gate.
+- Removed unreferenced landing-page concept renders after the editorial design
+  direction was captured in `DESIGN.md` and implemented in the site.
+
+### Fixed
+
+- Cleared an inherited `CODEX_ELECTRON_USER_DATA_PATH` when launching
+  `app default`, so it reliably preserves the stock ChatGPT Desktop session.
+- Kept AUR checksums pinned to immutable tagged sources after unreleased CLI
+  changes, and made package tests distinguish published tags from new release
+  candidates.
+- Honored configured retry backoff when Neon or Airtable omits `Retry-After`,
+  and stopped placing the Neon database password in `psql` process arguments.
 
 ## 0.9.1 - 2026-08-30
 

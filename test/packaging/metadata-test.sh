@@ -26,6 +26,14 @@ sha256_file() {
   fi
 }
 
+sha256_stream() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print $1}'
+  else
+    shasum -a 256 | awk '{print $1}'
+  fi
+}
+
 version="$(node -p "require('./package.json').version")"
 assert_equals "release version" "0.9.1" "$version"
 assert_equals "package-lock version" "$version" "$(node -p "require('./package-lock.json').version")"
@@ -137,8 +145,16 @@ grep -F 'git diff --exit-code -- flake.lock' .github/workflows/ci.yml > /dev/nul
 grep -F 'ln -s codex-profile "$pkgdir/usr/bin/codex-profiles"' packaging/aur/PKGBUILD > /dev/null \
   || fail "Arch package does not create the plural alias"
 
-cli_sha256="$(sha256_file bin/codex-profile)"
-license_sha256="$(sha256_file LICENSE)"
+release_tag="v$version"
+if git rev-parse --verify --quiet "${release_tag}^{commit}" >/dev/null; then
+  cli_sha256="$(git show "${release_tag}:bin/codex-profile" | sha256_stream)"
+  license_sha256="$(git show "${release_tag}:LICENSE" | sha256_stream)"
+else
+  [[ "$(git rev-parse --is-shallow-repository 2>/dev/null || true)" != true ]] \
+    || fail "release tag $release_tag is unavailable in a shallow checkout; fetch tags"
+  cli_sha256="$(sha256_file bin/codex-profile)"
+  license_sha256="$(sha256_file LICENSE)"
+fi
 script_source="codex-profile-$version::https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/bin/codex-profile"
 license_source="LICENSE-$version::https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/LICENSE"
 
