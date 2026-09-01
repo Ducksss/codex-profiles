@@ -7,7 +7,6 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -209,7 +208,7 @@ const server = createServer(async (request, response) => {
 
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const address = server.address();
-const CLAIM_TTL_MS = 500;
+const CLAIM_TTL_MS = 5000;
 const env = {
   ...process.env,
   NEON_DATA_API_URL: `http://127.0.0.1:${address.port}/rest/v1`,
@@ -294,7 +293,10 @@ try {
   assert.equal((await run(['release', 'alpha', '--by', winner])).status, 0);
 
   assert.equal((await run(['claim', 'alpha', '--by', 'run-c'])).status, 0);
-  await sleep(CLAIM_TTL_MS + 100);
+  const runCClaim = claims.find((claim) =>
+    claim.target === 'alpha' && claim.workflow === 'run-c' && !claim.released);
+  assert.ok(runCClaim, 'run-c claim was not persisted');
+  runCClaim.expires = Date.now() - 1;
   assert.equal((await run(['claim', 'alpha', '--by', 'run-d'])).status, 0);
   assert.equal((await run(['release', 'alpha', '--by', 'run-c'])).status, 0);
   assert.equal((await run(['claim', 'alpha', '--by', 'run-e'])).status, 3);
