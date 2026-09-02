@@ -96,6 +96,32 @@ test_logs_refuses_linked_log_files() {
   rm -rf "$tmp"
 }
 
+test_logs_refuses_symlinked_parent_directories() {
+  local tmp outside_logs outside_home
+  tmp="$(mktemp -d)"
+  outside_logs="$tmp/outside-logs"
+  outside_home="$tmp/outside-home"
+  mkdir -p "$tmp/home/.codex-personal" "$outside_logs" "$outside_home/logs"
+  printf 'outside directory secret\n' > "$outside_logs/desktop.log"
+  printf 'outside home secret\n' > "$outside_home/logs/desktop.log"
+  ln -s "$outside_logs" "$tmp/home/.codex-personal/logs"
+  ln -s "$outside_home" "$tmp/home/.codex-work"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" logs personal
+
+  assert_status 1
+  assert_contains "Refusing symlinked desktop log directory: $tmp/home/.codex-personal/logs"
+  assert_not_contains "outside directory secret"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" logs work --tail 1
+
+  assert_status 1
+  assert_contains "Refusing symlinked profile home: $tmp/home/.codex-work"
+  assert_not_contains "outside home secret"
+
+  rm -rf "$tmp"
+}
+
 test_completions_generate_shell_scripts() {
   run_cmd "$SCRIPT" help
 
@@ -322,6 +348,7 @@ test_logs_prints_path_and_contents
 test_logs_prints_instance_path_and_contents
 test_logs_reports_missing_log_file
 test_logs_refuses_linked_log_files
+test_logs_refuses_symlinked_parent_directories
 test_completions_generate_shell_scripts
 test_env_prints_posix_exports_for_profile
 test_env_emits_fish_syntax

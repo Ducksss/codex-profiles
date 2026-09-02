@@ -242,6 +242,20 @@ validate_desktop_log_file() {
   [[ "$link_count" == "1" ]] || die "Refusing multiply-linked desktop log: $log_file"
 }
 
+validate_desktop_log_directory() {
+  local codex_home="$1"
+  local log_directory="$codex_home/logs"
+
+  [[ ! -L "$codex_home" ]] || die "Refusing symlinked profile home: $codex_home"
+  if [[ -e "$codex_home" ]]; then
+    [[ -d "$codex_home" ]] || die "Profile home is not a directory: $codex_home"
+  fi
+  [[ ! -L "$log_directory" ]] || die "Refusing symlinked desktop log directory: $log_directory"
+  if [[ -e "$log_directory" ]]; then
+    [[ -d "$log_directory" ]] || die "Desktop log directory is not a directory: $log_directory"
+  fi
+}
+
 prepare_desktop_log_file() {
   local log_file="$1"
   local temp
@@ -2500,6 +2514,9 @@ command_logs() {
   log_file="$codex_home/logs/desktop.log"
   legacy_log_file="$codex_home/logs/desktop-instance.log"
   missing_label="desktop log"
+  if [[ "$mode" != "path" ]]; then
+    validate_desktop_log_directory "$codex_home"
+  fi
   if [[ "$instance_compat" == "yes" && ! -e "$log_file" && ! -L "$log_file" && \
         ( -e "$legacy_log_file" || -L "$legacy_log_file" ) ]]; then
     log_file="$legacy_log_file"

@@ -54,9 +54,9 @@ and this project follows semantic versioning for tagged releases.
 - Honored configured retry backoff when Neon or Airtable omits `Retry-After`,
   rejected credential-bearing non-URL database strings, and stopped placing
   the Neon database password in `psql` process arguments.
-- Refused symlinked, non-regular, and multiply-linked Desktop logs before
-  launch or inspection, preventing log redirection from overwriting or reading
-  another file.
+- Refused symlinked Desktop log parent directories and symlinked, non-regular,
+  or multiply-linked log files before launch or inspection, preventing log
+  redirection from overwriting or reading another file.
 - Serialized workspace, guard, launcher, initialization, configuration-copy,
   and removal mutations so overlapping processes cannot lose registry updates
   or make lifecycle decisions against stale state.

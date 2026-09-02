@@ -90,11 +90,11 @@ for public_document in README.md docs/llms.txt install.sh; do
   while IFS= read -r installer_reference; do
     [[ "$installer_reference" == "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" ]] \
       || { echo "$public_document publishes non-release installer reference $installer_reference." >&2; exit 1; }
-  done < <(grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^/[:space:]]+/install\.sh' "$public_document" || true)
+  done < <(grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^[:space:]]+' "$public_document" || true)
   while IFS= read -r nix_reference; do
     [[ "$nix_reference" == "github:Ducksss/codex-profiles/v$version" ]] \
       || { echo "$public_document publishes non-release Nix reference $nix_reference." >&2; exit 1; }
-  done < <(grep -Eo 'github:Ducksss/codex-profiles(/[A-Za-z0-9._/-]+)?' "$public_document" || true)
+  done < <(grep -Eo 'github:Ducksss/codex-profiles[^[:space:]]*' "$public_document" || true)
 done
 
 changelog_version="${version//./\.}"

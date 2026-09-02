@@ -105,15 +105,21 @@ grep -F "github:Ducksss/codex-profiles/v$version" docs/llms.txt >/dev/null \
   || fail "docs/llms.txt Nix install is not pinned to v$version"
 grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" install.sh >/dev/null \
   || fail "install.sh usage is not pinned to v$version"
+installer_reference_probe='https://raw.githubusercontent.com/Ducksss/codex-profiles/feature/nested/install.sh?download=1#fragment'
+[[ "$(printf '%s\n' "$installer_reference_probe" | grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^[:space:]]+')" == "$installer_reference_probe" ]] \
+  || fail "installer reference validation misses nested paths, queries, or fragments"
+nix_reference_probe='github:Ducksss/codex-profiles/feature/path?dir=package#fragment'
+[[ "$(printf '%s\n' "$nix_reference_probe" | grep -Eo 'github:Ducksss/codex-profiles[^[:space:]]*')" == "$nix_reference_probe" ]] \
+  || fail "Nix reference validation misses paths, queries, or fragments"
 for public_document in README.md docs/llms.txt install.sh; do
   while IFS= read -r installer_reference; do
     [[ "$installer_reference" == "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" ]] \
       || fail "$public_document publishes non-release installer reference $installer_reference"
-  done < <(grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^/[:space:]]+/install\.sh' "$public_document" || true)
+  done < <(grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^[:space:]]+' "$public_document" || true)
   while IFS= read -r nix_reference; do
     [[ "$nix_reference" == "github:Ducksss/codex-profiles/v$version" ]] \
       || fail "$public_document publishes non-release Nix reference $nix_reference"
-  done < <(grep -Eo 'github:Ducksss/codex-profiles(/[A-Za-z0-9._/-]+)?' "$public_document" || true)
+  done < <(grep -Eo 'github:Ducksss/codex-profiles[^[:space:]]*' "$public_document" || true)
 done
 grep -F 'make check' CONTRIBUTING.md >/dev/null || fail "CONTRIBUTING omits the canonical check"
 grep -F 'make check' AGENTS.md >/dev/null || fail "AGENTS omits the canonical check"

@@ -24,7 +24,7 @@ case "${1:-}:${2:-}" in
     case " $* " in *' -f release_tag=v0.7.0 '*) ;; *) exit 67 ;; esac
     ;;
   run:list)
-    case " $* " in *' --commit '*) exit 68 ;; esac
+    case " $* " in *' --commit '*|*' --commit='*) exit 68 ;; esac
     count="$(grep -c '^gh:run list' "$RELEASE_TEST_LOG" || true)"
     if [ "$FAKE_PAGES_SCENARIO" = missing ]; then
       exit 0

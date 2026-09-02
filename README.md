@@ -147,6 +147,7 @@ On macOS, open the stock ChatGPT session or a named window with separate local
 state:
 
 ```sh
+codex-profile init default
 codex-profile app default ~/Dev/main-project
 codex-profile app personal ~/Dev/personal-project
 codex-profile app work ~/Dev/work-project
@@ -439,7 +440,8 @@ codex-profile logs personal --tail 100
 The deprecated `logs <name> --instance` spelling remains available for older
 scripts and installations. It reads the canonical `desktop.log` when present,
 then falls back to a pre-v0.7 `desktop-instance.log`. Log reads and launches
-refuse symlinked, non-regular, or multiply-linked log files.
+refuse symlinked profile or log directories and symlinked, non-regular, or
+multiply-linked log files.
 
 ### Clean up pre-v0.7 app clones
 
