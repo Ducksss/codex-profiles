@@ -116,6 +116,13 @@ installation, and complete clean-tree check. It runs with read-only repository
 permissions and no persisted checkout credential. It never tags, publishes,
 pushes a tap, creates a GitHub Release, or deploys Pages.
 
+Both release jobs use the `release` environment, whose only deployment branch
+policy is `main`; the verify job also rejects every non-`main` ref before a
+runner starts. The `github-pages` environment likewise permits only `main`.
+Release publication dispatches the trusted Pages workflow from `main` and
+passes an immutable final release tag as artifact input; never restore a broad
+`v*` environment policy or execute the Pages workflow from a tag.
+
 For `dry_run: false`, the only permitted
 `desktop_smoke_attestation` contents are the public app version and bundle ID,
 formatted exactly as:

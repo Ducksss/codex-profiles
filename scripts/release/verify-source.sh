@@ -72,6 +72,30 @@ check_version docs/index.html "$(sed -n 's/.*"softwareVersion": "\([^"]*\)".*/\1
 check_version docs-visible-version "$(sed -n 's|.*<span>v\([0-9][^<]*\)</span>.*|\1|p' docs/index.html | head -n 1)"
 check_version packaging/aur/PKGBUILD "$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD | head -n 1)"
 check_version packaging/aur/.SRCINFO "$(sed -n 's/^\tpkgver = //p' packaging/aur/.SRCINFO | head -n 1)"
+grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" README.md >/dev/null \
+  || { echo "README.md standalone installer must use immutable v$version." >&2; exit 1; }
+grep -F "CODEX_PROFILE_VERSION=v$version sh" README.md >/dev/null \
+  || { echo "README.md standalone installer must request v$version." >&2; exit 1; }
+grep -F "github:Ducksss/codex-profiles/v$version" README.md >/dev/null \
+  || { echo "README.md Nix commands must use immutable v$version." >&2; exit 1; }
+grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" docs/llms.txt >/dev/null \
+  || { echo "docs/llms.txt standalone installer must use immutable v$version." >&2; exit 1; }
+grep -F "CODEX_PROFILE_VERSION=v$version sh" docs/llms.txt >/dev/null \
+  || { echo "docs/llms.txt standalone installer must request v$version." >&2; exit 1; }
+grep -F "github:Ducksss/codex-profiles/v$version" docs/llms.txt >/dev/null \
+  || { echo "docs/llms.txt Nix command must use immutable v$version." >&2; exit 1; }
+grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" install.sh >/dev/null \
+  || { echo "install.sh usage must use immutable v$version." >&2; exit 1; }
+for public_document in README.md docs/llms.txt install.sh; do
+  while IFS= read -r installer_reference; do
+    [[ "$installer_reference" == "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" ]] \
+      || { echo "$public_document publishes non-release installer reference $installer_reference." >&2; exit 1; }
+  done < <(grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^[:space:]]+' "$public_document" || true)
+  while IFS= read -r nix_reference; do
+    [[ "$nix_reference" == "github:Ducksss/codex-profiles/v$version" ]] \
+      || { echo "$public_document publishes non-release Nix reference $nix_reference." >&2; exit 1; }
+  done < <(grep -Eo 'github:Ducksss/codex-profiles[^[:space:]]*' "$public_document" || true)
+done
 
 changelog_version="${version//./\.}"
 if ! grep -Eq "^## $changelog_version - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then

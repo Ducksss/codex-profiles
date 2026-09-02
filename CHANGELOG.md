@@ -12,6 +12,13 @@ and this project follows semantic versioning for tagged releases.
 - Added a dependency-free Airtable-to-Neon migration utility, restricted Neon
   schema, public RS256 JWKS, Merge Queue commands, and integration coverage for
   transactional imports, RLS/grants, append-only history, and atomic claims.
+- Added `doctor` diagnostics for symlinked profile homes and symlinked or
+  hard-linked private state such as `auth.json`, `sessions/`, and
+  `state_5.sqlite`, without flagging the documented `init --share-with`
+  configuration allowlist.
+- Added `doctor --check`, top-level JSON health, and an explicit version for
+  workspace, guard, and launcher state so automation can distinguish
+  diagnostics from a passing health check and reject incompatible state.
 
 ### Changed
 
@@ -20,6 +27,22 @@ and this project follows semantic versioning for tagged releases.
   command output, exit codes, relationships, and the 30-day deletion gate.
 - Removed unreferenced landing-page concept renders after the editorial design
   direction was captured in `DESIGN.md` and implemented in the site.
+- Made source upgrades resolve the latest immutable final GitHub Release by
+  default, kept `--ref main` as an explicit development path, and pinned the
+  documented standalone and Nix install commands to the current release.
+- Made `init` the sole profile-creation command. CLI, login, Desktop launch,
+  and configuration-copy commands now require initialized profiles instead of
+  silently creating a missing name.
+- Made profile removal refuse to orphan managed launchers or profiles that
+  still supply linked configuration to another profile.
+- Restricted source-style self-upgrades to source-owned executables or an
+  explicitly authorized install prefix; package-managed installations now
+  direct users back to their package manager.
+- Restricted release and Pages jobs to protected `main` environments. Pages
+  now accepts only immutable release tags whose resolved commits belong to
+  `main`, and treats them as artifact input instead of workflow code.
+- Made the clean AUR verifier select `linux/amd64` explicitly and accommodate
+  pacman under QEMU emulation on Apple Silicon.
 
 ### Fixed
 
@@ -31,6 +54,19 @@ and this project follows semantic versioning for tagged releases.
 - Honored configured retry backoff when Neon or Airtable omits `Retry-After`,
   rejected credential-bearing non-URL database strings, and stopped placing
   the Neon database password in `psql` process arguments.
+- Refused symlinked Desktop log parent directories and symlinked, non-regular,
+  or multiply-linked log files before launch or inspection, preventing log
+  redirection from overwriting or reading another file.
+- Serialized workspace, guard, launcher, initialization, configuration-copy,
+  and removal mutations so overlapping processes cannot lose registry updates
+  or make lifecycle decisions against stale state.
+- Passed Neon database names through `psql --dbname`, rejected option-shaped
+  names, and added complete leading indexes for every outreach foreign key.
+
+### Security
+
+- Enabled a concrete private vulnerability-reporting path and added release,
+  Pages, local-log, database-argument, and deployment-trust regression checks.
 
 ## 0.9.1 - 2026-08-30
 

@@ -175,10 +175,28 @@ printf '%s\\n' '{"ok":true}'
   });
   assert.equal(verified.status, 0, verified.stderr);
   const psqlArguments = readFileSync(psqlArgumentsPath, 'utf8');
+  assert.match(psqlArguments, /^-X\n--dbname\n/);
   assert.match(psqlArguments, /postgresql:\/\/owner@example\.test\/neondb\?sslmode=require/);
   assert.doesNotMatch(psqlArguments, /secret/);
   assert.equal(readFileSync(psqlPasswordPath, 'utf8'), 'secret');
   assert.equal(readFileSync(psqlNeonEnvPath, 'utf8'), 'unset');
+
+  const plainDatabase = await run(['verify', '--in', snapshotPath], {
+    NEON_DATABASE_URL: 'neondb',
+    PATH: `${temporary}:${process.env.PATH}`,
+    PSQL_ARGS_FILE: psqlArgumentsPath,
+    PSQL_PASSWORD_FILE: psqlPasswordPath,
+    PSQL_NEON_ENV_FILE: psqlNeonEnvPath,
+  });
+  assert.equal(plainDatabase.status, 0, plainDatabase.stderr);
+  assert.match(readFileSync(psqlArgumentsPath, 'utf8'), /^-X\n--dbname\nneondb\n/);
+
+  const optionInjection = await run(['verify', '--in', snapshotPath], {
+    NEON_DATABASE_URL: '-o|id',
+    PATH: `${temporary}:${process.env.PATH}`,
+  });
+  assert.equal(optionInjection.status, 2);
+  assert.match(optionInjection.stderr, /PostgreSQL URL or a plain database name/);
 
   const unsafeConninfo = await run(['verify', '--in', snapshotPath], {
     NEON_DATABASE_URL: 'host=example.test dbname=neondb user=owner password=conninfo-secret',

@@ -125,6 +125,33 @@ test_doctor_skips_status_when_cli_missing() {
   assert_contains "CLI: missing"
   assert_contains "Status: skipped"
 
+  run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" doctor --check
+
+  assert_status 1
+  assert_contains "CLI: missing"
+
+  rm -rf "$tmp"
+}
+
+test_doctor_check_reports_healthy_state() {
+  local tmp fake_codex
+  tmp="$(mktemp -d)"
+  fake_codex="$tmp/codex"
+  write_fake_codex "$fake_codex"
+  mkdir -p "$tmp/home/.codex-personal"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" doctor --check
+
+  assert_status 0
+  assert_contains "CLI: $fake_codex"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" doctor --json --check
+
+  assert_status 0
+  assert_contains '"healthy":true'
+  assert_contains '"schema_version":"1"'
+  JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
+
   rm -rf "$tmp"
 }
 
@@ -204,9 +231,68 @@ test_doctor_json_reports_missing_cli_and_skips_status() {
   run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" doctor --json
 
   assert_status 0
+  assert_contains '"healthy":false'
   assert_contains '"desktop":{'
   assert_contains '"cli":{"found":false'
   assert_contains '"status":{"skipped":true'
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" doctor --json --check
+
+  assert_status 1
+  assert_contains '"healthy":false'
+  JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
+
+  rm -rf "$tmp"
+}
+
+test_doctor_reports_private_state_links_without_flagging_shared_config() {
+  local tmp source_home target_home outside
+  tmp="$(mktemp -d)"
+  source_home="$tmp/home/.codex-personal"
+  target_home="$tmp/home/.codex-personal-2"
+  outside="$tmp/outside"
+  mkdir -p "$source_home" "$target_home" "$outside/sessions"
+  printf 'model = "gpt-5"\n' > "$source_home/config.toml"
+  printf '{"token":"not-read"}\n' > "$outside/auth.json"
+  printf 'history\n' > "$outside/history.jsonl"
+  printf 'state\n' > "$outside/state_5.sqlite"
+  ln -s "$source_home/config.toml" "$target_home/config.toml"
+  ln -s "$outside/auth.json" "$target_home/auth.json"
+  ln -s "$outside/sessions" "$target_home/sessions"
+  ln -s "$outside/state_5.sqlite" "$target_home/state_5.sqlite"
+  ln "$outside/history.jsonl" "$target_home/history.jsonl"
+  ln -s "$outside/missing-profile-home" "$tmp/home/.codex-linked"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" doctor
+
+  assert_status 0
+  assert_contains "Private-state links: 5 (unsafe)"
+  assert_contains "Private-state link: personal-2/auth.json -> $outside/auth.json"
+  assert_contains "Private-state link: personal-2/sessions -> $outside/sessions"
+  assert_contains "Private-state link: personal-2/state_5.sqlite -> $outside/state_5.sqlite"
+  assert_contains "Private-state link: personal-2/history.jsonl [hard links: 2]"
+  assert_contains "Private-state link: linked/profile-home -> $outside/missing-profile-home"
+  assert_not_contains "config.toml ->"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" doctor --json
+
+  assert_status 0
+  assert_contains '"profile_state":{"healthy":false,"private_link_count":5'
+  assert_contains '"entry":"auth.json"'
+  assert_contains '"entry":"sessions"'
+  assert_contains '"entry":"state_5.sqlite"'
+  assert_contains '"entry":"history.jsonl"'
+  assert_contains '"entry":"profile_home"'
+  assert_contains '"kind":"hardlink","target":null,"link_count":2'
+  assert_not_contains '"entry":"config.toml"'
+
+  rm -f "$target_home/auth.json" "$target_home/sessions" "$target_home/state_5.sqlite" \
+    "$target_home/history.jsonl" "$tmp/home/.codex-linked"
+  run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" doctor --json
+
+  assert_status 0
+  assert_contains '"profile_state":{"healthy":true,"private_link_count":0,"private_links":[]}'
+  [[ -L "$target_home/config.toml" ]] || fail "doctor changed an allowlisted shared config link"
 
   rm -rf "$tmp"
 }
@@ -246,8 +332,10 @@ test_status_reports_arbitrary_discovered_profiles_and_skips_invalid_dirs
 test_status_treats_not_logged_in_as_normal_status
 test_status_propagates_unexpected_cli_failure
 test_doctor_skips_status_when_cli_missing
+test_doctor_check_reports_healthy_state
 test_status_json_reports_profiles_without_creating_missing_default
 test_status_json_treats_not_logged_in_as_normal_status
 test_status_json_escapes_control_characters
 test_doctor_json_reports_missing_cli_and_skips_status
+test_doctor_reports_private_state_links_without_flagging_shared_config
 test_json_commands_never_emit_update_notices

@@ -249,6 +249,114 @@ test_workspace_uses_xdg_config_and_manages_guard_mode() {
   rm -rf "$tmp"
 }
 
+test_workspace_mutations_are_serialized_and_versioned() {
+  local tmp config first second fake_bin fake_mv real_mv first_pid second_pid first_status second_status
+  tmp="$(mktemp -d)"
+  tmp="$(cd "$tmp" && pwd -P)"
+  config="$tmp/config"
+  first="$tmp/first"
+  second="$tmp/second"
+  fake_bin="$tmp/bin"
+  fake_mv="$fake_bin/mv"
+  real_mv="$(command -v mv)"
+  mkdir -p "$tmp/home/.codex-first" "$tmp/home/.codex-second" "$first" "$second" "$fake_bin"
+  cat > "$fake_mv" <<'FAKE_MV'
+#!/usr/bin/env bash
+destination="${!#}"
+if [[ "$destination" == */workspaces.tsv ]]; then
+  sleep 1
+fi
+exec "${REAL_MV:?}" "$@"
+FAKE_MV
+  chmod 755 "$fake_mv"
+
+  env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    PATH="$fake_bin:$PATH" REAL_MV="$real_mv" \
+    "$SCRIPT" workspace bind "$first" first > "$tmp/first.out" 2> "$tmp/first.err" &
+  first_pid=$!
+  env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    PATH="$fake_bin:$PATH" REAL_MV="$real_mv" \
+    "$SCRIPT" workspace bind "$second" second > "$tmp/second.out" 2> "$tmp/second.err" &
+  second_pid=$!
+
+  set +e
+  wait "$first_pid"
+  first_status=$?
+  wait "$second_pid"
+  second_status=$?
+  set -e
+  [[ "$first_status" -eq 0 ]] || fail "first concurrent bind failed: $(cat "$tmp/first.err")"
+  [[ "$second_status" -eq 0 ]] || fail "second concurrent bind failed: $(cat "$tmp/second.err")"
+  [[ "$(wc -l < "$config/workspaces.tsv" | tr -d ' ')" == "2" ]] || \
+    fail "concurrent workspace mutations lost a binding"
+  grep -Fqx "$first"$'\t'first "$config/workspaces.tsv" || fail "first concurrent binding is missing"
+  grep -Fqx "$second"$'\t'second "$config/workspaces.tsv" || fail "second concurrent binding is missing"
+  [[ "$(cat "$config/state-version")" == "1" ]] || fail "state schema version was not recorded"
+  [[ "$(mode_of "$config/state-version")" == "600" ]] || fail "state version file is not private"
+  [[ ! -e "$config/mutation.lock" ]] || fail "state mutation lock was not released"
+
+  mkdir "$config/mutation.lock"
+  printf '99999999\n' > "$config/mutation.lock/pid"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace guard strict
+  assert_status 0
+  assert_contains "Workspace guard mode: strict"
+  [[ ! -e "$config/mutation.lock" ]] || fail "stale state mutation lock was not reclaimed"
+
+  rm -rf "$tmp"
+}
+
+test_workspace_rejects_unsupported_state_schema() {
+  local tmp config workspace fake_codex
+  tmp="$(mktemp -d)"
+  tmp="$(cd "$tmp" && pwd -P)"
+  config="$tmp/config"
+  workspace="$tmp/workspace"
+  fake_codex="$tmp/codex"
+  mkdir -p "$tmp/home/.codex-work" "$workspace" "$config"
+  printf '99\n' > "$config/state-version"
+  cat > "$fake_codex" <<'FAKE_CODEX'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'fake-codex 1.0\n'
+  exit 0
+fi
+printf 'Logged out\n'
+FAKE_CODEX
+  chmod 755 "$fake_codex"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace list
+  assert_status 1
+  assert_contains "Unsupported state schema version '99'"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" launcher list --json
+  assert_status 1
+  assert_contains "Unsupported state schema version '99'"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace guard strict
+  assert_status 1
+  assert_contains "Unsupported state schema version '99'"
+  [[ ! -e "$config/mutation.lock" ]] || fail "schema rejection left the mutation lock behind"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI="$fake_codex" "$SCRIPT" doctor --json
+  assert_status 0
+  assert_contains '"healthy":false'
+  assert_contains '"schema_version":"99"'
+  assert_contains '"registry_valid":false'
+  JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI="$fake_codex" "$SCRIPT" doctor --json --check
+  assert_status 1
+  assert_contains '"healthy":false'
+
+  rm -rf "$tmp"
+}
+
 test_workspace_run_routes_cli_and_signed_app() {
   local tmp config workspace service fake_codex chatgpt_app fake_bin tool_log
   tmp="$(mktemp -d)"
@@ -601,6 +709,8 @@ test_doctor_reports_workspace_binding_health_in_human_and_json_output() {
 test_workspace_bind_list_status_and_nested_resolution
 test_workspace_bind_rejects_unsafe_state_and_reports_stale_bindings
 test_workspace_uses_xdg_config_and_manages_guard_mode
+test_workspace_mutations_are_serialized_and_versioned
+test_workspace_rejects_unsupported_state_schema
 test_workspace_run_routes_cli_and_signed_app
 test_workspace_resolution_errors_are_not_treated_as_unbound
 test_workspace_guards_explicit_profile_commands

@@ -10,12 +10,17 @@ CODEX_APP_BIN="${CODEX_APP_BIN:-}"
 CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-}"
 CODEX_PROFILE_APP_INSTANCE_ROOT="${CODEX_PROFILE_APP_INSTANCE_ROOT:-$HOME/Library/Application Support/codex-profile/app-instances}"
 CODEX_PROFILE_UPGRADE_REPO="${CODEX_PROFILE_UPGRADE_REPO:-https://github.com/Ducksss/codex-profiles.git}"
-CODEX_PROFILE_UPGRADE_REF="${CODEX_PROFILE_UPGRADE_REF:-main}"
+CODEX_PROFILE_UPGRADE_REF="${CODEX_PROFILE_UPGRADE_REF:-latest}"
+CODEX_PROFILE_UPGRADE_RELEASE_URL="${CODEX_PROFILE_UPGRADE_RELEASE_URL:-https://api.github.com/repos/Ducksss/codex-profiles/releases/latest}"
 CODEX_PROFILE_CONFIG_HOME="${CODEX_PROFILE_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/codex-profile}"
 CODEX_PROFILE_LAUNCHER_ROOT="${CODEX_PROFILE_LAUNCHER_ROOT:-$HOME/Applications}"
 WORKSPACE_REGISTRY="$CODEX_PROFILE_CONFIG_HOME/workspaces.tsv"
 WORKSPACE_GUARD_FILE="$CODEX_PROFILE_CONFIG_HOME/guard-mode"
 LAUNCHER_STATE_DIR="$CODEX_PROFILE_CONFIG_HOME/launchers"
+STATE_SCHEMA_VERSION="1"
+STATE_VERSION_FILE="$CODEX_PROFILE_CONFIG_HOME/state-version"
+STATE_LOCK_DIR="$CODEX_PROFILE_CONFIG_HOME/mutation.lock"
+STATE_LOCK_HELD=no
 
 usage() {
   cat <<EOF
@@ -46,7 +51,7 @@ Usage:
   $PROGRAM logs <profile> [--instance] [--path|--tail [lines]]
   $PROGRAM clone-config <source-profile> <target-profile> [--force]
   $PROGRAM list
-  $PROGRAM doctor [--json]
+  $PROGRAM doctor [--json] [--check]
   $PROGRAM completions <bash|zsh|fish>
   $PROGRAM shell-init <bash|zsh|fish>
   $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
@@ -92,14 +97,19 @@ Environment:
   CODEX_APP_BIN   Locate a desktop .app from its executable (deprecated).
   CODEX_CLI       Override Codex CLI binary path.
   CODEX_BUNDLED_CLI  Override the bundled Codex CLI fallback path.
-  CODEX_PROFILE_CONFIG_HOME  Override private workspace binding storage.
+  CODEX_PROFILE_CONFIG_HOME  Override private versioned control-state storage.
   CODEX_PROFILE_LAUNCHER_ROOT  Override launcher install directory (default: ~/Applications).
   CODEX_PROFILE_APP_INSTANCE_ROOT  Legacy clone root (doctor only; never written).
   CODEX_PROFILE_UPGRADE_REPO    Override upgrade repository.
-  CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref.
+  CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref (default: latest immutable release).
+  CODEX_PROFILE_UPGRADE_RELEASE_URL  Override latest-release metadata URL.
   CODEX_PROFILE_UPGRADE_CACHE   Override upgrade cache checkout.
   CODEX_PROFILE_UPGRADE_PREFIX  Override upgrade install prefix.
   CODEX_PROFILE_NO_UPDATE_CHECK  Disable the daily update check (also honors DO_NOT_TRACK).
+
+Lifecycle:
+  init is the only command that creates a profile. Commands that run Codex,
+  login, launch ChatGPT, or copy configuration require initialized profiles.
 
 Desktop auth safety:
   app refuses an inherited CODEX_ACCESS_TOKEN so a shell credential cannot
@@ -191,6 +201,80 @@ ensure_home() {
   chmod 700 "$codex_home" || die "Cannot set private permissions on: $codex_home"
 }
 
+secure_initialized_home() {
+  local profile="$1" codex_home="$2"
+
+  profile_is_initialized "$profile" || \
+    die "Profile '$profile' is not initialized; run '$PROGRAM init $profile' first."
+  chmod 700 "$codex_home" || die "Cannot set private permissions on: $codex_home"
+}
+
+ensure_profile_subdirectory() {
+  local profile="$1" codex_home="$2" directory="$3"
+
+  secure_initialized_home "$profile" "$codex_home"
+  [[ ! -L "$directory" ]] || die "Refusing symlinked managed directory: $directory"
+  if [[ ! -e "$directory" ]]; then
+    mkdir "$directory" || die "Cannot create directory: $directory"
+  fi
+  [[ -d "$directory" ]] || die "Not a directory: $directory"
+  chmod 700 "$directory" || die "Cannot set private permissions on: $directory"
+}
+
+file_link_count() {
+  local path="$1"
+  local count
+
+  if count="$(stat -c '%h' "$path" 2> /dev/null)"; then
+    printf '%s\n' "$count"
+    return 0
+  fi
+  stat -f '%l' "$path" 2> /dev/null
+}
+
+validate_desktop_log_file() {
+  local log_file="$1"
+  local link_count
+
+  [[ ! -L "$log_file" ]] || die "Refusing symlinked desktop log: $log_file"
+  [[ -f "$log_file" ]] || die "Desktop log is not a regular file: $log_file"
+  link_count="$(file_link_count "$log_file")" || die "Cannot inspect desktop log links: $log_file"
+  [[ "$link_count" == "1" ]] || die "Refusing multiply-linked desktop log: $log_file"
+}
+
+validate_desktop_log_directory() {
+  local codex_home="$1"
+  local log_directory="$codex_home/logs"
+
+  [[ ! -L "$codex_home" ]] || die "Refusing symlinked profile home: $codex_home"
+  if [[ -e "$codex_home" ]]; then
+    [[ -d "$codex_home" ]] || die "Profile home is not a directory: $codex_home"
+  fi
+  [[ ! -L "$log_directory" ]] || die "Refusing symlinked desktop log directory: $log_directory"
+  if [[ -e "$log_directory" ]]; then
+    [[ -d "$log_directory" ]] || die "Desktop log directory is not a directory: $log_directory"
+  fi
+}
+
+prepare_desktop_log_file() {
+  local log_file="$1"
+  local temp
+
+  if [[ -e "$log_file" || -L "$log_file" ]]; then
+    validate_desktop_log_file "$log_file"
+  fi
+
+  temp="$(mktemp "$log_file.tmp.XXXXXX")" || die "Cannot create private desktop log: $log_file"
+  chmod 600 "$temp" || {
+    rm -f "$temp"
+    die "Cannot set private permissions on desktop log: $log_file"
+  }
+  mv -f "$temp" "$log_file" || {
+    rm -f "$temp"
+    die "Cannot replace desktop log safely: $log_file"
+  }
+}
+
 shared_profile_config_entries() {
   printf '%s\n' \
     config.toml \
@@ -200,6 +284,143 @@ shared_profile_config_entries() {
     custom-instructions.md \
     rules \
     plugins
+}
+
+private_profile_state_entries() {
+  printf '%s\n' \
+    auth.json \
+    sessions \
+    archived_sessions \
+    history.jsonl \
+    session_index.jsonl \
+    state_5.sqlite \
+    logs \
+    electron-user-data
+}
+
+discover_profiles_for_state_audit() {
+  local dir profile
+
+  if [[ -d "$HOME/.codex" || -L "$HOME/.codex" ]]; then
+    printf 'default\n'
+  fi
+
+  for dir in "$HOME"/.codex-*; do
+    [[ -d "$dir" || -L "$dir" ]] || continue
+    profile="${dir##*/.codex-}"
+    discovered_profile_is_managed "$profile" "$dir" || continue
+    printf '%s\n' "$profile"
+  done
+}
+
+private_state_hard_link_count() {
+  local path="$1"
+  local link_count
+
+  [[ -f "$path" && ! -L "$path" ]] || return 1
+  link_count="$(file_link_count "$path" 2> /dev/null)" || return 1
+  [[ "$link_count" =~ ^[0-9]+$ ]] || return 1
+  ((link_count > 1)) || return 1
+  printf '%s\n' "$link_count"
+}
+
+profile_state_link_stats() {
+  local profile codex_home entry path
+
+  PROFILE_STATE_LINK_COUNT=0
+  PROFILE_STATE_LINKS_HEALTHY=true
+
+  for profile in $(discover_profiles_for_state_audit); do
+    codex_home="$(codex_home_for_profile "$profile")"
+    if [[ -L "$codex_home" ]]; then
+      PROFILE_STATE_LINK_COUNT=$((PROFILE_STATE_LINK_COUNT + 1))
+      PROFILE_STATE_LINKS_HEALTHY=false
+      continue
+    fi
+    for entry in $(private_profile_state_entries); do
+      path="$codex_home/$entry"
+      if [[ -L "$path" ]] || private_state_hard_link_count "$path" > /dev/null; then
+        PROFILE_STATE_LINK_COUNT=$((PROFILE_STATE_LINK_COUNT + 1))
+        PROFILE_STATE_LINKS_HEALTHY=false
+      fi
+    done
+  done
+}
+
+json_emit_profile_state_links() {
+  local profile codex_home entry path target link_count first=yes
+
+  printf '['
+  for profile in $(discover_profiles_for_state_audit); do
+    codex_home="$(codex_home_for_profile "$profile")"
+    if [[ -L "$codex_home" ]]; then
+      target="$(readlink "$codex_home" 2> /dev/null || true)"
+      if [[ "$first" == "yes" ]]; then first=no; else printf ','; fi
+      printf '{"profile":'
+      json_string "$profile"
+      printf ',"home":'
+      json_string "$codex_home"
+      printf ',"entry":"profile_home","path":'
+      json_string "$codex_home"
+      printf ',"kind":"symlink","target":'
+      json_string "$target"
+      printf ',"link_count":null}'
+      continue
+    fi
+
+    for entry in $(private_profile_state_entries); do
+      path="$codex_home/$entry"
+      target=""
+      link_count=""
+      if [[ -L "$path" ]]; then
+        target="$(readlink "$path" 2> /dev/null || true)"
+      else
+        link_count="$(private_state_hard_link_count "$path" 2> /dev/null || true)"
+        [[ -n "$link_count" ]] || continue
+      fi
+
+      if [[ "$first" == "yes" ]]; then first=no; else printf ','; fi
+      printf '{"profile":'
+      json_string "$profile"
+      printf ',"home":'
+      json_string "$codex_home"
+      printf ',"entry":'
+      json_string "$entry"
+      printf ',"path":'
+      json_string "$path"
+      if [[ -n "$link_count" ]]; then
+        printf ',"kind":"hardlink","target":null,"link_count":%s}' "$link_count"
+      else
+        printf ',"kind":"symlink","target":'
+        json_string "$target"
+        printf ',"link_count":null}'
+      fi
+    done
+  done
+  printf ']'
+}
+
+note_profile_state_links() {
+  local profile codex_home entry path target link_count
+
+  for profile in $(discover_profiles_for_state_audit); do
+    codex_home="$(codex_home_for_profile "$profile")"
+    if [[ -L "$codex_home" ]]; then
+      target="$(readlink "$codex_home" 2> /dev/null || true)"
+      note "Private-state link: $profile/profile-home -> $target"
+      continue
+    fi
+
+    for entry in $(private_profile_state_entries); do
+      path="$codex_home/$entry"
+      if [[ -L "$path" ]]; then
+        target="$(readlink "$path" 2> /dev/null || true)"
+        note "Private-state link: $profile/$entry -> $target"
+      elif link_count="$(private_state_hard_link_count "$path" 2> /dev/null)"; then
+        note "Private-state link: $profile/$entry [hard links: $link_count]"
+      fi
+    done
+  done
 }
 
 initialize_shared_profile() {
@@ -252,6 +473,49 @@ profile_is_initialized() {
   [[ -d "$codex_home" && ! -L "$codex_home" ]]
 }
 
+require_initialized_profile() {
+  local profile="$1"
+
+  validate_profile "$profile"
+  profile_is_initialized "$profile" || \
+    die "Profile '$profile' is not initialized; run '$PROGRAM init $profile' first."
+}
+
+profile_shared_dependents() {
+  local source_profile="$1" source_home profile profile_home entry path target
+
+  source_home="$(codex_home_for_profile "$source_profile")"
+  for profile in $(discover_profiles yes); do
+    [[ "$profile" != "$source_profile" ]] || continue
+    profile_home="$(codex_home_for_profile "$profile")"
+    for entry in $(shared_profile_config_entries); do
+      path="$profile_home/$entry"
+      [[ -L "$path" ]] || continue
+      target="$(readlink "$path" 2> /dev/null || true)"
+      if [[ "$target" == "$source_home/$entry" ]]; then
+        printf '%s\n' "$profile"
+        break
+      fi
+    done
+  done
+}
+
+profile_assert_removable() {
+  local profile="$1" dependents state_file
+
+  dependents="$(profile_shared_dependents "$profile" | LC_ALL=C sort -u | tr '\n' ' ')"
+  dependents="${dependents% }"
+  [[ -z "$dependents" ]] || \
+    die "Cannot remove profile '$profile'; shared configuration is still used by: $dependents. Replace those links with independent configuration or remove the dependent profiles first."
+
+  state_file="$(launcher_state_file "$profile")"
+  if [[ -e "$state_file" || -L "$state_file" ]]; then
+    launcher_load_state "$profile" || \
+      die "Cannot remove profile '$profile' while launcher state is invalid: $state_file"
+    die "Cannot remove profile '$profile' while its managed launcher exists at $LAUNCHER_STATE_PATH; run '$PROGRAM launcher remove $profile' first."
+  fi
+}
+
 workspace_path_has_control_characters() {
   local path="$1"
 
@@ -299,12 +563,17 @@ workspace_assert_state_paths_safe() {
     die "Refusing symlinked workspace registry: $WORKSPACE_REGISTRY"
   [[ ! -L "$WORKSPACE_GUARD_FILE" ]] || \
     die "Refusing symlinked workspace guard file: $WORKSPACE_GUARD_FILE"
+  [[ ! -L "$STATE_VERSION_FILE" ]] || \
+    die "Refusing symlinked state version file: $STATE_VERSION_FILE"
 
   if [[ -e "$WORKSPACE_REGISTRY" && ! -f "$WORKSPACE_REGISTRY" ]]; then
     die "Workspace registry is not a regular file: $WORKSPACE_REGISTRY"
   fi
   if [[ -e "$WORKSPACE_GUARD_FILE" && ! -f "$WORKSPACE_GUARD_FILE" ]]; then
     die "Workspace guard state is not a regular file: $WORKSPACE_GUARD_FILE"
+  fi
+  if [[ -e "$STATE_VERSION_FILE" && ! -f "$STATE_VERSION_FILE" ]]; then
+    die "State version path is not a regular file: $STATE_VERSION_FILE"
   fi
 }
 
@@ -316,6 +585,104 @@ ensure_workspace_config_home() {
     die "Workspace config path is not a directory: $CODEX_PROFILE_CONFIG_HOME"
   chmod 700 "$CODEX_PROFILE_CONFIG_HOME" || \
     die "Cannot set private permissions on: $CODEX_PROFILE_CONFIG_HOME"
+}
+
+state_schema_version() {
+  local version
+
+  workspace_assert_state_paths_safe
+  if [[ ! -f "$STATE_VERSION_FILE" ]]; then
+    printf '%s\n' "$STATE_SCHEMA_VERSION"
+    return 0
+  fi
+
+  version="$(cat "$STATE_VERSION_FILE" 2> /dev/null)" || \
+    die "Cannot read state version: $STATE_VERSION_FILE"
+  [[ "$version" == "$STATE_SCHEMA_VERSION" ]] || \
+    die "Unsupported state schema version '$version' in $STATE_VERSION_FILE; this codex-profile supports version $STATE_SCHEMA_VERSION."
+  printf '%s\n' "$version"
+}
+
+ensure_state_schema_version() {
+  local temp
+
+  state_schema_version > /dev/null
+  [[ -f "$STATE_VERSION_FILE" ]] && return 0
+
+  temp="$(mktemp "$CODEX_PROFILE_CONFIG_HOME/.state-version.tmp.XXXXXX")" || \
+    die "Cannot create temporary state version file."
+  if ! printf '%s\n' "$STATE_SCHEMA_VERSION" > "$temp"; then
+    rm -f "$temp"
+    die "Cannot write temporary state version file."
+  fi
+  chmod 600 "$temp" || {
+    rm -f "$temp"
+    die "Cannot set private permissions on temporary state version file."
+  }
+  mv -f "$temp" "$STATE_VERSION_FILE" || {
+    rm -f "$temp"
+    die "Cannot replace state version file: $STATE_VERSION_FILE"
+  }
+}
+
+state_lock_release() {
+  local owner=""
+
+  [[ "${STATE_LOCK_HELD:-no}" == "yes" ]] || return 0
+  if [[ -f "$STATE_LOCK_DIR/pid" && ! -L "$STATE_LOCK_DIR/pid" ]]; then
+    IFS= read -r owner < "$STATE_LOCK_DIR/pid" || owner=""
+  fi
+
+  if [[ -z "$owner" || "$owner" == "$$" ]]; then
+    rm -f -- "$STATE_LOCK_DIR/pid" 2> /dev/null || true
+    rmdir "$STATE_LOCK_DIR" 2> /dev/null || \
+      warn "Could not remove state mutation lock: $STATE_LOCK_DIR"
+  else
+    warn "State mutation lock ownership changed unexpectedly; leaving it in place: $STATE_LOCK_DIR"
+  fi
+  STATE_LOCK_HELD=no
+}
+
+state_lock_acquire() {
+  local attempts=0 max_attempts owner=""
+
+  [[ "$STATE_LOCK_HELD" == "no" ]] || die "State mutation lock is already held by this process."
+  ensure_workspace_config_home
+  max_attempts="${CODEX_PROFILE_LOCK_ATTEMPTS:-30}"
+  [[ "$max_attempts" =~ ^[1-9][0-9]*$ ]] || max_attempts=30
+
+  while ! (umask 077 && mkdir "$STATE_LOCK_DIR") 2> /dev/null; do
+    [[ -d "$STATE_LOCK_DIR" && ! -L "$STATE_LOCK_DIR" ]] || \
+      die "Refusing unsafe state mutation lock path: $STATE_LOCK_DIR"
+    owner=""
+    if [[ -f "$STATE_LOCK_DIR/pid" && ! -L "$STATE_LOCK_DIR/pid" ]]; then
+      IFS= read -r owner < "$STATE_LOCK_DIR/pid" || owner=""
+    fi
+    if [[ "$owner" =~ ^[1-9][0-9]*$ ]] && \
+       ! kill -0 "$owner" 2> /dev/null && ! ps -p "$owner" > /dev/null 2>&1; then
+      rm -f -- "$STATE_LOCK_DIR/pid" 2> /dev/null || true
+      rmdir "$STATE_LOCK_DIR" 2> /dev/null || true
+      continue
+    fi
+    attempts=$((attempts + 1))
+    if ((attempts >= max_attempts)); then
+      die "Timed out waiting for state mutation lock${owner:+ held by process $owner}: $STATE_LOCK_DIR"
+    fi
+    sleep 1
+  done
+
+  STATE_LOCK_HELD=yes
+  trap state_lock_release EXIT
+  trap 'state_lock_release; exit 1' HUP INT TERM
+  if ! printf '%s\n' "$$" > "$STATE_LOCK_DIR/pid"; then
+    state_lock_release
+    die "Cannot record state mutation lock owner: $STATE_LOCK_DIR"
+  fi
+  chmod 600 "$STATE_LOCK_DIR/pid" || {
+    state_lock_release
+    die "Cannot protect state mutation lock owner: $STATE_LOCK_DIR/pid"
+  }
+  ensure_state_schema_version
 }
 
 workspace_decode_registry_line() {
@@ -346,6 +713,7 @@ workspace_registry_validate() {
   local line line_number=0
 
   workspace_assert_state_paths_safe
+  state_schema_version > /dev/null
   [[ -f "$WORKSPACE_REGISTRY" ]] || return 0
 
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -358,6 +726,7 @@ workspace_guard_mode() {
   local mode
 
   workspace_assert_state_paths_safe
+  state_schema_version > /dev/null
   if [[ ! -f "$WORKSPACE_GUARD_FILE" ]]; then
     printf 'warn\n'
     return 0
@@ -506,8 +875,9 @@ workspace_remove_profile_bindings() {
 }
 
 workspace_registry_stats() {
-  local line mode line_number=0
+  local line mode version line_number=0
 
+  WORKSPACE_STATS_SCHEMA_VERSION="$STATE_SCHEMA_VERSION"
   WORKSPACE_STATS_GUARD_MODE="warn"
   WORKSPACE_STATS_REGISTRY_VALID=true
   WORKSPACE_STATS_BINDING_COUNT=0
@@ -515,21 +885,33 @@ workspace_registry_stats() {
   WORKSPACE_STATS_MISSING_PROFILES=0
 
   if [[ -e "$CODEX_PROFILE_CONFIG_HOME" && ! -d "$CODEX_PROFILE_CONFIG_HOME" ]]; then
+    WORKSPACE_STATS_SCHEMA_VERSION=""
     WORKSPACE_STATS_GUARD_MODE=""
     WORKSPACE_STATS_REGISTRY_VALID=false
     return 0
   fi
   if [[ -L "$CODEX_PROFILE_CONFIG_HOME" || -L "$WORKSPACE_REGISTRY" || \
-        -L "$WORKSPACE_GUARD_FILE" ]]; then
+        -L "$WORKSPACE_GUARD_FILE" || -L "$STATE_VERSION_FILE" ]]; then
+    WORKSPACE_STATS_SCHEMA_VERSION=""
     WORKSPACE_STATS_GUARD_MODE=""
     WORKSPACE_STATS_REGISTRY_VALID=false
     return 0
   fi
   if [[ -e "$WORKSPACE_REGISTRY" && ! -f "$WORKSPACE_REGISTRY" ]] || \
-     [[ -e "$WORKSPACE_GUARD_FILE" && ! -f "$WORKSPACE_GUARD_FILE" ]]; then
+     [[ -e "$WORKSPACE_GUARD_FILE" && ! -f "$WORKSPACE_GUARD_FILE" ]] || \
+     [[ -e "$STATE_VERSION_FILE" && ! -f "$STATE_VERSION_FILE" ]]; then
+    WORKSPACE_STATS_SCHEMA_VERSION=""
     WORKSPACE_STATS_GUARD_MODE=""
     WORKSPACE_STATS_REGISTRY_VALID=false
     return 0
+  fi
+
+  if [[ -f "$STATE_VERSION_FILE" ]]; then
+    version="$(cat "$STATE_VERSION_FILE" 2> /dev/null || true)"
+    WORKSPACE_STATS_SCHEMA_VERSION="$version"
+    if [[ "$version" != "$STATE_SCHEMA_VERSION" ]]; then
+      WORKSPACE_STATS_REGISTRY_VALID=false
+    fi
   fi
 
   if [[ -f "$WORKSPACE_GUARD_FILE" ]]; then
@@ -864,7 +1246,7 @@ command_app() {
 
   [[ "$profile_set" == yes ]] || die "$usage"
   [[ "$workspace_set" == yes ]] || workspace="$PWD"
-  validate_profile "$profile"
+  require_initialized_profile "$profile"
   workspace_guard_profile "$profile" "$workspace"
 
   if [[ "$instance" == yes ]]; then
@@ -898,17 +1280,16 @@ run_desktop_app() {
   command -v open > /dev/null 2>&1 || die "macOS open command not found; $PROGRAM app is macOS-only."
 
   codex_home="$(codex_home_for_profile "$profile")"
-  ensure_home "$codex_home"
+  secure_initialized_home "$profile" "$codex_home"
   if [[ "$profile" != "default" ]]; then
     user_data_dir="$codex_home/electron-user-data"
-    ensure_home "$user_data_dir"
+    ensure_profile_subdirectory "$profile" "$codex_home" "$user_data_dir"
   fi
 
   log_dir="$codex_home/logs"
   log_file="$log_dir/desktop.log"
-  ensure_home "$log_dir"
-  (umask 077 && : > "$log_file")
-  chmod 600 "$log_file" 2> /dev/null || true
+  ensure_profile_subdirectory "$profile" "$codex_home" "$log_dir"
+  prepare_desktop_log_file "$log_file"
 
   note "Launching $product for profile $profile"
   note "CODEX_HOME=$codex_home"
@@ -1027,6 +1408,7 @@ ensure_launcher_directories() {
 launcher_load_state() {
   local profile="$1" state_file
 
+  state_schema_version > /dev/null
   state_file="$(launcher_state_file "$profile")"
   [[ -f "$state_file" && ! -L "$state_file" ]] || return 1
   IFS= read -r LAUNCHER_STATE_PROFILE < "$state_file" || return 1
@@ -1219,6 +1601,8 @@ command_launcher_create() {
   profile_is_initialized "$profile" ||
     die "Profile '$profile' is not initialized; run '$PROGRAM init $profile' first."
   [[ "$(uname -s)" == "Darwin" ]] || die_macos_only launcher
+  state_lock_acquire
+  require_initialized_profile "$profile"
   ensure_launcher_directories
   path="$CODEX_PROFILE_LAUNCHER_ROOT/$name.app"
   state_file="$(launcher_state_file "$profile")"
@@ -1305,6 +1689,7 @@ command_launcher_list() {
 
   if [[ "${1:-}" == "--json" || "${1:-}" == "-j" ]]; then json=yes; shift; fi
   [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM launcher list [--json]"
+  state_schema_version > /dev/null
   if [[ "$json" == "yes" ]]; then printf '['; fi
   if [[ -d "$LAUNCHER_STATE_DIR" && ! -L "$LAUNCHER_STATE_DIR" ]]; then
     for state_file in "$LAUNCHER_STATE_DIR"/*.state; do
@@ -1355,6 +1740,7 @@ command_launcher_remove() {
   if [[ "${1:-}" == "--yes" || "${1:-}" == "-y" ]]; then yes=yes; shift; fi
   [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM launcher remove <profile> [--yes]"
   validate_profile "$profile"
+  state_lock_acquire
   state_file="$(launcher_state_file "$profile")"
   launcher_load_state "$profile" || die "No managed launcher for profile '$profile'."
   if launcher_path_is_absent "$LAUNCHER_STATE_PATH"; then
@@ -1394,10 +1780,10 @@ command_cli() {
   shift || true
 
   local codex_home codex_cli
-  validate_profile "$profile"
+  require_initialized_profile "$profile"
   workspace_guard_profile "$profile" "$PWD"
   codex_home="$(codex_home_for_profile "$profile")"
-  ensure_home "$codex_home"
+  secure_initialized_home "$profile" "$codex_home"
   codex_cli="$(find_codex_cli)"
 
   exec env CODEX_HOME="$codex_home" "$codex_cli" "$@"
@@ -1409,8 +1795,9 @@ command_login() {
   shift || true
 
   local codex_home codex_cli
+  require_initialized_profile "$profile"
   codex_home="$(codex_home_for_profile "$profile")"
-  ensure_home "$codex_home"
+  secure_initialized_home "$profile" "$codex_home"
   codex_cli="$(find_codex_cli)"
 
   exec env CODEX_HOME="$codex_home" "$codex_cli" login "$@"
@@ -1437,6 +1824,8 @@ command_init() {
     esac
     shift
   done
+
+  state_lock_acquire
 
   if [[ -n "$source_profile" ]]; then
     initialize_shared_profile "$profile" "$source_profile"
@@ -1478,8 +1867,12 @@ command_remove() {
   local codex_home confirmation
   codex_home="$(codex_home_for_profile "$profile")"
   workspace_registry_validate
+  profile_assert_removable "$profile"
 
   if [[ ! -d "$codex_home" ]]; then
+    state_lock_acquire
+    workspace_registry_validate
+    profile_assert_removable "$profile"
     workspace_remove_profile_bindings "$profile"
     note "Not initialized $profile ($codex_home)"
     return 0
@@ -1494,6 +1887,10 @@ command_remove() {
       die "Confirmation did not match; nothing removed."
     fi
   fi
+
+  state_lock_acquire
+  workspace_registry_validate
+  profile_assert_removable "$profile"
 
   rm -rf -- "$codex_home" || die "Cannot remove profile home: $codex_home"
   workspace_remove_profile_bindings "$profile"
@@ -1757,9 +2154,9 @@ command_workspace_bind() {
   [[ "$#" -eq 0 ]] || die "$usage"
 
   validate_profile "$profile"
-  profile_is_initialized "$profile" || \
-    die "Profile '$profile' is not initialized; run '$PROGRAM init $profile' first."
   canonical="$(canonical_directory "$path")"
+  state_lock_acquire
+  require_initialized_profile "$profile"
 
   if workspace_exact_profile "$canonical"; then
     existing="$WORKSPACE_EXACT_PROFILE"
@@ -1786,6 +2183,7 @@ command_workspace_unbind() {
   shift || true
   [[ "$#" -eq 0 ]] || die "$usage"
   canonical="$(workspace_path_for_unbind "$path")"
+  state_lock_acquire
 
   workspace_exact_profile "$canonical" || \
     die "No exact workspace binding exists for $canonical."
@@ -1920,8 +2318,8 @@ command_workspace_guard() {
     *) die "Invalid workspace guard mode '$mode'. Use off, warn, or strict." ;;
   esac
 
+  state_lock_acquire
   workspace_registry_validate
-  ensure_workspace_config_home
   temp="$(mktemp "$CODEX_PROFILE_CONFIG_HOME/.guard-mode.tmp.XXXXXX")" || \
     die "Cannot create temporary workspace guard state."
   printf '%s\n' "$mode" > "$temp" || {
@@ -2043,8 +2441,8 @@ command_env() {
   workspace_guard_profile "$profile" "$PWD"
 
   if [[ ! -d "$codex_home" ]]; then
-    printf "%s: profile '%s' is not initialized (%s); run '%s init %s' or '%s login %s'.\n" \
-      "$PROGRAM" "$profile" "$codex_home" "$PROGRAM" "$profile" "$PROGRAM" "$profile" >&2
+    printf "%s: profile '%s' is not initialized (%s); run '%s init %s'.\n" \
+      "$PROGRAM" "$profile" "$codex_home" "$PROGRAM" "$profile" >&2
   fi
 
   case "$shell" in
@@ -2116,7 +2514,11 @@ command_logs() {
   log_file="$codex_home/logs/desktop.log"
   legacy_log_file="$codex_home/logs/desktop-instance.log"
   missing_label="desktop log"
-  if [[ "$instance_compat" == "yes" && ! -f "$log_file" && -f "$legacy_log_file" ]]; then
+  if [[ "$mode" != "path" ]]; then
+    validate_desktop_log_directory "$codex_home"
+  fi
+  if [[ "$instance_compat" == "yes" && ! -e "$log_file" && ! -L "$log_file" && \
+        ( -e "$legacy_log_file" || -L "$legacy_log_file" ) ]]; then
     log_file="$legacy_log_file"
     missing_label="legacy desktop instance log"
   fi
@@ -2126,7 +2528,8 @@ command_logs() {
     return 0
   fi
 
-  [[ -f "$log_file" ]] || die "No $missing_label for $profile ($log_file)."
+  [[ -e "$log_file" || -L "$log_file" ]] || die "No $missing_label for $profile ($log_file)."
+  validate_desktop_log_file "$log_file"
 
   if [[ "$mode" == "tail" ]]; then
     tail -n "$lines" "$log_file"
@@ -2172,8 +2575,12 @@ command_clone_config() {
   source_home="$(codex_home_for_profile "$source_profile")"
   target_home="$(codex_home_for_profile "$target_profile")"
 
-  [[ -d "$source_home" ]] || die "Source profile is not initialized: $source_profile ($source_home)"
-  ensure_home "$target_home"
+  require_initialized_profile "$source_profile"
+  require_initialized_profile "$target_profile"
+  state_lock_acquire
+  require_initialized_profile "$source_profile"
+  require_initialized_profile "$target_profile"
+  secure_initialized_home "$target_profile" "$target_home"
 
   local safe_files=("config.toml" "AGENTS.md")
   local file source_file target_file copied failed
@@ -2306,6 +2713,7 @@ update_check_state_file() {
 update_check_fetch_latest() {
   local url body
   url="${CODEX_PROFILE_UPDATE_URL:-https://registry.npmjs.org/codex-profile/latest}"
+  [[ "$url" != -* ]] || return 1
 
   if [[ -f "$url" ]]; then
     body="$(cat "$url" 2> /dev/null)" || return 1
@@ -2391,7 +2799,7 @@ maybe_check_for_update() {
   if [[ -f "$state_file" ]]; then
     read -r cached_epoch cached_version < "$state_file" 2> /dev/null || true
     if [[ -n "$cached_version" ]] && update_version_is_newer "$cached_version"; then
-      printf "codex-profile %s available (you have %s); run '%s upgrade' or 'npm i -g codex-profile'.\n" \
+      printf "codex-profile %s available (you have %s); upgrade with the installation's package manager (source installs: '%s upgrade').\n" \
         "$cached_version" "$VERSION" "$PROGRAM" >&2
     fi
   fi
@@ -2419,24 +2827,89 @@ script_declared_version_output() {
   printf 'codex-profile %s\n' "$declared_version"
 }
 
+upgrade_fetch_release_metadata() {
+  local url="$1"
+  [[ "$url" != -* ]] || return 1
+
+  if [[ -f "$url" ]]; then
+    cat "$url"
+  elif command -v curl > /dev/null 2>&1; then
+    curl -fsSL --connect-timeout 10 --max-time 30 "$url"
+  elif command -v wget > /dev/null 2>&1; then
+    wget -qO- --timeout=30 "$url"
+  else
+    return 1
+  fi
+}
+
+upgrade_latest_release_ref() {
+  local body tag immutable draft prerelease
+
+  body="$(upgrade_fetch_release_metadata "$CODEX_PROFILE_UPGRADE_RELEASE_URL")" \
+    || die "Cannot fetch latest release metadata: $CODEX_PROFILE_UPGRADE_RELEASE_URL"
+  tag="$(printf '%s\n' "$body" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n '1p')"
+  immutable="$(printf '%s\n' "$body" | sed -n 's/.*"immutable"[[:space:]]*:[[:space:]]*\([a-z]*\).*/\1/p' | sed -n '1p')"
+  draft="$(printf '%s\n' "$body" | sed -n 's/.*"draft"[[:space:]]*:[[:space:]]*\([a-z]*\).*/\1/p' | sed -n '1p')"
+  prerelease="$(printf '%s\n' "$body" | sed -n 's/.*"prerelease"[[:space:]]*:[[:space:]]*\([a-z]*\).*/\1/p' | sed -n '1p')"
+
+  [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+    || die "Latest release metadata does not contain an exact vX.Y.Z tag."
+  [[ "$immutable" == "true" && "$draft" == "false" && "$prerelease" == "false" ]] \
+    || die "Latest GitHub Release $tag is not immutable and final."
+  printf '%s\n' "$tag"
+}
+
 upgrade_checkout_ref() {
   local cache="$1"
   local ref="$2"
 
   git -C "$cache" fetch --tags --prune origin
-  if git -C "$cache" show-ref --verify --quiet "refs/remotes/origin/$ref"; then
+  if [[ "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    git -C "$cache" show-ref --verify --quiet "refs/tags/$ref" \
+      || die "Upgrade release tag does not exist: $ref"
+    git -C "$cache" checkout --detach --quiet "refs/tags/$ref"
+  elif git -C "$cache" show-ref --verify --quiet "refs/remotes/origin/$ref"; then
     git -C "$cache" checkout --quiet -B "$ref" "origin/$ref"
   else
     git -C "$cache" checkout --quiet "$ref"
   fi
 }
 
+upgrade_assert_installation_owned() {
+  local prefix="$1" prefix_explicit="$2"
+  local program_path bin_dir canonical plural
+
+  [[ "$prefix_explicit" == "no" ]] || return 0
+  program_path="$(current_program_path)"
+  bin_dir="$prefix/bin"
+  if [[ -d "$bin_dir" ]]; then
+    bin_dir="$(cd -- "$bin_dir" && pwd -P)" || \
+      die "Cannot resolve source upgrade prefix: $prefix"
+  fi
+  canonical="$bin_dir/codex-profile"
+  plural="$bin_dir/codex-profiles"
+
+  if [[ "$program_path" == "$canonical" && -f "$canonical" && ! -L "$canonical" ]]; then
+    return 0
+  fi
+  if [[ "$program_path" == "$plural" && -L "$plural" && \
+        "$(readlink "$plural" 2> /dev/null || true)" == "codex-profile" && \
+        -f "$canonical" && ! -L "$canonical" ]]; then
+    return 0
+  fi
+
+  die "Refusing a source-style upgrade from package-managed or unrecognized executable: $program_path. Upgrade with the installation's package manager, or pass --prefix explicitly to authorize a source installation."
+}
+
 command_upgrade() {
   local dry_run=no
+  local prefix_explicit=no
   local prefix
   local ref="$CODEX_PROFILE_UPGRADE_REF"
+  local requested_ref
   local repo="$CODEX_PROFILE_UPGRADE_REPO"
   local cache
+  [[ -z "${CODEX_PROFILE_UPGRADE_PREFIX:-}" ]] || prefix_explicit=yes
   prefix="$(upgrade_prefix)"
   cache="$(upgrade_cache_dir)"
 
@@ -2448,6 +2921,7 @@ command_upgrade() {
       --prefix)
         [[ -n "${2:-}" ]] || die "Usage: $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]"
         prefix="$2"
+        prefix_explicit=yes
         shift
         ;;
       --ref)
@@ -2469,11 +2943,26 @@ command_upgrade() {
   [[ "$repo" != -* ]] || die "Upgrade repository must not start with '-'."
   [[ "$ref" != -* ]] || die "Upgrade ref must not start with '-'."
 
+  requested_ref="$ref"
+  if [[ "$ref" == "latest" ]]; then
+    ref="$(upgrade_latest_release_ref)"
+  fi
+
   upgrade_print_plan "$repo" "$ref" "$cache" "$prefix"
+  if [[ "$requested_ref" == "latest" ]]; then
+    note "Release policy: immutable final GitHub Release"
+  fi
 
   if [[ "$dry_run" == "yes" ]]; then
     return 0
   fi
+
+  if [[ "$requested_ref" == "latest" && "${ref#v}" == "$VERSION" ]]; then
+    note "Already on latest immutable release codex-profile $VERSION."
+    return 0
+  fi
+
+  upgrade_assert_installation_owned "$prefix" "$prefix_explicit"
 
   command -v git > /dev/null 2>&1 || die "git is required to upgrade codex-profile."
   command -v make > /dev/null 2>&1 || die "make is required to upgrade codex-profile."
@@ -2503,6 +2992,9 @@ command_upgrade() {
   local candidate_version
   candidate_version="$(script_declared_version_output "$cache/bin/codex-profile" || true)"
   [[ -n "$candidate_version" ]] || die "Refusing to install candidate without a declared VERSION."
+  if [[ "$ref" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ && "$candidate_version" != "codex-profile ${BASH_REMATCH[1]}" ]]; then
+    die "Refusing release $ref because it declares $candidate_version."
+  fi
   if [[ -n "$candidate_version" ]] && version_is_older_than_current "$candidate_version"; then
     die "Refusing to install older $candidate_version over codex-profile $VERSION."
   fi
@@ -2601,6 +3093,11 @@ _codex_profile()
         COMPREPLY=( $(compgen -W "--app" -- "$cur") )
       fi
       ;;
+    doctor)
+      if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "--json --check" -- "$cur") )
+      fi
+      ;;
     completions|shell-init)
       if [[ "$COMP_CWORD" -eq 2 ]]; then
         COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
@@ -2616,7 +3113,7 @@ EOF
 #compdef codex-profile codex-profiles
 
 _codex_profile() {
-  local -a commands profiles shells app_flags init_flags launcher_commands launcher_flags launcher_colors workspace_commands run_flags workspace_json_flags
+  local -a commands profiles shells app_flags init_flags launcher_commands launcher_flags launcher_colors workspace_commands run_flags workspace_json_flags doctor_flags
   commands=(
     app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
   )
@@ -2630,6 +3127,7 @@ _codex_profile() {
   workspace_commands=(bind unbind list status guard)
   run_flags=(--app)
   workspace_json_flags=(--json)
+  doctor_flags=(--json --check)
 
   if (( CURRENT == 2 )); then
     _describe 'command' commands
@@ -2691,6 +3189,11 @@ _codex_profile() {
         _describe 'flag' run_flags
       fi
       ;;
+    doctor)
+      if [[ "$words[CURRENT]" == -* ]]; then
+        _describe 'flag' doctor_flags
+      fi
+      ;;
     completions|shell-init)
       if (( CURRENT == 3 )); then
         _describe 'shell' shells
@@ -2726,6 +3229,8 @@ for codex_profile_command in codex-profile codex-profiles
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from guard; and test (count (commandline -opc)) -eq 3' -a 'off warn strict'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from list status' -l json -d 'Emit JSON'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from run' -l app -d 'Launch the bound ChatGPT window'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from doctor' -l json -d 'Emit JSON'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from doctor' -l check -d 'Exit nonzero when health checks fail'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from completions shell-init' -a 'bash zsh fish'
 end
 EOF
@@ -2781,17 +3286,21 @@ EOF
 }
 
 command_doctor() {
-  local json=no
+  local json=no check=no
   local app="" executable="" product="" bundle_id="" codex_cli="" cli_source="" cli_version=""
-  local desktop_found=false legacy_clone_found=false
+  local status_json="" status_code=0
+  local desktop_found=false legacy_clone_found=false cli_found=false overall_healthy=true
 
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
       --json | -j)
         json=yes
         ;;
+      --check)
+        check=yes
+        ;;
       *)
-        die "Usage: $PROGRAM doctor [--json]"
+        die "Usage: $PROGRAM doctor [--json] [--check]"
         ;;
     esac
     shift
@@ -2805,11 +3314,33 @@ command_doctor() {
   fi
   [[ -d "$CODEX_PROFILE_APP_INSTANCE_ROOT" ]] && legacy_clone_found=true
   workspace_registry_stats
+  profile_state_link_stats
+
+  if codex_cli="$(try_find_codex_cli)"; then
+    cli_found=true
+    cli_source="$(codex_cli_source "$codex_cli")"
+    cli_version="$(codex_cli_version_string "$codex_cli")"
+  else
+    overall_healthy=false
+  fi
+  if [[ "$WORKSPACE_STATS_REGISTRY_VALID" != "true" || \
+        "$WORKSPACE_STATS_MISSING_PATHS" -ne 0 || \
+        "$WORKSPACE_STATS_MISSING_PROFILES" -ne 0 || \
+        "$PROFILE_STATE_LINKS_HEALTHY" != "true" ]]; then
+    overall_healthy=false
+  fi
 
   if [[ "$json" == "yes" ]]; then
-    local status_code=0
+    if [[ "$cli_found" == "true" ]]; then
+      if status_json="$(json_emit_status_profiles_array)"; then
+        status_code=0
+      else
+        status_code=$?
+        overall_healthy=false
+      fi
+    fi
 
-    printf '{"desktop":{"found":%s,"path":' "$desktop_found"
+    printf '{"healthy":%s,"desktop":{"found":%s,"path":' "$overall_healthy" "$desktop_found"
     if [[ "$desktop_found" == "true" ]]; then json_string "$executable"; else printf 'null'; fi
     printf ',"app_path":'
     if [[ "$desktop_found" == "true" ]]; then json_string "$app"; else printf 'null'; fi
@@ -2823,6 +3354,12 @@ command_doctor() {
     printf '}'
     printf ',"workspaces":{"config_home":'
     json_string "$CODEX_PROFILE_CONFIG_HOME"
+    printf ',"schema_version":'
+    if [[ -n "$WORKSPACE_STATS_SCHEMA_VERSION" ]]; then
+      json_string "$WORKSPACE_STATS_SCHEMA_VERSION"
+    else
+      printf 'null'
+    fi
     printf ',"registry_path":'
     json_string "$WORKSPACE_REGISTRY"
     printf ',"guard_mode":'
@@ -2835,10 +3372,12 @@ command_doctor() {
     printf ',"binding_count":%s' "$WORKSPACE_STATS_BINDING_COUNT"
     printf ',"missing_paths":%s' "$WORKSPACE_STATS_MISSING_PATHS"
     printf ',"missing_profiles":%s}' "$WORKSPACE_STATS_MISSING_PROFILES"
+    printf ',"profile_state":{"healthy":%s,"private_link_count":%s,"private_links":' \
+      "$PROFILE_STATE_LINKS_HEALTHY" "$PROFILE_STATE_LINK_COUNT"
+    json_emit_profile_state_links
+    printf '}'
 
-    if codex_cli="$(try_find_codex_cli)"; then
-      cli_source="$(codex_cli_source "$codex_cli")"
-      cli_version="$(codex_cli_version_string "$codex_cli")"
+    if [[ "$cli_found" == "true" ]]; then
       printf ',"cli":{"found":true,"path":'
       json_string "$codex_cli"
       printf ',"version":'
@@ -2847,17 +3386,18 @@ command_doctor() {
       json_string "$cli_source"
       printf ',"healthy":true,"scope":"codex_only","account_identity":"unverified_against_desktop"'
       printf '},"status":{"skipped":false,"profiles":'
-      set +e
-      json_emit_status_profiles_array
-      status_code=$?
-      set -e
+      printf '%s' "$status_json"
       printf '}}\n'
+      if [[ "$check" == "yes" && "$overall_healthy" != "true" && "$status_code" -eq 0 ]]; then
+        return 1
+      fi
       return "$status_code"
     fi
 
     printf ',"cli":{"found":false,"path":null,"version":null,"source":null,"healthy":false,"scope":"codex_only","account_identity":"unverified_against_desktop"},"status":{"skipped":true,"reason":'
     json_string "$(codex_cli_error_message)"
     printf '}}\n'
+    [[ "$check" != "yes" ]] || return 1
     return 0
   fi
 
@@ -2878,6 +3418,7 @@ command_doctor() {
     note "Legacy app clones: found at $CODEX_PROFILE_APP_INSTANCE_ROOT (safe to remove after closing old cloned apps)"
   fi
   note "Workspace registry: $WORKSPACE_REGISTRY"
+  note "State schema version: ${WORKSPACE_STATS_SCHEMA_VERSION:-invalid}"
   if [[ "$WORKSPACE_STATS_REGISTRY_VALID" == "true" ]]; then
     note "Workspace guard mode: $WORKSPACE_STATS_GUARD_MODE"
   else
@@ -2887,9 +3428,14 @@ command_doctor() {
   note "Workspace bindings: $WORKSPACE_STATS_BINDING_COUNT"
   note "Missing workspace paths: $WORKSPACE_STATS_MISSING_PATHS"
   note "Missing workspace profiles: $WORKSPACE_STATS_MISSING_PROFILES"
+  if [[ "$PROFILE_STATE_LINKS_HEALTHY" == "true" ]]; then
+    note "Private-state links: 0"
+  else
+    note "Private-state links: $PROFILE_STATE_LINK_COUNT (unsafe)"
+    note_profile_state_links
+  fi
 
-  if codex_cli="$(try_find_codex_cli)"; then
-    cli_source="$(codex_cli_source "$codex_cli")"
+  if [[ "$cli_found" == "true" ]]; then
     note "CLI: $codex_cli (source: $cli_source)"
     note "CLI scope: Codex commands only; Desktop and CLI accounts must be verified separately"
     "$codex_cli" --version
@@ -2898,11 +3444,16 @@ command_doctor() {
     note "CLI scope: Codex commands only; Desktop and CLI accounts must be verified separately"
     note ""
     note "Status: skipped"
+    [[ "$check" != "yes" ]] || return 1
     return 0
   fi
 
   note ""
-  command_status
+  command_status || status_code=$?
+  if [[ "$check" == "yes" && "$overall_healthy" != "true" && "$status_code" -eq 0 ]]; then
+    return 1
+  fi
+  return "$status_code"
 }
 
 main() {

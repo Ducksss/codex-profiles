@@ -89,6 +89,7 @@ release_suites=(
   test/release/distribution-test.sh
   test/release/homebrew-test.sh
   test/release/pages-test.sh
+  test/release/pages-source-test.sh
   test/release/workflow-contract-test.mjs
 )
 for suite in "${release_suites[@]}"; do
@@ -110,6 +111,7 @@ release_scripts=(
   scripts/release/verify-distribution.sh
   scripts/release/update-homebrew.sh
   scripts/release/deploy-pages.sh
+  scripts/release/verify-pages-source.sh
 )
 for script in "${release_scripts[@]}"; do
   assert_contains "$list_output" $'shell\t'"$script" "release script inventory"

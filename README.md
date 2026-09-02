@@ -77,14 +77,15 @@ brew install Ducksss/tap/codex-profile
 With the standalone installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.9.1/install.sh \
+  | CODEX_PROFILE_VERSION=v0.9.1 sh
 ```
 
 With Nix:
 
 ```sh
-nix run github:Ducksss/codex-profiles
-nix profile install github:Ducksss/codex-profiles
+nix run github:Ducksss/codex-profiles/v0.9.1
+nix profile install github:Ducksss/codex-profiles/v0.9.1
 ```
 
 From source:
@@ -111,6 +112,11 @@ codex-profile init work
 codex-profile login personal
 codex-profile login work
 ```
+
+`init` is the only command that creates a profile. `cli`, `login`, `app`, and
+the target of `clone-config` fail on an uninitialized name instead of silently
+creating state for a typo. Initialize `default` explicitly too if `~/.codex`
+does not already exist.
 
 To keep authentication and runtime state separate while sharing selected
 configuration, initialize a new linked profile from an existing one:
@@ -141,6 +147,7 @@ On macOS, open the stock ChatGPT session or a named window with separate local
 state:
 
 ```sh
+codex-profile init default
 codex-profile app default ~/Dev/main-project
 codex-profile app personal ~/Dev/personal-project
 codex-profile app work ~/Dev/work-project
@@ -237,8 +244,10 @@ codex-profile remove client-a --yes
 `list` and `status` are read-only. They do not create a directory for a typo.
 Removing a profile deletes its Codex home and, for a named Desktop profile, its
 local Electron data. It also removes bindings that target that profile, without
-deleting any project directory. Review the path and close the corresponding
-window first.
+deleting any project directory. Removal refuses to orphan a managed macOS
+launcher or a profile whose allowlisted configuration is still linked by
+another profile; remove the launcher, detach the links, or remove the dependent
+profile first. Review the path and close the corresponding window first.
 
 ### Bind projects to profiles
 
@@ -286,9 +295,11 @@ using `run` or an explicitly guarded `cli`.
 
 Binding state is stored with private permissions in
 `${XDG_CONFIG_HOME:-~/.config}/codex-profile/workspaces.tsv`; the guard setting
-is stored beside it. `CODEX_PROFILE_CONFIG_HOME` overrides that directory for
-automation. Bindings contain only canonical project paths and profile names,
-never authentication, cookies, sessions, or credentials.
+and state-schema version are stored beside it. Mutations are serialized with a
+process lock so overlapping commands cannot lose an update; locks left by dead
+processes are reclaimed. `CODEX_PROFILE_CONFIG_HOME` overrides that directory
+for automation. Bindings contain only canonical project paths and profile
+names, never authentication, cookies, sessions, or credentials.
 
 #### Share configuration, not identity or runtime state
 
@@ -324,11 +335,22 @@ codex-profile status personal
 codex-profile status --json
 codex-profile doctor
 codex-profile doctor --json
+codex-profile doctor --check
+codex-profile doctor --json --check
 ```
 
 Status is about the Codex authentication associated with `CODEX_HOME`; it is
 not a ChatGPT Desktop account inspector. Diagnostics must not be used to infer
-that two sessions are the same account.
+that two sessions are the same account. `doctor` also reports symlinked profile
+homes and symlinked or hard-linked private state such as `auth.json`,
+`sessions/`, and `state_5.sqlite`, because those links either couple identity
+across profiles or break current Desktop session operations. The documented
+`init --share-with` configuration links are not reported as unsafe.
+
+Ordinary `doctor` remains informational. `doctor --check` exits nonzero when
+the CLI is missing, status collection fails, workspace state is invalid or
+stale, or private profile state is linked; JSON includes top-level `healthy`
+and workspace `schema_version` fields for automation.
 
 ### Use the stock and named ChatGPT sessions
 
@@ -337,6 +359,9 @@ codex-profile app default
 codex-profile app personal ~/Dev/personal-app
 codex-profile app work ~/Dev/work-app
 ```
+
+Run `codex-profile init default` first when `~/.codex` has not already been
+initialized.
 
 - `default` preserves the normal ChatGPT session and maps Codex state to
   `~/.codex`.
@@ -414,7 +439,9 @@ codex-profile logs personal --tail 100
 
 The deprecated `logs <name> --instance` spelling remains available for older
 scripts and installations. It reads the canonical `desktop.log` when present,
-then falls back to a pre-v0.7 `desktop-instance.log`.
+then falls back to a pre-v0.7 `desktop-instance.log`. Log reads and launches
+refuse symlinked profile or log directories and symlinked, non-regular, or
+multiply-linked log files.
 
 ### Clean up pre-v0.7 app clones
 
@@ -478,11 +505,19 @@ codex-profile upgrade --dry-run
 codex-profile upgrade
 codex-profile upgrade --prefix /usr/local
 codex-profile upgrade --ref v0.9.1
+codex-profile upgrade --ref main
 ```
 
-The default checkout is cached under `~/.cache/codex-profile/source`. Review a
+By default, `upgrade` resolves the latest immutable, final GitHub Release and
+checks out its exact detached tag, even if a branch has the same name. An
+already-current release is not replaced. The checkout is cached under
+`~/.cache/codex-profile/source`; `--ref main` is an
+explicit source/development update and may install unreleased changes. Review a
 dry run before pointing upgrade at a non-default repository or ref. Package
-manager installations should normally be upgraded with that package manager.
+manager installations must be upgraded with that package manager. Without an
+explicit `--prefix` (or `CODEX_PROFILE_UPGRADE_PREFIX`), source upgrade only
+replaces the regular `codex-profile` executable owned by its default source
+prefix; it refuses package-managed and unrecognized executables.
 
 ## Shell completions
 
@@ -523,7 +558,7 @@ codex-profile use <profile>
 codex-profile logs <profile> [--path|--tail [lines]]
 codex-profile clone-config <source-profile> <target-profile> [--force]
 codex-profile list
-codex-profile doctor [--json]
+codex-profile doctor [--json] [--check]
 codex-profile completions <bash|zsh|fish>
 codex-profile shell-init <bash|zsh|fish>
 codex-profile upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
@@ -552,10 +587,11 @@ launch or log mode.
 | `CODEX_APP_BIN` | Deprecated executable override; accepted only for an executable inside an app bundle. |
 | `CODEX_CLI` | Use a specific Codex CLI. An invalid explicit override fails instead of silently selecting another binary. |
 | `CODEX_BUNDLED_CLI` | Optional fallback Codex CLI checked after `PATH` and before the selected app's bundled CLI. |
-| `CODEX_PROFILE_CONFIG_HOME` | Override the private directory containing workspace bindings, guard mode, and launcher metadata. |
+| `CODEX_PROFILE_CONFIG_HOME` | Override the private, versioned state directory containing workspace bindings, guard mode, and launcher metadata. |
 | `CODEX_PROFILE_LAUNCHER_ROOT` | Override the macOS launcher install directory (default: `~/Applications`). |
 | `CODEX_PROFILE_UPGRADE_REPO` | Override the source-upgrade repository. |
-| `CODEX_PROFILE_UPGRADE_REF` | Override the source-upgrade git ref. |
+| `CODEX_PROFILE_UPGRADE_REF` | Override the upgrade git ref; defaults to the latest immutable release. |
+| `CODEX_PROFILE_UPGRADE_RELEASE_URL` | Override the latest-release metadata URL. |
 | `CODEX_PROFILE_UPGRADE_CACHE` | Override the source-upgrade cache. |
 | `CODEX_PROFILE_UPGRADE_PREFIX` | Override the source-upgrade install prefix. |
 | `CODEX_PROFILE_NO_UPDATE_CHECK` | Disable update checks; `DO_NOT_TRACK` is also honored. |

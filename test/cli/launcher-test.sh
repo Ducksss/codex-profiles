@@ -208,6 +208,31 @@ test_launcher_remove_preserves_profile_data() {
   rm -rf "$tmp"
 }
 
+test_profile_remove_refuses_managed_launcher_orphans() {
+  local tmp profile_home app
+  tmp="$(mktemp -d)"
+  profile_home="$tmp/home/.codex-personal"
+  app="$tmp/apps/ChatGPT Personal.app"
+  prepare_launcher_test "$tmp" personal
+
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher create personal --name "ChatGPT Personal" --color blue
+  assert_status 0
+
+  run_cmd launcher_env "$tmp" "$SCRIPT" remove personal --yes
+  assert_status 1
+  assert_contains "managed launcher exists at $app"
+  assert_contains "launcher remove personal"
+  [[ -d "$profile_home" && -d "$app" ]] || fail "refused profile removal changed profile or launcher data"
+
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher remove personal --yes
+  assert_status 0
+  run_cmd launcher_env "$tmp" "$SCRIPT" remove personal --yes
+  assert_status 0
+  [[ ! -e "$profile_home" && ! -e "$app" ]] || fail "explicit launcher and profile removal left managed state"
+
+  rm -rf "$tmp"
+}
+
 test_launcher_recovers_after_the_bundle_is_deleted_outside_the_cli() {
   local tmp stale_app healthy_app json
   tmp="$(mktemp -d)"
@@ -263,6 +288,7 @@ test_launcher_create_is_idempotent_and_force_replaces_managed_bundle
 test_launcher_refuses_invalid_inputs_and_unmanaged_collisions
 test_launcher_cleans_up_a_failed_icon_build
 test_launcher_remove_preserves_profile_data
+test_profile_remove_refuses_managed_launcher_orphans
 test_launcher_recovers_after_the_bundle_is_deleted_outside_the_cli
 
 printf 'launcher tests passed\n'

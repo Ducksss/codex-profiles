@@ -121,7 +121,12 @@ scripts/aur/verify.sh --version "$VERSION" --checkout "$WORK_ROOT/staged" \
 states clearly when only deterministic metadata checks ran. Use
 `--container always` for the required final verification. `--container never`
 is useful in constrained environments but does not claim a clean package
-build.
+build. The verifier selects the Arch Linux `linux/amd64` image explicitly; on
+Apple Silicon and other emulated hosts it disables pacman's download sandbox
+inside that disposable build container because the sandbox's seccomp setup is
+not compatible with QEMU user-mode emulation. Current `makepkg` may predict an
+optional `-debug` artifact for this script-only package without producing it;
+the verifier selects and inspects exactly one real non-debug package.
 
 ## Clone, inspect, and stage
 

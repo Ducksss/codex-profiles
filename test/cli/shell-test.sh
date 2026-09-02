@@ -70,6 +70,58 @@ test_logs_reports_missing_log_file() {
   rm -rf "$tmp"
 }
 
+test_logs_refuses_linked_log_files() {
+  local tmp log_file victim
+  tmp="$(mktemp -d)"
+  log_file="$tmp/home/.codex-personal/logs/desktop.log"
+  victim="$tmp/private-data"
+  mkdir -p "${log_file%/*}"
+  printf 'must not print\n' > "$victim"
+  ln -s "$victim" "$log_file"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" logs personal
+
+  assert_status 1
+  assert_contains "Refusing symlinked desktop log: $log_file"
+  assert_not_contains "must not print"
+
+  rm -f "$log_file"
+  ln "$victim" "$log_file"
+  run_cmd env HOME="$tmp/home" "$SCRIPT" logs personal --tail 1
+
+  assert_status 1
+  assert_contains "Refusing multiply-linked desktop log: $log_file"
+  assert_not_contains "must not print"
+
+  rm -rf "$tmp"
+}
+
+test_logs_refuses_symlinked_parent_directories() {
+  local tmp outside_logs outside_home
+  tmp="$(mktemp -d)"
+  outside_logs="$tmp/outside-logs"
+  outside_home="$tmp/outside-home"
+  mkdir -p "$tmp/home/.codex-personal" "$outside_logs" "$outside_home/logs"
+  printf 'outside directory secret\n' > "$outside_logs/desktop.log"
+  printf 'outside home secret\n' > "$outside_home/logs/desktop.log"
+  ln -s "$outside_logs" "$tmp/home/.codex-personal/logs"
+  ln -s "$outside_home" "$tmp/home/.codex-work"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" logs personal
+
+  assert_status 1
+  assert_contains "Refusing symlinked desktop log directory: $tmp/home/.codex-personal/logs"
+  assert_not_contains "outside directory secret"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" logs work --tail 1
+
+  assert_status 1
+  assert_contains "Refusing symlinked profile home: $tmp/home/.codex-work"
+  assert_not_contains "outside home secret"
+
+  rm -rf "$tmp"
+}
+
 test_completions_generate_shell_scripts() {
   run_cmd "$SCRIPT" help
 
@@ -81,6 +133,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "run [--] [codex-args...]"
   assert_contains "run --app [workspace]"
   assert_contains "launcher create <profile>"
+  assert_contains "doctor [--json] [--check]"
   assert_contains "CODEX_PROFILE_CONFIG_HOME"
   assert_contains "CODEX_PROFILE_LAUNCHER_ROOT"
 
@@ -95,6 +148,7 @@ test_completions_generate_shell_scripts() {
   # shellcheck disable=SC2016 # matching literal generated completion text
   assert_contains 'compgen -W "$workspace_commands"'
   assert_contains 'compgen -W "--app"'
+  assert_contains 'compgen -W "--json --check"'
   assert_contains "clone-config"
   assert_contains "upgrade"
   assert_contains "--instance"
@@ -114,6 +168,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "workspace_commands=(bind unbind list status guard)"
   assert_contains "run_flags=(--app)"
   assert_contains "workspace_json_flags=(--json)"
+  assert_contains "doctor_flags=(--json --check)"
   assert_contains "logs"
   assert_contains "upgrade"
   assert_contains "--instance"
@@ -131,6 +186,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "-a 'blue green teal purple pink red orange graphite'"
   assert_contains "-a 'bind unbind list status guard'"
   assert_contains "-l app"
+  assert_contains "-l check"
   assert_contains "test (count (commandline -opc)) -eq 2"
   assert_contains "__fish_seen_subcommand_from bind; and test (count (commandline -opc)) -eq 4"
   assert_contains "-F"
@@ -291,6 +347,8 @@ test_shell_init_use_activates_profile_in_current_shell() {
 test_logs_prints_path_and_contents
 test_logs_prints_instance_path_and_contents
 test_logs_reports_missing_log_file
+test_logs_refuses_linked_log_files
+test_logs_refuses_symlinked_parent_directories
 test_completions_generate_shell_scripts
 test_env_prints_posix_exports_for_profile
 test_env_emits_fish_syntax

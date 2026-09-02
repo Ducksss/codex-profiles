@@ -10,10 +10,11 @@ Use the newest release when relying on separate local state.
 Do not open a public issue for a vulnerability that could expose credentials,
 tokens, cookies, private account data, or cross-profile state.
 
-Use GitHub private vulnerability reporting when available, or contact the
-maintainer through the GitHub profile linked from this repository. Include a
-clear description, reproducible steps using test accounts, expected impact,
-and a suggested fix if you have one.
+Use [GitHub private vulnerability reporting](https://github.com/Ducksss/codex-profiles/security/advisories/new).
+If GitHub reporting is unavailable, contact the maintainer through the GitHub
+profile linked from this repository. Include a clear description, reproducible
+steps using test accounts, expected impact, and a suggested fix if you have
+one.
 
 Never include real `auth.json` contents, access or refresh tokens, OAuth codes,
 cookies, connector credentials, private logs, or account identifiers.

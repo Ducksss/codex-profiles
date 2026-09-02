@@ -246,6 +246,20 @@ try {
   assert.equal(sql("SELECT has_table_privilege('outreach_tracker', 'outreach_private.migration_snapshots', 'SELECT')"), 'f');
   assert.equal(sql("SELECT has_function_privilege('public', 'public.tracker_claim(text,text,bigint,uuid)', 'EXECUTE')"), 'f');
   assert.equal(sql("SELECT count(*) FROM pg_proc WHERE proname LIKE 'tracker_%' AND NOT (proconfig @> ARRAY['search_path=pg_catalog, public, outreach_private'])"), '0');
+  assert.equal(sql(`
+    SELECT count(*)
+    FROM pg_constraint AS constraint_row
+    WHERE constraint_row.contype = 'f'
+      AND constraint_row.connamespace = 'public'::regnamespace
+      AND NOT EXISTS (
+        SELECT 1
+        FROM pg_index AS index_row
+        WHERE index_row.indrelid = constraint_row.conrelid
+          AND index_row.indisvalid
+          AND index_row.indpred IS NULL
+          AND index_row.indkey[0] = constraint_row.conkey[1]
+      )
+  `), '0');
 
   const wrongIdentity = run('psql', psqlArgs(trackerTransaction('SELECT count(*) FROM public.tracker_list_targets()', 'wrong')));
   assert.notEqual(wrongIdentity.status, 0);

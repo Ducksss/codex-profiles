@@ -141,6 +141,13 @@ CREATE TABLE IF NOT EXISTS public.claims (
 CREATE INDEX IF NOT EXISTS targets_status_idx ON public.targets(status);
 CREATE INDEX IF NOT EXISTS targets_priority_idx ON public.targets(priority);
 CREATE INDEX IF NOT EXISTS targets_channel_idx ON public.targets(channel);
+CREATE INDEX IF NOT EXISTS log_targets_target_key_idx ON public.log_targets(target_key);
+CREATE INDEX IF NOT EXISTS target_bots_bot_id_idx ON public.target_bots(bot_id);
+CREATE INDEX IF NOT EXISTS merge_queue_proposers_bot_id_idx ON public.merge_queue_proposers(bot_id);
+CREATE INDEX IF NOT EXISTS merge_queue_duplicates_duplicate_of_key_idx
+  ON public.merge_queue_duplicates(duplicate_of_key);
+CREATE INDEX IF NOT EXISTS merge_queue_targets_target_key_idx ON public.merge_queue_targets(target_key);
+CREATE INDEX IF NOT EXISTS claims_target_key_idx ON public.claims(target_key);
 CREATE INDEX IF NOT EXISTS claims_active_idx
   ON public.claims(target_key, expires_at)
   WHERE released_at IS NULL;

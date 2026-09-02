@@ -336,7 +336,7 @@ function databaseConnection() {
   const env = { ...process.env };
   delete env.NEON_DATABASE_URL;
   if (!value.includes('://')) {
-    if (/\s|=/.test(value)) {
+    if (/^-|\s|=/.test(value)) {
       fail('NEON_DATABASE_URL must be a PostgreSQL URL or a plain database name.', 2);
     }
     return { argument: value, env };
@@ -367,7 +367,7 @@ function databaseConnection() {
 function psql(args, input) {
   const connection = databaseConnection();
   for (let attempt = 0; attempt < 3; attempt++) {
-    const result = spawnSync('psql', ['-X', connection.argument, ...args], {
+    const result = spawnSync('psql', ['-X', '--dbname', connection.argument, ...args], {
       cwd: ROOT,
       env: connection.env,
       input,
