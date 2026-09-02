@@ -39,6 +39,7 @@ jobs:
           persist-credentials: false
 
       - name: Validate Pages source
+        id: source
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
@@ -47,7 +48,7 @@ jobs:
       - name: Check out site source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.sha }}
+          ref: ${{ steps.source.outputs.commit || github.sha }}
           path: .pages-site
           persist-credentials: false
 

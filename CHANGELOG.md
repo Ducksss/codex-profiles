@@ -28,8 +28,8 @@ and this project follows semantic versioning for tagged releases.
   default, kept `--ref main` as an explicit development path, and pinned the
   documented standalone and Nix install commands to the current release.
 - Restricted release and Pages jobs to protected `main` environments. Pages
-  now treats an immutable release tag as validated artifact input instead of
-  executing the workflow from that tag.
+  now accepts only immutable release tags whose resolved commits belong to
+  `main`, and treats them as artifact input instead of workflow code.
 - Made the clean AUR verifier select `linux/amd64` explicitly and accommodate
   pacman under QEMU emulation on Apple Silicon.
 

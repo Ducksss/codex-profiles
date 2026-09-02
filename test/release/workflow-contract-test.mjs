@@ -236,8 +236,9 @@ for (const literal of [
   "if: ${{ github.ref == 'refs/heads/main' }}",
   "Check out trusted Pages controls",
   "Validate Pages source",
+  "id: source",
   ".pages-control/scripts/release/verify-pages-source.sh",
-  "ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.sha }}",
+  "ref: ${{ steps.source.outputs.commit || github.sha }}",
   "path: .pages-site/docs",
 ]) {
   assert.ok(pagesWorkflow.includes(literal), `Pages workflow should contain ${literal}`);
