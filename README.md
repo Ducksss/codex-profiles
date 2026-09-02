@@ -77,15 +77,15 @@ brew install Ducksss/tap/codex-profile
 With the standalone installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.9.1/install.sh \
-  | CODEX_PROFILE_VERSION=v0.9.1 sh
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.10.0/install.sh \
+  | CODEX_PROFILE_VERSION=v0.10.0 sh
 ```
 
 With Nix:
 
 ```sh
-nix run github:Ducksss/codex-profiles/v0.9.1
-nix profile install github:Ducksss/codex-profiles/v0.9.1
+nix run github:Ducksss/codex-profiles/v0.10.0
+nix profile install github:Ducksss/codex-profiles/v0.10.0
 ```
 
 From source:
@@ -504,7 +504,7 @@ directories, and it refuses sensitive-looking configuration keys.
 codex-profile upgrade --dry-run
 codex-profile upgrade
 codex-profile upgrade --prefix /usr/local
-codex-profile upgrade --ref v0.9.1
+codex-profile upgrade --ref v0.10.0
 codex-profile upgrade --ref main
 ```
 

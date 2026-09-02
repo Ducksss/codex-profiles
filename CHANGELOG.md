@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.10.0 - 2026-09-02
+
 ### Added
 
 - Added a dependency-free Airtable-to-Neon migration utility, restricted Neon
