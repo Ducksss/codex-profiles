@@ -10,7 +10,8 @@ CODEX_APP_BIN="${CODEX_APP_BIN:-}"
 CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-}"
 CODEX_PROFILE_APP_INSTANCE_ROOT="${CODEX_PROFILE_APP_INSTANCE_ROOT:-$HOME/Library/Application Support/codex-profile/app-instances}"
 CODEX_PROFILE_UPGRADE_REPO="${CODEX_PROFILE_UPGRADE_REPO:-https://github.com/Ducksss/codex-profiles.git}"
-CODEX_PROFILE_UPGRADE_REF="${CODEX_PROFILE_UPGRADE_REF:-main}"
+CODEX_PROFILE_UPGRADE_REF="${CODEX_PROFILE_UPGRADE_REF:-latest}"
+CODEX_PROFILE_UPGRADE_RELEASE_URL="${CODEX_PROFILE_UPGRADE_RELEASE_URL:-https://api.github.com/repos/Ducksss/codex-profiles/releases/latest}"
 CODEX_PROFILE_CONFIG_HOME="${CODEX_PROFILE_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/codex-profile}"
 CODEX_PROFILE_LAUNCHER_ROOT="${CODEX_PROFILE_LAUNCHER_ROOT:-$HOME/Applications}"
 WORKSPACE_REGISTRY="$CODEX_PROFILE_CONFIG_HOME/workspaces.tsv"
@@ -96,7 +97,8 @@ Environment:
   CODEX_PROFILE_LAUNCHER_ROOT  Override launcher install directory (default: ~/Applications).
   CODEX_PROFILE_APP_INSTANCE_ROOT  Legacy clone root (doctor only; never written).
   CODEX_PROFILE_UPGRADE_REPO    Override upgrade repository.
-  CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref.
+  CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref (default: latest immutable release).
+  CODEX_PROFILE_UPGRADE_RELEASE_URL  Override latest-release metadata URL.
   CODEX_PROFILE_UPGRADE_CACHE   Override upgrade cache checkout.
   CODEX_PROFILE_UPGRADE_PREFIX  Override upgrade install prefix.
   CODEX_PROFILE_NO_UPDATE_CHECK  Disable the daily update check (also honors DO_NOT_TRACK).
@@ -189,6 +191,46 @@ ensure_home() {
   mkdir -p "$codex_home" || die "Cannot create directory: $codex_home"
   [[ -d "$codex_home" ]] || die "Not a directory: $codex_home"
   chmod 700 "$codex_home" || die "Cannot set private permissions on: $codex_home"
+}
+
+file_link_count() {
+  local path="$1"
+  local count
+
+  if count="$(stat -f '%l' "$path" 2> /dev/null)"; then
+    printf '%s\n' "$count"
+    return 0
+  fi
+  stat -c '%h' "$path" 2> /dev/null
+}
+
+validate_desktop_log_file() {
+  local log_file="$1"
+  local link_count
+
+  [[ ! -L "$log_file" ]] || die "Refusing symlinked desktop log: $log_file"
+  [[ -f "$log_file" ]] || die "Desktop log is not a regular file: $log_file"
+  link_count="$(file_link_count "$log_file")" || die "Cannot inspect desktop log links: $log_file"
+  [[ "$link_count" == "1" ]] || die "Refusing multiply-linked desktop log: $log_file"
+}
+
+prepare_desktop_log_file() {
+  local log_file="$1"
+  local temp
+
+  if [[ -e "$log_file" || -L "$log_file" ]]; then
+    validate_desktop_log_file "$log_file"
+  fi
+
+  temp="$(mktemp "$log_file.tmp.XXXXXX")" || die "Cannot create private desktop log: $log_file"
+  chmod 600 "$temp" || {
+    rm -f "$temp"
+    die "Cannot set private permissions on desktop log: $log_file"
+  }
+  mv -f "$temp" "$log_file" || {
+    rm -f "$temp"
+    die "Cannot replace desktop log safely: $log_file"
+  }
 }
 
 shared_profile_config_entries() {
@@ -907,8 +949,7 @@ run_desktop_app() {
   log_dir="$codex_home/logs"
   log_file="$log_dir/desktop.log"
   ensure_home "$log_dir"
-  (umask 077 && : > "$log_file")
-  chmod 600 "$log_file" 2> /dev/null || true
+  prepare_desktop_log_file "$log_file"
 
   note "Launching $product for profile $profile"
   note "CODEX_HOME=$codex_home"
@@ -2116,7 +2157,8 @@ command_logs() {
   log_file="$codex_home/logs/desktop.log"
   legacy_log_file="$codex_home/logs/desktop-instance.log"
   missing_label="desktop log"
-  if [[ "$instance_compat" == "yes" && ! -f "$log_file" && -f "$legacy_log_file" ]]; then
+  if [[ "$instance_compat" == "yes" && ! -e "$log_file" && ! -L "$log_file" && \
+        ( -e "$legacy_log_file" || -L "$legacy_log_file" ) ]]; then
     log_file="$legacy_log_file"
     missing_label="legacy desktop instance log"
   fi
@@ -2126,7 +2168,8 @@ command_logs() {
     return 0
   fi
 
-  [[ -f "$log_file" ]] || die "No $missing_label for $profile ($log_file)."
+  [[ -e "$log_file" || -L "$log_file" ]] || die "No $missing_label for $profile ($log_file)."
+  validate_desktop_log_file "$log_file"
 
   if [[ "$mode" == "tail" ]]; then
     tail -n "$lines" "$log_file"
@@ -2306,6 +2349,7 @@ update_check_state_file() {
 update_check_fetch_latest() {
   local url body
   url="${CODEX_PROFILE_UPDATE_URL:-https://registry.npmjs.org/codex-profile/latest}"
+  [[ "$url" != -* ]] || return 1
 
   if [[ -f "$url" ]]; then
     body="$(cat "$url" 2> /dev/null)" || return 1
@@ -2419,12 +2463,48 @@ script_declared_version_output() {
   printf 'codex-profile %s\n' "$declared_version"
 }
 
+upgrade_fetch_release_metadata() {
+  local url="$1"
+  [[ "$url" != -* ]] || return 1
+
+  if [[ -f "$url" ]]; then
+    cat "$url"
+  elif command -v curl > /dev/null 2>&1; then
+    curl -fsSL --connect-timeout 10 --max-time 30 "$url"
+  elif command -v wget > /dev/null 2>&1; then
+    wget -qO- --timeout=30 "$url"
+  else
+    return 1
+  fi
+}
+
+upgrade_latest_release_ref() {
+  local body tag immutable draft prerelease
+
+  body="$(upgrade_fetch_release_metadata "$CODEX_PROFILE_UPGRADE_RELEASE_URL")" \
+    || die "Cannot fetch latest release metadata: $CODEX_PROFILE_UPGRADE_RELEASE_URL"
+  tag="$(printf '%s\n' "$body" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n '1p')"
+  immutable="$(printf '%s\n' "$body" | sed -n 's/.*"immutable"[[:space:]]*:[[:space:]]*\([a-z]*\).*/\1/p' | sed -n '1p')"
+  draft="$(printf '%s\n' "$body" | sed -n 's/.*"draft"[[:space:]]*:[[:space:]]*\([a-z]*\).*/\1/p' | sed -n '1p')"
+  prerelease="$(printf '%s\n' "$body" | sed -n 's/.*"prerelease"[[:space:]]*:[[:space:]]*\([a-z]*\).*/\1/p' | sed -n '1p')"
+
+  [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+    || die "Latest release metadata does not contain an exact vX.Y.Z tag."
+  [[ "$immutable" == "true" && "$draft" == "false" && "$prerelease" == "false" ]] \
+    || die "Latest GitHub Release $tag is not immutable and final."
+  printf '%s\n' "$tag"
+}
+
 upgrade_checkout_ref() {
   local cache="$1"
   local ref="$2"
 
   git -C "$cache" fetch --tags --prune origin
-  if git -C "$cache" show-ref --verify --quiet "refs/remotes/origin/$ref"; then
+  if [[ "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    git -C "$cache" show-ref --verify --quiet "refs/tags/$ref" \
+      || die "Upgrade release tag does not exist: $ref"
+    git -C "$cache" checkout --detach --quiet "refs/tags/$ref"
+  elif git -C "$cache" show-ref --verify --quiet "refs/remotes/origin/$ref"; then
     git -C "$cache" checkout --quiet -B "$ref" "origin/$ref"
   else
     git -C "$cache" checkout --quiet "$ref"
@@ -2435,6 +2515,7 @@ command_upgrade() {
   local dry_run=no
   local prefix
   local ref="$CODEX_PROFILE_UPGRADE_REF"
+  local requested_ref
   local repo="$CODEX_PROFILE_UPGRADE_REPO"
   local cache
   prefix="$(upgrade_prefix)"
@@ -2469,9 +2550,22 @@ command_upgrade() {
   [[ "$repo" != -* ]] || die "Upgrade repository must not start with '-'."
   [[ "$ref" != -* ]] || die "Upgrade ref must not start with '-'."
 
+  requested_ref="$ref"
+  if [[ "$ref" == "latest" ]]; then
+    ref="$(upgrade_latest_release_ref)"
+  fi
+
   upgrade_print_plan "$repo" "$ref" "$cache" "$prefix"
+  if [[ "$requested_ref" == "latest" ]]; then
+    note "Release policy: immutable final GitHub Release"
+  fi
 
   if [[ "$dry_run" == "yes" ]]; then
+    return 0
+  fi
+
+  if [[ "$requested_ref" == "latest" && "${ref#v}" == "$VERSION" ]]; then
+    note "Already on latest immutable release codex-profile $VERSION."
     return 0
   fi
 
@@ -2503,6 +2597,9 @@ command_upgrade() {
   local candidate_version
   candidate_version="$(script_declared_version_output "$cache/bin/codex-profile" || true)"
   [[ -n "$candidate_version" ]] || die "Refusing to install candidate without a declared VERSION."
+  if [[ "$ref" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ && "$candidate_version" != "codex-profile ${BASH_REMATCH[1]}" ]]; then
+    die "Refusing release $ref because it declares $candidate_version."
+  fi
   if [[ -n "$candidate_version" ]] && version_is_older_than_current "$candidate_version"; then
     die "Refusing to install older $candidate_version over codex-profile $VERSION."
   fi

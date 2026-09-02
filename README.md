@@ -77,14 +77,15 @@ brew install Ducksss/tap/codex-profile
 With the standalone installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.9.1/install.sh \
+  | CODEX_PROFILE_VERSION=v0.9.1 sh
 ```
 
 With Nix:
 
 ```sh
-nix run github:Ducksss/codex-profiles
-nix profile install github:Ducksss/codex-profiles
+nix run github:Ducksss/codex-profiles/v0.9.1
+nix profile install github:Ducksss/codex-profiles/v0.9.1
 ```
 
 From source:
@@ -414,7 +415,8 @@ codex-profile logs personal --tail 100
 
 The deprecated `logs <name> --instance` spelling remains available for older
 scripts and installations. It reads the canonical `desktop.log` when present,
-then falls back to a pre-v0.7 `desktop-instance.log`.
+then falls back to a pre-v0.7 `desktop-instance.log`. Log reads and launches
+refuse symlinked, non-regular, or multiply-linked log files.
 
 ### Clean up pre-v0.7 app clones
 
@@ -478,9 +480,14 @@ codex-profile upgrade --dry-run
 codex-profile upgrade
 codex-profile upgrade --prefix /usr/local
 codex-profile upgrade --ref v0.9.1
+codex-profile upgrade --ref main
 ```
 
-The default checkout is cached under `~/.cache/codex-profile/source`. Review a
+By default, `upgrade` resolves the latest immutable, final GitHub Release and
+checks out its exact detached tag, even if a branch has the same name. An
+already-current release is not replaced. The checkout is cached under
+`~/.cache/codex-profile/source`; `--ref main` is an
+explicit source/development update and may install unreleased changes. Review a
 dry run before pointing upgrade at a non-default repository or ref. Package
 manager installations should normally be upgraded with that package manager.
 
@@ -555,7 +562,8 @@ launch or log mode.
 | `CODEX_PROFILE_CONFIG_HOME` | Override the private directory containing workspace bindings, guard mode, and launcher metadata. |
 | `CODEX_PROFILE_LAUNCHER_ROOT` | Override the macOS launcher install directory (default: `~/Applications`). |
 | `CODEX_PROFILE_UPGRADE_REPO` | Override the source-upgrade repository. |
-| `CODEX_PROFILE_UPGRADE_REF` | Override the source-upgrade git ref. |
+| `CODEX_PROFILE_UPGRADE_REF` | Override the upgrade git ref; defaults to the latest immutable release. |
+| `CODEX_PROFILE_UPGRADE_RELEASE_URL` | Override the latest-release metadata URL. |
 | `CODEX_PROFILE_UPGRADE_CACHE` | Override the source-upgrade cache. |
 | `CODEX_PROFILE_UPGRADE_PREFIX` | Override the source-upgrade install prefix. |
 | `CODEX_PROFILE_NO_UPDATE_CHECK` | Disable update checks; `DO_NOT_TRACK` is also honored. |

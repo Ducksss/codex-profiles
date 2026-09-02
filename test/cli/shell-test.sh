@@ -70,6 +70,32 @@ test_logs_reports_missing_log_file() {
   rm -rf "$tmp"
 }
 
+test_logs_refuses_linked_log_files() {
+  local tmp log_file victim
+  tmp="$(mktemp -d)"
+  log_file="$tmp/home/.codex-personal/logs/desktop.log"
+  victim="$tmp/private-data"
+  mkdir -p "${log_file%/*}"
+  printf 'must not print\n' > "$victim"
+  ln -s "$victim" "$log_file"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" logs personal
+
+  assert_status 1
+  assert_contains "Refusing symlinked desktop log: $log_file"
+  assert_not_contains "must not print"
+
+  rm -f "$log_file"
+  ln "$victim" "$log_file"
+  run_cmd env HOME="$tmp/home" "$SCRIPT" logs personal --tail 1
+
+  assert_status 1
+  assert_contains "Refusing multiply-linked desktop log: $log_file"
+  assert_not_contains "must not print"
+
+  rm -rf "$tmp"
+}
+
 test_completions_generate_shell_scripts() {
   run_cmd "$SCRIPT" help
 
@@ -291,6 +317,7 @@ test_shell_init_use_activates_profile_in_current_shell() {
 test_logs_prints_path_and_contents
 test_logs_prints_instance_path_and_contents
 test_logs_reports_missing_log_file
+test_logs_refuses_linked_log_files
 test_completions_generate_shell_scripts
 test_env_prints_posix_exports_for_profile
 test_env_emits_fish_syntax

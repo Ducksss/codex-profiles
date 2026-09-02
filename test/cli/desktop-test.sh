@@ -308,6 +308,42 @@ test_named_app_user_data_symlinks_are_refused() {
   rm -rf "$tmp"
 }
 
+test_app_refuses_linked_desktop_logs_without_touching_the_target() {
+  local tmp chatgpt_app fake_bin tool_log profile_home log_file victim
+  tmp="$(mktemp -d)"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  profile_home="$tmp/home/.codex-work"
+  log_file="$profile_home/logs/desktop.log"
+  victim="$tmp/must-survive"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "should not launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
+  mkdir -p "${log_file%/*}"
+  printf 'must survive\n' > "$victim"
+  ln -s "$victim" "$log_file"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CHATGPT_APP="$chatgpt_app" "$SCRIPT" app work
+
+  assert_status 1
+  assert_contains "Refusing symlinked desktop log: $log_file"
+  [[ "$(cat "$victim")" == "must survive" ]] || fail "symlinked desktop log target was modified"
+  [[ ! -e "$tool_log" ]] || ! grep -q '^open ' "$tool_log" || fail "Desktop launched with a symlinked log"
+
+  rm -f "$log_file"
+  ln "$victim" "$log_file"
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CHATGPT_APP="$chatgpt_app" "$SCRIPT" app work
+
+  assert_status 1
+  assert_contains "Refusing multiply-linked desktop log: $log_file"
+  [[ "$(cat "$victim")" == "must survive" ]] || fail "multiply-linked desktop log target was modified"
+  [[ ! -e "$tool_log" ]] || ! grep -q '^open ' "$tool_log" || fail "Desktop launched with a multiply-linked log"
+
+  rm -rf "$tmp"
+}
+
 test_app_propagates_open_failures() {
   local tmp chatgpt_app fake_bin tool_log
   tmp="$(mktemp -d)"
@@ -398,5 +434,6 @@ test_invalid_chatgpt_app_override_does_not_fall_back_silently
 test_explicit_codex_cli_must_be_healthy
 test_app_refuses_access_token_override
 test_named_app_user_data_symlinks_are_refused
+test_app_refuses_linked_desktop_logs_without_touching_the_target
 test_app_propagates_open_failures
 test_doctor_reports_desktop_and_cli_when_present

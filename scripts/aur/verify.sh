@@ -107,10 +107,19 @@ printf 'Metadata, sources, checksums, aliases, and RPC state verified for codex-
   "$version" "$AUR_PKGREL"
 
 run_container_validation() {
-  docker run --rm -i \
+  local -a emulation_args=()
+  case "$(uname -m)" in
+    x86_64 | amd64) ;;
+    *) emulation_args=(--env CODEX_PROFILE_AUR_EMULATED=1) ;;
+  esac
+
+  docker run --rm -i --platform linux/amd64 "${emulation_args[@]}" \
     --mount "type=bind,src=$checkout,dst=/release,readonly" \
     archlinux:base-devel bash -s <<'CONTAINER'
 set -euo pipefail
+if [[ "${CODEX_PROFILE_AUR_EMULATED:-0}" == "1" ]]; then
+  printf '\nDisableSandbox\n' >> /etc/pacman.conf
+fi
 pacman -Syu --noconfirm namcap
 useradd --create-home builder
 install -d -o builder -g builder /build
@@ -125,8 +134,16 @@ diff -u .SRCINFO .SRCINFO.generated
 makepkg --verifysource
 makepkg --cleanbuild --clean --noconfirm
 mapfile -t package_files < <(makepkg --packagelist)
-[[ "${#package_files[@]}" -eq 1 ]]
-package_file="${package_files[0]}"
+package_file=""
+for candidate in "${package_files[@]}"; do
+  case "$(basename "$candidate")" in *-debug-*) continue ;; esac
+  [[ -z "$package_file" ]] || {
+    printf 'Multiple non-debug packages were predicted.\n' >&2
+    exit 1
+  }
+  package_file="$candidate"
+done
+[[ -n "$package_file" && -f "$package_file" ]]
 namcap PKGBUILD | tee namcap-pkgbuild.log
 namcap "$package_file" | tee namcap-package.log
 ! grep -Eq '(^|[[:space:]])E:' namcap-pkgbuild.log namcap-package.log

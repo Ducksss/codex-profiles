@@ -20,6 +20,8 @@ case "${1:-}:${2:-}" in
       *' -f release_correlation=release-123-4 '*) ;;
       *) exit 65 ;;
     esac
+    case " $* " in *' --ref main '*) ;; *) exit 66 ;; esac
+    case " $* " in *' -f release_tag=v0.7.0 '*) ;; *) exit 67 ;; esac
     ;;
   run:list)
     count="$(grep -c '^gh:run list' "$RELEASE_TEST_LOG" || true)"

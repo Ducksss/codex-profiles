@@ -1,7 +1,8 @@
 #!/bin/sh
 # codex-profile installer — fetch the latest release and install the CLI.
 #
-#   curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.9.1/install.sh \
+#     | CODEX_PROFILE_VERSION=v0.9.1 sh
 #
 # Environment:
 #   CODEX_PROFILE_PREFIX   Install prefix (default: $HOME/.local; binaries go in $PREFIX/bin).

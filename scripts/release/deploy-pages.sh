@@ -16,8 +16,8 @@ release_require_env GITHUB_REPOSITORY
 release_require_env GITHUB_SHA
 pages_correlation="release-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 pages_run_title="Deploy Pages from $TAG ($pages_correlation)"
-gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG" \
-  -f release_correlation="$pages_correlation"
+gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main \
+  -f release_tag="$TAG" -f release_correlation="$pages_correlation"
 run_id=""
 for _attempt in {1..30}; do
   run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow pages.yml \

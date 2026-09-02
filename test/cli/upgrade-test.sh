@@ -16,7 +16,7 @@ test_upgrade_dry_run_reports_plan_without_mutating_files() {
   prefix="$tmp/prefix"
   write_fake_upgrade_repo "$repo" "9.9.9"
 
-  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --dry-run --prefix "$prefix"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_REF=main CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --dry-run --prefix "$prefix"
 
   assert_status 0
   assert_contains "Upgrade plan"
@@ -42,7 +42,7 @@ test_upgrade_fetches_newest_ref_and_installs_to_prefix() {
   git -C "$repo" add .
   git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v1" >/dev/null
 
-  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_REF=main CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
 
   assert_status 0
   assert_contains "Installed codex-profile 1.0.0"
@@ -52,7 +52,7 @@ test_upgrade_fetches_newest_ref_and_installs_to_prefix() {
   git -C "$repo" add .
   git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v2" >/dev/null
 
-  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_REF=main CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
 
   assert_status 0
   assert_contains "Installed codex-profile 1.0.1"
@@ -102,7 +102,7 @@ test_upgrade_refuses_dirty_cached_checkout() {
   git clone "$repo" "$cache" >/dev/null 2>&1
   printf 'local edit\n' >> "$cache/bin/codex-profile"
 
-  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_REF=main CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
 
   assert_status 1
   assert_contains "Cached upgrade checkout has local changes"
@@ -123,7 +123,7 @@ test_upgrade_refuses_to_install_older_version() {
   git -C "$repo" add .
   git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "old" >/dev/null
 
-  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_REF=main CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
 
   assert_status 1
   assert_contains "Refusing to install older codex-profile 0.1.1"
@@ -158,7 +158,7 @@ FAKE_MAKEFILE
   git -C "$repo" add .
   git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "unversioned" >/dev/null
 
-  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_REF=main CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
 
   assert_status 1
   assert_contains "Refusing to install candidate without a declared VERSION"
@@ -184,11 +184,94 @@ FAKE_PROFILE
   git -C "$repo" add .
   git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "no makefile" >/dev/null
 
-  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_REF=main CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
 
   assert_status 1
   assert_contains "Upgrade checkout is missing Makefile"
   [[ ! -e "$prefix/bin/codex-profile" ]] || fail "upgrade installed despite missing Makefile"
+
+  rm -rf "$tmp"
+}
+
+test_upgrade_defaults_to_latest_immutable_release() {
+  local tmp repo cache prefix installed release_json
+  tmp="$(mktemp -d)"
+  repo="$tmp/repo"
+  cache="$tmp/cache/source"
+  prefix="$tmp/prefix"
+  installed="$prefix/bin/codex-profile"
+  release_json="$tmp/release.json"
+  mkdir -p "$repo"
+  init_git_main_branch "$repo"
+  write_fake_upgrade_repo "$repo" "9.9.9"
+  git -C "$repo" add .
+  git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "release" >/dev/null
+  git -C "$repo" tag v9.9.9
+  git -C "$repo" checkout -b v9.9.9 >/dev/null 2>&1
+  write_fake_upgrade_repo "$repo" "9.9.8"
+  git -C "$repo" add .
+  git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "shadow tag branch" >/dev/null
+  git -C "$repo" checkout main >/dev/null 2>&1
+  printf '{"tag_name":"v9.9.9","immutable":true,"draft":false,"prerelease":false}\n' > "$release_json"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" \
+    CODEX_PROFILE_UPGRADE_RELEASE_URL="$release_json" CODEX_PROFILE_UPGRADE_CACHE="$cache" \
+    "$SCRIPT" upgrade --prefix "$prefix"
+
+  assert_status 0
+  assert_contains "Ref: v9.9.9"
+  assert_contains "Release policy: immutable final GitHub Release"
+  assert_contains "Installed codex-profile 9.9.9"
+  run_cmd "$installed" version
+  assert_status 0
+  assert_equals "codex-profile 9.9.9"
+
+  rm -rf "$tmp"
+}
+
+test_upgrade_refuses_nonfinal_latest_release() {
+  local tmp release_json
+  tmp="$(mktemp -d)"
+  release_json="$tmp/release.json"
+  printf '{"tag_name":"v9.9.9","immutable":false,"draft":false,"prerelease":false}\n' > "$release_json"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_RELEASE_URL="$release_json" \
+    "$SCRIPT" upgrade --dry-run --prefix "$tmp/prefix"
+
+  assert_status 1
+  assert_contains "Latest GitHub Release v9.9.9 is not immutable and final"
+  [[ ! -e "$tmp/prefix" ]] || fail "rejected latest release mutated the install prefix"
+
+  rm -rf "$tmp"
+}
+
+test_upgrade_refuses_option_shaped_release_url() {
+  local tmp
+  tmp="$(mktemp -d)"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_RELEASE_URL=--config=/tmp/unsafe \
+    "$SCRIPT" upgrade --dry-run --prefix "$tmp/prefix"
+
+  assert_status 1
+  assert_contains "Cannot fetch latest release metadata"
+  [[ ! -e "$tmp/prefix" ]] || fail "option-shaped metadata URL mutated the install prefix"
+
+  rm -rf "$tmp"
+}
+
+test_upgrade_latest_is_a_noop_when_already_current() {
+  local tmp release_json
+  tmp="$(mktemp -d)"
+  release_json="$tmp/release.json"
+  printf '{"tag_name":"v0.9.1","immutable":true,"draft":false,"prerelease":false}\n' > "$release_json"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_RELEASE_URL="$release_json" \
+    CODEX_PROFILE_UPGRADE_CACHE="$tmp/cache" "$SCRIPT" upgrade --prefix "$tmp/prefix"
+
+  assert_status 0
+  assert_contains "Already on latest immutable release codex-profile 0.9.1"
+  [[ ! -e "$tmp/cache" ]] || fail "current immutable release created an upgrade cache"
+  [[ ! -e "$tmp/prefix" ]] || fail "current immutable release replaced the installation"
 
   rm -rf "$tmp"
 }
@@ -309,6 +392,10 @@ test_upgrade_refuses_dirty_cached_checkout
 test_upgrade_refuses_to_install_older_version
 test_upgrade_refuses_unversioned_candidate
 test_upgrade_refuses_checkout_missing_makefile
+test_upgrade_defaults_to_latest_immutable_release
+test_upgrade_refuses_nonfinal_latest_release
+test_upgrade_refuses_option_shaped_release_url
+test_upgrade_latest_is_a_noop_when_already_current
 test_update_check_notifies_when_newer_version_is_cached
 test_update_check_is_silent_when_up_to_date
 test_update_check_respects_disable_env

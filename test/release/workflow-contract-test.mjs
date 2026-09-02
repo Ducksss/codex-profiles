@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const workflow = readFileSync(".github/workflows/release.yml", "utf8");
+const pagesWorkflow = readFileSync(".github/workflows/pages.yml", "utf8");
+const pagesDispatch = readFileSync("scripts/release/deploy-pages.sh", "utf8");
 
 function stepBlock(name) {
   const marker = `      - name: ${name}\n`;
@@ -55,6 +57,13 @@ for (const literal of requiredLiterals) {
 
 const verifyJob = jobBlock("verify");
 const publishJob = jobBlock("publish");
+for (const block of [verifyJob, publishJob]) {
+  assert.ok(block.includes("    environment:\n      name: release"), "release jobs should use the protected release environment");
+}
+assert.ok(
+  verifyJob.includes("    if: ${{ github.ref == 'refs/heads/main' }}"),
+  "release verification must reject non-main dispatches before any step runs",
+);
 assert.ok(verifyJob.includes("    permissions:\n      contents: read"));
 for (const permission of ["contents: write", "id-token: write", "actions: write"]) {
   assert.ok(!verifyJob.includes(permission), `verify job must not grant ${permission}`);
@@ -221,5 +230,25 @@ assert.ok(actionLines.length > 0, "release workflow should use pinned actions");
 for (const line of actionLines) {
   assert.match(line, /@[0-9a-f]{40}\s+# v[0-9]+$/, `action should be pinned: ${line.trim()}`);
 }
+
+for (const literal of [
+  "release_tag:",
+  "if: ${{ github.ref == 'refs/heads/main' }}",
+  "Check out trusted Pages controls",
+  "Validate Pages source",
+  ".pages-control/scripts/release/verify-pages-source.sh",
+  "ref: ${{ inputs.release_tag || github.sha }}",
+  "path: .pages-site/docs",
+]) {
+  assert.ok(pagesWorkflow.includes(literal), `Pages workflow should contain ${literal}`);
+}
+assert.ok(
+  pagesDispatch.includes('gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main'),
+  "release publication should dispatch the trusted Pages workflow from main",
+);
+assert.ok(
+  pagesDispatch.includes('-f release_tag="$TAG"'),
+  "release publication should pass the immutable artifact tag as data",
+);
 
 console.log("Release workflow wiring tests passed.");

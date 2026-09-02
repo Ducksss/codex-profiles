@@ -40,8 +40,12 @@ concurrency:
 jobs:
   verify:
     name: Verify release inputs and artifacts
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    environment:
+      name: release
 
     permissions:
       contents: read
@@ -118,6 +122,9 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 60
+
+    environment:
+      name: release
 
     permissions:
       contents: write # create the tag and GitHub Release

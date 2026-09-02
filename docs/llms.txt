@@ -52,6 +52,8 @@ homes and, on macOS, named ChatGPT windows with separate local state.
   contract change.
 - Desktop launch refuses an inherited CODEX_ACCESS_TOKEN so a shell access
   token cannot silently override the selected window.
+- `upgrade` defaults to the latest immutable final GitHub Release and checks
+  out its detached tag; `--ref main` is an explicit unreleased source update.
 - CLI-oriented commands support macOS and Linux. Desktop launching is
   macOS-only.
 - The project is community-maintained and is not affiliated with OpenAI.
@@ -71,6 +73,8 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 ```sh
 npm install -g codex-profile
 brew install Ducksss/tap/codex-profile
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.9.1/install.sh | CODEX_PROFILE_VERSION=v0.9.1 sh
+nix run github:Ducksss/codex-profiles/v0.9.1
 codex-profile doctor
 ```
 

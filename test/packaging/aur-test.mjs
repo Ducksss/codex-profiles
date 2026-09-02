@@ -404,6 +404,7 @@ const autoResult = run(
 );
 assertSuccess(autoResult, "automatic container verification");
 assert.match(readFileSync(commandLog, "utf8"), /^docker info\ndocker run /m);
+assert.match(readFileSync(commandLog, "utf8"), /docker run --rm -i --platform linux\/amd64 /);
 assert.match(autoResult.stdout, /Container validation: passed/);
 
 writeFileSync(commandLog, "");
@@ -437,7 +438,11 @@ for (const contract of [
   "makepkg --printsrcinfo",
   "makepkg --verifysource",
   "makepkg --cleanbuild",
+  "*-debug-*",
+  "Multiple non-debug packages were predicted",
   "namcap PKGBUILD",
+  "--platform linux/amd64",
+  "DisableSandbox",
   '[[ "$(readlink "$alias")" == codex-profile ]]',
 ]) {
   assert.ok(verifySource.includes(contract), `container verifier should contain ${contract}`);

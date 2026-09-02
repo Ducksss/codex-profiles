@@ -299,7 +299,7 @@ assert.equal(packageJson.homepage, canonicalUrl);
 for (const required of [
   'actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5',
   'actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5',
-  'path: docs',
+  'path: .pages-site/docs',
   'pages: write',
   'id-token: write',
 ]) {
