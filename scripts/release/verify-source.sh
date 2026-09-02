@@ -87,14 +87,14 @@ grep -F "github:Ducksss/codex-profiles/v$version" docs/llms.txt >/dev/null \
 grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" install.sh >/dev/null \
   || { echo "install.sh usage must use immutable v$version." >&2; exit 1; }
 for public_document in README.md docs/llms.txt install.sh; do
-  for mutable_reference in \
-    'raw.githubusercontent.com/Ducksss/codex-profiles/main/install.sh' \
-    'github:Ducksss/codex-profiles/main'; do
-    if grep -F "$mutable_reference" "$public_document" >/dev/null; then
-      echo "$public_document must not publish mutable reference $mutable_reference." >&2
-      exit 1
-    fi
-  done
+  while IFS= read -r installer_reference; do
+    [[ "$installer_reference" == "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" ]] \
+      || { echo "$public_document publishes non-release installer reference $installer_reference." >&2; exit 1; }
+  done < <(grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^/[:space:]]+/install\.sh' "$public_document" || true)
+  while IFS= read -r nix_reference; do
+    [[ "$nix_reference" == "github:Ducksss/codex-profiles/v$version" ]] \
+      || { echo "$public_document publishes non-release Nix reference $nix_reference." >&2; exit 1; }
+  done < <(grep -Eo 'github:Ducksss/codex-profiles(/[A-Za-z0-9._/-]+)?' "$public_document" || true)
 done
 
 changelog_version="${version//./\.}"

@@ -106,12 +106,14 @@ grep -F "github:Ducksss/codex-profiles/v$version" docs/llms.txt >/dev/null \
 grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" install.sh >/dev/null \
   || fail "install.sh usage is not pinned to v$version"
 for public_document in README.md docs/llms.txt install.sh; do
-  for mutable_reference in \
-    'raw.githubusercontent.com/Ducksss/codex-profiles/main/install.sh' \
-    'github:Ducksss/codex-profiles/main'; do
-    ! grep -F "$mutable_reference" "$public_document" >/dev/null \
-      || fail "$public_document publishes mutable reference $mutable_reference"
-  done
+  while IFS= read -r installer_reference; do
+    [[ "$installer_reference" == "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" ]] \
+      || fail "$public_document publishes non-release installer reference $installer_reference"
+  done < <(grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^/[:space:]]+/install\.sh' "$public_document" || true)
+  while IFS= read -r nix_reference; do
+    [[ "$nix_reference" == "github:Ducksss/codex-profiles/v$version" ]] \
+      || fail "$public_document publishes non-release Nix reference $nix_reference"
+  done < <(grep -Eo 'github:Ducksss/codex-profiles(/[A-Za-z0-9._/-]+)?' "$public_document" || true)
 done
 grep -F 'make check' CONTRIBUTING.md >/dev/null || fail "CONTRIBUTING omits the canonical check"
 grep -F 'make check' AGENTS.md >/dev/null || fail "AGENTS omits the canonical check"
