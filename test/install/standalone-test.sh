@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 INSTALLER="$ROOT_DIR/install.sh"
-VERSION="0.9.1"
+VERSION="0.10.0"
 ORIGINAL_PATH="$PATH"
 REAL_LN="$(command -v ln)"
 REAL_MV="$(command -v mv)"
@@ -125,7 +125,7 @@ write_cli_fixture "$fixture_dir/runtime-mismatch" "$VERSION" "9.9.9"
 cat > "$fixture_dir/no-version" <<'NO_VERSION'
 #!/usr/bin/env bash
 case "${1:-help}" in
-  version|--version) printf 'codex-profile 0.9.1\n' ;;
+  version|--version) printf 'codex-profile 0.10.0\n' ;;
   *) printf 'fixture help\n' ;;
 esac
 NO_VERSION

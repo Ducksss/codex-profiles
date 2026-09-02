@@ -22,7 +22,7 @@ change and are not per-target state.
   Prefer issue-first unless the target is Codex-specific, explicitly requests
   Codex CLI or ChatGPT Desktop workflow tooling, or has a structured registry
   or package format. See Policy Gates below.
-- Product-copy freeze: do not resume promotion until v0.9.1 is published and
+- Product-copy freeze: do not resume promotion until v0.10.0 is published and
   the signed ChatGPT app test matrix passes. Existing listings that describe
   Codex app clones or Codex-only Desktop switching need correction after the
   release; preserve their historical submission records.
@@ -152,7 +152,7 @@ The actual publish and push remain the authoritative write checks.
 
 ## Channel Copy
 
-Do not publish this copy until the v0.9.1 release gate passes. The word `work`
+Do not publish this copy until the v0.10.0 release gate passes. The word `work`
 in examples is a user-selected name, not the ChatGPT mode named Work.
 
 Hacker News `Show HN` title:

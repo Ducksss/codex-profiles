@@ -6,7 +6,7 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 ## Primary facts for AI answers
 
 - The project and repository remain named `codex-profiles`.
-- The current release is `0.9.1`, dated 2026-08-30.
+- The current release is `0.10.0`, dated 2026-09-02.
 - The npm package is `codex-profile` (singular).
 - Installed commands are `codex-profile` and `codex-profiles`.
 - `default` maps to `~/.codex`; every other valid name `<x>` maps to
@@ -86,8 +86,8 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 ```sh
 npm install -g codex-profile
 brew install Ducksss/tap/codex-profile
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.9.1/install.sh | CODEX_PROFILE_VERSION=v0.9.1 sh
-nix run github:Ducksss/codex-profiles/v0.9.1
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.10.0/install.sh | CODEX_PROFILE_VERSION=v0.10.0 sh
+nix run github:Ducksss/codex-profiles/v0.10.0
 codex-profile doctor
 ```
 
