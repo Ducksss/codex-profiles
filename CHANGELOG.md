@@ -16,6 +16,9 @@ and this project follows semantic versioning for tagged releases.
   hard-linked private state such as `auth.json`, `sessions/`, and
   `state_5.sqlite`, without flagging the documented `init --share-with`
   configuration allowlist.
+- Added `doctor --check`, top-level JSON health, and an explicit version for
+  workspace, guard, and launcher state so automation can distinguish
+  diagnostics from a passing health check and reject incompatible state.
 
 ### Changed
 
@@ -27,6 +30,14 @@ and this project follows semantic versioning for tagged releases.
 - Made source upgrades resolve the latest immutable final GitHub Release by
   default, kept `--ref main` as an explicit development path, and pinned the
   documented standalone and Nix install commands to the current release.
+- Made `init` the sole profile-creation command. CLI, login, Desktop launch,
+  and configuration-copy commands now require initialized profiles instead of
+  silently creating a missing name.
+- Made profile removal refuse to orphan managed launchers or profiles that
+  still supply linked configuration to another profile.
+- Restricted source-style self-upgrades to source-owned executables or an
+  explicitly authorized install prefix; package-managed installations now
+  direct users back to their package manager.
 - Restricted release and Pages jobs to protected `main` environments. Pages
   now accepts only immutable release tags whose resolved commits belong to
   `main`, and treats them as artifact input instead of workflow code.
@@ -46,6 +57,9 @@ and this project follows semantic versioning for tagged releases.
 - Refused symlinked, non-regular, and multiply-linked Desktop logs before
   launch or inspection, preventing log redirection from overwriting or reading
   another file.
+- Serialized workspace, guard, launcher, initialization, configuration-copy,
+  and removal mutations so overlapping processes cannot lose registry updates
+  or make lifecycle decisions against stale state.
 - Passed Neon database names through `psql --dbname`, rejected option-shaped
   names, and added complete leading indexes for every outreach foreign key.
 

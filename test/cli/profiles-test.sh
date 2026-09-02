@@ -29,6 +29,7 @@ test_cli_passes_profile_home_and_args() {
   local tmp fake_codex
   tmp="$(mktemp -d)"
   fake_codex="$tmp/codex"
+  mkdir -p "$tmp/home/.codex-personal"
   cat > "$fake_codex" <<'FAKE_CODEX'
 #!/usr/bin/env bash
 printf 'CODEX_HOME=%s\n' "$CODEX_HOME"
@@ -41,7 +42,7 @@ FAKE_CODEX
   assert_status 0
   assert_contains "CODEX_HOME=$tmp/home/.codex-personal"
   assert_contains "ARGS=exec run tests"
-  [[ -d "$tmp/home/.codex-personal" ]] || fail "cli did not initialize profile home"
+  [[ -d "$tmp/home/.codex-personal" ]] || fail "cli removed the initialized profile home"
 
   rm -rf "$tmp"
 }
@@ -50,6 +51,7 @@ test_login_passes_profile_home_and_login_args() {
   local tmp fake_codex
   tmp="$(mktemp -d)"
   fake_codex="$tmp/codex"
+  mkdir -p "$tmp/home/.codex-work"
   cat > "$fake_codex" <<'FAKE_CODEX'
 #!/usr/bin/env bash
 printf 'CODEX_HOME=%s\n' "$CODEX_HOME"
@@ -62,7 +64,33 @@ FAKE_CODEX
   assert_status 0
   assert_contains "CODEX_HOME=$tmp/home/.codex-work"
   assert_contains "ARGS=login --device-auth"
-  [[ -d "$tmp/home/.codex-work" ]] || fail "login did not initialize profile home"
+  [[ -d "$tmp/home/.codex-work" ]] || fail "login removed the initialized profile home"
+
+  rm -rf "$tmp"
+}
+
+test_profile_commands_require_explicit_initialization() {
+  local tmp fake_codex
+  tmp="$(mktemp -d)"
+  fake_codex="$tmp/codex"
+  write_fake_codex "$fake_codex"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" cli typo exec check
+  assert_status 1
+  assert_contains "Profile 'typo' is not initialized"
+  [[ ! -e "$tmp/home/.codex-typo" ]] || fail "cli created an uninitialized profile"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" login typo
+  assert_status 1
+  assert_contains "Profile 'typo' is not initialized"
+  [[ ! -e "$tmp/home/.codex-typo" ]] || fail "login created an uninitialized profile"
+
+  mkdir -p "$tmp/home/.codex-source"
+  printf 'model = "gpt-5"\n' > "$tmp/home/.codex-source/config.toml"
+  run_cmd env HOME="$tmp/home" "$SCRIPT" clone-config source typo
+  assert_status 1
+  assert_contains "Profile 'typo' is not initialized"
+  [[ ! -e "$tmp/home/.codex-typo" ]] || fail "clone-config created an uninitialized target profile"
 
   rm -rf "$tmp"
 }
@@ -142,6 +170,10 @@ test_init_creates_private_profile_home_without_codex() {
   assert_contains "Initialized personal ($profile_home)"
   [[ -d "$profile_home" ]] || fail "init did not create profile home"
   [[ "$(mode_of "$profile_home")" == "700" ]] || fail "profile home is not private"
+  [[ "$(cat "$tmp/home/.config/codex-profile/state-version")" == "1" ]] || \
+    fail "init did not record the state schema version"
+  [[ ! -e "$tmp/home/.config/codex-profile/mutation.lock" ]] || \
+    fail "init left its state mutation lock behind"
 
   run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" init personal
 
@@ -386,6 +418,32 @@ test_remove_yes_deletes_profiles_named_like_common_aliases() {
   rm -rf "$tmp"
 }
 
+test_remove_refuses_profiles_with_shared_configuration_dependents() {
+  local tmp source_home target_home
+  tmp="$(mktemp -d)"
+  source_home="$tmp/home/.codex-personal"
+  target_home="$tmp/home/.codex-personal-2"
+  mkdir -p "$source_home"
+  printf 'model = "gpt-5"\n' > "$source_home/config.toml"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" init personal-2 --share-with personal
+  assert_status 0
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" remove personal --yes
+  assert_status 1
+  assert_contains "shared configuration is still used by: personal-2"
+  [[ -d "$source_home" && -L "$target_home/config.toml" ]] || \
+    fail "refused source removal changed linked profiles"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" remove personal-2 --yes
+  assert_status 0
+  run_cmd env HOME="$tmp/home" "$SCRIPT" remove personal --yes
+  assert_status 0
+  [[ ! -e "$source_home" ]] || fail "source profile remained after its dependent was removed"
+
+  rm -rf "$tmp"
+}
+
 test_profile_home_symlinks_are_refused() {
   local tmp target
   tmp="$(mktemp -d)"
@@ -406,7 +464,7 @@ test_clone_config_copies_safe_files_and_never_auth_files() {
   tmp="$(mktemp -d)"
   source_home="$tmp/home/.codex-work"
   target_home="$tmp/home/.codex-personal"
-  mkdir -p "$source_home/sessions"
+  mkdir -p "$source_home/sessions" "$target_home"
   printf 'model = "gpt-5"\n' > "$source_home/config.toml"
   printf '# Instructions\n' > "$source_home/AGENTS.md"
   printf '{"token":"secret"}\n' > "$source_home/auth.json"
@@ -430,7 +488,7 @@ test_clone_config_refuses_sensitive_looking_config() {
   tmp="$(mktemp -d)"
   source_home="$tmp/home/.codex-work"
   target_home="$tmp/home/.codex-personal"
-  mkdir -p "$source_home"
+  mkdir -p "$source_home" "$target_home"
   printf 'openai_api_key = "secret"\n' > "$source_home/config.toml"
 
   run_cmd env HOME="$tmp/home" "$SCRIPT" clone-config work personal
@@ -448,7 +506,7 @@ test_clone_config_refuses_symlinked_config_files() {
   source_home="$tmp/home/.codex-work"
   target_home="$tmp/home/.codex-personal"
   outside_file="$tmp/outside-config.toml"
-  mkdir -p "$source_home"
+  mkdir -p "$source_home" "$target_home"
   printf 'model = "gpt-5"\n' > "$outside_file"
   ln -s "$outside_file" "$source_home/config.toml"
 
@@ -509,6 +567,7 @@ test_clone_config_refuses_to_overwrite_without_force() {
 test_version_prints_script_version
 test_cli_passes_profile_home_and_args
 test_login_passes_profile_home_and_login_args
+test_profile_commands_require_explicit_initialization
 test_invalid_profile_names_are_rejected
 test_profile_path_mapping_only_special_cases_default
 test_list_reports_initialized_managed_profiles_without_cli
@@ -520,6 +579,7 @@ test_init_share_with_cleans_up_after_link_failure
 test_remove_aborts_when_confirmation_does_not_match
 test_remove_yes_deletes_profile_home
 test_remove_yes_deletes_profiles_named_like_common_aliases
+test_remove_refuses_profiles_with_shared_configuration_dependents
 test_profile_home_symlinks_are_refused
 test_clone_config_copies_safe_files_and_never_auth_files
 test_clone_config_refuses_sensitive_looking_config

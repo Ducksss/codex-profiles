@@ -276,6 +276,52 @@ test_upgrade_latest_is_a_noop_when_already_current() {
   rm -rf "$tmp"
 }
 
+test_upgrade_requires_ownership_or_explicit_prefix() {
+  local tmp cache prefix
+  tmp="$(mktemp -d)"
+  cache="$tmp/cache/source"
+  prefix="$tmp/home/.local"
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$tmp/repo" \
+    CODEX_PROFILE_UPGRADE_REF=main CODEX_PROFILE_UPGRADE_CACHE="$cache" \
+    "$SCRIPT" upgrade
+
+  assert_status 1
+  assert_contains "Refusing a source-style upgrade from package-managed or unrecognized executable"
+  assert_contains "pass --prefix explicitly"
+  [[ ! -e "$cache" ]] || fail "unowned upgrade created a source cache"
+  [[ ! -e "$prefix" ]] || fail "unowned upgrade mutated the default prefix"
+
+  rm -rf "$tmp"
+}
+
+test_upgrade_allows_owned_default_source_install() {
+  local tmp repo cache installed
+  tmp="$(mktemp -d)"
+  repo="$tmp/repo"
+  cache="$tmp/cache/source"
+  installed="$tmp/home/.local/bin/codex-profile"
+  mkdir -p "$repo" "$(dirname "$installed")"
+  cp "$SCRIPT" "$installed"
+  chmod 755 "$installed"
+  init_git_main_branch "$repo"
+  write_fake_upgrade_repo "$repo" "1.0.0"
+  git -C "$repo" add .
+  git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v1" >/dev/null
+
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" \
+    CODEX_PROFILE_UPGRADE_REF=main CODEX_PROFILE_UPGRADE_CACHE="$cache" \
+    "$installed" upgrade
+
+  assert_status 0
+  assert_contains "Installed codex-profile 1.0.0"
+  run_cmd "$installed" version
+  assert_status 0
+  assert_equals "codex-profile 1.0.0"
+
+  rm -rf "$tmp"
+}
+
 test_update_check_notifies_when_newer_version_is_cached() {
   local tmp cache stub now
   tmp="$(mktemp -d)"
@@ -293,6 +339,7 @@ test_update_check_notifies_when_newer_version_is_cached() {
 
   assert_status 0
   assert_contains "9.9.9 available"
+  assert_contains "upgrade with the installation's package manager"
 
   rm -rf "$tmp"
 }
@@ -396,6 +443,8 @@ test_upgrade_defaults_to_latest_immutable_release
 test_upgrade_refuses_nonfinal_latest_release
 test_upgrade_refuses_option_shaped_release_url
 test_upgrade_latest_is_a_noop_when_already_current
+test_upgrade_requires_ownership_or_explicit_prefix
+test_upgrade_allows_owned_default_source_install
 test_update_check_notifies_when_newer_version_is_cached
 test_update_check_is_silent_when_up_to_date
 test_update_check_respects_disable_env

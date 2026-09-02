@@ -125,6 +125,33 @@ test_doctor_skips_status_when_cli_missing() {
   assert_contains "CLI: missing"
   assert_contains "Status: skipped"
 
+  run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" doctor --check
+
+  assert_status 1
+  assert_contains "CLI: missing"
+
+  rm -rf "$tmp"
+}
+
+test_doctor_check_reports_healthy_state() {
+  local tmp fake_codex
+  tmp="$(mktemp -d)"
+  fake_codex="$tmp/codex"
+  write_fake_codex "$fake_codex"
+  mkdir -p "$tmp/home/.codex-personal"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" doctor --check
+
+  assert_status 0
+  assert_contains "CLI: $fake_codex"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" doctor --json --check
+
+  assert_status 0
+  assert_contains '"healthy":true'
+  assert_contains '"schema_version":"1"'
+  JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
+
   rm -rf "$tmp"
 }
 
@@ -204,9 +231,16 @@ test_doctor_json_reports_missing_cli_and_skips_status() {
   run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" doctor --json
 
   assert_status 0
+  assert_contains '"healthy":false'
   assert_contains '"desktop":{'
   assert_contains '"cli":{"found":false'
   assert_contains '"status":{"skipped":true'
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" doctor --json --check
+
+  assert_status 1
+  assert_contains '"healthy":false'
+  JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
 
   rm -rf "$tmp"
 }
@@ -298,6 +332,7 @@ test_status_reports_arbitrary_discovered_profiles_and_skips_invalid_dirs
 test_status_treats_not_logged_in_as_normal_status
 test_status_propagates_unexpected_cli_failure
 test_doctor_skips_status_when_cli_missing
+test_doctor_check_reports_healthy_state
 test_status_json_reports_profiles_without_creating_missing_default
 test_status_json_treats_not_logged_in_as_normal_status
 test_status_json_escapes_control_characters

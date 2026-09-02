@@ -107,6 +107,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "run [--] [codex-args...]"
   assert_contains "run --app [workspace]"
   assert_contains "launcher create <profile>"
+  assert_contains "doctor [--json] [--check]"
   assert_contains "CODEX_PROFILE_CONFIG_HOME"
   assert_contains "CODEX_PROFILE_LAUNCHER_ROOT"
 
@@ -121,6 +122,7 @@ test_completions_generate_shell_scripts() {
   # shellcheck disable=SC2016 # matching literal generated completion text
   assert_contains 'compgen -W "$workspace_commands"'
   assert_contains 'compgen -W "--app"'
+  assert_contains 'compgen -W "--json --check"'
   assert_contains "clone-config"
   assert_contains "upgrade"
   assert_contains "--instance"
@@ -140,6 +142,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "workspace_commands=(bind unbind list status guard)"
   assert_contains "run_flags=(--app)"
   assert_contains "workspace_json_flags=(--json)"
+  assert_contains "doctor_flags=(--json --check)"
   assert_contains "logs"
   assert_contains "upgrade"
   assert_contains "--instance"
@@ -157,6 +160,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "-a 'blue green teal purple pink red orange graphite'"
   assert_contains "-a 'bind unbind list status guard'"
   assert_contains "-l app"
+  assert_contains "-l check"
   assert_contains "test (count (commandline -opc)) -eq 2"
   assert_contains "__fish_seen_subcommand_from bind; and test (count (commandline -opc)) -eq 4"
   assert_contains "-F"

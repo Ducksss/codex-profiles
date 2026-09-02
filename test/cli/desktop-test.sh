@@ -8,6 +8,26 @@ TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT HUP INT TERM
 source "$ROOT_DIR/test/lib/cli-fixtures.sh"
 
+test_app_requires_an_initialized_profile() {
+  local tmp chatgpt_app fake_bin tool_log
+  tmp="$(mktemp -d)"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "must not launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
+
+  run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CHATGPT_APP="$chatgpt_app" "$SCRIPT" app typo
+
+  assert_status 1
+  assert_contains "Profile 'typo' is not initialized"
+  [[ ! -e "$tmp/home/.codex-typo" ]] || fail "app created an uninitialized profile"
+  [[ ! -e "$tool_log" ]] || ! grep -q '^open ' "$tool_log" || fail "app launched an uninitialized profile"
+
+  rm -rf "$tmp"
+}
+
 test_app_named_profile_uses_separate_local_state_for_the_whole_chatgpt_window() {
   local tmp chatgpt_app ignored_app fake_bin tool_log profile_home user_data_dir log_file
   tmp="$(mktemp -d)"
@@ -21,6 +41,7 @@ test_app_named_profile_uses_separate_local_state_for_the_whole_chatgpt_window() 
   write_fake_chatgpt_app_bundle "$chatgpt_app" "named ChatGPT launch"
   write_fake_chatgpt_app_bundle "$ignored_app" "wrong legacy app"
   write_fake_chatgpt_open_tools "$fake_bin"
+  mkdir -p "$profile_home"
 
   run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
     CHATGPT_APP="$chatgpt_app" CODEX_APP="$ignored_app" \
@@ -58,6 +79,7 @@ test_app_default_reuses_the_stock_chatgpt_session() {
   log_file="$profile_home/logs/desktop.log"
   write_fake_chatgpt_app_bundle "$chatgpt_app" "default ChatGPT launch"
   write_fake_chatgpt_open_tools "$fake_bin"
+  mkdir -p "$profile_home"
 
   run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
     CHATGPT_APP="$chatgpt_app" CODEX_ELECTRON_USER_DATA_PATH="$tmp/inherited-electron-user-data" \
@@ -86,6 +108,7 @@ test_app_legacy_instance_flags_use_the_same_signed_app_launcher() {
   user_data_dir="$profile_home/electron-user-data"
   write_fake_chatgpt_app_bundle "$chatgpt_app" "compatibility launch"
   write_fake_chatgpt_open_tools "$fake_bin"
+  mkdir -p "$profile_home"
 
   run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
     CHATGPT_APP="$chatgpt_app" CODEX_PROFILE_APP_INSTANCE_ROOT="$tmp/instances" \
@@ -119,6 +142,7 @@ test_app_rebuild_is_accepted_as_a_compatibility_noop() {
   tool_log="$tmp/tool.log"
   write_fake_chatgpt_app_bundle "$chatgpt_app" "rebuild compatibility launch"
   write_fake_chatgpt_open_tools "$fake_bin"
+  mkdir -p "$tmp/home/.codex-work"
 
   run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
     CHATGPT_APP="$chatgpt_app" "$SCRIPT" app work --rebuild "$tmp/workspace"
@@ -135,7 +159,7 @@ test_cli_falls_back_to_the_bundled_cli_when_path_codex_is_broken() {
   chatgpt_app="$tmp/ChatGPT.app"
   fake_bin="$tmp/bin"
   broken_codex="$fake_bin/codex"
-  mkdir -p "$fake_bin"
+  mkdir -p "$fake_bin" "$tmp/home/.codex-work"
   write_fake_chatgpt_app_bundle "$chatgpt_app" "unused"
   cat > "$broken_codex" <<'BROKEN_CODEX'
 #!/usr/bin/env bash
@@ -161,7 +185,7 @@ test_healthy_path_cli_keeps_priority_over_the_bundled_cli() {
   chatgpt_app="$tmp/ChatGPT.app"
   fake_bin="$tmp/bin"
   path_codex="$fake_bin/codex"
-  mkdir -p "$fake_bin"
+  mkdir -p "$fake_bin" "$tmp/home/.codex-work"
   write_fake_chatgpt_app_bundle "$chatgpt_app" "unused"
   cat > "$path_codex" <<'PATH_CODEX'
 #!/usr/bin/env bash
@@ -194,6 +218,7 @@ test_legacy_codex_app_bin_locates_its_signed_app_bundle() {
   executable="$chatgpt_app/Contents/MacOS/ChatGPT"
   write_fake_chatgpt_app_bundle "$chatgpt_app" "legacy executable override"
   write_fake_chatgpt_open_tools "$fake_bin"
+  mkdir -p "$tmp/home/.codex"
 
   run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
     CODEX_APP_BIN="$executable" "$SCRIPT" app default "$tmp/workspace"
@@ -214,6 +239,7 @@ test_legacy_codex_app_bin_rejects_a_different_executable_in_the_bundle() {
   wrong_executable="$chatgpt_app/Contents/MacOS/wrong-name"
   write_fake_chatgpt_app_bundle "$chatgpt_app" "must not launch"
   write_fake_chatgpt_open_tools "$fake_bin"
+  mkdir -p "$tmp/home/.codex"
   printf '#!/bin/sh\nexit 0\n' > "$wrong_executable"
   chmod 755 "$wrong_executable"
 
@@ -236,6 +262,7 @@ test_invalid_chatgpt_app_override_does_not_fall_back_silently() {
   tool_log="$tmp/tool.log"
   write_fake_chatgpt_app_bundle "$fallback_app" "must not launch"
   write_fake_chatgpt_open_tools "$fake_bin"
+  mkdir -p "$tmp/home/.codex"
 
   run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
     CHATGPT_APP="$tmp/missing/ChatGPT.app" CODEX_APP="$fallback_app" \
@@ -252,11 +279,12 @@ test_explicit_codex_cli_must_be_healthy() {
   local tmp broken_codex
   tmp="$(mktemp -d)"
   broken_codex="$tmp/codex"
-  cat > "$broken_codex" <<'BROKEN_CODEX'
+cat > "$broken_codex" <<'BROKEN_CODEX'
 #!/usr/bin/env bash
 exit 72
 BROKEN_CODEX
   chmod 755 "$broken_codex"
+  mkdir -p "$tmp/home/.codex-work"
 
   run_cmd env HOME="$tmp/home" CODEX_CLI="$broken_codex" "$SCRIPT" cli work
 
@@ -274,6 +302,7 @@ test_app_refuses_access_token_override() {
   tool_log="$tmp/tool.log"
   write_fake_chatgpt_app_bundle "$chatgpt_app" "should not launch"
   write_fake_chatgpt_open_tools "$fake_bin"
+  mkdir -p "$tmp/home/.codex-work"
 
   run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
     CHATGPT_APP="$chatgpt_app" CODEX_ACCESS_TOKEN=secret "$SCRIPT" app work
@@ -352,6 +381,7 @@ test_app_propagates_open_failures() {
   tool_log="$tmp/tool.log"
   write_fake_chatgpt_app_bundle "$chatgpt_app" "should not launch"
   write_fake_chatgpt_open_tools "$fake_bin"
+  mkdir -p "$tmp/home/.codex-work"
 
   run_cmd env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
     FAKE_OPEN_EXIT=70 CHATGPT_APP="$chatgpt_app" "$SCRIPT" app work
@@ -422,6 +452,7 @@ FAKE_CODEX
   rm -rf "$tmp"
 }
 
+test_app_requires_an_initialized_profile
 test_app_named_profile_uses_separate_local_state_for_the_whole_chatgpt_window
 test_app_default_reuses_the_stock_chatgpt_session
 test_app_legacy_instance_flags_use_the_same_signed_app_launcher

@@ -113,6 +113,11 @@ codex-profile login personal
 codex-profile login work
 ```
 
+`init` is the only command that creates a profile. `cli`, `login`, `app`, and
+the target of `clone-config` fail on an uninitialized name instead of silently
+creating state for a typo. Initialize `default` explicitly too if `~/.codex`
+does not already exist.
+
 To keep authentication and runtime state separate while sharing selected
 configuration, initialize a new linked profile from an existing one:
 
@@ -238,8 +243,10 @@ codex-profile remove client-a --yes
 `list` and `status` are read-only. They do not create a directory for a typo.
 Removing a profile deletes its Codex home and, for a named Desktop profile, its
 local Electron data. It also removes bindings that target that profile, without
-deleting any project directory. Review the path and close the corresponding
-window first.
+deleting any project directory. Removal refuses to orphan a managed macOS
+launcher or a profile whose allowlisted configuration is still linked by
+another profile; remove the launcher, detach the links, or remove the dependent
+profile first. Review the path and close the corresponding window first.
 
 ### Bind projects to profiles
 
@@ -287,9 +294,11 @@ using `run` or an explicitly guarded `cli`.
 
 Binding state is stored with private permissions in
 `${XDG_CONFIG_HOME:-~/.config}/codex-profile/workspaces.tsv`; the guard setting
-is stored beside it. `CODEX_PROFILE_CONFIG_HOME` overrides that directory for
-automation. Bindings contain only canonical project paths and profile names,
-never authentication, cookies, sessions, or credentials.
+and state-schema version are stored beside it. Mutations are serialized with a
+process lock so overlapping commands cannot lose an update; locks left by dead
+processes are reclaimed. `CODEX_PROFILE_CONFIG_HOME` overrides that directory
+for automation. Bindings contain only canonical project paths and profile
+names, never authentication, cookies, sessions, or credentials.
 
 #### Share configuration, not identity or runtime state
 
@@ -325,6 +334,8 @@ codex-profile status personal
 codex-profile status --json
 codex-profile doctor
 codex-profile doctor --json
+codex-profile doctor --check
+codex-profile doctor --json --check
 ```
 
 Status is about the Codex authentication associated with `CODEX_HOME`; it is
@@ -335,6 +346,11 @@ homes and symlinked or hard-linked private state such as `auth.json`,
 across profiles or break current Desktop session operations. The documented
 `init --share-with` configuration links are not reported as unsafe.
 
+Ordinary `doctor` remains informational. `doctor --check` exits nonzero when
+the CLI is missing, status collection fails, workspace state is invalid or
+stale, or private profile state is linked; JSON includes top-level `healthy`
+and workspace `schema_version` fields for automation.
+
 ### Use the stock and named ChatGPT sessions
 
 ```sh
@@ -342,6 +358,9 @@ codex-profile app default
 codex-profile app personal ~/Dev/personal-app
 codex-profile app work ~/Dev/work-app
 ```
+
+Run `codex-profile init default` first when `~/.codex` has not already been
+initialized.
 
 - `default` preserves the normal ChatGPT session and maps Codex state to
   `~/.codex`.
@@ -493,7 +512,10 @@ already-current release is not replaced. The checkout is cached under
 `~/.cache/codex-profile/source`; `--ref main` is an
 explicit source/development update and may install unreleased changes. Review a
 dry run before pointing upgrade at a non-default repository or ref. Package
-manager installations should normally be upgraded with that package manager.
+manager installations must be upgraded with that package manager. Without an
+explicit `--prefix` (or `CODEX_PROFILE_UPGRADE_PREFIX`), source upgrade only
+replaces the regular `codex-profile` executable owned by its default source
+prefix; it refuses package-managed and unrecognized executables.
 
 ## Shell completions
 
@@ -534,7 +556,7 @@ codex-profile use <profile>
 codex-profile logs <profile> [--path|--tail [lines]]
 codex-profile clone-config <source-profile> <target-profile> [--force]
 codex-profile list
-codex-profile doctor [--json]
+codex-profile doctor [--json] [--check]
 codex-profile completions <bash|zsh|fish>
 codex-profile shell-init <bash|zsh|fish>
 codex-profile upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
@@ -563,7 +585,7 @@ launch or log mode.
 | `CODEX_APP_BIN` | Deprecated executable override; accepted only for an executable inside an app bundle. |
 | `CODEX_CLI` | Use a specific Codex CLI. An invalid explicit override fails instead of silently selecting another binary. |
 | `CODEX_BUNDLED_CLI` | Optional fallback Codex CLI checked after `PATH` and before the selected app's bundled CLI. |
-| `CODEX_PROFILE_CONFIG_HOME` | Override the private directory containing workspace bindings, guard mode, and launcher metadata. |
+| `CODEX_PROFILE_CONFIG_HOME` | Override the private, versioned state directory containing workspace bindings, guard mode, and launcher metadata. |
 | `CODEX_PROFILE_LAUNCHER_ROOT` | Override the macOS launcher install directory (default: `~/Applications`). |
 | `CODEX_PROFILE_UPGRADE_REPO` | Override the source-upgrade repository. |
 | `CODEX_PROFILE_UPGRADE_REF` | Override the upgrade git ref; defaults to the latest immutable release. |
