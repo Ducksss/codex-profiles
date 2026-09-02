@@ -12,6 +12,10 @@ and this project follows semantic versioning for tagged releases.
 - Added a dependency-free Airtable-to-Neon migration utility, restricted Neon
   schema, public RS256 JWKS, Merge Queue commands, and integration coverage for
   transactional imports, RLS/grants, append-only history, and atomic claims.
+- Added `doctor` diagnostics for symlinked profile homes and symlinked or
+  hard-linked private state such as `auth.json`, `sessions/`, and
+  `state_5.sqlite`, without flagging the documented `init --share-with`
+  configuration allowlist.
 
 ### Changed
 

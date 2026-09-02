@@ -244,6 +244,143 @@ shared_profile_config_entries() {
     plugins
 }
 
+private_profile_state_entries() {
+  printf '%s\n' \
+    auth.json \
+    sessions \
+    archived_sessions \
+    history.jsonl \
+    session_index.jsonl \
+    state_5.sqlite \
+    logs \
+    electron-user-data
+}
+
+discover_profiles_for_state_audit() {
+  local dir profile
+
+  if [[ -d "$HOME/.codex" || -L "$HOME/.codex" ]]; then
+    printf 'default\n'
+  fi
+
+  for dir in "$HOME"/.codex-*; do
+    [[ -d "$dir" || -L "$dir" ]] || continue
+    profile="${dir##*/.codex-}"
+    discovered_profile_is_managed "$profile" "$dir" || continue
+    printf '%s\n' "$profile"
+  done
+}
+
+private_state_hard_link_count() {
+  local path="$1"
+  local link_count
+
+  [[ -f "$path" && ! -L "$path" ]] || return 1
+  link_count="$(file_link_count "$path" 2> /dev/null)" || return 1
+  [[ "$link_count" =~ ^[0-9]+$ ]] || return 1
+  ((link_count > 1)) || return 1
+  printf '%s\n' "$link_count"
+}
+
+profile_state_link_stats() {
+  local profile codex_home entry path
+
+  PROFILE_STATE_LINK_COUNT=0
+  PROFILE_STATE_LINKS_HEALTHY=true
+
+  for profile in $(discover_profiles_for_state_audit); do
+    codex_home="$(codex_home_for_profile "$profile")"
+    if [[ -L "$codex_home" ]]; then
+      PROFILE_STATE_LINK_COUNT=$((PROFILE_STATE_LINK_COUNT + 1))
+      PROFILE_STATE_LINKS_HEALTHY=false
+      continue
+    fi
+    for entry in $(private_profile_state_entries); do
+      path="$codex_home/$entry"
+      if [[ -L "$path" ]] || private_state_hard_link_count "$path" > /dev/null; then
+        PROFILE_STATE_LINK_COUNT=$((PROFILE_STATE_LINK_COUNT + 1))
+        PROFILE_STATE_LINKS_HEALTHY=false
+      fi
+    done
+  done
+}
+
+json_emit_profile_state_links() {
+  local profile codex_home entry path target link_count first=yes
+
+  printf '['
+  for profile in $(discover_profiles_for_state_audit); do
+    codex_home="$(codex_home_for_profile "$profile")"
+    if [[ -L "$codex_home" ]]; then
+      target="$(readlink "$codex_home" 2> /dev/null || true)"
+      if [[ "$first" == "yes" ]]; then first=no; else printf ','; fi
+      printf '{"profile":'
+      json_string "$profile"
+      printf ',"home":'
+      json_string "$codex_home"
+      printf ',"entry":"profile_home","path":'
+      json_string "$codex_home"
+      printf ',"kind":"symlink","target":'
+      json_string "$target"
+      printf ',"link_count":null}'
+      continue
+    fi
+
+    for entry in $(private_profile_state_entries); do
+      path="$codex_home/$entry"
+      target=""
+      link_count=""
+      if [[ -L "$path" ]]; then
+        target="$(readlink "$path" 2> /dev/null || true)"
+      else
+        link_count="$(private_state_hard_link_count "$path" 2> /dev/null || true)"
+        [[ -n "$link_count" ]] || continue
+      fi
+
+      if [[ "$first" == "yes" ]]; then first=no; else printf ','; fi
+      printf '{"profile":'
+      json_string "$profile"
+      printf ',"home":'
+      json_string "$codex_home"
+      printf ',"entry":'
+      json_string "$entry"
+      printf ',"path":'
+      json_string "$path"
+      if [[ -n "$link_count" ]]; then
+        printf ',"kind":"hardlink","target":null,"link_count":%s}' "$link_count"
+      else
+        printf ',"kind":"symlink","target":'
+        json_string "$target"
+        printf ',"link_count":null}'
+      fi
+    done
+  done
+  printf ']'
+}
+
+note_profile_state_links() {
+  local profile codex_home entry path target link_count
+
+  for profile in $(discover_profiles_for_state_audit); do
+    codex_home="$(codex_home_for_profile "$profile")"
+    if [[ -L "$codex_home" ]]; then
+      target="$(readlink "$codex_home" 2> /dev/null || true)"
+      note "Private-state link: $profile/profile-home -> $target"
+      continue
+    fi
+
+    for entry in $(private_profile_state_entries); do
+      path="$codex_home/$entry"
+      if [[ -L "$path" ]]; then
+        target="$(readlink "$path" 2> /dev/null || true)"
+        note "Private-state link: $profile/$entry -> $target"
+      elif link_count="$(private_state_hard_link_count "$path" 2> /dev/null)"; then
+        note "Private-state link: $profile/$entry [hard links: $link_count]"
+      fi
+    done
+  done
+}
+
 initialize_shared_profile() {
   local target_profile="$1"
   local source_profile="$2"
@@ -2902,6 +3039,7 @@ command_doctor() {
   fi
   [[ -d "$CODEX_PROFILE_APP_INSTANCE_ROOT" ]] && legacy_clone_found=true
   workspace_registry_stats
+  profile_state_link_stats
 
   if [[ "$json" == "yes" ]]; then
     local status_code=0
@@ -2932,6 +3070,10 @@ command_doctor() {
     printf ',"binding_count":%s' "$WORKSPACE_STATS_BINDING_COUNT"
     printf ',"missing_paths":%s' "$WORKSPACE_STATS_MISSING_PATHS"
     printf ',"missing_profiles":%s}' "$WORKSPACE_STATS_MISSING_PROFILES"
+    printf ',"profile_state":{"healthy":%s,"private_link_count":%s,"private_links":' \
+      "$PROFILE_STATE_LINKS_HEALTHY" "$PROFILE_STATE_LINK_COUNT"
+    json_emit_profile_state_links
+    printf '}'
 
     if codex_cli="$(try_find_codex_cli)"; then
       cli_source="$(codex_cli_source "$codex_cli")"
@@ -2984,6 +3126,12 @@ command_doctor() {
   note "Workspace bindings: $WORKSPACE_STATS_BINDING_COUNT"
   note "Missing workspace paths: $WORKSPACE_STATS_MISSING_PATHS"
   note "Missing workspace profiles: $WORKSPACE_STATS_MISSING_PROFILES"
+  if [[ "$PROFILE_STATE_LINKS_HEALTHY" == "true" ]]; then
+    note "Private-state links: 0"
+  else
+    note "Private-state links: $PROFILE_STATE_LINK_COUNT (unsafe)"
+    note_profile_state_links
+  fi
 
   if codex_cli="$(try_find_codex_cli)"; then
     cli_source="$(codex_cli_source "$codex_cli")"

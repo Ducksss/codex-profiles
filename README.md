@@ -329,7 +329,11 @@ codex-profile doctor --json
 
 Status is about the Codex authentication associated with `CODEX_HOME`; it is
 not a ChatGPT Desktop account inspector. Diagnostics must not be used to infer
-that two sessions are the same account.
+that two sessions are the same account. `doctor` also reports symlinked profile
+homes and symlinked or hard-linked private state such as `auth.json`,
+`sessions/`, and `state_5.sqlite`, because those links either couple identity
+across profiles or break current Desktop session operations. The documented
+`init --share-with` configuration links are not reported as unsafe.
 
 ### Use the stock and named ChatGPT sessions
 
