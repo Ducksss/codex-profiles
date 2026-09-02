@@ -6,7 +6,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
-const agent = readFileSync(join(root, 'agent.md'), 'utf8');
+const agentPath = 'ops/outreach/agent.md';
+const agent = readFileSync(join(root, agentPath), 'utf8');
 const normalizedAgent = agent.replace(/\s+/g, ' ');
 
 const mustContain = [
@@ -60,7 +61,7 @@ const mustContain = [
 ];
 
 for (const text of mustContain) {
-  assert.ok(normalizedAgent.includes(text), `agent.md should contain: ${text}`);
+  assert.ok(normalizedAgent.includes(text), `${agentPath} should contain: ${text}`);
 }
 
 const forbidden = [
@@ -69,5 +70,5 @@ const forbidden = [
 ];
 
 for (const text of forbidden) {
-  assert.ok(!normalizedAgent.includes(text), `agent.md should not contain: ${text}`);
+  assert.ok(!normalizedAgent.includes(text), `${agentPath} should not contain: ${text}`);
 }

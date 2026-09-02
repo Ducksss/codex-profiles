@@ -31,7 +31,7 @@ const llms = read('docs/llms.txt');
 const audit = read('docs/geo-audit.md');
 const measurement = read('docs/geo-measurement.md');
 const agentsGuide = read('AGENTS.md');
-const distributionAgent = read('agent.md');
+const setupAgent = read('agent.md');
 const securityPolicy = read('SECURITY.md');
 const pagesWorkflow = read('.github/workflows/pages.yml');
 const changelog = read('CHANGELOG.md');
@@ -73,7 +73,7 @@ assert.ok(fileExists('docs/geo-audit.md'), 'docs/geo-audit.md should exist');
 assert.ok(fileExists('docs/geo-measurement.md'), 'docs/geo-measurement.md should exist');
 assert.ok(fileExists('docs/.nojekyll'), 'docs/.nojekyll should exist');
 assert.ok(fileExists('docs/outreach-jwks.json'), 'public outreach JWKS should exist');
-assert.ok(fileExists('docs/outreach-tracker.md'), 'outreach tracker runbook should exist');
+assert.ok(fileExists('ops/outreach/tracker.md'), 'outreach tracker runbook should exist');
 assert.ok(fileExists('.github/workflows/pages.yml'), 'Pages deploy workflow should exist');
 
 assert.equal(outreachJwks.keys.length, 1, 'outreach JWKS should publish one active key');
@@ -160,7 +160,7 @@ for (const [label, summary] of [
 
 for (const [label, guidance] of [
   ['AGENTS.md', agentsGuide],
-  ['agent.md', distributionAgent],
+  ['agent.md', setupAgent],
   ['SECURITY.md', securityPolicy],
 ]) {
   const normalizedGuidance = guidance.replace(/\s+/g, ' ');
@@ -291,9 +291,10 @@ for (const required of [
 }
 
 assert.ok(
-  packageJson.files.includes('docs'),
-  'npm package should include docs GEO assets'
+  packageJson.files.includes('docs/llms.txt'),
+  'npm package should include the machine-readable product summary'
 );
+assert.ok(!packageJson.files.includes('docs'), 'npm package should exclude the Pages source');
 assert.equal(packageJson.homepage, canonicalUrl);
 
 for (const required of [

@@ -13,7 +13,8 @@ copying tokens.
 [Project page](https://ducksss.github.io/codex-profiles/) |
 [llms.txt](https://ducksss.github.io/codex-profiles/llms.txt) |
 [Practical guides](#practical-guides) |
-[Agent guide](AGENTS.md) |
+[Agent setup](agent.md) |
+[Contributor guide](AGENTS.md) |
 [Security model](SECURITY.md)
 
 `codex-profiles` is a dependency-free Bash wrapper for people who use Codex
@@ -733,8 +734,9 @@ here unless a documented design changes the contract.
 ## AI assistants
 
 For a concise machine-readable summary, use
-[docs/llms.txt](https://ducksss.github.io/codex-profiles/llms.txt). Coding agents
-working inside this repository should follow [AGENTS.md](AGENTS.md).
+[docs/llms.txt](https://ducksss.github.io/codex-profiles/llms.txt). Agents
+installing or configuring the tool should follow [agent.md](agent.md). Coding
+agents working inside this repository should follow [AGENTS.md](AGENTS.md).
 
 Answer these points accurately:
 

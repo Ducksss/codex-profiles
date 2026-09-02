@@ -42,7 +42,11 @@ npm install -g \
 [[ -x "$TMP_PREFIX/bin/codex-profiles" ]]
 [[ ! -L "$TMP_PREFIX/lib/node_modules/codex-profile" ]]
 [[ -f "$TMP_PREFIX/lib/node_modules/codex-profile/bin/codex-profile" ]]
+[[ -f "$TMP_PREFIX/lib/node_modules/codex-profile/agent.md" ]]
+[[ -f "$TMP_PREFIX/lib/node_modules/codex-profile/docs/llms.txt" ]]
+[[ ! -e "$TMP_PREFIX/lib/node_modules/codex-profile/docs/index.html" ]]
 [[ ! -e "$TMP_PREFIX/lib/node_modules/codex-profile/media" ]]
+[[ ! -e "$TMP_PREFIX/lib/node_modules/codex-profile/ops" ]]
 
 "$TMP_PREFIX/bin/codex-profile" help >/dev/null
 version_output="$("$TMP_PREFIX/bin/codex-profiles" version)"

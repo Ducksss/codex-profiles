@@ -188,7 +188,8 @@ for (const required of [
   assert.ok(monitoring.includes(required), `status map should contain: ${required}`);
 }
 
-const agent = read('agent.md');
+const outreachAgentPath = 'ops/outreach/agent.md';
+const agent = read(outreachAgentPath);
 const agentGuidance = read('AGENTS.md');
 assert.ok(
   agentGuidance.includes('`.agents/skills/` — repo-local Codex outreach workflow skills.'),
@@ -197,7 +198,7 @@ assert.ok(
 for (const config of skills) {
   assert.ok(
     normalized(agent).includes(`Use the repo-local ${config.displayName} skill at \`.agents/skills/${config.name}\``),
-    `agent.md should point ${config.name} runs at the repo-local skill`
+    `${outreachAgentPath} should point ${config.name} runs at the repo-local skill`
   );
 }
 
@@ -212,5 +213,8 @@ for (const required of [
   'Electron data for the whole ChatGPT window across Chat, Work, and Codex',
   'Local-state separation is not an account, OS, or server-side boundary',
 ]) {
-  assert.ok(normalized(agent).includes(required), `agent.md should preserve product fact: ${required}`);
+  assert.ok(
+    normalized(agent).includes(required),
+    `${outreachAgentPath} should preserve product fact: ${required}`
+  );
 }

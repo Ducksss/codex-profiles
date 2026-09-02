@@ -16,7 +16,7 @@ change and are not per-target state.
   by editing this file. Do not re-add tracking tables here: concurrent runs would
   race on them, which is exactly why tracking moved out.
 - Pre-tracker history:
-  [`archive/launch-ledger-history.md`](archive/launch-ledger-history.md) and this
+  [`archive/launch-ledger-history.md`](../../archive/launch-ledger-history.md) and this
   file's git history.
 - Current outreach posture: broad near-identical awesome-list PRs are paused.
   Prefer issue-first unless the target is Codex-specific, explicitly requests

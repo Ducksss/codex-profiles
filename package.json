@@ -33,8 +33,9 @@
   },
   "files": [
     "bin/codex-profile",
+    "agent.md",
     "CHANGELOG.md",
-    "docs",
+    "docs/llms.txt",
     "LICENSE",
     "README.md",
     "SECURITY.md"
