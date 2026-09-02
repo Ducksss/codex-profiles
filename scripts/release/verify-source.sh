@@ -86,6 +86,16 @@ grep -F "github:Ducksss/codex-profiles/v$version" docs/llms.txt >/dev/null \
   || { echo "docs/llms.txt Nix command must use immutable v$version." >&2; exit 1; }
 grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" install.sh >/dev/null \
   || { echo "install.sh usage must use immutable v$version." >&2; exit 1; }
+for public_document in README.md docs/llms.txt install.sh; do
+  for mutable_reference in \
+    'raw.githubusercontent.com/Ducksss/codex-profiles/main/install.sh' \
+    'github:Ducksss/codex-profiles/main'; do
+    if grep -F "$mutable_reference" "$public_document" >/dev/null; then
+      echo "$public_document must not publish mutable reference $mutable_reference." >&2
+      exit 1
+    fi
+  done
+done
 
 changelog_version="${version//./\.}"
 if ! grep -Eq "^## $changelog_version - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then

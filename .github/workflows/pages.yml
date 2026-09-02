@@ -36,6 +36,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: .pages-control
+          persist-credentials: false
 
       - name: Validate Pages source
         env:
@@ -46,8 +47,9 @@ jobs:
       - name: Check out site source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          ref: ${{ inputs.release_tag || github.sha }}
+          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.sha }}
           path: .pages-site
+          persist-credentials: false
 
       - name: Run GEO site tests
         working-directory: .pages-site

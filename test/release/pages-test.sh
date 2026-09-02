@@ -24,6 +24,7 @@ case "${1:-}:${2:-}" in
     case " $* " in *' -f release_tag=v0.7.0 '*) ;; *) exit 67 ;; esac
     ;;
   run:list)
+    case " $* " in *' --commit '*) exit 68 ;; esac
     count="$(grep -c '^gh:run list' "$RELEASE_TEST_LOG" || true)"
     if [ "$FAKE_PAGES_SCENARIO" = missing ]; then
       exit 0
@@ -72,7 +73,6 @@ run_pages() {
     GITHUB_RUN_ID="123" \
     GITHUB_RUN_ATTEMPT="4" \
     GITHUB_REPOSITORY="Ducksss/codex-profiles" \
-    GITHUB_SHA="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
     "$ROOT_DIR/scripts/release/deploy-pages.sh" \
       >"$TMP_ROOT/pages-$scenario.out" 2>&1
   status=$?

@@ -237,11 +237,16 @@ for (const literal of [
   "Check out trusted Pages controls",
   "Validate Pages source",
   ".pages-control/scripts/release/verify-pages-source.sh",
-  "ref: ${{ inputs.release_tag || github.sha }}",
+  "ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.sha }}",
   "path: .pages-site/docs",
 ]) {
   assert.ok(pagesWorkflow.includes(literal), `Pages workflow should contain ${literal}`);
 }
+assert.equal(
+  (pagesWorkflow.match(/persist-credentials: false/g) ?? []).length,
+  2,
+  "neither Pages checkout should persist the workflow token",
+);
 assert.ok(
   pagesDispatch.includes('gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main'),
   "release publication should dispatch the trusted Pages workflow from main",
@@ -249,6 +254,10 @@ assert.ok(
 assert.ok(
   pagesDispatch.includes('-f release_tag="$TAG"'),
   "release publication should pass the immutable artifact tag as data",
+);
+assert.ok(
+  !pagesDispatch.includes('--commit "$GITHUB_SHA"'),
+  "Pages run discovery must tolerate main advancing between release verification and dispatch",
 );
 
 console.log("Release workflow wiring tests passed.");

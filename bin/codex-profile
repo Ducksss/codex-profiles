@@ -197,11 +197,11 @@ file_link_count() {
   local path="$1"
   local count
 
-  if count="$(stat -f '%l' "$path" 2> /dev/null)"; then
+  if count="$(stat -c '%h' "$path" 2> /dev/null)"; then
     printf '%s\n' "$count"
     return 0
   fi
-  stat -c '%h' "$path" 2> /dev/null
+  stat -f '%l' "$path" 2> /dev/null
 }
 
 validate_desktop_log_file() {

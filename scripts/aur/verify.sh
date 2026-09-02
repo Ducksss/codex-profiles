@@ -107,13 +107,14 @@ printf 'Metadata, sources, checksums, aliases, and RPC state verified for codex-
   "$version" "$AUR_PKGREL"
 
 run_container_validation() {
-  local -a emulation_args=()
+  local emulated=0
   case "$(uname -m)" in
     x86_64 | amd64) ;;
-    *) emulation_args=(--env CODEX_PROFILE_AUR_EMULATED=1) ;;
+    *) emulated=1 ;;
   esac
 
-  docker run --rm -i --platform linux/amd64 "${emulation_args[@]}" \
+  docker run --rm -i --platform linux/amd64 \
+    --env "CODEX_PROFILE_AUR_EMULATED=$emulated" \
     --mount "type=bind,src=$checkout,dst=/release,readonly" \
     archlinux:base-devel bash -s <<'CONTAINER'
 set -euo pipefail

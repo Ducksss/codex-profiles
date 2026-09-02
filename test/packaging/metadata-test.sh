@@ -99,14 +99,20 @@ grep -F "CODEX_PROFILE_VERSION=v$version sh" README.md >/dev/null \
   || fail "README standalone installer does not request v$version"
 grep -F "github:Ducksss/codex-profiles/v$version" README.md >/dev/null \
   || fail "README Nix install is not pinned to v$version"
-! grep -F 'raw.githubusercontent.com/Ducksss/codex-profiles/main/install.sh' README.md >/dev/null \
-  || fail "README executes the mutable main-branch installer"
 grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" docs/llms.txt >/dev/null \
   || fail "docs/llms.txt standalone installer is not pinned to v$version"
 grep -F "github:Ducksss/codex-profiles/v$version" docs/llms.txt >/dev/null \
   || fail "docs/llms.txt Nix install is not pinned to v$version"
 grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" install.sh >/dev/null \
   || fail "install.sh usage is not pinned to v$version"
+for public_document in README.md docs/llms.txt install.sh; do
+  for mutable_reference in \
+    'raw.githubusercontent.com/Ducksss/codex-profiles/main/install.sh' \
+    'github:Ducksss/codex-profiles/main'; do
+    ! grep -F "$mutable_reference" "$public_document" >/dev/null \
+      || fail "$public_document publishes mutable reference $mutable_reference"
+  done
+done
 grep -F 'make check' CONTRIBUTING.md >/dev/null || fail "CONTRIBUTING omits the canonical check"
 grep -F 'make check' AGENTS.md >/dev/null || fail "AGENTS omits the canonical check"
 grep -F 'https://github.com/Ducksss/codex-profiles/security/advisories/new' SECURITY.md >/dev/null \

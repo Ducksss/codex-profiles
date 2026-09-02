@@ -282,6 +282,13 @@ case "\${1:-}" in
 esac
 `,
 );
+writeExecutable(
+  "uname",
+  `
+[[ "\${1:-}" == "-m" ]] || exit 2
+printf '%s\n' "\${AUR_TEST_UNAME_M:-x86_64}"
+`,
+);
 for (const command of ["git", "ssh"]) {
   writeExecutable(
     command,
@@ -403,9 +410,26 @@ const autoResult = run(
   verifyEnv,
 );
 assertSuccess(autoResult, "automatic container verification");
-assert.match(readFileSync(commandLog, "utf8"), /^docker info\ndocker run /m);
+assert.match(
+  readFileSync(commandLog, "utf8"),
+  /^docker info\ndocker run /m,
+  `automatic container command log is incomplete:\n${autoResult.stdout}\n${autoResult.stderr}`,
+);
 assert.match(readFileSync(commandLog, "utf8"), /docker run --rm -i --platform linux\/amd64 /);
+assert.match(readFileSync(commandLog, "utf8"), /--env CODEX_PROFILE_AUR_EMULATED=0 /);
 assert.match(autoResult.stdout, /Container validation: passed/);
+
+writeFileSync(commandLog, "");
+const emulatedResult = run(
+  verify,
+  verifyArgs.map((arg) => (arg === "never" ? "auto" : arg)),
+  { ...verifyEnv, AUR_TEST_UNAME_M: "arm64" },
+);
+assertSuccess(emulatedResult, "emulated-host container verification");
+assert.match(
+  readFileSync(commandLog, "utf8"),
+  /docker run --rm -i --platform linux\/amd64 --env CODEX_PROFILE_AUR_EMULATED=1 /,
+);
 
 writeFileSync(commandLog, "");
 const unavailableAuto = run(
