@@ -160,22 +160,25 @@ test_list_reports_initialized_managed_profiles_without_cli() {
 }
 
 test_init_creates_private_profile_home_without_codex() {
-  local tmp profile_home
+  local tmp profile_home config
   tmp="$(mktemp -d)"
   profile_home="$tmp/home/.codex-personal"
+  config="$tmp/config"
 
-  run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" init personal
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI=/no/such/codex "$SCRIPT" init personal
 
   assert_status 0
   assert_contains "Initialized personal ($profile_home)"
   [[ -d "$profile_home" ]] || fail "init did not create profile home"
   [[ "$(mode_of "$profile_home")" == "700" ]] || fail "profile home is not private"
-  [[ "$(cat "$tmp/home/.config/codex-profile/state-version")" == "1" ]] || \
+  [[ "$(cat "$config/state-version")" == "1" ]] || \
     fail "init did not record the state schema version"
-  [[ ! -e "$tmp/home/.config/codex-profile/mutation.lock" ]] || \
+  [[ ! -e "$config/mutation.lock" ]] || \
     fail "init left its state mutation lock behind"
 
-  run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" init personal
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CODEX_CLI=/no/such/codex "$SCRIPT" init personal
 
   assert_status 0
   assert_contains "Already initialized personal ($profile_home)"
