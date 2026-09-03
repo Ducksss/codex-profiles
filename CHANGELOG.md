@@ -9,6 +9,12 @@ and this project follows semantic versioning for tagged releases.
 
 ### Changed
 
+- Removed obsolete pre-v0.7 media, completed implementation plans, the frozen
+  launch-ledger archive, the unused design brief, and self-referential GEO
+  process documents. The project page no longer presents legacy Codex Desktop
+  imagery as proof of current ChatGPT behavior.
+- Repaired outreach skill references after the launch playbook move and removed
+  the unavailable platform-outreach dependency and stale media guidance.
 - Replaced the root outreach automation prompt with a user-facing agent setup
   guide that covers prerequisites, installation, verification, and profile
   creation. Moved the project-internal outreach prompt, launch playbook, and

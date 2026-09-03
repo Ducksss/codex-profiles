@@ -12,9 +12,9 @@ work back to the correct phase. This skill does not create leads or drafts.
 
 ## Required Context
 
-Read policy gates in `LAUNCH.md`, the live tracker target, and the existing PR,
-issue, listing, or submission URL. Load `references/status-map.md` before
-updating status.
+Read policy gates in `ops/outreach/launch.md`, the live tracker target, and the
+existing PR, issue, listing, or submission URL. Load `references/status-map.md`
+before updating status.
 
 ## Boundaries
 

@@ -30,7 +30,7 @@ It is community-maintained and is **not** an official OpenAI project.
 - `test/` — suites grouped by `cli`, `install`, `packaging`, `release`, `site`,
   and `outreach`; shared infrastructure lives in `test/lib` and fixtures in
   `test/fixtures`.
-- `docs/` — GitHub Pages site plus `llms.txt`, `robots.txt`, `sitemap.xml`, GEO docs.
+- `docs/` — GitHub Pages site plus `llms.txt`, `robots.txt`, and `sitemap.xml`.
 - `Makefile` — stable delegates including `check`, `test`, `lint`, install, and
   package smoke targets.
 - `CHANGELOG.md` — Keep a Changelog format; add entries under `## Unreleased`.
