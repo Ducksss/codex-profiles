@@ -128,7 +128,7 @@ for (const config of skills) {
     assert.ok(skillText.includes(required), `${config.name} should be executable: ${required}`);
   }
   assert.ok(
-    !skillText.includes('`LAUNCH.md`'),
+    !/\bLAUNCH\.md\b/.test(skillText),
     `${config.name} should not reference the removed root launch playbook`
   );
 
