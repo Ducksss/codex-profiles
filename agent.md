@@ -103,7 +103,7 @@ codex-profile login work
 ```
 
 Do not copy authentication from another profile. When the user explicitly
-wants shared non-secret configuration, use the built-in allowlist:
+wants to share non-secret configuration, use the built-in allowlist:
 
 ```sh
 codex-profile init personal-2 --share-with personal

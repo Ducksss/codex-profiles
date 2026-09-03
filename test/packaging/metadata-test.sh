@@ -102,6 +102,11 @@ for directory in test/cli test/install test/packaging test/release test/site tes
 done
 [[ -d scripts/release ]] || fail "release script directory is missing"
 grep -F 'make check' README.md >/dev/null || fail "README omits the canonical check"
+if grep -Eq '\]\((AGENTS|CONTRIBUTING)\.md\)' README.md; then
+  fail "packaged README contains a relative link to an unpackaged contributor guide"
+fi
+grep -F 'https://github.com/Ducksss/codex-profiles/blob/main/AGENTS.md' README.md >/dev/null \
+  || fail "README omits the stable contributor-agent guide URL"
 grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" README.md >/dev/null \
   || fail "README standalone installer is not pinned to v$version"
 grep -F "CODEX_PROFILE_VERSION=v$version sh" README.md >/dev/null \

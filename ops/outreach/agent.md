@@ -121,8 +121,9 @@ submitted, or later needs a major update.
   `awesome-owner-repo`, or `if-owner-repo`.
 - `Targets.Channel`: reuse existing choices, including `Awesome-List PR`,
   `Issue-First`, `Directory`, `Forum`, `Web`, and `Manual/Gated`.
-- `Targets.Status`: use `Backlog -> Issue Open/PR Open -> Pending Review ->
-  Listed`, or terminal `Declined`, `Deferred`, or `Dead`.
+- `Targets.Status`: use `Active` for an in-progress, unsubmitted target;
+  otherwise use `Backlog -> Issue Open/PR Open -> Pending Review -> Listed`, or
+  terminal `Declined`, `Deferred`, or `Dead`.
 - `Targets.Priority`: `P0` for direct Codex, agent, or CLI listing fit; `P1`
   for likely Codex or `CODEX_HOME` workflow fit; `P2` for broader devtool
   visibility.
@@ -223,8 +224,9 @@ tracker so two runs never act on the same target:
 
 - At startup, pick a unique run id to use for `--workflow` and `--by`, e.g.
   `run-<UTC-timestamp>-<random-suffix>`.
-- Before acting on a target, claim it. If the claim exits non-zero, another live
-  run holds it — skip that target and move on:
+- Before acting on a target, claim it. If the claim exits 3, another live run
+  holds it — skip that target and move on. For any other nonzero exit, stop and
+  surface the unexpected result or RPC failure instead of acting on the target:
 
 ```sh
 node scripts/outreach-tracker.mjs claim <key> --by <run-id>
@@ -382,7 +384,7 @@ choose a stable slug such as `awesome-foo-bar` and reuse it on later runs):
 node scripts/outreach-tracker.mjs upsert <key> \
   --name "<display name>" \
   --channel "<Directory|Awesome-List PR|Issue-First|Forum|Owned Listing|Social|Manual/Gated>" \
-  --status "<Backlog|Issue Open|PR Open|Pending Review|Listed|Declined|Deferred|Dead>" \
+  --status "<Backlog|Active|Issue Open|PR Open|Pending Review|Listed|Declined|Deferred|Dead>" \
   --link "<PR/issue/listing URL>" \
   --last-checked <YYYY-MM-DD> \
   --next-action "<owner-visible next step, or the reason it was skipped>"

@@ -39,6 +39,7 @@ const mustContain = [
   'Truthfulness gate',
   'No closing draft or external action may start until the tracker records an `ICP: yes` decision',
   'Do not invent a company, startup, region, market, customer story, or use case',
+  '`Active` for an in-progress, unsubmitted target',
   'Backlog -> Issue Open/PR Open -> Pending Review -> Listed',
   'candidate discovery and shallow tracker intake',
   'ICP, status, priority, evidence, and next-action decisions',
@@ -58,6 +59,8 @@ const mustContain = [
   'Outreach Tracker Source Of Truth',
   'Directory rejects CLIs/scripts',
   'PR merged/listing accepted',
+  'If the claim exits 3',
+  'For any other nonzero exit',
 ];
 
 for (const text of mustContain) {
