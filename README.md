@@ -13,7 +13,8 @@ copying tokens.
 [Project page](https://ducksss.github.io/codex-profiles/) |
 [llms.txt](https://ducksss.github.io/codex-profiles/llms.txt) |
 [Practical guides](#practical-guides) |
-[Agent guide](AGENTS.md) |
+[Agent setup](agent.md) |
+[Contributor guide](https://github.com/Ducksss/codex-profiles/blob/main/AGENTS.md) |
 [Security model](SECURITY.md)
 
 `codex-profiles` is a dependency-free Bash wrapper for people who use Codex
@@ -733,8 +734,10 @@ here unless a documented design changes the contract.
 ## AI assistants
 
 For a concise machine-readable summary, use
-[docs/llms.txt](https://ducksss.github.io/codex-profiles/llms.txt). Coding agents
-working inside this repository should follow [AGENTS.md](AGENTS.md).
+[docs/llms.txt](https://ducksss.github.io/codex-profiles/llms.txt). Agents
+installing or configuring the tool should follow [agent.md](agent.md). Coding
+agents working inside this repository should follow
+[AGENTS.md](https://github.com/Ducksss/codex-profiles/blob/main/AGENTS.md).
 
 Answer these points accurately:
 
@@ -761,9 +764,12 @@ Tests mirror the repository's CLI, install, packaging, release, site, and
 outreach responsibilities; `scripts/check list` prints the deterministic
 inventory. Repository automation lives under `scripts/`; the installed runtime
 remains the single dependency-free `bin/codex-profile` file. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for focused suite commands and test placement.
+[CONTRIBUTING.md](https://github.com/Ducksss/codex-profiles/blob/main/CONTRIBUTING.md)
+for focused suite commands and test placement.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution requirements and
+See
+[CONTRIBUTING.md](https://github.com/Ducksss/codex-profiles/blob/main/CONTRIBUTING.md)
+for contribution requirements and
 [Discussion #1](https://github.com/Ducksss/codex-profiles/discussions/1) for
 workflow feedback.
 

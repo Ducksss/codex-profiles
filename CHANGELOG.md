@@ -7,6 +7,14 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Changed
+
+- Replaced the root outreach automation prompt with a user-facing agent setup
+  guide that covers prerequisites, installation, verification, and profile
+  creation. Moved the project-internal outreach prompt, launch playbook, and
+  tracker runbook under `ops/outreach/`, and stopped shipping the full GitHub
+  Pages source in the npm package.
+
 ## 0.10.0 - 2026-09-02
 
 ### Added

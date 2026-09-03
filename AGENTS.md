@@ -3,9 +3,8 @@
 Guidance for AI coding agents (Codex, Claude Code, Cursor, and similar) working
 in this repository. Humans should start with [README.md](README.md).
 
-> Not to be confused with [`agent.md`](agent.md), which is a separate operator
-> prompt for the project's outreach automation, not instructions for agents
-> editing this codebase.
+> [`agent.md`](agent.md) is the user-facing install and setup guide for agents.
+> Project-internal outreach operations live under [`ops/outreach/`](ops/outreach/).
 
 ## What this project is
 
@@ -20,7 +19,10 @@ It is community-maintained and is **not** an official OpenAI project.
 ## Repository layout
 
 - `bin/codex-profile` — the entire CLI (Bash). Edit this for behavior changes.
+- `agent.md` — user-facing install and profile-setup instructions for AI agents.
 - `.agents/skills/` — repo-local Codex outreach workflow skills.
+- `ops/outreach/` — project-internal distribution prompt, launch playbook, and
+  tracker runbook.
 - `scripts/check` — canonical syntax, test, lint, and full-check dispatcher.
 - `scripts/release/` — directly tested release-channel programs; workflow YAML
   only maps permissions, inputs, secrets, and ordering.

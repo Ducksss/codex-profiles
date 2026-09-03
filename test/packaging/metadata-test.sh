@@ -63,6 +63,15 @@ if (pkg.files.some((entry) => entry === 'media' || entry.startsWith('media/'))) 
 if (pkg.files.some((entry) => entry === 'scripts' || entry.startsWith('scripts/'))) {
   throw new Error('repository-operational scripts must not ship in the npm package');
 }
+if (!pkg.files.includes('agent.md')) {
+  throw new Error('the user-facing agent setup guide must ship in the npm package');
+}
+if (!pkg.files.includes('docs/llms.txt') || pkg.files.includes('docs')) {
+  throw new Error('the npm package should ship llms.txt without the full Pages source');
+}
+if (pkg.files.some((entry) => entry === 'ops' || entry.startsWith('ops/'))) {
+  throw new Error('project-internal operations must not ship in the npm package');
+}
 NODE
 
 node - <<'NODE'
@@ -93,6 +102,11 @@ for directory in test/cli test/install test/packaging test/release test/site tes
 done
 [[ -d scripts/release ]] || fail "release script directory is missing"
 grep -F 'make check' README.md >/dev/null || fail "README omits the canonical check"
+if grep -Eq '\]\((AGENTS|CONTRIBUTING)\.md\)' README.md; then
+  fail "packaged README contains a relative link to an unpackaged contributor guide"
+fi
+grep -F 'https://github.com/Ducksss/codex-profiles/blob/main/AGENTS.md' README.md >/dev/null \
+  || fail "README omits the stable contributor-agent guide URL"
 grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" README.md >/dev/null \
   || fail "README standalone installer is not pinned to v$version"
 grep -F "CODEX_PROFILE_VERSION=v$version sh" README.md >/dev/null \
