@@ -118,6 +118,7 @@ for (const config of skills) {
     assert.ok(skillText.includes(required), `${config.name} should contain: ${required}`);
   }
   for (const required of [
+    '`ops/outreach/launch.md`',
     'node scripts/outreach-tracker.mjs',
     'claim <key> --by <run-id>',
     'release <key> --by <run-id>',
@@ -126,6 +127,10 @@ for (const config of skills) {
   ]) {
     assert.ok(skillText.includes(required), `${config.name} should be executable: ${required}`);
   }
+  assert.ok(
+    !/\bLAUNCH\.md\b/.test(skillText),
+    `${config.name} should not reference the removed root launch playbook`
+  );
 
   const metadata = read(metadataPath);
   assert.ok(metadata.includes(`display_name: "${config.displayName}"`));

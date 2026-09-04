@@ -71,7 +71,7 @@
         "@id": "https://github.com/Ducksss/codex-profiles#organization"
       },
       "featureList": [
-        "Isolated CODEX_HOME directories per profile",
+        "Separate CODEX_HOME directories per profile",
         "Codex CLI launch support",
         "Stock ChatGPT desktop session through app default",
         "Named ChatGPT windows with separate local state",
@@ -598,25 +598,6 @@
     .item strong { display: block; margin-bottom: 6px; color: var(--ink); font-size: 1.02rem; }
     .item p { color: var(--muted); font-size: 0.95rem; }
 
-    /* ---------- Showcase ---------- */
-    .showcase {
-      position: relative;
-      border-radius: var(--radius);
-      overflow: hidden;
-      border: 1px solid var(--line);
-      background: var(--surface);
-      box-shadow: var(--shadow);
-    }
-    .showcase img { display: block; width: 100%; height: auto; }
-    .showcase figcaption {
-      padding: 14px 20px;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.76rem;
-      color: var(--muted);
-      border-top: 1px solid var(--line);
-      background: var(--paper);
-    }
-
     /* ---------- Facts table ---------- */
     .facts { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 22px; align-items: start; }
     .table { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow-sm); }
@@ -1081,24 +1062,6 @@
     .feature-ledger .item strong { max-width: 12ch; color: #000; font-family: "Schibsted Grotesk", sans-serif; font-size: clamp(1.5rem, 2.2vw, 2.25rem); line-height: 1; }
     .feature-ledger .item p { max-width: 34ch; margin-top: 20px; color: #333; }
 
-    .showcase-band {
-      background: var(--work);
-      box-shadow: 0 0 0 100vmax var(--work);
-      clip-path: inset(0 -100vmax);
-    }
-    .showcase-band .section-head {
-      display: grid;
-      grid-template-columns: minmax(0, .8fr) minmax(320px, .55fr);
-      gap: 48px;
-      align-items: end;
-      max-width: none;
-    }
-    .showcase-band h2 { max-width: 8.5ch; }
-    .showcase-band .lede { margin-bottom: 7px; }
-    .showcase { border-color: #000; border-radius: 0; background: #000; box-shadow: none; }
-    .showcase img { aspect-ratio: 16 / 9; object-fit: cover; object-position: center top; }
-    .showcase figcaption { padding: 16px 0 0; color: #000; border-top: 1px solid #000; background: var(--work); }
-
     .facts-section .section-head { margin-bottom: 38px; }
     .facts-section h2 { font-size: clamp(3.2rem, 6vw, 6.8rem); }
     .facts { grid-template-columns: minmax(220px, .55fr) minmax(0, 1.45fr); gap: clamp(32px, 7vw, 110px); }
@@ -1182,7 +1145,6 @@
       h1.wordmark { max-width: 10.5ch; }
       .term { width: min(820px, 100%); }
       .feature-ledger { grid-template-columns: repeat(2, 1fr); }
-      .showcase-band .section-head,
       .trust-band .section-head { grid-template-columns: 1fr; }
       .facts { grid-template-columns: 1fr; }
       .faq-list article { grid-template-columns: 48px minmax(220px, .8fr) minmax(0, 1.2fr); }
@@ -1245,7 +1207,6 @@
       <div class="site-links">
         <a href="#how">How it works</a>
         <a href="#features">Features</a>
-        <a href="#showcase-title">Desktop</a>
         <a href="#faq">FAQ</a>
         <a class="nav-cta" href="https://github.com/Ducksss/codex-profiles">View on GitHub ↗</a>
       </div>
@@ -1268,18 +1229,18 @@
         </div>
       </div>
 
-      <div class="term" role="img" aria-label="Terminal example: install codex-profile, then run Codex on isolated work and personal profiles">
+      <div class="term" role="img" aria-label="Terminal example: install codex-profile, then run Codex on separate work and personal profiles">
         <div class="term-bar"><i class="b1"></i><i class="b2"></i><i class="b3"></i><span class="title">~/dev — codex-profile</span></div>
         <div class="term-body">
           <span class="term-line"><span class="pl">$</span> <span class="cmd">codex-profile status</span></span>
           <span class="term-line"><span class="out">active</span>      <span class="arg">work</span></span>
           <span class="term-line"><span class="out">CODEX_HOME</span>  <span class="cmd">~/.codex-work</span></span>
-          <span class="term-line"><span class="out">state</span>       <span class="ok">isolated</span></span>
+          <span class="term-line"><span class="out">state</span>       <span class="ok">separate</span></span>
           <span class="term-line">&nbsp;</span>
           <span class="term-line"><span class="pl">$</span> <span class="cmd">codex-profile cli work</span></span>
           <span class="term-line"><span class="ok">✓</span> <span class="out">Codex launched on work</span></span>
         </div>
-        <div class="profile-keys" role="list" aria-label="Example isolated profiles">
+        <div class="profile-keys" role="list" aria-label="Example separate profiles">
           <span class="profile-key personal" role="listitem"><b>personal</b></span>
           <span class="profile-key work" role="listitem"><b>work</b></span>
           <span class="profile-key school" role="listitem"><b>school</b></span>
@@ -1305,14 +1266,14 @@ codex-profile doctor</code></pre>
 
     <section class="section wrap reveal" aria-labelledby="how">
       <div class="section-head">
-        <p class="eyebrow">Interactive isolation model · drag the nodes</p>
+        <p class="eyebrow">Interactive local-state model · drag the nodes</p>
         <h2 id="how">One home for every profile.</h2>
         <p class="lede">Every CLI profile selects its own <span class="mono">CODEX_HOME</span>. On macOS, a named <span class="mono">app</span> launch also selects separate local state for the whole ChatGPT window. Flip the switch to see why this beats swapping one <span class="mono">auth.json</span> around.</p>
       </div>
 
       <div class="graph-shell">
         <div class="graph-toolbar">
-          <form class="seg" id="isolation-controls" role="group" aria-label="Isolation model" novalidate>
+          <form class="seg" id="isolation-controls" role="group" aria-label="Local-state model" novalidate>
             <button id="mode-isolated" type="submit" name="mode" value="isolated" aria-pressed="true"><span class="k">$</span>codex-profile</button>
             <button id="mode-shared" class="danger" type="submit" name="mode" value="shared" aria-pressed="false"><span class="k">~</span>swap auth.json</button>
           </form>
@@ -1320,11 +1281,11 @@ codex-profile doctor</code></pre>
         </div>
 
         <div class="graph-stage" id="graph" data-mode="isolated">
-          <div class="badge-shared">⚠ one shared ~/.codex — state bleeds between accounts</div>
+          <div class="badge-shared">⚠ one shared ~/.codex — state is shared across profiles</div>
           <div class="tip" id="graph-tip"></div>
           <div class="graph-fallback" id="graph-fallback">
-            <h3>Profile isolation at a glance</h3>
-            <p>One macOS user fans out into separate Codex profiles, each mapped to its own isolated home directory:</p>
+            <h3>Profile separation at a glance</h3>
+            <p>One macOS user fans out into named Codex profiles, each mapped to its own separate home directory:</p>
             <ul>
               <li><code>default</code> &rarr; <code>~/.codex</code></li>
               <li><code>work</code> &rarr; <code>~/.codex-work</code></li>
@@ -1345,7 +1306,7 @@ codex-profile doctor</code></pre>
       <div class="grid feature-ledger">
         <article class="item">
           <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h18"/></svg></span>
-          <strong>Profile isolation</strong>
+          <strong>Separate Codex homes</strong>
           <p>Each profile maps to its own Codex home, such as default to ~/.codex and work to ~/.codex-work.</p>
         </article>
         <article class="item">
@@ -1374,18 +1335,6 @@ codex-profile doctor</code></pre>
           <p>The distributed command is Bash and is tested on macOS and Ubuntu/Linux.</p>
         </article>
       </div>
-    </section>
-
-    <section class="section wrap reveal showcase-band" aria-labelledby="showcase-title">
-      <div class="section-head">
-        <p class="eyebrow">Desktop proof</p>
-        <h2 id="showcase-title">Two named windows, side by side.</h2>
-        <p class="lede"><span class="mono">app personal</span> and <span class="mono">app work</span> open the original signed ChatGPT app with separate whole-window state and matching Codex homes — without cloning, patching, or re-signing the app.</p>
-      </div>
-      <figure class="showcase" style="margin:0">
-        <img src="https://raw.githubusercontent.com/Ducksss/codex-profiles/main/media/codex-profile-parallel-instances.png" width="2400" height="1500" loading="lazy" alt="Two named ChatGPT windows running side by side with separate local state">
-        <figcaption>codex-profile app personal · codex-profile app work</figcaption>
-      </figure>
     </section>
 
     <section class="section wrap reveal facts-section" aria-labelledby="facts">

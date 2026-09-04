@@ -51,21 +51,12 @@ closed PR that needs a replacement.
 
 ## Dashboard and Platform Outreach
 
-Before any dashboard, directory form, launchpad, community, article site, or
-other non-GitHub platform work, invoke `$platform-outreach`. Follow its
-community-voice recipe, media preflight, draft-integrity, completion-state,
-ledger, and publication-gate requirements. Its stop-before-publication rules
-override the general submission authority in this file for these surfaces.
-
-For this project, use this verified visual hierarchy:
-
-- Product screenshot: `media/codex-profile-parallel-instances.png`
-- Cover, launch card, banner, or social preview:
-  `media/codex-profiles-saas-promo-frame.png`
-
-Complete the skill's media preflight before long-form copy and verify the
-rendered asset and crop. Write as Chai only when the authenticated project
-context verifies that identity.
+Treat dashboard, directory form, launchpad, community, article site, and other
+non-GitHub platform work as draft-only. Follow the target's contribution rules
+and stop before publication without explicit approval. There is no approved
+current product screenshot; do not reuse pre-v0.7 Codex Desktop imagery as
+evidence of current ChatGPT behavior. `docs/og-image.png` may be used only as a
+generic project cover where that format is accepted.
 
 Do not resume new promotion until README and `ops/outreach/launch.md` identify
 v0.10.0 as released and

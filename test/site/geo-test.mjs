@@ -28,8 +28,6 @@ const html = read('docs/index.html');
 const robots = read('docs/robots.txt');
 const sitemap = read('docs/sitemap.xml');
 const llms = read('docs/llms.txt');
-const audit = read('docs/geo-audit.md');
-const measurement = read('docs/geo-measurement.md');
 const agentsGuide = read('AGENTS.md');
 const setupAgent = read('agent.md');
 const securityPolicy = read('SECURITY.md');
@@ -64,17 +62,44 @@ assertContains(
   'homepage meta description'
 );
 
+assertContains(
+  html,
+  'Separate CODEX_HOME directories per profile',
+  'homepage feature list'
+);
+for (const staleCopy of [
+  'Isolated CODEX_HOME directories per profile',
+  'run Codex on isolated work and personal profiles',
+  'Example isolated profiles',
+  'Interactive isolation model',
+  'state bleeds between accounts',
+  'Profile isolation at a glance',
+  'own isolated home directory',
+  '<strong>Profile isolation</strong>',
+  'Desktop proof',
+  'codex-profile-parallel-instances.png',
+]) {
+  assert.ok(!html.includes(staleCopy), `homepage should not contain stale copy: ${staleCopy}`);
+}
+for (const [, anchor] of html.matchAll(/href="#([^"]+)"/g)) {
+  assertContains(html, `id="${anchor}"`, `homepage anchor #${anchor}`);
+}
+
 assert.ok(statSync(siteRoot).isDirectory(), 'docs site root should exist');
 assert.ok(fileExists('docs/index.html'), 'docs/index.html should exist');
 assert.ok(fileExists('docs/robots.txt'), 'docs/robots.txt should exist');
 assert.ok(fileExists('docs/sitemap.xml'), 'docs/sitemap.xml should exist');
 assert.ok(fileExists('docs/llms.txt'), 'docs/llms.txt should exist');
-assert.ok(fileExists('docs/geo-audit.md'), 'docs/geo-audit.md should exist');
-assert.ok(fileExists('docs/geo-measurement.md'), 'docs/geo-measurement.md should exist');
 assert.ok(fileExists('docs/.nojekyll'), 'docs/.nojekyll should exist');
 assert.ok(fileExists('docs/outreach-jwks.json'), 'public outreach JWKS should exist');
 assert.ok(fileExists('ops/outreach/tracker.md'), 'outreach tracker runbook should exist');
 assert.ok(fileExists('.github/workflows/pages.yml'), 'Pages deploy workflow should exist');
+assert.ok(!fileExists('docs/geo-audit.md'), 'internal GEO audit should not be deployed');
+assert.ok(!fileExists('docs/geo-measurement.md'), 'internal GEO measurement plan should not be deployed');
+assert.ok(
+  !fileExists('media/codex-profile-parallel-instances.png'),
+  'obsolete pre-v0.7 Desktop screenshot should not be retained'
+);
 
 assert.equal(outreachJwks.keys.length, 1, 'outreach JWKS should publish one active key');
 const outreachJwk = outreachJwks.keys[0];
@@ -249,9 +274,6 @@ assert.deepEqual(
   'sitemap should pair each public URL with the changelog release date'
 );
 assertContains(html, `Last updated ${releaseDate}.`, 'homepage footer');
-assertContains(audit, `${releaseDate} modification dates`, 'GEO audit sitemap date');
-assertContains(audit, `as of ${releaseDate}`, 'GEO audit facts date');
-assertContains(audit, 'make check', 'GEO audit validation command');
 assertContains(html, 'uses make check', 'homepage validation description');
 assertContains(
   llms,
@@ -267,27 +289,6 @@ for (const required of [
   'Primary facts for AI answers',
 ]) {
   assertContains(llms, required, 'llms.txt');
-}
-
-for (const required of [
-  '# GEO Audit for codex-profiles',
-  'Technical AI Readiness',
-  'Structured Data and Machine Understanding',
-  'Content Structure and Citation Readiness',
-  'Entity, Trust, and Brand Authority',
-  'Measurement, Testing, and Outcomes',
-]) {
-  assertContains(audit, required, 'GEO audit');
-}
-
-for (const required of [
-  '# GEO Measurement Plan for codex-profiles',
-  'Target Prompt Set',
-  'Competitor and Citation Log',
-  'Before and After Evidence',
-  'KPI Reporting',
-]) {
-  assertContains(measurement, required, 'GEO measurement');
 }
 
 assert.ok(

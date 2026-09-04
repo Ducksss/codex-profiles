@@ -15,9 +15,8 @@ change and are not per-target state.
 - Read and write it through `scripts/outreach-tracker.mjs` (see `agent.md`), not
   by editing this file. Do not re-add tracking tables here: concurrent runs would
   race on them, which is exactly why tracking moved out.
-- Pre-tracker history:
-  [`archive/launch-ledger-history.md`](../../archive/launch-ledger-history.md) and this
-  file's git history.
+- Pre-tracker history remains available in this file's git history and in the
+  external tracker's preserved migration records.
 - Current outreach posture: broad near-identical awesome-list PRs are paused.
   Prefer issue-first unless the target is Codex-specific, explicitly requests
   Codex CLI or ChatGPT Desktop workflow tooling, or has a structured registry

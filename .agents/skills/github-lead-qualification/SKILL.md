@@ -13,8 +13,8 @@ consumes tracker targets whose `Next Action = Run lead qualification`.
 
 ## Required Context
 
-Read `README.md` for current product positioning, `LAUNCH.md` for policy gates,
-and the selected tracker target for live outreach state. Load
+Read `README.md` for current product positioning, `ops/outreach/launch.md` for
+policy gates, and the selected tracker target for live outreach state. Load
 `references/icp-rules.md` before scoring.
 
 ## Boundaries

@@ -14,7 +14,8 @@ candidate discovery and shallow intake.
 ## Required Context
 
 Before searching, read current product positioning from `README.md`, policy
-gates from `LAUNCH.md`, and live distribution state from the outreach tracker.
+gates from `ops/outreach/launch.md`, and live distribution state from the
+outreach tracker.
 Load `references/search-patterns.md` for approved search lanes and example
 queries.
 
@@ -27,7 +28,8 @@ queries.
 - Record only a shallow candidate reason; do not assign final ICP.
 - Do not draft PRs, issues, comments, emails, DMs, forum posts, or listing submissions.
 - Do not contact externally.
-- Do not change `LAUNCH.md` unless the user explicitly asks for a repo-local handoff.
+- Do not change `ops/outreach/launch.md` unless the user explicitly asks for a
+  repo-local handoff.
 
 ## Accepted Input
 

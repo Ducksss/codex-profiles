@@ -61,6 +61,8 @@ const mustContain = [
   'PR merged/listing accepted',
   'If the claim exits 3',
   'For any other nonzero exit',
+  'There is no approved current product screenshot',
+  '`docs/og-image.png` may be used only as a generic project cover',
 ];
 
 for (const text of mustContain) {
@@ -70,6 +72,9 @@ for (const text of mustContain) {
 const forbidden = [
   'Do not ask the project owner for permission before opening PRs',
   'Act without waiting for manual approval',
+  '$platform-outreach',
+  'media/codex-profile-parallel-instances.png',
+  'media/codex-profiles-saas-promo-frame.png',
 ];
 
 for (const text of forbidden) {

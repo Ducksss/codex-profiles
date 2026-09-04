@@ -13,8 +13,8 @@ posts, submits, comments, emails, or sends anything externally.
 
 ## Required Context
 
-Read `README.md`, policy gates in `LAUNCH.md`, the live tracker target, and the
-target's contribution rules or submission guidelines. Load
+Read `README.md`, policy gates in `ops/outreach/launch.md`, the live tracker
+target, and the target's contribution rules or submission guidelines. Load
 `references/draft-rules.md` before writing copy.
 
 ## Boundaries
