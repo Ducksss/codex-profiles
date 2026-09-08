@@ -260,16 +260,18 @@ test_upgrade_refuses_option_shaped_release_url() {
 }
 
 test_upgrade_latest_is_a_noop_when_already_current() {
-  local tmp release_json
+  local tmp release_json version
   tmp="$(mktemp -d)"
   release_json="$tmp/release.json"
-  printf '{"tag_name":"v0.10.0","immutable":true,"draft":false,"prerelease":false}\n' > "$release_json"
+  version="$("$SCRIPT" version)"
+  version="${version##* }"
+  printf '{"tag_name":"v%s","immutable":true,"draft":false,"prerelease":false}\n' "$version" > "$release_json"
 
   run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_RELEASE_URL="$release_json" \
     CODEX_PROFILE_UPGRADE_CACHE="$tmp/cache" "$SCRIPT" upgrade --prefix "$tmp/prefix"
 
   assert_status 0
-  assert_contains "Already on latest immutable release codex-profile 0.10.0"
+  assert_contains "Already on latest immutable release codex-profile $version"
   [[ ! -e "$tmp/cache" ]] || fail "current immutable release created an upgrade cache"
   [[ ! -e "$tmp/prefix" ]] || fail "current immutable release replaced the installation"
 

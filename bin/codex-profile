@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PROGRAM="${0##*/}"
-VERSION="0.10.0"
+VERSION="0.11.0"
 CHATGPT_APP="${CHATGPT_APP:-}"
 CODEX_APP="${CODEX_APP:-}"
 CODEX_APP_BIN="${CODEX_APP_BIN:-}"
@@ -27,10 +27,14 @@ usage() {
 $PROGRAM - select named Codex homes and ChatGPT windows with separate local state
 
 Usage:
+  $PROGRAM app                             # interactive profile picker
   $PROGRAM app <profile> [--instance] [--rebuild] [workspace]
+  $PROGRAM cli                             # interactive profile picker
   $PROGRAM cli <profile> [codex-args...]
   $PROGRAM login <profile> [codex-login-args...]
   $PROGRAM init <profile> [--share-with <source-profile>]
+  $PROGRAM setup <profile>
+  $PROGRAM detach <profile>
   $PROGRAM remove <profile> [--yes]
   $PROGRAM launcher create <profile> [--name <display-name>] [--color <color>] [--force]
   $PROGRAM launcher list [--json]
@@ -53,7 +57,7 @@ Usage:
   $PROGRAM list
   $PROGRAM doctor [--json] [--check]
   $PROGRAM completions <bash|zsh|fish>
-  $PROGRAM shell-init <bash|zsh|fish>
+  $PROGRAM shell-init <bash|zsh|fish> [--prompt]
   $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
   $PROGRAM version
   $PROGRAM help
@@ -108,8 +112,11 @@ Environment:
   CODEX_PROFILE_NO_UPDATE_CHECK  Disable the daily update check (also honors DO_NOT_TRACK).
 
 Lifecycle:
-  init is the only command that creates a profile. Commands that run Codex,
+  init creates profiles; interactive setup guides you through init, login,
+  workspace binding, and an optional macOS launcher. Commands that run Codex,
   login, launch ChatGPT, or copy configuration require initialized profiles.
+  detach copies shared configuration into independent files without touching
+  private state. shell-init --prompt adds an optional active-profile indicator.
 
 Desktop auth safety:
   app refuses an inherited CODEX_ACCESS_TOKEN so a shell credential cannot
@@ -1208,6 +1215,11 @@ command_app() {
   local instance=no rebuild=no
   local profile="" workspace="" profile_set=no workspace_set=no positional_only=no
 
+  if [[ "$#" -eq 0 ]]; then
+    profile="$(pick_profile)" || return 1
+    profile_set=yes
+  fi
+
   while [[ "$#" -gt 0 ]]; do
     if [[ "$positional_only" == no ]]; then
       case "$1" in
@@ -1774,8 +1786,97 @@ command_launcher() {
   esac
 }
 
+require_interactive_terminal() {
+  [[ -t 0 ]] || die "This command requires an interactive terminal; supply a profile to app/cli or use init, login, workspace bind, and launcher create directly."
+}
+
+pick_profile() {
+  local profile choice index=0 default_choice="" resolve_status
+  local -a profiles=()
+
+  require_interactive_terminal
+  if workspace_resolve "$PWD"; then
+    :
+  else
+    resolve_status=$?
+    [[ "$resolve_status" -eq 1 ]] || return "$resolve_status"
+  fi
+  printf 'Choose a profile:\n' >&2
+  while IFS= read -r profile; do
+    profile_is_initialized "$profile" || continue
+    profiles+=("$profile")
+    index=$((index + 1))
+    printf '  %s) %s' "$index" "$profile" >&2
+    if [[ "$profile" == "$WORKSPACE_RESOLVED_PROFILE" ]]; then
+      printf ' (workspace)' >&2
+      default_choice="$index"
+    fi
+    printf '\n' >&2
+  done < <(discover_profiles yes)
+  [[ "$index" -gt 0 ]] || die "No initialized profiles; run '$PROGRAM setup <profile>' first."
+
+  while true; do
+    printf 'Profile number%s (q to cancel): ' "${default_choice:+ [$default_choice]}" >&2
+    IFS= read -r choice || die "Selection cancelled."
+    [[ "$choice" != q && "$choice" != Q ]] || die "Selection cancelled."
+    choice="${choice:-$default_choice}"
+    for ((index = 0; index < ${#profiles[@]}; index++)); do
+      if [[ "$choice" == "$((index + 1))" ]]; then
+        printf '%s\n' "${profiles[index]}"
+        return 0
+      fi
+    done
+    printf 'Enter one of the listed numbers.\n' >&2
+  done
+}
+
+interactive_yes_no() {
+  local question="$1" default="$2" answer suffix='[y/N]'
+  [[ "$default" != yes ]] || suffix='[Y/n]'
+  while true; do
+    printf '%s %s: ' "$question" "$suffix" >&2
+    IFS= read -r answer || die "Setup cancelled; completed steps were kept."
+    case "${answer:-$default}" in
+      y|Y|yes|YES) INTERACTIVE_ANSWER=yes; return 0 ;;
+      n|N|no|NO) INTERACTIVE_ANSWER=no; return 0 ;;
+      q|Q) die "Setup cancelled; completed steps were kept." ;;
+      *) printf 'Enter y or n (q to cancel).\n' >&2 ;;
+    esac
+  done
+}
+
+command_setup() {
+  [[ "$#" -eq 1 ]] || die "Usage: $PROGRAM setup <profile>"
+  local profile="$1" workspace
+  validate_profile "$profile"
+  require_interactive_terminal
+
+  # Each existing command owns its lock and login may exec the upstream CLI.
+  (command_init "$profile")
+  interactive_yes_no "Log in to Codex for $profile?" yes
+  if [[ "$INTERACTIVE_ANSWER" == yes ]]; then
+    (command_login "$profile")
+  fi
+  interactive_yes_no "Bind a workspace to $profile?" no
+  if [[ "$INTERACTIVE_ANSWER" == yes ]]; then
+    printf 'Workspace path [%s]: ' "$PWD" >&2
+    IFS= read -r workspace || die "Setup cancelled; completed steps were kept."
+    (command_workspace_bind "${workspace:-$PWD}" "$profile")
+  fi
+  if [[ "$(uname -s)" == Darwin ]]; then
+    interactive_yes_no "Create a macOS launcher for $profile?" no
+    if [[ "$INTERACTIVE_ANSWER" == yes ]]; then
+      (command_launcher_create "$profile")
+    fi
+  fi
+  note "Setup complete for $profile. Run '$PROGRAM cli $profile' to start Codex."
+}
+
 command_cli() {
   local profile="${1:-}"
+  if [[ "$#" -eq 0 ]]; then
+    profile="$(pick_profile)" || return 1
+  fi
   [[ -n "$profile" ]] || die "Usage: $PROGRAM cli <profile> [codex-args...]"
   shift || true
 
@@ -1845,6 +1946,86 @@ command_init() {
     note "Initialized $profile ($codex_home)"
   fi
 }
+
+shared_config_source() {
+  local path="$1" entry="$2" target source_home source_profile hops=0
+
+  # Follow only the same allowlisted entry in initialized profile homes.
+  # An arbitrary link could otherwise redirect a config copy to private state.
+  while [[ -L "$path" ]]; do
+    hops=$((hops + 1))
+    [[ "$hops" -le 40 ]] || die "Shared configuration link cycle: $path"
+    target="$(readlink "$path")" || die "Cannot read shared configuration link: $path"
+    source_home="${target%/*}"
+    source_profile="${source_home##*/.codex-}"
+    [[ "$source_home" != "$HOME/.codex" ]] || source_profile=default
+    is_valid_profile_name "$source_profile" && \
+      [[ "$target" == "$(codex_home_for_profile "$source_profile")/$entry" ]] || \
+      die "Unsafe shared configuration target: $path -> $target"
+    require_initialized_profile "$source_profile"
+    path="$target"
+  done
+  [[ -e "$path" ]] || die "Broken shared configuration target: $path"
+  printf '%s\n' "$path"
+}
+
+command_detach() (
+  [[ "$#" -eq 1 ]] || die "Usage: $PROGRAM detach <profile>"
+  local profile="$1" codex_home entry source unsafe stage finished=no restored=yes
+  local -a entries=() excluded=()
+  require_initialized_profile "$profile"
+  state_lock_acquire
+  require_initialized_profile "$profile"
+  codex_home="$(codex_home_for_profile "$profile")"
+  secure_initialized_home "$profile" "$codex_home"
+
+  while IFS= read -r entry; do
+    [[ ! -L "$codex_home/$entry" ]] || entries+=("$entry")
+  done < <(shared_profile_config_entries)
+  if [[ "${#entries[@]}" -eq 0 ]]; then
+    note "No shared configuration to detach for $profile."
+    return 0
+  fi
+
+  stage="$(mktemp -d "$codex_home/.detach.XXXXXX")" || die "Cannot stage configuration for $profile"
+  trap '
+    if [[ "$finished" != yes ]]; then
+      for entry in "${entries[@]}"; do
+        if [[ -L "$stage/links/$entry" ]]; then
+          if ! rm -rf -- "$codex_home/$entry" || ! mv "$stage/links/$entry" "$codex_home/$entry"; then
+            restored=no
+            warn "Could not restore $entry; original link retained in $stage/links"
+          fi
+        fi
+      done
+    fi
+    if [[ "$restored" == yes ]]; then
+      rm -rf -- "$stage" || warn "Could not remove detach staging directory: $stage"
+    fi
+    state_lock_release
+  ' EXIT
+  trap 'exit 1' HUP INT TERM
+  mkdir "$stage/copies" "$stage/links"
+
+  while IFS= read -r entry; do
+    excluded+=(-o -name "$entry")
+  done < <(private_profile_state_entries)
+  excluded+=(-o -name Cookies -o -name Cookies-journal)
+  for entry in "${entries[@]}"; do
+    source="$(shared_config_source "$codex_home/$entry" "$entry")" || exit 1
+    # Never follow nested links, copy special files, or copy known private state.
+    unsafe="$(find "$source" \( ! -type d ! -type f -o -type f -links +1 "${excluded[@]}" \) -print -quit)" || \
+      die "Cannot inspect shared configuration: $source"
+    [[ -z "$unsafe" ]] || die "Unsafe shared configuration entry: $unsafe"
+    cp -RP "$source" "$stage/copies/$entry" || die "Cannot copy shared configuration: $entry"
+  done
+  for entry in "${entries[@]}"; do
+    mv "$codex_home/$entry" "$stage/links/$entry" || die "Cannot preserve shared link: $entry"
+    mv "$stage/copies/$entry" "$codex_home/$entry" || die "Cannot replace shared link: $entry"
+  done
+  finished=yes
+  note "Detached shared configuration for $profile."
+)
 
 command_remove() {
   local profile="${1:-}"
@@ -3029,7 +3210,7 @@ _codex_profile()
   launcher_commands="create list path remove"
 
   if [[ "$COMP_CWORD" -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help" -- "$cur") )
+    COMPREPLY=( $(compgen -W "app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help" -- "$cur") )
     return 0
   fi
 
@@ -3042,7 +3223,7 @@ _codex_profile()
         COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
       fi
       ;;
-    app-instance|cli|login|remove|status|path|env|use|logs)
+    app-instance|cli|login|setup|detach|remove|status|path|env|use|logs)
       if [[ "$COMP_CWORD" -eq 2 ]]; then
         profiles="$(codex-profile list 2>/dev/null)"
         COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
@@ -3101,6 +3282,8 @@ _codex_profile()
     completions|shell-init)
       if [[ "$COMP_CWORD" -eq 2 ]]; then
         COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
+      elif [[ "$command" == shell-init && "$COMP_CWORD" -eq 3 ]]; then
+        COMPREPLY=( $(compgen -W "--prompt" -- "$cur") )
       fi
       ;;
   esac
@@ -3115,7 +3298,7 @@ EOF
 _codex_profile() {
   local -a commands profiles shells app_flags init_flags launcher_commands launcher_flags launcher_colors workspace_commands run_flags workspace_json_flags doctor_flags
   commands=(
-    app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
+    app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
   )
   profiles=(${(f)"$(codex-profile list 2>/dev/null)"} default personal work)
   shells=(bash zsh fish)
@@ -3142,7 +3325,7 @@ _codex_profile() {
         _describe 'profile' profiles
       fi
       ;;
-    app-instance|cli|login|remove|status|path|env|use|logs)
+    app-instance|cli|login|setup|detach|remove|status|path|env|use|logs)
       if (( CURRENT == 3 )); then
         _describe 'profile' profiles
       fi
@@ -3197,6 +3380,8 @@ _codex_profile() {
     completions|shell-init)
       if (( CURRENT == 3 )); then
         _describe 'shell' shells
+      elif [[ "$words[2]" == shell-init ]] && (( CURRENT == 4 )); then
+        _values 'flag' --prompt
       fi
       ;;
   esac
@@ -3209,8 +3394,8 @@ EOF
       cat <<'EOF'
 for codex_profile_command in codex-profile codex-profiles
     complete -c $codex_profile_command -f
-    complete -c $codex_profile_command -n '__fish_is_first_arg' -a 'app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from app app-instance cli login init remove status path env use logs' -a '(codex-profile list 2>/dev/null) default personal work'
+    complete -c $codex_profile_command -n '__fish_is_first_arg' -a 'app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from app app-instance cli login init setup detach remove status path env use logs' -a '(codex-profile list 2>/dev/null) default personal work'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from app' -l instance -d 'Compatibility flag; named ChatGPT windows already use separate local state'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from app' -l rebuild -d 'Compatibility no-op; the signed app is never cloned'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from init' -l share-with -r -a '(codex-profile list 2>/dev/null) default personal work' -d 'Link the configuration allowlist from another profile'
@@ -3231,6 +3416,7 @@ for codex_profile_command in codex-profile codex-profiles
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from run' -l app -d 'Launch the bound ChatGPT window'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from doctor' -l json -d 'Emit JSON'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from doctor' -l check -d 'Exit nonzero when health checks fail'
+    complete -c $codex_profile_command -n '__fish_seen_subcommand_from shell-init' -l prompt -d 'Show the active profile in the shell prompt'
     complete -c $codex_profile_command -n '__fish_seen_subcommand_from completions shell-init' -a 'bash zsh fish'
 end
 EOF
@@ -3241,11 +3427,80 @@ EOF
   esac
 }
 
+emit_shell_prompt() {
+  local shell="$1"
+
+  case "$shell" in
+    bash | zsh)
+      cat <<'EOF'
+__codex_profile_update_prompt() {
+  local __cp_status=$? __cp_home="${HOME:-}/.codex"
+  if [[ -n "${__codex_profile_prefix:-}" && "${PS1:-}" == "$__codex_profile_prefix"* ]]; then
+    PS1="${PS1#"$__codex_profile_prefix"}"
+  fi
+  __codex_profile_prefix=''
+  if [[ -n "${HOME:-}" && "${CODEX_PROFILE_NAME:-}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+    [[ "$CODEX_PROFILE_NAME" == default ]] || __cp_home="$HOME/.codex-$CODEX_PROFILE_NAME"
+    if [[ "${CODEX_HOME:-}" == "$__cp_home" ]]; then
+      __codex_profile_prefix="[codex:$CODEX_PROFILE_NAME] "
+    fi
+  fi
+  PS1="$__codex_profile_prefix${PS1:-}"
+  return "$__cp_status"
+}
+EOF
+      if [[ "$shell" == bash ]]; then
+        cat <<'EOF'
+if [[ "${__codex_profile_prompt_installed:-}" != bash ]]; then
+  case "$(declare -p PROMPT_COMMAND 2>/dev/null)" in
+    'declare -a'*) PROMPT_COMMAND+=(__codex_profile_update_prompt) ;;
+    *) PROMPT_COMMAND="${PROMPT_COMMAND:+${PROMPT_COMMAND}$'\n'}__codex_profile_update_prompt" ;;
+  esac
+  __codex_profile_prompt_installed=bash
+fi
+EOF
+      else
+        cat <<'EOF'
+typeset -ga precmd_functions
+if (( ! ${precmd_functions[(Ie)__codex_profile_update_prompt]} )); then
+  precmd_functions+=(__codex_profile_update_prompt)
+fi
+EOF
+      fi
+      ;;
+    fish)
+      cat <<'EOF'
+if not functions -q __codex_profile_original_prompt
+    functions --copy fish_prompt __codex_profile_original_prompt
+end
+function fish_prompt
+    set -l __cp_prompt (__codex_profile_original_prompt | string collect --no-trim-newlines)
+    if set -q HOME CODEX_PROFILE_NAME CODEX_HOME; and string match -rq '^[A-Za-z0-9][A-Za-z0-9._-]*$' -- "$CODEX_PROFILE_NAME"
+        set -l __cp_home "$HOME/.codex"
+        if test "$CODEX_PROFILE_NAME" != default
+            set __cp_home "$HOME/.codex-$CODEX_PROFILE_NAME"
+        end
+        if test "$CODEX_HOME" = "$__cp_home"
+            printf '[codex:%s] ' "$CODEX_PROFILE_NAME"
+        end
+    end
+    printf '%s' "$__cp_prompt"
+end
+EOF
+      ;;
+  esac
+}
+
 command_shell_init() {
-  local shell="${1:-}"
-  [[ -n "$shell" ]] || die "Usage: $PROGRAM shell-init <bash|zsh|fish>"
+  local shell="${1:-}" prompt=no
+  local usage="Usage: $PROGRAM shell-init <bash|zsh|fish> [--prompt]"
+  [[ -n "$shell" ]] || die "$usage"
   shift || true
-  [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM shell-init <bash|zsh|fish>"
+  if [[ "${1:-}" == --prompt ]]; then
+    prompt=yes
+    shift
+  fi
+  [[ "$#" -eq 0 ]] || die "$usage"
 
   case "$shell" in
     bash | zsh)
@@ -3283,6 +3538,9 @@ EOF
       die "Unsupported shell '$shell'. Use bash, zsh, or fish."
       ;;
   esac
+  if [[ "$prompt" == yes ]]; then
+    emit_shell_prompt "$shell"
+  fi
 }
 
 command_doctor() {
@@ -3491,6 +3749,12 @@ main() {
       ;;
     init)
       command_init "$@"
+      ;;
+    setup)
+      command_setup "$@"
+      ;;
+    detach)
+      command_detach "$@"
       ;;
     remove)
       command_remove "$@"

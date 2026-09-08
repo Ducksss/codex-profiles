@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 INSTALLER="$ROOT_DIR/install.sh"
-VERSION="0.10.0"
+VERSION="$(sed -n 's/^VERSION="\([^"]*\)"/\1/p' "$ROOT_DIR/bin/codex-profile" | head -n 1)"
 ORIGINAL_PATH="$PATH"
 REAL_LN="$(command -v ln)"
 REAL_MV="$(command -v mv)"
