@@ -56,7 +56,8 @@ run_interactive() {
       [[ ! -f "$ready" ]] || break
       sleep 0.05
     done
-    printf '%b' "$input"
+    # A command with no selectable profiles can exit before consuming input.
+    printf '%b' "$input" 2>/dev/null || true
     for ((attempt = 0; attempt < 200; attempt++)); do
       [[ ! -f "$result" ]] || break
       sleep 0.05

@@ -1959,9 +1959,10 @@ shared_config_source() {
     source_home="${target%/*}"
     source_profile="${source_home##*/.codex-}"
     [[ "$source_home" != "$HOME/.codex" ]] || source_profile=default
-    is_valid_profile_name "$source_profile" && \
-      [[ "$target" == "$(codex_home_for_profile "$source_profile")/$entry" ]] || \
+    if ! is_valid_profile_name "$source_profile" || \
+      [[ "$target" != "$(codex_home_for_profile "$source_profile")/$entry" ]]; then
       die "Unsafe shared configuration target: $path -> $target"
+    fi
     require_initialized_profile "$source_profile"
     path="$target"
   done
