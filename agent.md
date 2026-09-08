@@ -87,13 +87,19 @@ required component as missing.
 
 ## 4. Create only requested profiles
 
-Ask for profile names if the user did not provide them. `init` is the only
-command that creates a profile:
+Ask for profile names if the user did not provide them. Create them with `init`:
 
 ```sh
 codex-profile init personal
 codex-profile init work
 ```
+
+For a user-driven terminal walkthrough, `codex-profile setup work` initializes
+or reuses the profile and offers CLI login (default yes), workspace binding
+(default no, path defaults to the current directory), and a macOS launcher
+(default no). It refuses binding or launcher conflicts, retains completed
+steps on failure, and can be rerun. For noninteractive agent execution, use the
+explicit commands for the steps the user requested.
 
 Authentication is interactive and belongs to the user:
 
@@ -109,6 +115,12 @@ wants to share non-secret configuration, use the built-in allowlist:
 codex-profile init personal-2 --share-with personal
 ```
 
+To stop sharing later, `codex-profile detach personal-2` replaces allowlisted
+root symlinks with independent copies. Close editors and pause plugin/config
+updates first. Ordinary files and private state stay unchanged; broken or
+unsafe targets are refused. Shared or copied configuration and plugins can
+contain sensitive or executable content, so review the source before use.
+
 On macOS, after the requested profile exists:
 
 ```sh
@@ -119,6 +131,13 @@ codex-profile app personal
 `app default` preserves the stock ChatGPT session. A named `app` launch selects
 matching `CODEX_HOME` and Electron data for the whole ChatGPT window across
 Chat, Work, and Codex.
+
+In a terminal, no-argument `cli` and `app` show an initialized-profile picker;
+Enter selects the marked workspace-bound profile, a number selects a profile,
+and `q` cancels. Use explicit profile names in agent scripts. Optional
+`shell-init <bash|zsh|fish> --prompt` adds a dynamic `[codex:work]` prefix to the
+existing prompt when `CODEX_PROFILE_NAME` and managed `CODEX_HOME` agree. It
+does not edit shell startup files.
 
 ## 5. Report the result
 

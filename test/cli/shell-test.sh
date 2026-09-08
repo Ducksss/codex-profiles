@@ -128,6 +128,9 @@ test_completions_generate_shell_scripts() {
   assert_status 0
   assert_contains "--instance"
   assert_contains "--share-with"
+  assert_contains "setup <profile>"
+  assert_contains "detach <profile>"
+  assert_contains "shell-init <bash|zsh|fish> [--prompt]"
   assert_contains "workspace bind <path> <profile> [--force]"
   assert_contains "workspace guard [off|warn|strict]"
   assert_contains "run [--] [codex-args...]"
@@ -141,7 +144,7 @@ test_completions_generate_shell_scripts() {
 
   assert_status 0
   assert_contains "complete -F _codex_profile codex-profile codex-profiles"
-  assert_contains 'compgen -W "app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help"'
+  assert_contains 'compgen -W "app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help"'
   assert_contains 'launcher_commands="create list path remove"'
   assert_contains 'blue green teal purple pink red orange graphite'
   assert_contains 'workspace_commands="bind unbind list status guard"'
@@ -157,12 +160,13 @@ test_completions_generate_shell_scripts() {
   assert_contains "use"
   assert_contains "shell-init"
   assert_contains "--share-with"
+  assert_contains "--prompt"
 
   run_cmd "$SCRIPT" completions zsh
 
   assert_status 0
   assert_contains "#compdef codex-profile codex-profiles"
-  assert_contains "app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help"
+  assert_contains "app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help"
   assert_contains "launcher_commands=(create list path remove)"
   assert_contains "launcher_colors=(blue green teal purple pink red orange graphite)"
   assert_contains "workspace_commands=(bind unbind list status guard)"
@@ -175,13 +179,14 @@ test_completions_generate_shell_scripts() {
   assert_contains "app-instance"
   assert_contains "shell-init"
   assert_contains "--share-with"
+  assert_contains "--prompt"
 
   run_cmd "$SCRIPT" completions fish
 
   assert_status 0
   assert_contains "for codex_profile_command in codex-profile codex-profiles"
   assert_contains "complete -c \$codex_profile_command"
-  assert_contains "-a 'app app-instance cli login init remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'"
+  assert_contains "-a 'app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'"
   assert_contains "-a 'create list path remove'"
   assert_contains "-a 'blue green teal purple pink red orange graphite'"
   assert_contains "-a 'bind unbind list status guard'"
@@ -197,6 +202,7 @@ test_completions_generate_shell_scripts() {
   assert_contains "app-instance"
   assert_contains "shell-init"
   assert_contains "-l share-with"
+  assert_contains "-l prompt"
   assert_not_contains "Codex Desktop clone"
   assert_not_contains "Rebuild the app --instance clone"
 }

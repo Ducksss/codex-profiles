@@ -78,15 +78,15 @@ brew install Ducksss/tap/codex-profile
 With the standalone installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.10.0/install.sh \
-  | CODEX_PROFILE_VERSION=v0.10.0 sh
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.11.0/install.sh \
+  | CODEX_PROFILE_VERSION=v0.11.0 sh
 ```
 
 With Nix:
 
 ```sh
-nix run github:Ducksss/codex-profiles/v0.10.0
-nix profile install github:Ducksss/codex-profiles/v0.10.0
+nix run github:Ducksss/codex-profiles/v0.11.0
+nix profile install github:Ducksss/codex-profiles/v0.11.0
 ```
 
 From source:
@@ -114,10 +114,17 @@ codex-profile login personal
 codex-profile login work
 ```
 
-`init` is the only command that creates a profile. `cli`, `login`, `app`, and
+`init` creates profiles; the guided `setup` command calls it too. `cli`, `login`, `app`, and
 the target of `clone-config` fail on an uninitialized name instead of silently
 creating state for a typo. Initialize `default` explicitly too if `~/.codex`
 does not already exist.
+
+For an interactive walkthrough instead, run `codex-profile setup work`. It
+initializes the profile, offers CLI login (yes by default), then optional
+workspace binding and, on macOS, a launcher (both no by default). The workspace
+path defaults to the current directory. Existing binding or launcher conflicts
+are never overwritten. Completed steps remain if a later step fails; rerun
+`setup` to continue. Setup requires a terminal and can reuse an existing profile.
 
 To keep authentication and runtime state separate while sharing selected
 configuration, initialize a new linked profile from an existing one:
@@ -133,6 +140,12 @@ Run the upstream Codex CLI with either home:
 codex-profile cli personal
 codex-profile cli work exec "run tests and summarize failures"
 ```
+
+In a terminal, `codex-profile cli` or `codex-profile app` with no arguments
+shows a numbered picker of initialized profiles. The nearest workspace-bound
+profile is marked; press Enter to select it, enter a number to select another,
+or enter `q` to cancel. Without a binding, choose a number. Scripts must pass
+an explicit profile: no-argument launches fail without a terminal.
 
 Optionally bind a project once, then let the current directory select its
 profile for both CLI and Desktop launches:
@@ -237,6 +250,7 @@ codex-profile path personal
 ```sh
 codex-profile init client-a
 codex-profile init client-b --share-with client-a
+codex-profile detach client-b
 codex-profile list
 codex-profile remove client-a
 codex-profile remove client-a --yes
@@ -327,6 +341,26 @@ chats fail. The command does not read or copy authentication data. Allowlisted
 links are live: edits from either profile affect the same source configuration,
 and plugins or configuration can themselves contain sensitive or executable
 content. Review the source before linking across trust domains.
+
+To stop sharing and keep the current configuration:
+
+```sh
+codex-profile detach personal-2
+```
+
+`detach` replaces only root symlinks in that same allowlist with independent
+copies. Links must resolve through the same allowlisted entry in initialized
+managed profile homes; chains are supported, but a redirect such as
+`config.toml -> auth.json` is refused. Copies contain only regular files and
+directories: broken links, nested symlinks, multiply-linked files, special
+files, and known private-state or ChatGPT cookie filenames are refused.
+Ordinary files and private state stay unchanged.
+
+All copies are staged before replacement. If replacement fails, the original
+links are restored; if rollback also fails, recovery links are retained and
+their location is reported. Close editors and pause configuration/plugin
+updates before taking this snapshot. Copied configuration and plugins retain
+any sensitive or executable content they already contained.
 
 ### Inspect Codex-local status
 
@@ -488,6 +522,22 @@ Activation exports functional `CODEX_HOME` and informational
 not an existing ChatGPT window. Open a new shell or unset both variables to
 deactivate.
 
+To show the active profile in your existing prompt, opt in when loading the
+wrapper:
+
+```sh
+# bash: use shell-init bash --prompt instead
+eval "$(codex-profile shell-init zsh --prompt)"
+
+# fish
+codex-profile shell-init fish --prompt | source
+```
+
+The dynamic prefix, for example `[codex:work]`, appears only when
+`CODEX_PROFILE_NAME` matches the selected managed `CODEX_HOME`. It follows
+profile changes and disappears when activation is unset or inconsistent.
+Your existing prompt is preserved; `shell-init` never edits startup files.
+
 ### Copy known non-secret configuration
 
 ```sh
@@ -505,7 +555,7 @@ directories, and it refuses sensitive-looking configuration keys.
 codex-profile upgrade --dry-run
 codex-profile upgrade
 codex-profile upgrade --prefix /usr/local
-codex-profile upgrade --ref v0.10.0
+codex-profile upgrade --ref v0.11.0
 codex-profile upgrade --ref main
 ```
 
@@ -535,10 +585,12 @@ For Bash, save the output as
 ## Command reference
 
 ```text
-codex-profile app <profile> [workspace]
-codex-profile cli <profile> [codex-args...]
+codex-profile app [<profile> [workspace]]
+codex-profile cli [<profile> [codex-args...]]
 codex-profile login <profile> [codex-login-args...]
 codex-profile init <profile> [--share-with <source-profile>]
+codex-profile setup <profile>
+codex-profile detach <profile>
 codex-profile remove <profile> [--yes]
 codex-profile launcher create <profile> [--name <display-name>] [--color <color>] [--force]
 codex-profile launcher list [--json]
@@ -561,7 +613,7 @@ codex-profile clone-config <source-profile> <target-profile> [--force]
 codex-profile list
 codex-profile doctor [--json] [--check]
 codex-profile completions <bash|zsh|fish>
-codex-profile shell-init <bash|zsh|fish>
+codex-profile shell-init <bash|zsh|fish> [--prompt]
 codex-profile upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
 codex-profile version
 codex-profile --version
@@ -634,7 +686,7 @@ contains no profile data; disable it with `CODEX_PROFILE_NO_UPDATE_CHECK=1` or
 CLI-oriented commands and launcher inspection are tested on macOS and Ubuntu/Linux:
 
 ```text
-cli login init remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
+cli login init setup detach remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
 ```
 
 `app` and `launcher create` are macOS-only. They detect the installed integrated `ChatGPT.app` and

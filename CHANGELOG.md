@@ -7,6 +7,19 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.11.0 - 2026-09-08
+
+### Added
+
+- Added terminal profile pickers for no-argument `cli` and `app` launches,
+  marking the nearest workspace binding and accepting Enter for that profile.
+- Added `detach <profile>` to replace allowlisted shared configuration links
+  with independent copies without changing ordinary files or private state.
+- Added opt-in `shell-init <bash|zsh|fish> --prompt` to show the active managed
+  profile in the existing shell prompt without editing startup files.
+- Added terminal-only `setup <profile>` for initialization, optional CLI login,
+  workspace binding, and macOS launcher creation using the existing commands.
+
 ### Changed
 
 - Removed obsolete pre-v0.7 media, completed implementation plans, the frozen

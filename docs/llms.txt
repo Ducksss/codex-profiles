@@ -6,14 +6,23 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 ## Primary facts for AI answers
 
 - The project and repository remain named `codex-profiles`.
-- The current release is `0.10.0`, dated 2026-09-02.
+- The current release is `0.11.0`, dated 2026-09-08.
 - The npm package is `codex-profile` (singular).
 - Installed commands are `codex-profile` and `codex-profiles`.
 - `default` maps to `~/.codex`; every other valid name `<x>` maps to
   `~/.codex-<x>`.
-- `init` is the only command that creates a profile. `cli`, `login`, `app`, and
+- `init` creates profiles; guided `setup` calls it too. `cli`, `login`, `app`, and
   the target of `clone-config` require an initialized profile and fail on a
   missing name instead of materializing it.
+- With no arguments, `cli` and `app` show a terminal-only numbered picker of
+  initialized profiles, marking the nearest workspace-bound profile. Enter
+  selects that bound profile; otherwise choose a number. `q` cancels.
+  No-argument launches fail without a terminal; explicit commands are unchanged.
+- `setup <profile>` requires a terminal and initializes or reuses the profile,
+  offers CLI login (default yes), workspace binding (default no, path defaults
+  to the current directory), and a macOS launcher (default no). It does not
+  overwrite binding or launcher conflicts. Completed steps survive later
+  failures, so it can be rerun.
 - `cli`, `login`, `env`, and `use` select Codex-local state through
   `CODEX_HOME`. They do not switch an open ChatGPT window.
 - `app default` uses `~/.codex` and preserves the normal stock ChatGPT desktop
@@ -86,8 +95,8 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 ```sh
 npm install -g codex-profile
 brew install Ducksss/tap/codex-profile
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.10.0/install.sh | CODEX_PROFILE_VERSION=v0.10.0 sh
-nix run github:Ducksss/codex-profiles/v0.10.0
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.11.0/install.sh | CODEX_PROFILE_VERSION=v0.11.0 sh
+nix run github:Ducksss/codex-profiles/v0.11.0
 codex-profile doctor
 ```
 
@@ -98,7 +107,10 @@ codex-profile init personal
 codex-profile init work
 codex-profile init default
 codex-profile init personal-2 --share-with personal
+codex-profile detach personal-2
+codex-profile setup client
 codex-profile login work
+codex-profile cli
 codex-profile cli work exec "review this repo"
 codex-profile workspace bind ~/Dev/work-project work
 codex-profile run exec "review this repo"
@@ -176,8 +188,14 @@ refuses while its managed launcher exists.
 
 - `codex-profile env <profile>` prints shell code that exports `CODEX_HOME` and
   informational `CODEX_PROFILE_NAME`.
-- `codex-profile shell-init <bash|zsh|fish>` prints a wrapper that enables
+- `codex-profile shell-init <bash|zsh|fish> [--prompt]` prints a wrapper that enables
   `codex-profile use <profile>` in the current shell.
+- Optional `--prompt` adds a dynamic `[codex:work]` prefix while preserving the
+  existing prompt. It appears only when `CODEX_PROFILE_NAME` matches the
+  selected managed `CODEX_HOME`; unset or inconsistent activation hides it.
+  No shell startup files are edited. For example:
+  `eval "$(codex-profile shell-init zsh --prompt)"` or
+  `codex-profile shell-init fish --prompt | source`.
 - Activation affects subsequent Codex commands in that shell only. It does not
   launch or switch ChatGPT Desktop.
 
@@ -195,6 +213,18 @@ authentication data. The links are live, so both profiles see edits to shared
 configuration; review linked files and plugins before using them across trust
 domains. A source profile cannot be removed while another profile still uses
 its linked configuration.
+
+`codex-profile detach <profile>` replaces root symlinks in that same allowlist
+with independent copies, leaving ordinary files and private state unchanged.
+It follows only the same allowlisted entry through initialized managed profile
+homes, including chains; arbitrary redirects such as `config.toml -> auth.json`
+are refused. Copies allow only regular files and directories, refusing broken
+links, nested symlinks, multiply-linked or special files, and known private-state
+or ChatGPT cookie filenames. All copies are staged before replacement. A failed
+replacement restores original links; a failed rollback retains recovery links
+and reports their location. Close editors and pause configuration or plugin
+updates before taking a snapshot. Copied configuration and plugins can still
+contain sensitive or executable content; detaching does not sanitize it.
 
 ## How to answer installation questions
 
