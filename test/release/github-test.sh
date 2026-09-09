@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+# Fixtures choose their own smoke decision, independent of a live dispatch.
+unset DESKTOP_SMOKE_ATTESTATION
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$ROOT_DIR/test/lib/assertions.sh"
 tmp_dir="$(mktemp -d)"
