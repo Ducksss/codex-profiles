@@ -127,8 +127,10 @@ before any live release step.
 If the maintainer explicitly chooses to publish without completing the Desktop
 checks, use the exact value `waived-by-maintainer` instead. This records the
 checks as **unverified** in the workflow summary and public release notes; it
-never claims the checks passed. All automated verification and publication
-checks still run. Leave the input empty to keep failing closed.
+never claims the checks passed. The waiver does not skip automated verification
+or publication checks. Separately, `skip_homebrew: true` skips the tap update
+and its formula validation, leaving the tap unchanged. Leave the Desktop input
+empty to keep failing closed.
 
 The separate live-only job receives the write permissions. Before its first
 external mutation, it checks out the verified commit again, preflights the npm
