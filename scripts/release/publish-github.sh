@@ -72,10 +72,14 @@ done
 if [[ "$release_state" == "public_final" ]]; then
   echo "Public final GitHub Release $TAG already exists; continuing the release."
 else
+  release_notes=""
+  if [[ "${DESKTOP_SMOKE_ATTESTATION:-}" == "waived-by-maintainer" ]]; then
+    release_notes="Desktop smoke checks waived by maintainer; real Desktop behavior is unverified. Automated source verification passed."
+  fi
   create_error="$tmp/release-create.err"
   release_create_succeeded=false
   if gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
-    --title "codex-profile $TAG" --generate-notes \
+    --title "codex-profile $TAG" --generate-notes --notes "$release_notes" \
     --latest --verify-tag 2> "$create_error"; then
     release_create_succeeded=true
   fi
@@ -155,6 +159,10 @@ if (release.isImmutable !== true) {
 }
 if (typeof release.body !== 'string' || release.body.trim().length === 0) {
   throw new Error(`GitHub Release ${expectedTag} has no release notes`);
+}
+if (process.env.DESKTOP_SMOKE_ATTESTATION === 'waived-by-maintainer' &&
+    !release.body.includes('Desktop smoke checks waived by maintainer; real Desktop behavior is unverified.')) {
+  throw new Error(`GitHub Release ${expectedTag} is missing the Desktop smoke waiver disclosure`);
 }
 NODE
 

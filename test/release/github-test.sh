@@ -71,6 +71,9 @@ case "$command" in
     ;;
   release:create)
     require_repo "$@"
+    if [ -n "${RELEASE_NOTES_TEST_LOG:-}" ]; then
+      printf '%s\n' "$@" > "$RELEASE_NOTES_TEST_LOG"
+    fi
     case " $* " in
       *' --latest '*) ;;
       *) exit 65 ;;
@@ -91,6 +94,10 @@ case "$command" in
     printf '%s\n' 'view' >> "$RELEASE_WORKFLOW_TEST_LOG"
     view_count="$(grep -Fxc 'view' "$RELEASE_WORKFLOW_TEST_LOG")"
     case "$FAKE_GH_RELEASE_SCENARIO" in
+      waiver_disclosed)
+        printf '%s\n' \
+          '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-13T00:00:00Z","body":"Desktop smoke checks waived by maintainer; real Desktop behavior is unverified.","isImmutable":true}'
+        ;;
       present|latest_eventual|latest_malformed|latest_transient|not_latest)
         printf '%s\n' \
           '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-13T00:00:00Z","body":"Release notes","isImmutable":true}'
@@ -134,7 +141,7 @@ case "$command" in
     printf '%s\n' 'latest' >> "$RELEASE_WORKFLOW_TEST_LOG"
     latest_count="$(grep -Fxc 'latest' "$RELEASE_WORKFLOW_TEST_LOG")"
     case "$FAKE_GH_RELEASE_SCENARIO" in
-      present|view_eventual)
+      present|view_eventual|waiver_disclosed)
         printf '%s\n' '{"tag_name":"v0.7.0"}'
         ;;
       latest_eventual)
@@ -272,5 +279,27 @@ require_github_release_final_scenario empty_notes failure 0 0
 require_github_release_final_scenario not_latest failure 5 4
 require_github_release_final_scenario latest_malformed failure 5 4
 require_github_release_final_scenario latest_transient failure 5 4
+
+
+# A waived Desktop check must be visible in the immutable public release notes.
+: > "$tmp_dir/waived-release.log"
+PATH="$release_fake_bin:$PATH" \
+  RELEASE_WORKFLOW_TEST_LOG="$tmp_dir/waived-release.log" \
+  RELEASE_NOTES_TEST_LOG="$tmp_dir/waived-release-args" \
+  FAKE_GH_RELEASE_SCENARIO=absent \
+  GITHUB_REPOSITORY=Ducksss/codex-profiles \
+  TAG=v0.7.0 \
+  DESKTOP_SMOKE_ATTESTATION=waived-by-maintainer \
+  "$ROOT_DIR/scripts/release/publish-github.sh" publish
+assert_contains "$(cat "$tmp_dir/waived-release-args")" \
+  'Desktop smoke checks waived by maintainer; real Desktop behavior is unverified.' \
+  'public waiver disclosure'
+
+DESKTOP_SMOKE_ATTESTATION=waived-by-maintainer \
+  require_github_release_final_scenario present failure 0 0
+assert_contains "$(cat "$tmp_dir/release-final-present.out")" \
+  'missing the Desktop smoke waiver disclosure' 'missing public waiver is rejected'
+DESKTOP_SMOKE_ATTESTATION=waived-by-maintainer \
+  require_github_release_final_scenario waiver_disclosed success 1 0
 
 printf '%s\n' 'GitHub Release tests passed.'

@@ -262,3 +262,10 @@ assert.ok(
 );
 
 console.log("Release workflow wiring tests passed.");
+
+for (const step of ["Create GitHub Release", "Verify GitHub Release"]) {
+  assert.ok(
+    stepBlock(step).includes("DESKTOP_SMOKE_ATTESTATION: ${{ inputs.desktop_smoke_attestation }}"),
+    `${step} must receive the smoke decision for public waiver disclosure`,
+  );
+}
