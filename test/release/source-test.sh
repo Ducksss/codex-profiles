@@ -122,8 +122,8 @@ sha_mismatch_output="$({
   PATH="$fake_bin:$PATH" \
     RELEASE_TEST_LOG="$log_file" \
     INPUT_VERSION="$VERSION" \
-    DRY_RUN="true" \
-    DESKTOP_SMOKE_ATTESTATION="" \
+    DRY_RUN="false" \
+    DESKTOP_SMOKE_ATTESTATION="waived-by-maintainer" \
     GITHUB_REF="refs/heads/main" \
     GITHUB_SHA="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" \
     GITHUB_OUTPUT="$TMP_ROOT/sha-mismatch-output" \
@@ -139,5 +139,35 @@ assert_contains "$sha_mismatch_output" \
 assert_not_contains "$unset_attestation_output" \
   'unbound variable' \
   "unset attestation error"
+
+# Both live paths remain explicit; a waiver must never be reported as a pass.
+for smoke_input in 'ChatGPT version 26.901.41600; bundle ID com.openai.codex' 'waived-by-maintainer'; do
+  : > "$summary_file"
+  PATH="$fake_bin:$PATH" \
+    RELEASE_TEST_LOG="$log_file" \
+    INPUT_VERSION="$VERSION" \
+    DRY_RUN=false \
+    DESKTOP_SMOKE_ATTESTATION="$smoke_input" \
+    GITHUB_REF=refs/heads/main \
+    GITHUB_SHA="$FAKE_SHA" \
+    GITHUB_OUTPUT="$output_file" \
+    GITHUB_STEP_SUMMARY="$summary_file" \
+    "$VERIFY_SOURCE"
+  if [[ "$smoke_input" == waived-by-maintainer ]]; then
+    assert_contains "$(cat "$summary_file")" 'real Desktop behavior is unverified' 'waiver summary'
+    assert_not_contains "$(cat "$summary_file")" 'Signed-app smoke attestation:' 'waiver is not a pass'
+  else
+    assert_contains "$(cat "$summary_file")" "$smoke_input" 'tested app summary'
+  fi
+done
+
+for smoke_input in 'waived-by-maintainer ' 'waived' 'ChatGPT version 1.2; bundle ID com.openai.codex <script>'; do
+  if INPUT_VERSION="$VERSION" DRY_RUN=false DESKTOP_SMOKE_ATTESTATION="$smoke_input" \
+    GITHUB_REF=refs/heads/main GITHUB_SHA="$FAKE_SHA" \
+    GITHUB_OUTPUT="$output_file" GITHUB_STEP_SUMMARY="$summary_file" \
+    "$VERIFY_SOURCE" > "$TMP_ROOT/invalid-smoke.log" 2>&1; then
+    fail "invalid smoke input accepted: $smoke_input"
+  fi
+done
 
 printf '%s\n' 'Release source tests passed.'

@@ -21,7 +21,7 @@ on:
         default: true
         type: boolean
       desktop_smoke_attestation:
-        description: "Live release only: tested ChatGPT version and bundle ID; no account data."
+        description: "Live release: tested ChatGPT version and bundle ID, or waived-by-maintainer for unverified Desktop checks."
         required: false
         type: string
       skip_homebrew:
@@ -222,6 +222,7 @@ jobs:
       - name: Create GitHub Release
         if: ${{ ! inputs.dry_run }}
         env:
+          DESKTOP_SMOKE_ATTESTATION: ${{ inputs.desktop_smoke_attestation }}
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.verify.outputs.tag }}
         run: |
@@ -230,6 +231,7 @@ jobs:
       - name: Verify GitHub Release
         if: ${{ ! inputs.dry_run }}
         env:
+          DESKTOP_SMOKE_ATTESTATION: ${{ inputs.desktop_smoke_attestation }}
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.verify.outputs.tag }}
         run: |

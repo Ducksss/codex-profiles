@@ -7,7 +7,7 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
-## 0.11.0 - 2026-09-08
+## 0.11.0 - 2026-09-09
 
 ### Added
 
@@ -21,6 +21,10 @@ and this project follows semantic versioning for tagged releases.
   workspace binding, and macOS launcher creation using the existing commands.
 
 ### Changed
+
+- Added an explicit maintainer waiver for unavailable real Desktop smoke checks,
+  recorded as unverified in workflow summaries and public release notes while
+  retaining all automated release checks.
 
 - Removed obsolete pre-v0.7 media, completed implementation plans, the frozen
   launch-ledger archive, the unused design brief, and self-referential GEO

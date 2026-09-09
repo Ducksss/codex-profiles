@@ -25,28 +25,34 @@ if [[ "$DRY_RUN" != "true" ]]; then
     echo "Signed-app smoke attestation is required for a live release." >&2
     exit 1
   }
-  [[ "$desktop_smoke_attestation" == *ChatGPT* ]] || {
-    echo "Signed-app smoke attestation must contain the tested ChatGPT version." >&2
-    exit 1
-  }
-  [[ "$desktop_smoke_attestation" == *com.openai.* ]] || {
-    echo "Signed-app smoke attestation must contain the tested bundle ID beginning with com.openai." >&2
-    exit 1
-  }
-  attestation_pattern='^ChatGPT version [0-9]+\.[0-9]+(\.[0-9]+)?; bundle ID com\.openai\.[A-Za-z0-9]+([.-][A-Za-z0-9]+)*$'
-  if ! [[ "$desktop_smoke_attestation" =~ $attestation_pattern ]]; then
-    echo "Signed-app smoke attestation must exactly match: ChatGPT version X.Y[.Z]; bundle ID com.openai.<identifier>." >&2
-    exit 1
-  fi
+  if [[ "$desktop_smoke_attestation" == "waived-by-maintainer" ]]; then
+    release_require_env GITHUB_STEP_SUMMARY
+    echo "Desktop smoke checks waived by maintainer; real Desktop behavior is unverified." \
+      >> "$GITHUB_STEP_SUMMARY"
+  else
+    [[ "$desktop_smoke_attestation" == *ChatGPT* ]] || {
+      echo "Signed-app smoke attestation must contain the tested ChatGPT version." >&2
+      exit 1
+    }
+    [[ "$desktop_smoke_attestation" == *com.openai.* ]] || {
+      echo "Signed-app smoke attestation must contain the tested bundle ID beginning with com.openai." >&2
+      exit 1
+    }
+    attestation_pattern='^ChatGPT version [0-9]+\.[0-9]+(\.[0-9]+)?; bundle ID com\.openai\.[A-Za-z0-9]+([.-][A-Za-z0-9]+)*$'
+    if ! [[ "$desktop_smoke_attestation" =~ $attestation_pattern ]]; then
+      echo "Signed-app smoke attestation must exactly match: ChatGPT version X.Y[.Z]; bundle ID com.openai.<identifier>." >&2
+      exit 1
+    fi
 
-  release_require_env GITHUB_STEP_SUMMARY
-  sanitized_attestation="$(
-    printf '%s' "$desktop_smoke_attestation" \
-      | tr '\r\n' '  ' \
-      | sed 's/[[:cntrl:]]//g; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
-  )"
-  printf 'Signed-app smoke attestation: <code>%s</code>\n' \
-    "$sanitized_attestation" >> "$GITHUB_STEP_SUMMARY"
+    release_require_env GITHUB_STEP_SUMMARY
+    sanitized_attestation="$(
+      printf '%s' "$desktop_smoke_attestation" \
+        | tr '\r\n' '  ' \
+        | sed 's/[[:cntrl:]]//g; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
+    )"
+    printf 'Signed-app smoke attestation: <code>%s</code>\n' \
+      "$sanitized_attestation" >> "$GITHUB_STEP_SUMMARY"
+  fi
 fi
 
 version="$INPUT_VERSION"

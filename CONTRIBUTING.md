@@ -83,8 +83,9 @@ Automated tests should use disposable fake app bundles and temporary homes.
 They must assert exact arguments and environment without opening or modifying a
 real installed app.
 
-The following six-case matrix is required before every live release. Test the
-current signed ChatGPT app with non-sensitive accounts:
+The following six-case matrix is required before a live release unless the
+maintainer explicitly waives it using the release input documented below. Test
+the current signed ChatGPT app with non-sensitive accounts:
 
 1. Confirm `app default` keeps the existing stock session.
 2. Confirm a named profile persists across relaunches.
@@ -107,9 +108,8 @@ then requires a clean checkout with no unstaged, staged, or untracked artifacts.
 This verification job has read-only repository permissions, and its checkout
 does not persist a GitHub credential.
 
-Only after the six cases above pass may a maintainer dispatch with
-`dry_run: false`. The `desktop_smoke_attestation` value may contain exactly two
-public app facts, in this form:
+After the six cases above pass, dispatch with `dry_run: false` and set
+`desktop_smoke_attestation` to exactly two public app facts, in this form:
 
 ```text
 ChatGPT version 1.2026.168; bundle ID com.openai.codex
@@ -123,6 +123,14 @@ identifier, email address, screenshot, token, cookie, history, log, private
 path, or other account data. The workflow converts the validated value to a
 single escaped summary line and rejects a missing or malformed attestation
 before any live release step.
+
+If the maintainer explicitly chooses to publish without completing the Desktop
+checks, use the exact value `waived-by-maintainer` instead. This records the
+checks as **unverified** in the workflow summary and public release notes; it
+never claims the checks passed. The waiver does not skip automated verification
+or publication checks. Separately, `skip_homebrew: true` skips the tap update
+and its formula validation, leaving the tap unchanged. Leave the Desktop input
+empty to keep failing closed.
 
 The separate live-only job receives the write permissions. Before its first
 external mutation, it checks out the verified commit again, preflights the npm
