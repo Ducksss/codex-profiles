@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PROGRAM="${0##*/}"
-VERSION="0.11.0"
+VERSION="0.11.1"
 CHATGPT_APP="${CHATGPT_APP:-}"
 CODEX_APP="${CODEX_APP:-}"
 CODEX_APP_BIN="${CODEX_APP_BIN:-}"
@@ -22,110 +22,196 @@ STATE_VERSION_FILE="$CODEX_PROFILE_CONFIG_HOME/state-version"
 STATE_LOCK_DIR="$CODEX_PROFILE_CONFIG_HOME/mutation.lock"
 STATE_LOCK_HELD=no
 
+# Presentation is confined to help; command output remains suitable for scripts.
+render_help() {
+  local width=80 size _rows detected header accent='' bold='' dim='' reset=''
+  if [[ -t 1 && "${TERM:-dumb}" != dumb ]]; then
+    # Preserve the output terminal while command substitution captures stdout.
+    { size="$(stty size <&3 2>/dev/null || true)"; } 3<&1
+    read -r _rows detected <<< "$size" || true
+    detected="${COLUMNS:-$detected}"
+    if [[ "$detected" =~ ^[1-9][0-9]{1,3}$ ]]; then
+      width="$detected"
+    fi
+    if [[ -z "${NO_COLOR+x}" ]]; then
+      accent=$'\033[1;36m' bold=$'\033[1m' dim=$'\033[2m' reset=$'\033[0m'
+    fi
+    case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+      *[uU][tT][fF]-8*|*[uU][tT][fF]8*)
+        if [[ "$width" -ge 52 ]]; then
+          printf '\n%s' "$accent"
+          cat <<'ART'
+  ╭────────╮
+  │  ╭─────┴──╮   █▀▀ █▀█ █▀▄ █▀▀ ▀▄▀
+  ╰──┤  >_    │   █▄▄ █▄█ █▄▀ ██▄ █ █
+     │        │
+     ╰────────╯   P R O F I L E S
+ART
+          printf '%s' "$reset"
+        fi
+        ;;
+    esac
+  fi
+  header="  codex-profiles  v$VERSION"
+  if [[ "${#header}" -gt "$width" ]]; then
+    printf '\n%s\n' "$header" | fold -s -w "$width"
+  else
+    printf '\n%s  codex-profiles%s  %sv%s%s\n' "$bold" "$reset" "$dim" "$VERSION" "$reset"
+  fi
+  awk -v width="$width" -v accent="$accent" -v bold="$bold" -v reset="$reset" '
+    function wrap(text, indent, color,    room, piece, cut) {
+      room = width - length(indent)
+      while (length(text) > room) {
+        piece = substr(text, 1, room + 1)
+        cut = room
+        if (piece ~ / /) {
+          sub(/ [^ ]*$/, "", piece)
+          cut = length(piece)
+        }
+        print indent color substr(text, 1, cut) reset
+        text = substr(text, cut + 1)
+        sub(/^ +/, "", text)
+      }
+      if (text != "") print indent color text reset
+    }
+    /^$/ { print ""; next }
+    /^[^ ].*:$/ { wrap($0, "  ", bold); next }
+    {
+      separator = index($0, " | ")
+      if (separator) {
+        label = substr($0, 1, separator - 1)
+        description = substr($0, separator + 3)
+        if (width >= 80 && length(label) <= 32 && length(description) <= width - 38) {
+          printf "  %s%-32s%s    %s\n", accent, label, reset, description
+        } else {
+          wrap(label, "  ", accent)
+          wrap(description, "    ", "")
+        }
+      } else {
+        wrap($0, "  ", "")
+      }
+    }
+  '
+}
+
+welcome() {
+  render_help <<EOF_HELP
+Named Codex homes. Separate ChatGPT windows.
+Usage: $PROGRAM <command>
+
+Get started:
+setup work | Guided profile setup
+cli | Choose a profile for Codex CLI
+app | Choose a ChatGPT window (macOS)
+
+Everyday:
+run | Use this project's bound profile
+status | Inspect Codex-local profiles
+workspace bind . work | Bind this project to work
+
+Explore:
+help | Full command and environment reference
+EOF_HELP
+}
+
 usage() {
-  cat <<EOF
-$PROGRAM - select named Codex homes and ChatGPT windows with separate local state
+  render_help <<EOF_HELP
+Named Codex homes. Separate ChatGPT windows.
+Usage: $PROGRAM <command> [options]
 
-Usage:
-  $PROGRAM app                             # interactive profile picker
-  $PROGRAM app <profile> [--instance] [--rebuild] [workspace]
-  $PROGRAM cli                             # interactive profile picker
-  $PROGRAM cli <profile> [codex-args...]
-  $PROGRAM login <profile> [codex-login-args...]
-  $PROGRAM init <profile> [--share-with <source-profile>]
-  $PROGRAM setup <profile>
-  $PROGRAM detach <profile>
-  $PROGRAM remove <profile> [--yes]
-  $PROGRAM launcher create <profile> [--name <display-name>] [--color <color>] [--force]
-  $PROGRAM launcher list [--json]
-  $PROGRAM launcher path <profile>
-  $PROGRAM launcher remove <profile> [--yes]
-  $PROGRAM workspace bind <path> <profile> [--force]
-  $PROGRAM workspace unbind <path>
-  $PROGRAM workspace list [--json]
-  $PROGRAM workspace status [--json] [path]
-  $PROGRAM workspace guard [off|warn|strict]
-  $PROGRAM run [--] [codex-args...]
-  $PROGRAM run --app [workspace]
-  $PROGRAM status [profile]
-  $PROGRAM status --json [profile]
-  $PROGRAM path <profile>
-  $PROGRAM env <profile> [--shell <bash|zsh|fish>]
-  $PROGRAM use <profile>
-  $PROGRAM logs <profile> [--instance] [--path|--tail [lines]]
-  $PROGRAM clone-config <source-profile> <target-profile> [--force]
-  $PROGRAM list
-  $PROGRAM doctor [--json] [--check]
-  $PROGRAM completions <bash|zsh|fish>
-  $PROGRAM shell-init <bash|zsh|fish> [--prompt]
-  $PROGRAM upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
-  $PROGRAM version
-  $PROGRAM help
-
-Examples:
-  $PROGRAM login personal
-  $PROGRAM init work
-  $PROGRAM init personal-2 --share-with personal
-  $PROGRAM app personal ~/Dev/my-project
-  $PROGRAM app work ~/Dev/client-project
-  $PROGRAM launcher create work --name "ChatGPT Work" --color green
-  $PROGRAM cli personal exec "review this repo"
-  $PROGRAM workspace bind ~/Dev/client-project work
-  $PROGRAM run exec "review this repo"
-  $PROGRAM run --app
-  $PROGRAM status
-  eval "\$($PROGRAM env work)"     # set CODEX_HOME for this shell
-  $PROGRAM use work               # same, via the shell-init wrapper
-  $PROGRAM logs personal --tail 50
-  $PROGRAM clone-config personal work
-  $PROGRAM upgrade
-
-Desktop (app):
-  default         Launch the stock ChatGPT session with CODEX_HOME=~/.codex.
-  named profile   Launch a named ChatGPT window with separate local state across
-                  Chat, Work, and Codex, using profile-specific Electron data.
-
-Deprecated compatibility:
-  app-instance    Alias for app; no separate launch mode is created.
-  --instance      Accepted by app and logs; named windows already use separate
-                  local state.
-  --rebuild       Accepted by app; app bundles are never cloned or rebuilt.
+Launch:
+app | Interactive profile picker (macOS)
+app <profile> [--instance] [--rebuild] [workspace]
+cli | Interactive profile picker
+cli <profile> [codex-args...]
+login <profile> [codex-login-args...]
+run [--] [codex-args...] | Run using the nearest workspace binding
+run --app [workspace] | Open the bound ChatGPT window (macOS)
 
 Profiles:
-  default         -> ~/.codex
-  any other name  -> ~/.codex-<profile>
+setup <profile> | Guided init, login, binding and launcher
+init <profile> [--share-with <source-profile>]
+detach <profile> | Make shared configuration independent
+clone-config <source-profile> <target-profile> [--force]
+remove <profile> [--yes]
+list | List profiles
+path <profile> | Print the Codex home path
 
-Environment:
-  CHATGPT_APP     Override the ChatGPT.app bundle path (preferred).
-  CODEX_APP       Override the desktop app bundle path (legacy compatibility).
-  CODEX_APP_BIN   Locate a desktop .app from its executable (deprecated).
-  CODEX_CLI       Override Codex CLI binary path.
-  CODEX_BUNDLED_CLI  Override the bundled Codex CLI fallback path.
-  CODEX_PROFILE_CONFIG_HOME  Override private versioned control-state storage.
-  CODEX_PROFILE_LAUNCHER_ROOT  Override launcher install directory (default: ~/Applications).
-  CODEX_PROFILE_APP_INSTANCE_ROOT  Legacy clone root (doctor only; never written).
-  CODEX_PROFILE_UPGRADE_REPO    Override upgrade repository.
-  CODEX_PROFILE_UPGRADE_REF     Override upgrade git ref (default: latest immutable release).
-  CODEX_PROFILE_UPGRADE_RELEASE_URL  Override latest-release metadata URL.
-  CODEX_PROFILE_UPGRADE_CACHE   Override upgrade cache checkout.
-  CODEX_PROFILE_UPGRADE_PREFIX  Override upgrade install prefix.
-  CODEX_PROFILE_NO_UPDATE_CHECK  Disable the daily update check (also honors DO_NOT_TRACK).
+Workspaces:
+workspace bind <path> <profile> [--force]
+workspace unbind <path>
+workspace list [--json]
+workspace status [--json] [path]
+workspace guard [off|warn|strict]
+
+macOS launchers:
+launcher create <profile> [--name <display-name>] [--color <color>] [--force]
+launcher list [--json]
+launcher path <profile>
+launcher remove <profile> [--yes]
+
+Inspect and maintain:
+status [profile] | Read-only Codex-local overview
+status --json [profile]
+doctor [--json] [--check] | Check the environment
+logs <profile> [--instance] [--path|--tail [lines]]
+upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
+version | Print the installed version
+help | Show this reference
+
+Shell integration:
+env <profile> [--shell <bash|zsh|fish>]
+use <profile> | Activate via the shell-init wrapper
+completions <bash|zsh|fish>
+shell-init <bash|zsh|fish> [--prompt]
+
+Examples:
+$PROGRAM setup work
+$PROGRAM init personal-2 --share-with personal
+$PROGRAM app work ~/Dev/client-project
+$PROGRAM cli work exec "review this repo"
+$PROGRAM workspace bind ~/Dev/client-project work
+$PROGRAM run exec "review this repo"
+eval "\$($PROGRAM env work)"
+$PROGRAM logs work --tail 50
+$PROGRAM clone-config personal work
+
+Profile homes and Desktop scope:
+default | ~/.codex; stock ChatGPT session
+Any other name | ~/.codex-<profile>; named local state
+Named Desktop windows use profile-specific Electron data across Chat, Work, and Codex. CLI, login, env and use select Codex-local state only.
 
 Lifecycle:
-  init creates profiles; interactive setup guides you through init, login,
-  workspace binding, and an optional macOS launcher. Commands that run Codex,
-  login, launch ChatGPT, or copy configuration require initialized profiles.
-  detach copies shared configuration into independent files without touching
-  private state. shell-init --prompt adds an optional active-profile indicator.
+init creates profiles; setup guides you through init, login, workspace binding, and an optional macOS launcher. Launch, login and configuration-copy commands require initialized profiles. detach copies shared configuration into independent files without touching private state. shell-init --prompt adds an optional active-profile indicator.
+
+Environment:
+CHATGPT_APP | ChatGPT.app bundle path (preferred)
+CODEX_APP | Desktop bundle path (legacy)
+CODEX_APP_BIN | Bundle executable path (deprecated)
+CODEX_CLI | Codex CLI binary path
+CODEX_BUNDLED_CLI | Bundled Codex CLI fallback path
+CODEX_PROFILE_CONFIG_HOME | Private versioned control-state storage
+CODEX_PROFILE_LAUNCHER_ROOT | Launcher directory; default: ~/Applications
+CODEX_PROFILE_APP_INSTANCE_ROOT | Legacy clone root; doctor only, read-only
+CODEX_PROFILE_UPGRADE_REPO | Upgrade repository
+CODEX_PROFILE_UPGRADE_REF | Git ref; default: latest immutable release
+CODEX_PROFILE_UPGRADE_RELEASE_URL | Latest-release metadata URL
+CODEX_PROFILE_UPGRADE_CACHE | Upgrade cache checkout
+CODEX_PROFILE_UPGRADE_PREFIX | Upgrade install prefix
+CODEX_PROFILE_NO_UPDATE_CHECK | Disable daily checks (or DO_NOT_TRACK)
+NO_COLOR | Disable help colors
+
+Deprecated compatibility:
+app-instance | Alias for app; no separate launch mode
+--instance | Accepted by app and logs; named windows already use separate local state
+--rebuild | Accepted by app; bundles are never cloned or rebuilt
 
 Desktop auth safety:
-  app refuses an inherited CODEX_ACCESS_TOKEN so a shell credential cannot
-  silently override the selected window.
+app refuses an inherited CODEX_ACCESS_TOKEN so a shell credential cannot silently override the selected window. Local-state separation is not an OS or account security boundary.
 
 Platform:
-  app and launcher create require macOS (they drive the ChatGPT desktop app).
-  All other commands run on macOS and Linux.
-EOF
+app and launcher create require macOS. Other commands run on macOS and Linux.
+EOF_HELP
 }
 
 die() {
@@ -3717,7 +3803,8 @@ command_doctor() {
 
 main() {
   local command="${1:-help}"
-  local json_command=no arg
+  local json_command=no overview=no arg
+  [[ "$#" -ne 0 ]] || overview=yes
   shift || true
 
   case "$command" in
@@ -3806,7 +3893,11 @@ main() {
       command_version
       ;;
     help | -h | --help)
-      usage
+      if [[ "$overview" == yes ]]; then
+        welcome
+      else
+        usage
+      fi
       ;;
     *)
       die "Unknown command '$command'. See '$PROGRAM help'."

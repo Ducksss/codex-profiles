@@ -73,6 +73,48 @@ run_interactive() {
   output="${output//$'\r'/}"
 }
 
+test_terminal_help_presentation() {
+  local plain
+  prepare_interactive_test
+  run_interactive '' env -u NO_COLOR -u LC_ALL -u LC_CTYPE LANG=en_US.UTF-8 TERM=xterm-256color COLUMNS=80 "$SCRIPT"
+  assert_status 0
+  assert_contains '╭────────╮'
+  assert_contains '█▀▀ █▀█ █▀▄ █▀▀ ▀▄▀'
+  assert_contains 'P R O F I L E S'
+  assert_contains $'\033[1;36m'
+  assert_contains 'setup work'
+  run_interactive '' env -u LC_ALL -u LC_CTYPE LANG=en_US.UTF-8 TERM=xterm-256color COLUMNS=80 NO_COLOR=1 "$SCRIPT"
+  assert_status 0
+  assert_contains '╭────────╮'
+  assert_not_contains $'\033'
+  run_interactive '' env TERM=xterm-256color COLUMNS=40 NO_COLOR=1 "$SCRIPT" help
+  assert_status 0
+  assert_not_contains '╭────────╮'
+  assert_not_contains $'\033'
+  assert_contains 'CODEX_PROFILE_UPGRADE_RELEASE_URL'
+  plain="$output"
+  printf '%s\n' "$plain" | LC_ALL=C awk 'length > 40 { exit 1 }' \
+    || fail 'narrow help exceeds terminal width'
+  # Test actual terminal dimensions with COLUMNS absent, not only its override.
+  # shellcheck disable=SC2016 # The child expands the script argument.
+  run_interactive '' env TERM=xterm-256color NO_COLOR=1 bash -c \
+    'stty cols 40; unset COLUMNS; exec "$1" help' _ "$SCRIPT"
+  assert_status 0
+  assert_equals "$plain"
+  run_interactive '' env TERM=xterm-256color COLUMNS=20 NO_COLOR=1 "$SCRIPT"
+  assert_status 0
+  printf '%s\n' "$output" | LC_ALL=C awk 'length > 20 { exit 1 }' \
+    || fail 'compact header exceeds terminal width'
+  run_interactive '' env TERM=dumb COLUMNS=80 "$SCRIPT"
+  assert_status 0
+  assert_not_contains '╭────────╮'
+  assert_not_contains $'\033'
+  run_interactive '' env TERM=xterm-256color LC_ALL=C COLUMNS=80 "$SCRIPT"
+  assert_status 0
+  assert_not_contains '╭────────╮'
+  [[ ! -e "$tmp/config" && ! -e "$tmp/tool.log" ]] || fail 'help mutated profile state'
+}
+
 test_interactive_commands_require_terminal_before_mutation() {
   local subcommand
   prepare_interactive_test
@@ -260,6 +302,7 @@ ICON_TOOL
   assert_contains '"profile":"work"'
 }
 
+test_terminal_help_presentation
 test_interactive_commands_require_terminal_before_mutation
 test_picker_selection_retries_and_excludes_symlinks
 test_picker_workspace_default_and_launch_guard
