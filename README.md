@@ -584,6 +584,17 @@ For Bash, save the output as
 
 ## Command reference
 
+Run `codex-profile` for a compact welcome screen and the most useful commands.
+Run `codex-profile help` (or `--help`) for the complete grouped reference,
+including advanced options and environment overrides. Use the command shown
+in the Usage line followed by a command from the list, for example
+`codex-profile setup work`.
+
+Help uses an overlapping-window mark, pixel lettering and subtle colors on
+UTF-8 terminals, and adapts to the terminal width. Narrow terminals and non-UTF-8
+locales get a compact text header. Set `NO_COLOR=1` for monochrome output; redirected output and
+`TERM=dumb` use plain text. Styling is limited to help and the welcome screen.
+
 ```text
 codex-profile app [<profile> [workspace]]
 codex-profile cli [<profile> [codex-args...]]

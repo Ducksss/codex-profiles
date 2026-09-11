@@ -8,6 +8,29 @@ TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT HUP INT TERM
 source "$ROOT_DIR/test/lib/cli-fixtures.sh"
 
+test_help_plain_output_and_overview() {
+  local overview
+  run_cmd env CODEX_PROFILE_NO_UPDATE_CHECK=1 TERM=xterm-256color "$SCRIPT"
+  assert_status 0
+  assert_contains 'Get started:'
+  assert_contains 'setup work'
+  assert_contains 'Full command and environment reference'
+  assert_not_contains 'CODEX_PROFILE_UPGRADE_REPO'
+  assert_not_contains $'\033'
+  assert_not_contains '╭────────╮'
+  [[ "$(printf '%s\n' "$output" | wc -l)" -le 20 ]] || fail 'overview is too long'
+  overview="$output"
+  run_cmd env CODEX_PROFILE_NO_UPDATE_CHECK=1 TERM=dumb "$SCRIPT"
+  assert_equals "$overview"
+  run_cmd env CODEX_PROFILE_NO_UPDATE_CHECK=1 "$SCRIPT" --help
+  assert_status 0
+  assert_contains 'CODEX_PROFILE_UPGRADE_REPO'
+  assert_contains 'NO_COLOR'
+  assert_not_contains $'\033'
+  printf '%s\n' "$output" | LC_ALL=C awk 'length > 80 { exit 1 }' \
+    || fail 'plain help exceeds 80 columns'
+}
+
 test_logs_prints_path_and_contents() {
   local tmp log_file
   tmp="$(mktemp -d)"
@@ -350,6 +373,7 @@ test_shell_init_use_activates_profile_in_current_shell() {
   rm -rf "$tmp"
 }
 
+test_help_plain_output_and_overview
 test_logs_prints_path_and_contents
 test_logs_prints_instance_path_and_contents
 test_logs_reports_missing_log_file

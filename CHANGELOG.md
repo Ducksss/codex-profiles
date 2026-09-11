@@ -7,6 +7,13 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Changed
+
+- Replaced the no-argument help dump with a compact welcome screen, a new
+  terminal wordmark, and quick-start commands. Full help groups commands by
+  task and formats environment overrides on readable rows, with wrapping for
+  narrow terminals, monochrome support via `NO_COLOR`, and plain piped output.
+
 ## 0.11.0 - 2026-09-09
 
 ### Added

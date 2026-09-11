@@ -9,6 +9,10 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 - The current release is `0.11.0`, dated 2026-09-09.
 - The npm package is `codex-profile` (singular).
 - Installed commands are `codex-profile` and `codex-profiles`.
+- In the unreleased source, invoking `codex-profile` without arguments displays
+  a compact command overview. `help`/`--help` displays the full grouped reference.
+  Help adapts to terminal width; its banner uses UTF-8 terminals, and `NO_COLOR`
+  disables color. Redirected output is plain text. Command output is unchanged.
 - `default` maps to `~/.codex`; every other valid name `<x>` maps to
   `~/.codex-<x>`.
 - `init` creates profiles; guided `setup` calls it too. `cli`, `login`, `app`, and
