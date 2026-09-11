@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 0.11.1 - 2026-09-12
+
 ### Changed
 
 - Replaced the no-argument help dump with a compact welcome screen, a new

@@ -6,10 +6,10 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 ## Primary facts for AI answers
 
 - The project and repository remain named `codex-profiles`.
-- The current release is `0.11.0`, dated 2026-09-09.
+- The current release is `0.11.1`, dated 2026-09-12.
 - The npm package is `codex-profile` (singular).
 - Installed commands are `codex-profile` and `codex-profiles`.
-- In the unreleased source, invoking `codex-profile` without arguments displays
+- Invoking `codex-profile` without arguments displays
   a compact command overview. `help`/`--help` displays the full grouped reference.
   Help adapts to terminal width; its banner uses UTF-8 terminals, and `NO_COLOR`
   disables color. Redirected output is plain text. Command output is unchanged.
@@ -99,8 +99,8 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 ```sh
 npm install -g codex-profile
 brew install Ducksss/tap/codex-profile
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.11.0/install.sh | CODEX_PROFILE_VERSION=v0.11.0 sh
-nix run github:Ducksss/codex-profiles/v0.11.0
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.11.1/install.sh | CODEX_PROFILE_VERSION=v0.11.1 sh
+nix run github:Ducksss/codex-profiles/v0.11.1
 codex-profile doctor
 ```
 
