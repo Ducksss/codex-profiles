@@ -307,3 +307,23 @@ for (const required of [
 ]) {
   assertContains(pagesWorkflow, required, 'Pages workflow');
 }
+
+// Moving reference material must not strand links in either entry point.
+for (const document of ['README.md', 'USAGE.md']) {
+  const markdown = read(document);
+  for (const [, target] of markdown.matchAll(/\]\(([^\s)]+)\)/g)) {
+    if (/^[a-z]+:\/\//i.test(target)) continue;
+    const [path, anchor] = target.split('#');
+    const destination = path || document;
+    assert.ok(fileExists(destination), `${document}: missing link target ${target}`);
+    if (anchor && destination.endsWith('.md')) {
+      const headings = [...read(destination).matchAll(/^#{1,6} (.+)$/gm)].map(([, heading]) =>
+        heading.toLowerCase().replace(/[^\p{L}\p{N}_\-\s]/gu, '').replace(/ /g, '-')
+      );
+      assert.ok(headings.includes(anchor), `${document}: missing heading ${target}`);
+    }
+  }
+}
+for (const asset of ['USAGE.md', 'docs/welcome.svg']) {
+  assert.ok(packageJson.files.includes(asset), `npm package must include README dependency ${asset}`);
+}
