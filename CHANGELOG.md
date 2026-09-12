@@ -7,6 +7,12 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Changed
+
+- Reorganized the README around guided setup, everyday CLI and Desktop
+  workflows, and a captured terminal welcome screen. Preserved the detailed
+  reference in `USAGE.md`, included with npm installations.
+
 ## 0.11.1 - 2026-09-12
 
 ### Changed

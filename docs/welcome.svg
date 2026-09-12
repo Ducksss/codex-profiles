@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="602" viewBox="0 0 1000 602" role="img" aria-labelledby="title desc">
+<title id="title">codex-profiles terminal welcome</title>
+<desc id="desc">Actual UTF-8 terminal output from codex-profile v0.11.1. Guided setup, CLI and Desktop pickers, project binding, status, and help.</desc>
+<rect width="1000" height="602" rx="16" fill="#101820"/>
+<circle cx="28" cy="25" r="6" fill="#ff6b6b"/><circle cx="49" cy="25" r="6" fill="#ffd166"/><circle cx="70" cy="25" r="6" fill="#72d6a0"/>
+<text x="28" y="65" fill="#a8b6c4" font-family="monospace" font-size="16">$ codex-profile</text>
+<text x="28" y="96" fill="#6edee5" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  ╭────────╮</text>
+<text x="28" y="119" fill="#6edee5" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  │  ╭─────┴──╮   █▀▀ █▀█ █▀▄ █▀▀ ▀▄▀</text>
+<text x="28" y="142" fill="#6edee5" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  ╰──┤  &gt;_    │   █▄▄ █▄█ █▄▀ ██▄ █ █</text>
+<text x="28" y="165" fill="#6edee5" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">     │        │</text>
+<text x="28" y="188" fill="#6edee5" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">     ╰────────╯   P R O F I L E S</text>
+<text x="28" y="211" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve"></text>
+<text x="28" y="234" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  codex-profiles  v0.11.1</text>
+<text x="28" y="257" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  Named Codex homes. Separate ChatGPT windows.</text>
+<text x="28" y="280" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  Usage: codex-profile &lt;command&gt;</text>
+<text x="28" y="303" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve"></text>
+<text x="28" y="326" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  Get started:</text>
+<text x="28" y="349" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  setup work                          Guided profile setup</text>
+<text x="28" y="372" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  cli                                 Choose a profile for Codex CLI</text>
+<text x="28" y="395" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  app                                 Choose a ChatGPT window (macOS)</text>
+<text x="28" y="418" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve"></text>
+<text x="28" y="441" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  Everyday:</text>
+<text x="28" y="464" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  run                                 Use this project&#x27;s bound profile</text>
+<text x="28" y="487" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  status                              Inspect Codex-local profiles</text>
+<text x="28" y="510" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  workspace bind . work               Bind this project to work</text>
+<text x="28" y="533" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve"></text>
+<text x="28" y="556" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  Explore:</text>
+<text x="28" y="579" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  help                                Full command and environment reference</text>
+</svg>

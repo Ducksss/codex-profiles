@@ -38,6 +38,8 @@
     "docs/llms.txt",
     "LICENSE",
     "README.md",
+    "USAGE.md",
+    "docs/welcome.svg",
     "SECURITY.md"
   ],
   "os": [
