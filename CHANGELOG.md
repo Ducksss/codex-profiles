@@ -11,6 +11,26 @@ and this project follows semantic versioning for tagged releases.
 
 - A dedicated 10-second Remotion README loop linked to the full launch video,
   with a seamless repeat and the CLI welcome screen in an expandable section.
+- Optional terminal integration during `setup`, with an exact snippet preview
+  before appending shell startup configuration for profile prompts,
+  completions, terminal titles, and completion notifications. Repeated setup
+  appends only missing integration lines and never executes startup files.
+- `shell-init --completions` for Bash, Zsh, and Fish, usable alone or with
+  `--prompt` to load both features in the current shell.
+- Terminal welcome context showing the project binding, current shell profile,
+  and relevant launch commands without checking login state.
+- Interactive recovery for unbound `run` and `run --app`: choose a profile,
+  optionally save the binding, and launch it. Noninteractive failures remain
+  unchanged.
+
+### Changed
+
+- Profile pickers accept exact names and menu numbers (`#N` disambiguates
+  numeric names), distinguish project and
+  shell selections, and use the shell profile as the default when no workspace
+  is bound. Cancellation no longer displays an error; it retains exit status 1.
+- Shell completion suggests initialized profiles for launch commands and
+  completes supported options in their relevant argument positions.
 
 ## 1.0.0 - 2026-09-13
 

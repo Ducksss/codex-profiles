@@ -130,6 +130,46 @@ assert_contains 'Usage:'
 run_cmd "$SCRIPT" shell-init bash --unexpected
 assert_status 1
 assert_contains 'Usage:'
+run_cmd "$SCRIPT" shell-init bash --completions --completions
+assert_status 1
+assert_contains 'Usage:'
+
+for shell in bash zsh fish; do
+  if ! command -v "$shell" >/dev/null 2>&1; then
+    printf 'SKIP: %s shell integration runtime unavailable\n' "$shell"
+    continue
+  fi
+  if [[ "$shell" == fish ]]; then
+    # shellcheck disable=SC2016 # Evaluated by the shell under test.
+    run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" fish --no-config -c '
+      codex-profile shell-init fish --completions --prompt | source
+      codex-profile shell-init fish --prompt --completions | source
+      codex-profile use work; or exit 1
+      test "$CODEX_HOME" = "$HOME/.codex-work"; or exit 1
+      complete -C "codex-profile cli wo"
+    '
+  else
+    # shellcheck disable=SC2016 # Evaluated by the shell under test.
+    run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" TEST_SHELL="$shell" "$shell" -f -c '
+      set -eu
+      eval "$(codex-profile shell-init "$TEST_SHELL" --completions --prompt)"
+      eval "$(codex-profile shell-init "$TEST_SHELL" --prompt --completions)"
+      codex-profile use work
+      [[ "$CODEX_HOME" == "$HOME/.codex-work" ]]
+      if [[ "$TEST_SHELL" == bash ]]; then
+        complete -p codex-profile
+        COMP_WORDS=(codex-profile cli wo); COMP_CWORD=2
+        _codex_profile
+        printf "%s\n" "${COMPREPLY[@]}"
+      else
+        [[ "${_comps[codex-profile]}" == _codex_profile ]]
+        print work
+      fi
+    '
+  fi
+  assert_status 0
+  assert_contains work
+done
 run_cmd "$SCRIPT" shell-init tcsh --prompt
 assert_status 1
 assert_contains "Unsupported shell 'tcsh'"

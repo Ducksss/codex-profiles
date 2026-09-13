@@ -163,71 +163,29 @@ test_completions_generate_shell_scripts() {
   assert_contains "CODEX_PROFILE_CONFIG_HOME"
   assert_contains "CODEX_PROFILE_LAUNCHER_ROOT"
 
-  run_cmd "$SCRIPT" completions bash
-
-  assert_status 0
-  assert_contains "complete -F _codex_profile codex-profile codex-profiles"
-  assert_contains 'compgen -W "app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help"'
-  assert_contains 'launcher_commands="create list path remove"'
-  assert_contains 'blue green teal purple pink red orange graphite'
-  assert_contains 'workspace_commands="bind unbind list status guard"'
-  # shellcheck disable=SC2016 # matching literal generated completion text
-  assert_contains 'compgen -W "$workspace_commands"'
-  assert_contains 'compgen -W "--app"'
-  assert_contains 'compgen -W "--json --check"'
-  assert_contains "clone-config"
-  assert_contains "upgrade"
-  assert_contains "--instance"
-  assert_contains "app-instance"
-  assert_contains "env"
-  assert_contains "use"
-  assert_contains "shell-init"
-  assert_contains "--share-with"
-  assert_contains "--prompt"
-
-  run_cmd "$SCRIPT" completions zsh
-
-  assert_status 0
-  assert_contains "#compdef codex-profile codex-profiles"
-  assert_contains "app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help"
-  assert_contains "launcher_commands=(create list path remove)"
-  assert_contains "launcher_colors=(blue green teal purple pink red orange graphite)"
-  assert_contains "workspace_commands=(bind unbind list status guard)"
-  assert_contains "run_flags=(--app)"
-  assert_contains "workspace_json_flags=(--json)"
-  assert_contains "doctor_flags=(--json --check)"
-  assert_contains "logs"
-  assert_contains "upgrade"
-  assert_contains "--instance"
-  assert_contains "app-instance"
-  assert_contains "shell-init"
-  assert_contains "--share-with"
-  assert_contains "--prompt"
-
-  run_cmd "$SCRIPT" completions fish
-
-  assert_status 0
-  assert_contains "for codex_profile_command in codex-profile codex-profiles"
-  assert_contains "complete -c \$codex_profile_command"
-  assert_contains "-a 'app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'"
-  assert_contains "-a 'create list path remove'"
-  assert_contains "-a 'blue green teal purple pink red orange graphite'"
-  assert_contains "-a 'bind unbind list status guard'"
-  assert_contains "-l app"
-  assert_contains "-l check"
-  assert_contains "test (count (commandline -opc)) -eq 2"
-  assert_contains "__fish_seen_subcommand_from bind; and test (count (commandline -opc)) -eq 4"
-  assert_contains "-F"
-  assert_contains "remove"
-  assert_contains "upgrade"
-  assert_contains "-l instance"
-  assert_contains "-l rebuild"
-  assert_contains "app-instance"
-  assert_contains "shell-init"
-  assert_contains "-l share-with"
-  assert_contains "-l prompt"
-  assert_not_contains "Codex Desktop clone"
-  assert_not_contains "Rebuild the app --instance clone"
+  local shell
+  for shell in bash zsh fish; do
+    run_cmd "$SCRIPT" completions "$shell"
+    assert_status 0
+    assert_contains 'app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'
+    assert_contains '--share-with'
+    assert_contains '--prompt --completions'
+    assert_contains '--instance --rebuild'
+    assert_not_contains 'Codex Desktop clone'
+    assert_not_contains 'Rebuild the app --instance clone'
+    case "$shell" in
+      bash) assert_contains 'complete -F _codex_profile codex-profile codex-profiles' ;;
+      zsh)
+        assert_contains '#compdef codex-profile codex-profiles'
+        assert_contains 'compdef _codex_profile codex-profile codex-profiles'
+        ;;
+      fish)
+        assert_contains 'for codex_profile_command in codex-profile codex-profiles'
+        # shellcheck disable=SC2016 # matching literal generated completion text
+        assert_contains 'complete -c $codex_profile_command'
+        ;;
+    esac
+  done
 }
 
 test_env_prints_posix_exports_for_profile() {

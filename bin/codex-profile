@@ -95,11 +95,16 @@ ART
 }
 
 welcome() {
+  local context=""
+  if [[ -t 1 && "${TERM:-dumb}" != dumb ]]; then
+    context="$(welcome_context)" || context=$'Project context unavailable; run codex-profile doctor.\n'
+    context="$context"$'\n\n'
+  fi
   render_help <<EOF_HELP
 Named Codex homes. Separate ChatGPT windows.
 Usage: $PROGRAM <command>
 
-Get started:
+${context}Get started:
 setup work | Guided profile setup
 cli | Choose a profile for Codex CLI
 app | Choose a ChatGPT window (macOS)
@@ -163,7 +168,7 @@ Shell integration:
 env <profile> [--shell <bash|zsh|fish>]
 use <profile> | Activate via the shell-init wrapper
 completions <bash|zsh|fish>
-shell-init <bash|zsh|fish> [--prompt]
+shell-init <bash|zsh|fish> [--prompt] [--completions]
 
 Examples:
 $PROGRAM setup work
@@ -182,7 +187,7 @@ Any other name | ~/.codex-<profile>; named local state
 Named Desktop windows use profile-specific Electron data across Chat, Work, and Codex. CLI, login, env and use select Codex-local state only.
 
 Lifecycle:
-init creates profiles; setup guides you through init, login, workspace binding, and an optional macOS launcher. Launch, login and configuration-copy commands require initialized profiles. detach copies shared configuration into independent files without touching private state. shell-init --prompt adds an optional active-profile indicator.
+init creates profiles; setup guides you through init, login, workspace binding, an optional macOS launcher, and opt-in terminal integration. Launch, login and configuration-copy commands require initialized profiles. Interactive run offers profile selection when no workspace is bound. detach copies shared configuration into independent files without touching private state. shell-init --prompt adds an optional active-profile indicator; --completions loads shell completions.
 
 Environment:
 CHATGPT_APP | ChatGPT.app bundle path (preferred)
@@ -1878,12 +1883,55 @@ require_interactive_terminal() {
   [[ -t 0 ]] || die "This command requires an interactive terminal; supply a profile to app/cli or use init, login, workspace bind, and launcher create directly."
 }
 
+current_shell_profile() {
+  local profile="${CODEX_PROFILE_NAME:-}"
+  is_valid_profile_name "$profile" || return 1
+  [[ "${CODEX_HOME:-}" == "$(codex_home_for_profile "$profile")" ]] || return 1
+  profile_is_initialized "$profile" || return 1
+  printf '%s\n' "$profile"
+}
+
+welcome_context() {
+  local bound='Not bound' selected project="$PWD" resolve_status
+  case "$project" in
+    "$HOME") project='~' ;;
+    "$HOME"/*) project="~${project#"$HOME"}" ;;
+  esac
+  project="${project//[^[:print:]]/}"
+  selected="$(current_shell_profile)" || selected='Not selected'
+  if workspace_resolve "$PWD"; then
+    bound="$WORKSPACE_RESOLVED_PROFILE"
+  else
+    resolve_status=$?
+    [[ "$resolve_status" -eq 1 ]] || return "$resolve_status"
+  fi
+  printf 'Project | %s\nBound profile | %s\nShell profile | %s\n\n' "$project" "$bound" "$selected"
+  if [[ -n "$WORKSPACE_RESOLVED_PROFILE" ]]; then
+    if profile_is_initialized "$WORKSPACE_RESOLVED_PROFILE"; then
+      printf 'Launch this project:\n%s run | Start Codex CLI\n' "$PROGRAM"
+      [[ "$(uname -s)" != Darwin ]] || printf '%s run --app | Open ChatGPT\n' "$PROGRAM"
+    else
+      printf 'Restore this project profile:\n%s setup %s\n' "$PROGRAM" "$WORKSPACE_RESOLVED_PROFILE"
+    fi
+  elif [[ "$selected" != 'Not selected' ]]; then
+    printf 'Launch with your shell profile:\n%s cli %s\n' "$PROGRAM" "$selected"
+  else
+    printf 'Choose a profile:\n%s cli\n' "$PROGRAM"
+  fi
+}
+
+cancel_interaction() {
+  printf '%s\n' "$*" >&2
+  exit 1
+}
+
 pick_profile() {
-  local profile choice index=0 default_choice="" resolve_status
+  local profile choice index=0 default_choice="" default_profile="" shell_profile resolve_status
   local -a profiles=()
 
   require_interactive_terminal
-  if workspace_resolve "$PWD"; then
+  shell_profile="$(current_shell_profile)" || shell_profile=""
+  if workspace_resolve "${1:-$PWD}"; then
     :
   else
     resolve_status=$?
@@ -1898,39 +1946,134 @@ pick_profile() {
     if [[ "$profile" == "$WORKSPACE_RESOLVED_PROFILE" ]]; then
       printf ' (workspace)' >&2
       default_choice="$index"
+      default_profile="$profile"
+    fi
+    if [[ "$profile" == "$shell_profile" ]]; then
+      printf ' (shell)' >&2
+      if [[ -z "$default_choice" && -z "$WORKSPACE_RESOLVED_PROFILE" ]]; then
+        default_choice="$index"
+        default_profile="$profile"
+      fi
     fi
     printf '\n' >&2
   done < <(discover_profiles yes)
   [[ "$index" -gt 0 ]] || die "No initialized profiles; run '$PROGRAM setup <profile>' first."
 
   while true; do
-    printf 'Profile number%s (q to cancel): ' "${default_choice:+ [$default_choice]}" >&2
-    IFS= read -r choice || die "Selection cancelled."
-    [[ "$choice" != q && "$choice" != Q ]] || die "Selection cancelled."
-    choice="${choice:-$default_choice}"
+    printf 'Profile name or number%s (q to cancel; #N selects menu item N): ' "${default_choice:+ [$default_choice]}" >&2
+    IFS= read -r choice || cancel_interaction "Selection cancelled."
+    [[ "$choice" != q && "$choice" != Q ]] || cancel_interaction "Selection cancelled."
+    if [[ -z "$choice" && -n "$default_profile" ]]; then
+      printf '%s\n' "$default_profile"
+      return 0
+    fi
+    for profile in "${profiles[@]}"; do
+      if [[ "$choice" == "$profile" ]]; then
+        printf '%s\n' "$profile"
+        return 0
+      fi
+    done
     for ((index = 0; index < ${#profiles[@]}; index++)); do
-      if [[ "$choice" == "$((index + 1))" ]]; then
+      if [[ "$choice" == "$((index + 1))" || "$choice" == "#$((index + 1))" ]]; then
         printf '%s\n' "${profiles[index]}"
         return 0
       fi
     done
-    printf 'Enter one of the listed numbers.\n' >&2
+    printf 'Enter one of the listed names or numbers.\n' >&2
   done
 }
 
 interactive_yes_no() {
   local question="$1" default="$2" answer suffix='[y/N]'
+  local cancelled="${3:-Setup cancelled; completed steps were kept.}"
   [[ "$default" != yes ]] || suffix='[Y/n]'
   while true; do
     printf '%s %s: ' "$question" "$suffix" >&2
-    IFS= read -r answer || die "Setup cancelled; completed steps were kept."
+    IFS= read -r answer || cancel_interaction "$cancelled"
     case "${answer:-$default}" in
       y|Y|yes|YES) INTERACTIVE_ANSWER=yes; return 0 ;;
       n|N|no|NO) INTERACTIVE_ANSWER=no; return 0 ;;
-      q|Q) die "Setup cancelled; completed steps were kept." ;;
+      q|Q) cancel_interaction "$cancelled" ;;
       *) printf 'Enter y or n (q to cancel).\n' >&2 ;;
     esac
   done
+}
+
+setup_shell_integration() {
+  local shell="${SHELL:-}" startup snippet directory links line missing=""
+  shell="${shell##*/}"
+  case "$shell" in
+    bash)
+      startup="$HOME/.bashrc"
+      if [[ "$(uname -s)" == Darwin ]]; then
+        startup="$HOME/.bash_profile"
+        if [[ ! -e "$startup" && ! -L "$startup" ]]; then
+          if [[ -e "$HOME/.bash_login" || -L "$HOME/.bash_login" ]]; then
+            startup="$HOME/.bash_login"
+          elif [[ -e "$HOME/.profile" || -L "$HOME/.profile" ]]; then
+            startup="$HOME/.profile"
+          fi
+        fi
+      fi
+      ;;
+    zsh) startup="${ZDOTDIR:-$HOME}/.zshrc" ;;
+    fish) startup="${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish" ;;
+    *)
+      note "Terminal integration: use '$PROGRAM shell-init <bash|zsh|fish> --prompt --completions' and the terminal feedback options in '$PROGRAM help'."
+      return 0
+      ;;
+  esac
+  if [[ "$shell" == fish ]]; then
+    snippet='codex-profile shell-init fish --prompt --completions | source
+set -gx CODEX_PROFILE_TERMINAL_TITLE 1
+set -gx CODEX_PROFILE_NOTIFY 1'
+  else
+    snippet="eval \"\$(codex-profile shell-init $shell --prompt --completions)\""$'\nexport CODEX_PROFILE_TERMINAL_TITLE=1 CODEX_PROFILE_NOTIFY=1'
+    if [[ "$startup" == "$HOME/.profile" ]]; then
+      # shellcheck disable=SC2016 # The login shell evaluates this guard.
+      snippet='[ -z "${BASH_VERSION:-}" ] || '"$snippet"
+    fi
+  fi
+  note ""
+  note "Optional terminal integration: completions, profile prompt, tab titles and exec notifications."
+  note "Startup file: $startup"
+  printf '%s\n' "$snippet"
+  # Do not follow dotfile links or modify a shared inode behind the user's back.
+  directory="$startup"
+  while [[ "$directory" != / && -n "$directory" ]]; do
+    if [[ "$directory" != /* || -L "$directory" ]]; then
+      note "Add the snippet manually to your shell configuration; setup will not write a relative or linked path."
+      return 0
+    fi
+    directory="${directory%/*}"
+  done
+  if [[ -e "$startup" ]]; then
+    if [[ ! -f "$startup" ]]; then
+      note "Add the snippet manually; the startup path is not a regular file."
+      return 0
+    fi
+    links="$(file_link_count "$startup")" || die "Cannot inspect startup file: $startup"
+    if [[ "$links" != 1 ]]; then
+      note "Add the snippet manually; setup will not modify a multiply-linked startup file."
+      return 0
+    fi
+    while IFS= read -r line; do
+      if ! grep -Fqx -- "$line" "$startup"; then
+        missing="${missing:+$missing$'\n'}$line"
+      fi
+    done <<< "$snippet"
+    if [[ -z "$missing" ]]; then
+      note "Terminal integration is already configured."
+      return 0
+    fi
+    snippet="$missing"
+  fi
+  interactive_yes_no "Append the missing lines above to $startup?" no
+  if [[ "$INTERACTIVE_ANSWER" == yes ]]; then
+    (umask 077; mkdir -p "${startup%/*}" && printf '\n# codex-profile terminal integration\n%s\n' "$snippet" >> "$startup") \
+      || die "Cannot append terminal integration to $startup."
+    note "Terminal integration saved. Open a new $shell shell to load it."
+  fi
 }
 
 command_setup() {
@@ -1948,7 +2091,7 @@ command_setup() {
   interactive_yes_no "Bind a workspace to $profile?" no
   if [[ "$INTERACTIVE_ANSWER" == yes ]]; then
     printf 'Workspace path [%s]: ' "$PWD" >&2
-    IFS= read -r workspace || die "Setup cancelled; completed steps were kept."
+    IFS= read -r workspace || cancel_interaction "Setup cancelled; completed steps were kept."
     (command_workspace_bind "${workspace:-$PWD}" "$profile")
   fi
   if [[ "$(uname -s)" == Darwin ]]; then
@@ -1957,6 +2100,7 @@ command_setup() {
       (command_launcher_create "$profile")
     fi
   fi
+  setup_shell_integration >&2
   note "Setup complete for $profile. Run '$PROGRAM cli $profile' to start Codex."
 }
 
@@ -2428,7 +2572,11 @@ command_status() {
 }
 
 command_list() {
-  discover_profiles yes
+  local profile
+  while IFS= read -r profile; do
+    profile_is_initialized "$profile" || continue
+    printf '%s\n' "$profile"
+  done < <(discover_profiles yes)
 }
 
 command_workspace_bind() {
@@ -2646,40 +2794,43 @@ command_workspace() {
 command_run() {
   local usage="Usage: $PROGRAM run [--] [codex-args...]
        $PROGRAM run --app [workspace]"
-  local workspace profile resolve_status
+  local workspace="$PWD" profile resolve_status app=no
 
   if [[ "${1:-}" == "--app" ]]; then
+    app=yes
     shift
     workspace="${1:-$PWD}"
     if [[ "$#" -gt 0 ]]; then
       shift
     fi
     [[ "$#" -eq 0 ]] || die "$usage"
-    if workspace_resolve "$workspace"; then
-      :
-    else
-      resolve_status=$?
-      [[ "$resolve_status" -eq 1 ]] || return 1
-      die "No workspace profile is bound to '$WORKSPACE_RESOLVED_PATH'. Run '$PROGRAM workspace bind $WORKSPACE_RESOLVED_PATH <profile>' first."
-    fi
-    profile="$WORKSPACE_RESOLVED_PROFILE"
-    command_app "$profile" "$WORKSPACE_RESOLVED_PATH"
-    return 0
+  else
+    case "${1:-}" in
+      --) shift ;;
+      -*) die "$usage" ;;
+    esac
   fi
 
-  case "${1:-}" in
-    --) shift ;;
-    -*) die "$usage" ;;
-  esac
-  if workspace_resolve "$PWD"; then
-    :
+  if workspace_resolve "$workspace"; then
+    profile="$WORKSPACE_RESOLVED_PROFILE"
   else
     resolve_status=$?
     [[ "$resolve_status" -eq 1 ]] || return 1
-    die "No workspace profile is bound to '$WORKSPACE_RESOLVED_PATH'. Run '$PROGRAM workspace bind $WORKSPACE_RESOLVED_PATH <profile>' first."
+    if [[ ! -t 0 || ! -t 2 ]]; then
+      die "No workspace profile is bound to '$WORKSPACE_RESOLVED_PATH'. Run '$PROGRAM workspace bind $WORKSPACE_RESOLVED_PATH <profile>' first."
+    fi
+    printf 'No workspace profile is bound to %s.\n' "$WORKSPACE_RESOLVED_PATH" >&2
+    profile="$(pick_profile "$WORKSPACE_RESOLVED_PATH")" || return 1
+    interactive_yes_no "Bind $WORKSPACE_RESOLVED_PATH to $profile for future launches?" no "Run cancelled."
+    if [[ "$INTERACTIVE_ANSWER" == yes ]]; then
+      (command_workspace_bind "$WORKSPACE_RESOLVED_PATH" "$profile") >&2
+    fi
   fi
-  profile="$WORKSPACE_RESOLVED_PROFILE"
-  command_cli "$profile" "$@"
+  if [[ "$app" == yes ]]; then
+    command_app "$profile" "$WORKSPACE_RESOLVED_PATH"
+  else
+    command_cli "$profile" "$@"
+  fi
 }
 
 command_path() {
@@ -3306,227 +3457,357 @@ command_completions() {
   [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM completions <bash|zsh|fish>"
 
   case "$shell" in
-    bash)
+    bash | zsh)
+      [[ "$shell" != zsh ]] || printf '#compdef codex-profile codex-profiles\n\n'
       cat <<'EOF'
-_codex_profile()
-{
-  local cur command prev profiles workspace_commands launcher_commands
-  COMPREPLY=()
-  cur="${COMP_WORDS[COMP_CWORD]}"
-  command="${COMP_WORDS[1]}"
-  prev="${COMP_WORDS[COMP_CWORD-1]}"
-  workspace_commands="bind unbind list status guard"
-  launcher_commands="create list path remove"
-
-  if [[ "$COMP_CWORD" -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help" -- "$cur") )
+# Both shells use the same argument boundaries; their adapters handle matching.
+_codex_profile_candidates() {
+  local command="${1:-}" prev="" word positional=0 end_options=no skip=no
+  local profiles=no
+  candidate_words=''
+  complete_dirs=no
+  if [[ "$#" -eq 0 ]]; then
+    candidate_words='app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'
     return 0
   fi
-
+  shift
+  for word in "$@"; do
+    prev="$word"
+    if [[ "$skip" == yes ]]; then skip=no; continue; fi
+    if [[ "$end_options" == yes ]]; then
+      positional=$((positional + 1))
+      continue
+    fi
+    case "$command:$word" in
+      app:-- | app-instance:--) end_options=yes ;;
+      env:--shell) skip=yes ;;
+      *:-*) ;;
+      *) positional=$((positional + 1)) ;;
+    esac
+  done
   case "$command" in
-    app)
-      if [[ "$cur" == -* ]]; then
-        COMPREPLY=( $(compgen -W "--instance --rebuild" -- "$cur") )
-      elif [[ "$COMP_CWORD" -eq 2 ]]; then
-        profiles="$(codex-profile list 2>/dev/null)"
-        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
+    app | app-instance)
+      if [[ "$cur" == -* && "$end_options" == no ]]; then
+        candidate_words='--instance --rebuild'
+      elif [[ "$positional" -eq 0 ]]; then profiles=yes
+      elif [[ "$positional" -eq 1 ]]; then complete_dirs=yes
       fi
       ;;
-    app-instance|cli|login|setup|detach|remove|status|path|env|use|logs)
-      if [[ "$COMP_CWORD" -eq 2 ]]; then
-        profiles="$(codex-profile list 2>/dev/null)"
-        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
-      fi
+    cli | login | detach | path | use)
+      [[ "$#" -ne 0 ]] || profiles=yes
+      ;;
+    setup)
+      if [[ "$#" -eq 0 ]]; then profiles=yes; candidate_words='default personal work'; fi
       ;;
     init)
-      if [[ "$COMP_CWORD" -eq 2 || "$prev" == "--share-with" ]]; then
-        profiles="$(codex-profile list 2>/dev/null)"
-        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
+      if [[ "$#" -eq 0 ]]; then profiles=yes; candidate_words='default personal work'
+      elif [[ "$#" -eq 2 && "$prev" == --share-with ]]; then profiles=yes
+      elif [[ "$#" -eq 1 ]]; then candidate_words='--share-with'
+      fi
+      ;;
+    remove)
+      if [[ "$#" -eq 0 ]]; then profiles=yes; else candidate_words='--yes -y'; fi
+      ;;
+    status)
+      candidate_words='--json -j'
+      [[ "$positional" -ne 0 || "$cur" == -* ]] || profiles=yes
+      ;;
+    env)
+      if [[ "$prev" == --shell ]]; then candidate_words='bash zsh fish'
       else
-        COMPREPLY=( $(compgen -W "--share-with" -- "$cur") )
+        candidate_words='--shell'
+        [[ "$positional" -ne 0 || "$cur" == -* ]] || profiles=yes
+      fi
+      ;;
+    logs)
+      if [[ "$#" -eq 0 ]]; then profiles=yes
+      else candidate_words='--path --tail --instance'
       fi
       ;;
     clone-config)
-      if [[ "$COMP_CWORD" -eq 2 || "$COMP_CWORD" -eq 3 ]]; then
-        profiles="$(codex-profile list 2>/dev/null)"
-        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
-      fi
+      candidate_words='--force -f'
+      [[ "$positional" -ge 2 || "$cur" == -* ]] || profiles=yes
       ;;
     launcher)
-      if [[ "$COMP_CWORD" -eq 2 ]]; then
-        COMPREPLY=( $(compgen -W "$launcher_commands" -- "$cur") )
-      elif [[ ( "${COMP_WORDS[2]}" == "create" || "${COMP_WORDS[2]}" == "path" || "${COMP_WORDS[2]}" == "remove" ) && "$COMP_CWORD" -eq 3 ]]; then
-        profiles="$(codex-profile list 2>/dev/null)"
-        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
-      elif [[ "${COMP_WORDS[2]}" == "create" && "$cur" == -* ]]; then
-        COMPREPLY=( $(compgen -W "--name --color --force" -- "$cur") )
-      elif [[ "${COMP_WORDS[2]}" == "create" && "$prev" == "--color" ]]; then
-        COMPREPLY=( $(compgen -W "blue green teal purple pink red orange graphite" -- "$cur") )
-      elif [[ "${COMP_WORDS[2]}" == "list" && "$cur" == -* ]]; then
-        COMPREPLY=( $(compgen -W "--json" -- "$cur") )
+      if [[ "$#" -eq 0 ]]; then candidate_words='create list path remove'
+      else
+        case "$1" in
+          create | path | remove)
+            if [[ "$#" -eq 1 ]]; then profiles=yes
+            elif [[ "$1" == remove && "$#" -eq 2 ]]; then candidate_words='--yes -y'
+            elif [[ "$1" == create ]]; then
+              case "$prev" in
+                --color) candidate_words='blue green teal purple pink red orange graphite' ;;
+                --name) ;;
+                *) candidate_words='--name --color --force -f' ;;
+              esac
+            fi
+            ;;
+          list) candidate_words='--json -j' ;;
+        esac
       fi
       ;;
     workspace)
-      if [[ "$COMP_CWORD" -eq 2 ]]; then
-        COMPREPLY=( $(compgen -W "$workspace_commands" -- "$cur") )
-      elif [[ "${COMP_WORDS[2]}" == "bind" && "$COMP_CWORD" -eq 4 ]]; then
-        profiles="$(codex-profile list 2>/dev/null)"
-        COMPREPLY=( $(compgen -W "default personal work $profiles" -- "$cur") )
-      elif [[ "${COMP_WORDS[2]}" == "guard" && "$COMP_CWORD" -eq 3 ]]; then
-        COMPREPLY=( $(compgen -W "off warn strict" -- "$cur") )
-      elif [[ ( "${COMP_WORDS[2]}" == "list" || "${COMP_WORDS[2]}" == "status" ) && "$cur" == -* ]]; then
-        COMPREPLY=( $(compgen -W "--json" -- "$cur") )
+      if [[ "$#" -eq 0 ]]; then candidate_words='bind unbind list status guard'
+      else
+        case "$1" in
+          bind)
+            case "$#" in
+              1) complete_dirs=yes ;;
+              2) profiles=yes ;;
+              3) candidate_words='--force' ;;
+            esac
+            ;;
+          unbind) [[ "$#" -ne 1 ]] || complete_dirs=yes ;;
+          list) candidate_words='--json -j' ;;
+          status)
+            candidate_words='--json -j'
+            [[ "$positional" -ne 1 || "$cur" == -* ]] || complete_dirs=yes
+            ;;
+          guard) [[ "$#" -ne 1 ]] || candidate_words='off warn strict' ;;
+        esac
       fi
       ;;
     run)
-      if [[ "$cur" == -* ]]; then
-        COMPREPLY=( $(compgen -W "--app" -- "$cur") )
+      if [[ "$#" -eq 0 ]]; then candidate_words='--app'
+      elif [[ "$#" -eq 1 && "$1" == --app ]]; then complete_dirs=yes
       fi
       ;;
-    doctor)
-      if [[ "$cur" == -* ]]; then
-        COMPREPLY=( $(compgen -W "--json --check" -- "$cur") )
+    doctor) candidate_words='--json --check' ;;
+    completions | shell-init)
+      if [[ "$#" -eq 0 ]]; then candidate_words='bash zsh fish'
+      elif [[ "$command" == shell-init ]]; then candidate_words='--prompt --completions'
       fi
       ;;
-    completions|shell-init)
-      if [[ "$COMP_CWORD" -eq 2 ]]; then
-        COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
-      elif [[ "$command" == shell-init && "$COMP_CWORD" -eq 3 ]]; then
-        COMPREPLY=( $(compgen -W "--prompt" -- "$cur") )
-      fi
+    upgrade)
+      case "$prev" in
+        --prefix) complete_dirs=yes ;;
+        --ref) ;;
+        *) candidate_words='--dry-run --prefix --ref -n' ;;
+      esac
       ;;
   esac
+  [[ "$profiles" != yes ]] || candidate_words="$candidate_words $(codex-profile list 2>/dev/null)"
+  return 0
+}
+EOF
+      if [[ "$shell" == bash ]]; then
+        cat <<'EOF'
+_codex_profile() {
+  local cur="${COMP_WORDS[COMP_CWORD]:-}" candidate_words complete_dirs candidate
+  COMPREPLY=()
+  _codex_profile_candidates "${COMP_WORDS[@]:1:$((COMP_CWORD - 1))}"
+  while IFS= read -r candidate; do
+    COMPREPLY+=("$candidate")
+  done < <(compgen -W "$candidate_words" -- "$cur")
+  if [[ "$complete_dirs" == yes ]]; then
+    while IFS= read -r candidate; do COMPREPLY+=("$candidate/"); done < <(compgen -d -- "$cur")
+    if type compopt > /dev/null 2>&1; then
+      compopt -o filenames 2>/dev/null || true
+    else
+      # Bash 3.2: its directory generator enables native quoting in this shell.
+      compgen -d -- "$cur" > /dev/null || true
+    fi
+  fi
+  return 0
 }
 complete -F _codex_profile codex-profile codex-profiles
 EOF
-      ;;
-    zsh)
-      cat <<'EOF'
-#compdef codex-profile codex-profiles
-
-_codex_profile() {
-  local -a commands profiles shells app_flags init_flags launcher_commands launcher_flags launcher_colors workspace_commands run_flags workspace_json_flags doctor_flags
-  commands=(
-    app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
-  )
-  profiles=(${(f)"$(codex-profile list 2>/dev/null)"} default personal work)
-  shells=(bash zsh fish)
-  app_flags=(--instance --rebuild)
-  init_flags=(--share-with)
-  launcher_commands=(create list path remove)
-  launcher_flags=(--name --color --force)
-  launcher_colors=(blue green teal purple pink red orange graphite)
-  workspace_commands=(bind unbind list status guard)
-  run_flags=(--app)
-  workspace_json_flags=(--json)
-  doctor_flags=(--json --check)
-
-  if (( CURRENT == 2 )); then
-    _describe 'command' commands
-    return
-  fi
-
-  case "$words[2]" in
-    app)
-      if [[ "$words[CURRENT]" == -* ]]; then
-        _describe 'flag' app_flags
-      elif (( CURRENT == 3 )); then
-        _describe 'profile' profiles
-      fi
-      ;;
-    app-instance|cli|login|setup|detach|remove|status|path|env|use|logs)
-      if (( CURRENT == 3 )); then
-        _describe 'profile' profiles
-      fi
-      ;;
-    init)
-      if (( CURRENT == 3 )) || [[ "$words[CURRENT-1]" == "--share-with" ]]; then
-        _describe 'profile' profiles
       else
-        _describe 'flag' init_flags
-      fi
-      ;;
-    clone-config)
-      if (( CURRENT == 3 || CURRENT == 4 )); then
-        _describe 'profile' profiles
-      fi
-      ;;
-    launcher)
-      if (( CURRENT == 3 )); then
-        _describe 'launcher command' launcher_commands
-      elif [[ "$words[3]" == "create" ]] && (( CURRENT == 4 )); then
-        _describe 'profile' profiles
-      elif [[ "$words[3]" == "create" && "$words[CURRENT-1]" == "--color" ]]; then
-        _describe 'color' launcher_colors
-      elif [[ "$words[3]" == "create" && "$words[CURRENT]" == -* ]]; then
-        _describe 'flag' launcher_flags
-      elif [[ "$words[3]" == "path" || "$words[3]" == "remove" ]] && (( CURRENT == 4 )); then
-        _describe 'profile' profiles
-      fi
-      ;;
-    workspace)
-      if (( CURRENT == 3 )); then
-        _describe 'workspace command' workspace_commands
-      elif [[ "$words[3]" == "bind" ]] && (( CURRENT == 5 )); then
-        _describe 'profile' profiles
-      elif [[ "$words[3]" == "guard" ]] && (( CURRENT == 4 )); then
-        _values 'guard mode' off warn strict
-      elif [[ "$words[3]" == "list" || "$words[3]" == "status" ]] && \
-           [[ "$words[CURRENT]" == -* ]]; then
-        _describe 'flag' workspace_json_flags
-      fi
-      ;;
-    run)
-      if [[ "$words[CURRENT]" == -* ]]; then
-        _describe 'flag' run_flags
-      fi
-      ;;
-    doctor)
-      if [[ "$words[CURRENT]" == -* ]]; then
-        _describe 'flag' doctor_flags
-      fi
-      ;;
-    completions|shell-init)
-      if (( CURRENT == 3 )); then
-        _describe 'shell' shells
-      elif [[ "$words[2]" == shell-init ]] && (( CURRENT == 4 )); then
-        _values 'flag' --prompt
-      fi
-      ;;
-  esac
+        cat <<'EOF'
+_codex_profile() {
+  local cur="${words[CURRENT]}" candidate_words complete_dirs
+  local -a candidates
+  _codex_profile_candidates "${words[@]:1:$((CURRENT - 2))}"
+  candidates=(${=candidate_words})
+  [[ "${#candidates[@]}" -eq 0 ]] || _describe 'option' candidates
+  [[ "$complete_dirs" != yes ]] || _files -/
+  return 0
 }
 
-_codex_profile "$@"
+if [[ "$ZSH_EVAL_CONTEXT" == *:loadautofunc ]]; then
+  _codex_profile "$@"
+elif (( $+functions[compdef] )); then
+  compdef _codex_profile codex-profile codex-profiles
+fi
 EOF
+      fi
       ;;
     fish)
       cat <<'EOF'
+function __codex_profile_complete
+    set -l args (commandline -opc)
+    set -e args[1]
+    set -l cur (commandline -ct)
+    set -l candidates
+    set -l profiles no
+    set -l directories no
+    if test (count $args) -eq 0
+        printf '%s\n' app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
+        return
+    end
+    set -l cmd $args[1]
+    set -e args[1]
+    set -l count (count $args)
+    set -l prev ''
+    set -l positional 0
+    set -l end_options no
+    set -l skip no
+    for word in $args
+        set prev $word
+        if test $skip = yes
+            set skip no
+            continue
+        end
+        if test $end_options = yes
+            set positional (math $positional + 1)
+            continue
+        end
+        switch "$cmd:$word"
+            case app:-- app-instance:--
+                set end_options yes
+            case env:--shell
+                set skip yes
+            case '*:-*'
+            case '*'
+                set positional (math $positional + 1)
+        end
+    end
+    switch $cmd
+        case app app-instance
+            if string match -q -- '-*' "$cur"; and test $end_options = no
+                set candidates --instance --rebuild
+            else if test $positional -eq 0
+                set profiles yes
+            else if test $positional -eq 1
+                set directories yes
+            end
+        case cli login detach path use
+            test $count -ne 0; or set profiles yes
+        case setup init
+            if test $count -eq 0
+                set profiles yes
+                set candidates default personal work
+            else if test "$cmd" = init
+                if test $count -eq 2; and test "$prev" = --share-with
+                    set profiles yes
+                else if test $count -eq 1
+                    set candidates --share-with
+                end
+            end
+        case remove
+            if test $count -eq 0
+                set profiles yes
+            else
+                set candidates --yes -y
+            end
+        case status env clone-config
+            set -l limit 1
+            switch $cmd
+                case status
+                    set candidates --json -j
+                case env
+                    if test "$prev" = --shell
+                        printf '%s\n' bash zsh fish
+                        return
+                    end
+                    set candidates --shell
+                case clone-config
+                    set candidates --force -f
+                    set limit 2
+            end
+            if test $positional -lt $limit; and not string match -q -- '-*' "$cur"
+                set profiles yes
+            end
+        case logs
+            if test $count -eq 0
+                set profiles yes
+            else
+                set candidates --path --tail --instance
+            end
+        case launcher
+            if test $count -eq 0
+                set candidates create list path remove
+            else
+                switch $args[1]
+                    case create path remove
+                        if test $count -eq 1
+                            set profiles yes
+                        else if test $args[1] = remove; and test $count -eq 2
+                            set candidates --yes -y
+                        else if test $args[1] = create
+                            switch "$prev"
+                                case --color
+                                    set candidates blue green teal purple pink red orange graphite
+                                case --name
+                                case '*'
+                                    set candidates --name --color --force -f
+                            end
+                        end
+                    case list
+                        set candidates --json -j
+                end
+            end
+        case workspace
+            if test $count -eq 0
+                set candidates bind unbind list status guard
+            else
+                switch $args[1]
+                    case bind
+                        switch $count
+                            case 1
+                                set directories yes
+                            case 2
+                                set profiles yes
+                            case 3
+                                set candidates --force
+                        end
+                    case unbind
+                        test $count -ne 1; or set directories yes
+                    case list status
+                        set candidates --json -j
+                        if test $args[1] = status; and test $positional -eq 1; and not string match -q -- '-*' "$cur"
+                            set directories yes
+                        end
+                    case guard
+                        test $count -ne 1; or set candidates off warn strict
+                end
+            end
+        case run
+            if test $count -eq 0
+                set candidates --app
+            else if test $count -eq 1; and test $args[1] = --app
+                set directories yes
+            end
+        case doctor
+            set candidates --json --check
+        case completions shell-init
+            if test $count -eq 0
+                set candidates bash zsh fish
+            else if test $cmd = shell-init
+                set candidates --prompt --completions
+            end
+        case upgrade
+            switch "$prev"
+                case --prefix
+                    set directories yes
+                case --ref
+                case '*'
+                    set candidates --dry-run --prefix --ref -n
+            end
+    end
+    if test $profiles = yes
+        set -a candidates (codex-profile list 2>/dev/null)
+    end
+    test (count $candidates) -eq 0; or printf '%s\n' $candidates
+    if test $directories = yes
+        __fish_complete_directories "$cur"
+    end
+    return 0
+end
+
 for codex_profile_command in codex-profile codex-profiles
-    complete -c $codex_profile_command -f
-    complete -c $codex_profile_command -n '__fish_is_first_arg' -a 'app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from app app-instance cli login init setup detach remove status path env use logs' -a '(codex-profile list 2>/dev/null) default personal work'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from app' -l instance -d 'Compatibility flag; named ChatGPT windows already use separate local state'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from app' -l rebuild -d 'Compatibility no-op; the signed app is never cloned'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from init' -l share-with -r -a '(codex-profile list 2>/dev/null) default personal work' -d 'Link the configuration allowlist from another profile'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from clone-config' -a '(codex-profile list 2>/dev/null) default personal work'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from launcher; and test (count (commandline -opc)) -eq 2' -a 'create list path remove'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from launcher; and __fish_seen_subcommand_from create path remove; and test (count (commandline -opc)) -eq 3' -a '(codex-profile list 2>/dev/null) default personal work'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from launcher; and __fish_seen_subcommand_from create' -l name -r
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from launcher; and __fish_seen_subcommand_from create' -l color -r -a 'blue green teal purple pink red orange graphite'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from launcher; and __fish_seen_subcommand_from create' -l force
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from launcher; and __fish_seen_subcommand_from list' -l json -d 'Emit JSON'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and test (count (commandline -opc)) -eq 2' -a 'bind unbind list status guard'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from bind; and test (count (commandline -opc)) -eq 3' -F
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from bind; and test (count (commandline -opc)) -eq 4' -a '(codex-profile list 2>/dev/null) default personal work'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from unbind; and test (count (commandline -opc)) -eq 3' -F
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from status; and test (count (commandline -opc)) -eq 3' -F
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from guard; and test (count (commandline -opc)) -eq 3' -a 'off warn strict'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from list status' -l json -d 'Emit JSON'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from run' -l app -d 'Launch the bound ChatGPT window'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from doctor' -l json -d 'Emit JSON'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from doctor' -l check -d 'Exit nonzero when health checks fail'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from shell-init' -l prompt -d 'Show the active profile in the shell prompt'
-    complete -c $codex_profile_command -n '__fish_seen_subcommand_from completions shell-init' -a 'bash zsh fish'
+    complete -c $codex_profile_command -f -a '(__codex_profile_complete)'
 end
 EOF
       ;;
@@ -3601,15 +3882,18 @@ EOF
 }
 
 command_shell_init() {
-  local shell="${1:-}" prompt=no
-  local usage="Usage: $PROGRAM shell-init <bash|zsh|fish> [--prompt]"
+  local shell="${1:-}" prompt=no completions=no
+  local usage="Usage: $PROGRAM shell-init <bash|zsh|fish> [--prompt] [--completions]"
   [[ -n "$shell" ]] || die "$usage"
   shift || true
-  if [[ "${1:-}" == --prompt ]]; then
-    prompt=yes
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --prompt) [[ "$prompt" == no ]] || die "$usage"; prompt=yes ;;
+      --completions) [[ "$completions" == no ]] || die "$usage"; completions=yes ;;
+      *) die "$usage" ;;
+    esac
     shift
-  fi
-  [[ "$#" -eq 0 ]] || die "$usage"
+  done
 
   case "$shell" in
     bash | zsh)
@@ -3649,6 +3933,15 @@ EOF
   esac
   if [[ "$prompt" == yes ]]; then
     emit_shell_prompt "$shell"
+  fi
+  if [[ "$completions" == yes ]]; then
+    if [[ "$shell" == zsh ]]; then
+      cat <<'EOF'
+autoload -Uz compinit
+(( $+functions[compdef] )) || compinit
+EOF
+    fi
+    command_completions "$shell"
   fi
 }
 

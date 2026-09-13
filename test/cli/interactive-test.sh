@@ -28,9 +28,203 @@ printf '%s\n' "${FAKE_SYSTEM:-Linux}"
 UNAME
   chmod 755 "$tmp/bin/codex" "$tmp/bin/uname"
   TEST_ENV=(env HOME="$tmp/home" PATH="$tmp/bin:$PATH"
+    SHELL=/bin/bash ZDOTDIR="$tmp/home"
     CODEX_CLI="$tmp/bin/codex" CODEX_PROFILE_CONFIG_HOME="$tmp/config"
     CODEX_PROFILE_LAUNCHER_ROOT="$tmp/apps" CODEX_PROFILE_NO_UPDATE_CHECK=1
     CHATGPT_APP="$tmp/ChatGPT.app" FAKE_TOOL_LOG="$tmp/tool.log")
+}
+
+test_picker_names_and_shell_default() {
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-personal" "$tmp/home/.codex-work"
+  run_interactive 'work\nq\n' "$SCRIPT" cli
+  assert_status 0
+  assert_contains "$(cat "$tmp/tool.log")" 'home/.codex-work' 'named selection'
+  run_interactive '\nq\n' env CODEX_PROFILE_NAME=work CODEX_HOME="$tmp/home/.codex-work" "$SCRIPT" cli
+  assert_status 0
+  assert_contains 'work (shell)'
+  run_interactive '\nq\n' env CODEX_PROFILE_NAME=work CODEX_HOME="$tmp/home/.codex-personal" "$SCRIPT" cli
+  assert_status 1
+  assert_not_contains '(shell)'
+  assert_not_contains 'Error:'
+  run_cmd "${TEST_ENV[@]}" "$SCRIPT" workspace bind "$tmp/workspace" personal
+  run_interactive '\nq\n' env CODEX_PROFILE_NAME=work CODEX_HOME="$tmp/home/.codex-work" "$SCRIPT" cli
+  assert_status 0
+  assert_contains 'personal (workspace)'
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-personal' 'workspace takes priority'
+  rmdir "$tmp/home/.codex-personal"
+  run_interactive '\nq\n' env CODEX_PROFILE_NAME=work CODEX_HOME="$tmp/home/.codex-work" "$SCRIPT" cli
+  assert_status 1
+  assert_not_contains '[1]'
+  assert_not_contains 'Error:'
+}
+
+test_welcome_project_and_shell_context() {
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-personal" "$tmp/home/.codex-work"
+  run_cmd "${TEST_ENV[@]}" "$SCRIPT" workspace bind "$tmp/workspace" work
+  run_interactive '' env TERM=xterm-256color NO_COLOR=1 CODEX_PROFILE_NAME=personal CODEX_HOME="$tmp/home/.codex-personal" "$SCRIPT"
+  assert_status 0
+  assert_contains 'Bound profile'
+  assert_contains 'Shell profile'
+  assert_contains 'personal'
+  assert_contains 'Launch this project:'
+  assert_contains 'codex-profile run'
+  [[ ! -e "$tmp/tool.log" ]] || fail 'welcome probed login or launched CLI'
+  run_interactive '' env TERM=dumb "$SCRIPT"
+  assert_status 0
+  assert_not_contains 'Bound profile'
+  run_cmd "${TEST_ENV[@]}" TERM=xterm-256color "$SCRIPT"
+  assert_status 0
+  assert_not_contains 'Bound profile'
+}
+
+test_run_recovers_unbound_workspace() {
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-work"
+  run_interactive 'work\nn\n' "$SCRIPT" run exec check
+  assert_status 0
+  assert_contains "$(cat "$tmp/tool.log")" 'ARGS=exec check' 'unbound launch arguments'
+  [[ ! -e "$tmp/config/workspaces.tsv" ]] || fail 'declined binding still saved'
+  run_interactive 'work\ny\n' "$SCRIPT" run
+  assert_status 0
+  run_cmd "${TEST_ENV[@]}" "$SCRIPT" workspace status --json "$tmp/workspace"
+  assert_contains '"profile":"work"'
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-work"
+  run_interactive 'work\nq\n' "$SCRIPT" run
+  assert_status 1
+  assert_not_contains 'Error:'
+  [[ ! -e "$tmp/tool.log" && ! -e "$tmp/config/workspaces.tsv" ]] || fail 'cancelled run changed state'
+  run_cmd "${TEST_ENV[@]}" "$SCRIPT" run
+  assert_status 1
+  assert_contains 'No workspace profile is bound'
+  assert_not_contains 'Choose a profile'
+}
+
+test_setup_terminal_integration() {
+  local shell startup
+  for shell in bash zsh fish; do
+    prepare_interactive_test
+    case "$shell" in
+      bash) startup="$tmp/home/.bashrc" ;;
+      zsh) startup="$tmp/home/.zshrc" ;;
+      fish) startup="$tmp/home/.config/fish/config.fish" ;;
+    esac
+    mkdir -p "${startup%/*}"
+    printf '# preserve existing settings\n' > "$startup"
+    run_interactive 'n\nn\ny\n' env SHELL="/bin/$shell" XDG_CONFIG_HOME="$tmp/home/.config" "$SCRIPT" setup work
+    assert_status 0
+    assert_contains 'shell-init'
+    assert_contains 'CODEX_PROFILE_NOTIFY'
+    assert_contains "$(cat "$startup")" '# preserve existing settings' 'preserved shell settings'
+    assert_contains "$(cat "$startup")" "shell-init $shell --prompt --completions" 'installed shell integration'
+    assert_contains "$(cat "$startup")" 'CODEX_PROFILE_TERMINAL_TITLE' 'installed titles'
+    run_interactive 'n\nn\n' env SHELL="/bin/$shell" XDG_CONFIG_HOME="$tmp/home/.config" "$SCRIPT" setup work
+    assert_status 0
+    [[ "$(grep -c 'shell-init' "$startup")" -eq 1 ]] || fail 'setup duplicated integration'
+  done
+}
+
+test_picker_numeric_names_and_cancel() {
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-2" "$tmp/home/.codex-q" "$tmp/home/.codex-work"
+  run_interactive '2\nq\n' "$SCRIPT" cli
+  assert_status 0
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-2' 'exact numeric name takes precedence'
+  run_interactive '#2\nq\n' "$SCRIPT" cli
+  assert_status 0
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-q' 'explicit menu number resolves numeric-name collision'
+  run_interactive '\nq\n' env CODEX_PROFILE_NAME=work CODEX_HOME="$tmp/home/.codex-work" "$SCRIPT" cli
+  assert_status 0
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-work' 'Enter selects default profile'
+  run_interactive 'q\n' "$SCRIPT" app
+  assert_status 1
+  assert_not_contains 'Error:'
+}
+
+test_run_app_recovers_requested_workspace() {
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-work" "$tmp/another workspace"
+  write_fake_chatgpt_app_bundle "$tmp/ChatGPT.app" 'recovered app'
+  write_fake_chatgpt_open_tools "$tmp/bin"
+  run_interactive 'work\ny\n' env FAKE_SYSTEM=Darwin "$SCRIPT" run --app "$tmp/another workspace"
+  assert_status 0
+  assert_contains "$(cat "$tmp/tool.log")" "files=$tmp/another workspace" 'recovered app directory'
+  run_cmd "${TEST_ENV[@]}" "$SCRIPT" workspace status --json "$tmp/another workspace"
+  assert_contains '"profile":"work"'
+  run_cmd "${TEST_ENV[@]}" "$SCRIPT" workspace status --json "$tmp/workspace"
+  assert_contains '"profile":null'
+}
+
+test_run_recovery_preserves_streams_and_rejects_invalid_state() {
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-work"
+  cat > "$tmp/bin/codex" <<'CODEX'
+#!/usr/bin/env bash
+[[ "${1:-}" != --version ]] || { printf 'fake-codex 1.0\n'; exit 0; }
+printf '{"result":"ok"}\n'
+exit 7
+CODEX
+  # shellcheck disable=SC2016 # Expanded in the terminal child.
+  run_interactive 'work\ny\n' bash -c '"$1" run -- exec --json > "$2"' _ "$SCRIPT" "$tmp/stdout"
+  assert_status 7
+  [[ "$(cat "$tmp/stdout")" == '{"result":"ok"}' ]] || fail 'interactive binding polluted stdout'
+  printf 'invalid state\n' > "$tmp/config/workspaces.tsv"
+  run_interactive 'work\ny\n' "$SCRIPT" run
+  assert_status 1
+  assert_contains 'Malformed workspace registry'
+  assert_not_contains 'Choose a profile'
+}
+
+test_setup_terminal_integration_safe_append() {
+  prepare_interactive_test
+  printf 'keep without newline' > "$tmp/home/.bashrc"
+  run_interactive 'n\nn\n\n' "$SCRIPT" setup work
+  assert_status 0
+  [[ "$(cat "$tmp/home/.bashrc")" == 'keep without newline' ]] || fail 'declined integration changed startup'
+  run_interactive 'n\nn\ny\n' "$SCRIPT" setup work
+  assert_status 0
+  assert_contains "$(cat "$tmp/home/.bashrc")" $'keep without newline\n' 'append separates existing last line'
+  # A partially configured shell gets only the missing lines.
+  # shellcheck disable=SC2016 # Store literal startup configuration.
+  printf '%s\n' 'eval "$(codex-profile shell-init bash --prompt --completions)"' > "$tmp/home/.bashrc"
+  run_interactive 'n\nn\ny\n' "$SCRIPT" setup work
+  assert_status 0
+  [[ "$(grep -c 'shell-init' "$tmp/home/.bashrc")" -eq 1 ]] || fail 'partial repair duplicated shell-init'
+  assert_contains "$(cat "$tmp/home/.bashrc")" 'CODEX_PROFILE_NOTIFY=1' 'partial repair adds feedback'
+  rm "$tmp/home/.bashrc"
+  # shellcheck disable=SC2016 # Expanded in the terminal child.
+  run_interactive 'n\nn\ny\n' bash -c '"$1" setup work > "$2"' _ "$SCRIPT" "$tmp/setup.out"
+  assert_status 0
+  assert_contains 'shell-init bash --prompt --completions'
+  assert_contains 'CODEX_PROFILE_NOTIFY=1'
+  assert_contains 'Append the missing lines'
+  rm "$tmp/home/.bashrc"
+  printf 'private existing config\n' > "$tmp/outside"
+  ln -s "$tmp/outside" "$tmp/home/.bashrc"
+  run_interactive 'n\nn\n' "$SCRIPT" setup work
+  assert_status 0
+  assert_contains 'manually'
+  assert_not_contains 'private existing config'
+  [[ "$(cat "$tmp/outside")" == 'private existing config' ]] || fail 'setup wrote linked startup'
+  rm "$tmp/home/.bashrc"
+  ln "$tmp/outside" "$tmp/home/.bashrc"
+  run_interactive 'n\nn\n' "$SCRIPT" setup work
+  assert_status 0
+  assert_contains 'multiply-linked'
+  [[ "$(cat "$tmp/outside")" == 'private existing config' ]] || fail 'setup wrote hard-linked startup'
+}
+
+test_setup_macos_bash_preserves_login_startup() {
+  prepare_interactive_test
+  printf '# existing login settings\n' > "$tmp/home/.profile"
+  run_interactive 'n\nn\nn\ny\n' env FAKE_SYSTEM=Darwin "$SCRIPT" setup work
+  assert_status 0
+  [[ ! -e "$tmp/home/.bash_profile" ]] || fail 'setup shadowed existing login file'
+  assert_contains "$(cat "$tmp/home/.profile")" '# existing login settings' 'preserved login settings'
+  # shellcheck disable=SC2016 # Match the guard evaluated by the login shell.
+  assert_contains "$(cat "$tmp/home/.profile")" '[ -z "${BASH_VERSION:-}" ] || eval' 'Bash-only profile integration'
 }
 
 # BSD and util-linux script differ in command syntax and exit propagation.
@@ -280,7 +474,7 @@ test_app_picker_uses_existing_launch_and_current_workspace() {
 
 test_setup_defaults_login_and_continues_to_binding() {
   prepare_interactive_test
-  run_interactive '\ny\n\n' "$SCRIPT" setup work
+  run_interactive '\ny\n\n\n' "$SCRIPT" setup work
   assert_status 0
   [[ -d "$tmp/home/.codex-work" ]] || fail 'setup did not initialize profile'
   [[ "$(mode_of "$tmp/home/.codex-work")" == 700 ]] || fail 'setup profile is not private'
@@ -295,7 +489,7 @@ test_setup_existing_profile_skips_steps_and_retries_invalid_answers() {
   prepare_interactive_test
   mkdir -p "$tmp/home/.codex-work"
   printf 'keep this config\n' > "$tmp/home/.codex-work/config.toml"
-  run_interactive 'maybe\nn\n\n' "$SCRIPT" setup work
+  run_interactive 'maybe\nn\n\n\n' "$SCRIPT" setup work
   assert_status 0
   assert_contains 'Already initialized work'
   [[ "$(cat "$tmp/home/.codex-work/config.toml")" == 'keep this config' ]] || fail 'setup overwrote existing config'
@@ -334,7 +528,7 @@ test_setup_binding_conflict_preserves_original_profile() {
 
 test_setup_macos_offers_optional_launcher() {
   prepare_interactive_test
-  run_interactive 'n\nn\n\n' env FAKE_SYSTEM=Darwin "$SCRIPT" setup work
+  run_interactive 'n\nn\n\n\n' env FAKE_SYSTEM=Darwin "$SCRIPT" setup work
   assert_status 0
   assert_contains 'launcher'
   [[ ! -e "$tmp/apps" ]] || fail 'setup created skipped launcher'
@@ -374,7 +568,7 @@ printf 'fake icon\n' > "$destination"
 ICON_TOOL
     chmod 755 "$tmp/bin/$tool"
   done
-  run_interactive 'n\ny\n'"$tmp"'/another workspace\ny\n' env FAKE_SYSTEM=Darwin "$SCRIPT" setup work
+  run_interactive 'n\ny\n'"$tmp"'/another workspace\ny\n\n' env FAKE_SYSTEM=Darwin "$SCRIPT" setup work
   assert_status 0
   [[ -x "$tmp/apps/ChatGPT work.app/Contents/MacOS/launch-profile" ]] || fail 'setup did not create launcher'
   run_cmd "${TEST_ENV[@]}" "$SCRIPT" workspace status --json "$tmp/another workspace"
@@ -382,6 +576,15 @@ ICON_TOOL
   assert_contains '"profile":"work"'
 }
 
+test_picker_numeric_names_and_cancel
+test_run_app_recovers_requested_workspace
+test_run_recovery_preserves_streams_and_rejects_invalid_state
+test_setup_terminal_integration_safe_append
+test_setup_macos_bash_preserves_login_startup
+test_picker_names_and_shell_default
+test_welcome_project_and_shell_context
+test_run_recovers_unbound_workspace
+test_setup_terminal_integration
 test_cli_terminal_feedback
 test_terminal_feedback_sanitizes_labels_and_preserves_streams
 test_terminal_help_presentation

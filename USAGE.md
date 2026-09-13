@@ -22,10 +22,30 @@ does not already exist.
 
 For an interactive walkthrough instead, run `codex-profile setup work`. It
 initializes the profile, offers CLI login (yes by default), then optional
-workspace binding and, on macOS, a launcher (both no by default). The workspace
-path defaults to the current directory. Existing binding or launcher conflicts
-are never overwritten. Completed steps remain if a later step fails; rerun
+workspace binding, a launcher on macOS, and terminal integration (all no by
+default). The workspace path defaults to the current directory. Existing
+binding or launcher conflicts are never overwritten. Completed steps remain
+if a later step fails; rerun
 `setup` to continue. Setup requires a terminal and can reuse an existing profile.
+
+Terminal integration previews the exact startup snippet on stderr before
+offering to append it. The snippet loads `shell-init --prompt --completions` and enables
+`CODEX_PROFILE_TERMINAL_TITLE=1` and `CODEX_PROFILE_NOTIFY=1`. Setup does not
+execute your startup file: open a new shell, or apply the displayed snippet
+yourself. Repeating setup appends only missing integration lines. Unsupported
+shells or linked startup paths receive instructions for manual setup instead.
+
+Setup selects the startup file using `$SHELL`:
+
+| Shell | Startup file |
+| --- | --- |
+| Bash on Linux | `~/.bashrc` |
+| Bash on macOS | First existing `~/.bash_profile`, `~/.bash_login`, or `~/.profile`; creates `~/.bash_profile` if none exists. |
+| Zsh | `${ZDOTDIR:-$HOME}/.zshrc` |
+| Fish | `${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish` |
+
+In a shared `~/.profile`, the Bash wrapper runs only in Bash. `shell-init`
+itself never writes startup files.
 
 To keep authentication and runtime state separate while sharing selected
 configuration, initialize a new linked profile from an existing one:
@@ -44,9 +64,14 @@ codex-profile cli work exec "run tests and summarize failures"
 
 In a terminal, `codex-profile cli` or `codex-profile app` with no arguments
 shows a numbered picker of initialized profiles. The nearest workspace-bound
-profile is marked; press Enter to select it, enter a number to select another,
-or enter `q` to cancel. Without a binding, choose a number. Scripts must pass
-an explicit profile: no-argument launches fail without a terminal.
+profile and the current shell profile are marked separately. Enter selects the
+bound profile first. When no workspace is bound, it defaults to a valid,
+initialized shell selection. Otherwise, choose an exact profile name or menu
+number. Exact names take precedence, including numeric names; `#N` explicitly
+selects menu item N when a number could also be a profile name. `q`, `Q`, or
+end-of-input cancel normally without an error message and return exit status 1;
+select profiles named `q` or `Q` using `#N` for their menu item. Scripts must
+pass an explicit profile: no-argument launches fail without a terminal.
 
 Optionally bind a project once, then let the current directory select its
 profile for both CLI and Desktop launches:
@@ -184,6 +209,13 @@ codex-profile run -- --app            # pass --app to the upstream CLI
 codex-profile run --app               # launch the bound ChatGPT window
 codex-profile run --app ~/Dev/client-a
 ```
+
+If the directory has no binding, an interactive `run` or `run --app [workspace]`
+offers the same profile picker and asks whether to bind that directory (no by
+default). It launches the selected profile even when you decline to save a
+binding. Cancellation returns exit status 1 without an error message. Without
+a terminal, an unbound `run` still fails with binding instructions and never
+prompts.
 
 Explicit `cli`, `env`/`use`, and `app` selections are checked against the
 current or supplied workspace. Mismatches warn on stderr by default, so stdout
@@ -433,6 +465,21 @@ The dynamic prefix, for example `[codex:work]`, appears only when
 profile changes and disappears when activation is unset or inconsistent.
 Your existing prompt is preserved; `shell-init` never edits startup files.
 
+Add `--completions` to load tab completion at the same time:
+
+```sh
+# bash: use shell-init bash --prompt --completions instead
+eval "$(codex-profile shell-init zsh --prompt --completions)"
+
+# fish
+codex-profile shell-init fish --prompt --completions | source
+```
+
+Use either flag independently, or combine both as above. To keep the integration
+for new shells, add the command to your startup file, or accept the optional
+terminal integration step in `codex-profile setup work`. Setup previews its
+snippet and asks before appending; `shell-init` itself only prints shell code.
+
 ### Terminal titles and completion notifications
 
 Opt in for a single launch, or export either variable in your shell startup file:
@@ -506,6 +553,20 @@ prefix; it refuses package-managed and unrecognized executables.
 
 ## Shell completions
 
+Load completions directly with `shell-init`:
+
+```sh
+eval "$(codex-profile shell-init bash --completions)"
+eval "$(codex-profile shell-init zsh --completions)"
+codex-profile shell-init fish --completions | source
+```
+
+Use the command matching your shell; add `--prompt` for the profile label.
+Launch commands suggest initialized profiles instead of placeholder names, and
+completion follows each command's supported flags and argument positions.
+
+To generate completion files for your own shell configuration:
+
 ```sh
 codex-profile completions bash
 codex-profile completions zsh
@@ -519,6 +580,13 @@ For Bash, save the output as
 ## Command reference
 
 Run `codex-profile` for a compact welcome screen and the most useful commands.
+In a non-dumb terminal, it also shows the current project directory, nearest
+workspace binding, current managed shell profile, and relevant launch commands.
+The binding and shell selection are separate: `run` follows the binding even
+when the shell uses another profile. This overview reads local routing and
+shell context without probing login status. Redirected output and `TERM=dumb`
+retain the static overview.
+
 Run `codex-profile help` (or `--help`) for the complete grouped reference,
 including advanced options and environment overrides. Use the command shown
 in the Usage line followed by a command from the list, for example
@@ -558,7 +626,7 @@ codex-profile clone-config <source-profile> <target-profile> [--force]
 codex-profile list
 codex-profile doctor [--json] [--check]
 codex-profile completions <bash|zsh|fish>
-codex-profile shell-init <bash|zsh|fish> [--prompt]
+codex-profile shell-init <bash|zsh|fish> [--prompt] [--completions]
 codex-profile upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
 codex-profile version
 codex-profile --version

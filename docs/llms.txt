@@ -11,6 +11,9 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 - Installed commands are `codex-profile` and `codex-profiles`.
 - Invoking `codex-profile` without arguments displays
   a compact command overview. `help`/`--help` displays the full grouped reference.
+  The welcome adds the current project directory, nearest binding, current
+  managed shell profile, and relevant launch commands in a non-dumb terminal,
+  without probing login status. Redirected/dumb output keeps the static overview.
   Help adapts to terminal width; its banner uses UTF-8 terminals, and `NO_COLOR`
   disables color. Redirected output is plain text. Command output is unchanged.
 - `default` maps to `~/.codex`; every other valid name `<x>` maps to
@@ -19,14 +22,31 @@ homes and, on macOS, named ChatGPT windows with separate local state.
   the target of `clone-config` require an initialized profile and fail on a
   missing name instead of materializing it.
 - With no arguments, `cli` and `app` show a terminal-only numbered picker of
-  initialized profiles, marking the nearest workspace-bound profile. Enter
-  selects that bound profile; otherwise choose a number. `q` cancels.
+  initialized profiles, marking the nearest workspace-bound profile and current
+  shell profile separately. Enter selects the binding first, falling back to a
+  valid initialized shell profile when unbound. Exact profile names or menu
+  numbers select a profile; exact names take precedence, including numeric
+  names. `#N` explicitly selects menu item N, avoiding numeric-name collisions.
+  `q`, `Q`, and EOF cancel without an error message, retaining exit status 1.
+  Select profiles named `q` or `Q` using `#N` for their menu item.
   No-argument launches fail without a terminal; explicit commands are unchanged.
 - `setup <profile>` requires a terminal and initializes or reuses the profile,
   offers CLI login (default yes), workspace binding (default no, path defaults
-  to the current directory), and a macOS launcher (default no). It does not
-  overwrite binding or launcher conflicts. Completed steps survive later
-  failures, so it can be rerun.
+  to the current directory), a macOS launcher (default no), and terminal
+  integration (default no). Integration previews the exact startup snippet on
+  stderr before appending: `shell-init --prompt --completions` plus
+  `CODEX_PROFILE_TERMINAL_TITLE=1` and `CODEX_PROFILE_NOTIFY=1`. Setup never
+  executes the startup file; open a new shell or apply the displayed snippet.
+  Repeating setup appends only missing integration lines; unsupported shells or
+  linked startup paths receive manual instructions. It does not overwrite
+  binding or launcher conflicts. Completed steps survive later failures, so it
+  can be rerun.
+- Setup selects the shell via `$SHELL`. Bash uses `~/.bashrc` on Linux; on macOS
+  it uses the first existing `~/.bash_profile`, `~/.bash_login`, or `~/.profile`,
+  or creates `~/.bash_profile` when none exists. The wrapper in `.profile` runs
+  only in Bash. Zsh uses `${ZDOTDIR:-$HOME}/.zshrc`; Fish uses
+  `${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish`. `shell-init` itself never
+  writes startup files.
 - `cli`, `login`, `env`, and `use` select Codex-local state through
   `CODEX_HOME`. They do not switch an open ChatGPT window.
 - `CODEX_PROFILE_TERMINAL_TITLE=1` sets an OSC 2 CLI title with the profile and
@@ -51,8 +71,12 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 - `workspace bind <path> <profile>` stores a private local canonical-path
   binding. The nearest bound ancestor wins; no file is added to the project.
 - `run` uses the current directory's binding for Codex CLI, while `run --app`
-  uses it for the signed ChatGPT app. Explicit mismatches warn by default and
-  can be rejected with `workspace guard strict`.
+  uses it for the signed ChatGPT app. When unbound in a terminal, `run` or
+  `run --app [workspace]` offers profile selection and optional binding (default
+  no), then launches the selection even if binding is declined. Cancellation
+  returns 1 without an error message. Unbound noninteractive runs still fail
+  without prompting. Explicit mismatches warn by default and can be rejected
+  with `workspace guard strict`.
 - The project never reads, copies, prints, parses, uploads, compares, or
   migrates auth tokens or ChatGPT cookies.
 - `init <name> --share-with <source>` creates a real private profile directory
@@ -136,6 +160,7 @@ codex-profile launcher create personal --name "ChatGPT Personal" --color blue
 codex-profile launcher list
 codex-profile status --json
 eval "$(codex-profile env work)"
+eval "$(codex-profile shell-init zsh --prompt --completions)"
 ```
 
 The word `work` in these examples is an arbitrary profile name. It must not be
@@ -201,14 +226,21 @@ refuses while its managed launcher exists.
 
 - `codex-profile env <profile>` prints shell code that exports `CODEX_HOME` and
   informational `CODEX_PROFILE_NAME`.
-- `codex-profile shell-init <bash|zsh|fish> [--prompt]` prints a wrapper that enables
-  `codex-profile use <profile>` in the current shell.
+- `codex-profile shell-init <bash|zsh|fish> [--prompt] [--completions]` prints a
+  wrapper that enables `codex-profile use <profile>` in the current shell.
 - Optional `--prompt` adds a dynamic `[codex:work]` prefix while preserving the
   existing prompt. It appears only when `CODEX_PROFILE_NAME` matches the
   selected managed `CODEX_HOME`; unset or inconsistent activation hides it.
   No shell startup files are edited. For example:
   `eval "$(codex-profile shell-init zsh --prompt)"` or
   `codex-profile shell-init fish --prompt | source`.
+- Optional `--completions` loads tab completion in Bash, Zsh, or Fish and can be
+  combined with `--prompt`, for example
+  `eval "$(codex-profile shell-init zsh --prompt --completions)"` or
+  `codex-profile shell-init fish --prompt --completions | source`. Launch
+  commands suggest initialized profiles, and completions follow supported
+  flags and argument positions. `completions <bash|zsh|fish>` remains available
+  for generating standalone completion files.
 - Activation affects subsequent Codex commands in that shell only. It does not
   launch or switch ChatGPT Desktop.
 

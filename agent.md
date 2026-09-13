@@ -97,9 +97,13 @@ codex-profile init work
 For a user-driven terminal walkthrough, `codex-profile setup work` initializes
 or reuses the profile and offers CLI login (default yes), workspace binding
 (default no, path defaults to the current directory), and a macOS launcher
-(default no). It refuses binding or launcher conflicts, retains completed
-steps on failure, and can be rerun. For noninteractive agent execution, use the
-explicit commands for the steps the user requested.
+(default no). A final optional terminal integration step (default no) previews
+the exact snippet on stderr before appending prompt support, completions, tab titles,
+and completion notifications to the shell startup file. Setup never executes
+that file and appends only missing integration lines on reruns. It refuses binding
+or launcher conflicts, retains completed steps on failure, and can be rerun.
+For noninteractive agent execution, use the explicit commands for the steps
+the user requested.
 
 Authentication is interactive and belongs to the user:
 
@@ -133,11 +137,17 @@ matching `CODEX_HOME` and Electron data for the whole ChatGPT window across
 Chat, Work, and Codex.
 
 In a terminal, no-argument `cli` and `app` show an initialized-profile picker;
-Enter selects the marked workspace-bound profile, a number selects a profile,
-and `q` cancels. Use explicit profile names in agent scripts. Optional
-`shell-init <bash|zsh|fish> --prompt` adds a dynamic `[codex:work]` prefix to the
-existing prompt when `CODEX_PROFILE_NAME` and managed `CODEX_HOME` agree. It
-does not edit shell startup files.
+Enter selects the workspace-bound profile first or a valid current shell
+profile when unbound. Both are marked separately. Exact names or menu numbers
+select a profile; exact names take precedence, including numeric names. `#N`
+explicitly selects menu item N. `q`, `Q`, or EOF cancel without an error message
+and return 1. Select profiles named `q` or `Q` using `#N` for their menu item.
+Unbound interactive `run` also offers the picker and optional binding; scripts
+still fail on a missing binding. Use explicit profile names in agent scripts.
+Optional `shell-init <bash|zsh|fish> --prompt` adds a dynamic `[codex:work]` prefix to the
+existing prompt when `CODEX_PROFILE_NAME` and managed `CODEX_HOME` agree. Add
+`--completions` to load tab completion at the same time. `shell-init` does not
+edit shell startup files.
 
 ## 5. Report the result
 
