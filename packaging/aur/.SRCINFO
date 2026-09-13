@@ -1,14 +1,14 @@
 pkgbase = codex-profile
 	pkgdesc = Named Codex CLI profiles with separate local ChatGPT desktop state
-	pkgver = 1.0.0
+	pkgver = 1.1.0
 	pkgrel = 1
 	url = https://github.com/Ducksss/codex-profiles
 	arch = any
 	license = MIT
 	depends = bash
-	source = codex-profile-1.0.0::https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.0.0/bin/codex-profile
-	source = LICENSE-1.0.0::https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.0.0/LICENSE
-	sha256sums = bad50a2efbe269ad059840c51989d3f74e2826dbd588f3309cf19a4f72d16335
+	source = codex-profile-1.1.0::https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.1.0/bin/codex-profile
+	source = LICENSE-1.1.0::https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.1.0/LICENSE
+	sha256sums = dcb29b37a2bdf23db6569628513140b68060455a0a149ae16045d3497dce52fc
 	sha256sums = 9ff3b3e5b6a234802d746443539abda82c35d1581a98249b40636dd5acff4364
 
 pkgname = codex-profile

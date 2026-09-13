@@ -38,27 +38,27 @@ test_upgrade_fetches_newest_ref_and_installs_to_prefix() {
   installed="$prefix/bin/codex-profile"
   mkdir -p "$repo"
   init_git_main_branch "$repo"
-  write_fake_upgrade_repo "$repo" "1.0.0"
+  write_fake_upgrade_repo "$repo" "9.9.8"
   git -C "$repo" add .
   git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v1" >/dev/null
 
   run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_REF=main CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
 
   assert_status 0
-  assert_contains "Installed codex-profile 1.0.0"
+  assert_contains "Installed codex-profile 9.9.8"
   [[ -x "$installed" ]] || fail "upgrade did not install codex-profile"
 
-  write_fake_upgrade_repo "$repo" "1.0.1"
+  write_fake_upgrade_repo "$repo" "9.9.9"
   git -C "$repo" add .
   git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v2" >/dev/null
 
   run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_REF=main CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix"
 
   assert_status 0
-  assert_contains "Installed codex-profile 1.0.1"
+  assert_contains "Installed codex-profile 9.9.9"
   run_cmd "$installed" version
   assert_status 0
-  assert_equals "codex-profile 1.0.1"
+  assert_equals "codex-profile 9.9.9"
 
   rm -rf "$tmp"
 }
@@ -72,7 +72,7 @@ test_upgrade_installs_commit_sha_ref_on_fresh_cache() {
   installed="$prefix/bin/codex-profile"
   mkdir -p "$repo"
   init_git_main_branch "$repo"
-  write_fake_upgrade_repo "$repo" "1.0.0"
+  write_fake_upgrade_repo "$repo" "9.9.8"
   git -C "$repo" add .
   git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v1" >/dev/null
   sha="$(git -C "$repo" rev-parse HEAD)"
@@ -80,10 +80,10 @@ test_upgrade_installs_commit_sha_ref_on_fresh_cache() {
   run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$cache" "$SCRIPT" upgrade --prefix "$prefix" --ref "$sha"
 
   assert_status 0
-  assert_contains "Installed codex-profile 1.0.0"
+  assert_contains "Installed codex-profile 9.9.8"
   run_cmd "$installed" version
   assert_status 0
-  assert_equals "codex-profile 1.0.0"
+  assert_equals "codex-profile 9.9.8"
 
   rm -rf "$tmp"
 }
@@ -96,7 +96,7 @@ test_upgrade_refuses_dirty_cached_checkout() {
   prefix="$tmp/prefix"
   mkdir -p "$repo"
   init_git_main_branch "$repo"
-  write_fake_upgrade_repo "$repo" "1.0.0"
+  write_fake_upgrade_repo "$repo" "9.9.8"
   git -C "$repo" add .
   git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v1" >/dev/null
   git clone "$repo" "$cache" >/dev/null 2>&1
@@ -307,7 +307,7 @@ test_upgrade_allows_owned_default_source_install() {
   cp "$SCRIPT" "$installed"
   chmod 755 "$installed"
   init_git_main_branch "$repo"
-  write_fake_upgrade_repo "$repo" "1.0.0"
+  write_fake_upgrade_repo "$repo" "9.9.8"
   git -C "$repo" add .
   git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v1" >/dev/null
 
@@ -316,10 +316,10 @@ test_upgrade_allows_owned_default_source_install() {
     "$installed" upgrade
 
   assert_status 0
-  assert_contains "Installed codex-profile 1.0.0"
+  assert_contains "Installed codex-profile 9.9.8"
   run_cmd "$installed" version
   assert_status 0
-  assert_equals "codex-profile 1.0.0"
+  assert_equals "codex-profile 9.9.8"
 
   rm -rf "$tmp"
 }

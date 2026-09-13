@@ -49,8 +49,11 @@ codex-profile cli work
 
 `setup work` creates the profile and offers Codex CLI login. Accept the login
 prompt and authenticate with the account you want for this profile. Setup also
-offers optional project binding and, on macOS, a launcher; both default to no.
-It requires an interactive terminal and can reuse an existing profile.
+offers project binding, terminal integration, and a launcher on macOS; each is
+optional and defaults to no. Terminal integration adds the profile prompt,
+completions, tab titles, and completion notifications to your shell startup
+file after showing the exact snippet for approval. Open a new shell to use it.
+Setup requires an interactive terminal and can reuse an existing profile.
 
 The npm package is **`codex-profile`** (singular). It installs both
 `codex-profile` and `codex-profiles`; the plural npm package is another project.
@@ -91,8 +94,20 @@ codex-profile cli personal
 codex-profile cli work exec "review this repo"
 ```
 
-Run `codex-profile cli` without a name for an interactive picker. In scripts,
-pass the name explicitly. Each profile authenticates independently.
+Run `codex-profile cli` without a name for an interactive picker. Type a profile
+name or menu number; Enter uses the project's binding, or your current shell
+profile when there is no binding. Both are marked separately. In scripts, pass
+the name explicitly. Each profile authenticates independently.
+
+For a profile label and completions in your current shell:
+
+```sh
+# Use bash instead of zsh for Bash.
+eval "$(codex-profile shell-init zsh --prompt --completions)"
+codex-profile use work
+```
+
+Fish and persistent setup are covered in [shell integration](USAGE.md#activate-a-codex-home-in-the-current-shell).
 
 To label terminal tabs and receive one-shot completion notifications, opt in:
 
@@ -116,6 +131,8 @@ codex-profile run exec "run tests and summarize failures"
 
 The nearest bound parent directory wins, so subprojects can use different
 profiles. Bindings are private local metadata; no project files are changed.
+In a terminal, `run` without a binding offers profile selection and optional
+binding. Declining the binding still launches the selected profile.
 Explicitly launching a different profile warns by default.
 [Workspace rules and strict mode](USAGE.md#bind-projects-to-profiles).
 
@@ -182,15 +199,15 @@ brew install Ducksss/tap/codex-profile
 With the standalone installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.0.0/install.sh \
-  | CODEX_PROFILE_VERSION=v1.0.0 sh
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.1.0/install.sh \
+  | CODEX_PROFILE_VERSION=v1.1.0 sh
 ```
 
 With Nix:
 
 ```sh
-nix run github:Ducksss/codex-profiles/v1.0.0
-nix profile install github:Ducksss/codex-profiles/v1.0.0
+nix run github:Ducksss/codex-profiles/v1.1.0
+nix profile install github:Ducksss/codex-profiles/v1.1.0
 ```
 
 From source:
@@ -212,6 +229,8 @@ codex-profile doctor
 ## Command reference
 
 Run `codex-profile` for the welcome screen or `codex-profile help` for all commands.
+In a non-dumb terminal, the welcome also shows this project's binding, the
+current shell profile, and the relevant launch commands.
 
 | Task | Command |
 | --- | --- |
@@ -223,6 +242,7 @@ Run `codex-profile` for the welcome screen or `codex-profile help` for all comma
 | Check your installation | `codex-profile doctor` |
 | Launch this project's profile | `codex-profile run` |
 | Find a profile's home | `codex-profile path work` |
+| Print shell integration | `codex-profile shell-init <bash\|zsh\|fish> [--prompt] [--completions]` |
 
 [Full command syntax](USAGE.md#command-reference) ·
 [Shell integration](USAGE.md#activate-a-codex-home-in-the-current-shell) ·
