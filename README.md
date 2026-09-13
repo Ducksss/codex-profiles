@@ -199,15 +199,15 @@ brew install Ducksss/tap/codex-profile
 With the standalone installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.0.0/install.sh \
-  | CODEX_PROFILE_VERSION=v1.0.0 sh
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.1.0/install.sh \
+  | CODEX_PROFILE_VERSION=v1.1.0 sh
 ```
 
 With Nix:
 
 ```sh
-nix run github:Ducksss/codex-profiles/v1.0.0
-nix profile install github:Ducksss/codex-profiles/v1.0.0
+nix run github:Ducksss/codex-profiles/v1.1.0
+nix profile install github:Ducksss/codex-profiles/v1.1.0
 ```
 
 From source:

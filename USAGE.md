@@ -536,7 +536,7 @@ directories, and it refuses sensitive-looking configuration keys.
 codex-profile upgrade --dry-run
 codex-profile upgrade
 codex-profile upgrade --prefix /usr/local
-codex-profile upgrade --ref v1.0.0
+codex-profile upgrade --ref v1.1.0
 codex-profile upgrade --ref main
 ```
 

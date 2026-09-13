@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 1.1.0 - 2026-09-14
+
 ### Added
 
 - A dedicated 10-second Remotion README loop linked to the full launch video,

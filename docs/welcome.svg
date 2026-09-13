@@ -10,7 +10,7 @@
 <text x="28" y="165" fill="#6edee5" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">     │        │</text>
 <text x="28" y="188" fill="#6edee5" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">     ╰────────╯   P R O F I L E S</text>
 <text x="28" y="211" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve"></text>
-<text x="28" y="234" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  codex-profiles  v1.0.0</text>
+<text x="28" y="234" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  codex-profiles  v1.1.0</text>
 <text x="28" y="257" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  Named Codex homes. Separate ChatGPT windows.</text>
 <text x="28" y="280" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve">  Usage: codex-profile &lt;command&gt;</text>
 <text x="28" y="303" fill="#e6edf3" font-family="Menlo,Consolas,monospace" font-size="16" xml:space="preserve"></text>
