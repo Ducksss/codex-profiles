@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PROGRAM="${0##*/}"
-VERSION="0.11.1"
+VERSION="1.0.0"
 CHATGPT_APP="${CHATGPT_APP:-}"
 CODEX_APP="${CODEX_APP:-}"
 CODEX_APP_BIN="${CODEX_APP_BIN:-}"
@@ -190,6 +190,8 @@ CODEX_APP | Desktop bundle path (legacy)
 CODEX_APP_BIN | Bundle executable path (deprecated)
 CODEX_CLI | Codex CLI binary path
 CODEX_BUNDLED_CLI | Bundled Codex CLI fallback path
+CODEX_PROFILE_TERMINAL_TITLE | Set to 1 for CLI profile/directory titles
+CODEX_PROFILE_NOTIFY | Set to 1 for exec completion notifications
 CODEX_PROFILE_CONFIG_HOME | Private versioned control-state storage
 CODEX_PROFILE_LAUNCHER_ROOT | Launcher directory; default: ~/Applications
 CODEX_PROFILE_APP_INSTANCE_ROOT | Legacy clone root; doctor only, read-only
@@ -1972,6 +1974,26 @@ command_cli() {
   codex_home="$(codex_home_for_profile "$profile")"
   secure_initialized_home "$profile" "$codex_home"
   codex_cli="$(find_codex_cli)"
+
+  if [[ -t 2 && -n "${TERM:-}" && "$TERM" != dumb &&
+    ( "${CODEX_PROFILE_TERMINAL_TITLE:-}" == 1 || "${CODEX_PROFILE_NOTIFY:-}" == 1 ) ]]; then
+    local project result=0 outcome
+    # Directory names are untrusted terminal text: keep printable characters.
+    project="${PWD##*/}"
+    project="${project//[^[:print:]]/}"
+    project="${project:-/}"
+    if [[ "${CODEX_PROFILE_TERMINAL_TITLE:-}" == 1 ]]; then
+      printf '\033]2;%s · %s\007' "$profile" "$project" >&2 || true
+    fi
+    if [[ "${CODEX_PROFILE_NOTIFY:-}" == 1 && ( "${1:-}" == exec || "${1:-}" == e ) ]]; then
+      # Keep stdin and the foreground process group intact for one-shot jobs.
+      env CODEX_HOME="$codex_home" "$codex_cli" "$@" || result=$?
+      outcome=finished
+      [[ "$result" -eq 0 ]] || outcome="failed (exit $result)"
+      printf '\033]9;%s / %s: %s\007' "$profile" "$project" "$outcome" >&2 || true
+      return "$result"
+    fi
+  fi
 
   exec env CODEX_HOME="$codex_home" "$codex_cli" "$@"
 }

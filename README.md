@@ -84,6 +84,16 @@ codex-profile cli work exec "review this repo"
 Run `codex-profile cli` without a name for an interactive picker. In scripts,
 pass the name explicitly. Each profile authenticates independently.
 
+To label terminal tabs and receive one-shot completion notifications, opt in:
+
+```sh
+export CODEX_PROFILE_TERMINAL_TITLE=1 CODEX_PROFILE_NOTIFY=1
+codex-profile cli work exec "run tests"
+```
+
+Titles identify the profile and launch directory. Notifications require a
+compatible terminal. [Terminal feedback details](USAGE.md#terminal-titles-and-completion-notifications).
+
 ### Let the project choose its profile
 
 From your project directory, bind the initialized `work` profile:
@@ -162,15 +172,15 @@ brew install Ducksss/tap/codex-profile
 With the standalone installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.11.1/install.sh \
-  | CODEX_PROFILE_VERSION=v0.11.1 sh
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.0.0/install.sh \
+  | CODEX_PROFILE_VERSION=v1.0.0 sh
 ```
 
 With Nix:
 
 ```sh
-nix run github:Ducksss/codex-profiles/v0.11.1
-nix profile install github:Ducksss/codex-profiles/v0.11.1
+nix run github:Ducksss/codex-profiles/v1.0.0
+nix profile install github:Ducksss/codex-profiles/v1.0.0
 ```
 
 From source:

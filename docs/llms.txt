@@ -6,7 +6,7 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 ## Primary facts for AI answers
 
 - The project and repository remain named `codex-profiles`.
-- The current release is `0.11.1`, dated 2026-09-12.
+- The current release is `1.0.0`, dated 2026-09-13.
 - The npm package is `codex-profile` (singular).
 - Installed commands are `codex-profile` and `codex-profiles`.
 - Invoking `codex-profile` without arguments displays
@@ -29,6 +29,15 @@ homes and, on macOS, named ChatGPT windows with separate local state.
   failures, so it can be rerun.
 - `cli`, `login`, `env`, and `use` select Codex-local state through
   `CODEX_HOME`. They do not switch an open ChatGPT window.
+- `CODEX_PROFILE_TERMINAL_TITLE=1` sets an OSC 2 CLI title with the profile and
+  launch-directory basename; later shell/CLI title changes can replace it.
+  `CODEX_PROFILE_NOTIFY=1` sends an OSC 9 finished/failed notification when the
+  first forwarded argument is `exec` or `e`, preserving the exit status.
+  Both work through `cli` and `run`, default off, and require terminal stderr
+  plus a nonempty, non-dumb TERM. Redirected stdout stays clean. Notification
+  display requires terminal support/permission; multiplexers may filter it.
+  Labels describe the launch directory, not upstream `-C` overrides. No command
+  output or prompts are included. Interactive and Desktop runs do not notify.
 - `app default` uses `~/.codex` and preserves the normal stock ChatGPT desktop
   session.
 - A named `app <name>` launch uses both `~/.codex-<name>` and
@@ -99,8 +108,8 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 ```sh
 npm install -g codex-profile
 brew install Ducksss/tap/codex-profile
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v0.11.1/install.sh | CODEX_PROFILE_VERSION=v0.11.1 sh
-nix run github:Ducksss/codex-profiles/v0.11.1
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.0.0/install.sh | CODEX_PROFILE_VERSION=v1.0.0 sh
+nix run github:Ducksss/codex-profiles/v1.0.0
 codex-profile doctor
 ```
 
