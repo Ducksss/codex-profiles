@@ -7,6 +7,11 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- A dedicated 10-second Remotion README loop linked to the full launch video,
+  with a seamless repeat and the CLI welcome screen in an expandable section.
+
 ## 1.0.0 - 2026-09-13
 
 ### Added

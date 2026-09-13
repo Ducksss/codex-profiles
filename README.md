@@ -10,12 +10,22 @@ windows on macOS, and bind projects to the profile they use.
 [![npm](https://img.shields.io/npm/v/codex-profile.svg)](https://www.npmjs.com/package/codex-profile)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+[![Animated codex-profiles overview: personal, work, and client Codex homes, followed by separate named ChatGPT windows.](https://github.com/Ducksss/codex-profiles/raw/refs/heads/main/docs/launch-preview.gif)](https://github.com/Ducksss/codex-profiles/blob/main/docs/launch.mp4)
+
+*10-second looping overview; desktop UI is illustrative.
+[Watch the full 30-second video with sound](https://github.com/Ducksss/codex-profiles/blob/main/docs/launch.mp4).*
+
 [Quick start](#quick-start) · [Workflows](#everyday-workflows) ·
 [Manual](USAGE.md) · [Project site](https://ducksss.github.io/codex-profiles/)
+
+<details>
+<summary>See the CLI welcome screen</summary>
 
 ![Actual codex-profiles welcome screen: overlapping terminal windows, the Codex Profiles wordmark, and commands for setup, CLI, Desktop, and workspace binding.](docs/welcome.svg)
 
 *The CLI's welcome screen. Run `codex-profile` to see it in your terminal.*
+
+</details>
 
 - **Choose a profile:** each name selects its own Codex home, login, and sessions.
 - **Keep windows separate:** named macOS launches select local state for the whole ChatGPT window.
