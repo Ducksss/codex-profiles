@@ -7,6 +7,13 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Fixed
+
+- Release verification tolerates npm scanning and availability delays with
+  separate 20-minute wait budgets for metadata and public installation,
+  retrying every 30 seconds while preserving exact SHA-512 artifact integrity
+  and installed command checks through both aliases.
+
 ## 1.1.0 - 2026-09-14
 
 ### Added

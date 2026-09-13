@@ -126,15 +126,17 @@ else
   fi
 
   npm_artifact_verified_after_publish=false
-  for attempt in {1..5}; do
+  # npm publish-time scanning can delay availability beyond 15 minutes.
+  for attempt in {1..41}; do
     : > "$lookup_error"
     if npm_artifact_state="$(lookup_npm_artifact)" \
       && [[ "$npm_artifact_state" == "matching" ]]; then
       npm_artifact_verified_after_publish=true
       break
     fi
-    if [[ "$attempt" -lt 5 ]]; then
-      sleep "$((attempt * 2))"
+    if [[ "$attempt" -lt 41 ]]; then
+      echo "Waiting for codex-profile@$V to become available with matching integrity (check $attempt/41); retrying in 30 seconds."
+      sleep 30
     fi
   done
   [[ "$npm_artifact_verified_after_publish" == "true" ]] || {
@@ -142,7 +144,7 @@ else
       cat "$publish_error" >&2
     fi
     cat "$lookup_error" >&2
-    echo "Could not publish or verify the exact npm artifact for codex-profile@$V." >&2
+    echo "Could not publish or verify the exact npm artifact for codex-profile@$V after 20 minutes of waiting." >&2
     exit 1
   }
   if [[ "$npm_publish_succeeded" == "true" ]]; then
@@ -161,19 +163,21 @@ trap 'rm -rf "$tmp"' EXIT
 prefix="$tmp/prefix"
 cache="$tmp/npm-cache"
 npm_installed=false
-for attempt in {1..10}; do
+# Registry metadata can become visible before the tarball is downloadable.
+for attempt in {1..41}; do
   if npm install -g --prefix "$prefix" --cache "$cache" \
     --registry "$NPM_REGISTRY" "codex-profile@$V"; then
     npm_installed=true
     break
   fi
   rm -rf "$prefix"
-  if [[ "$attempt" -lt 10 ]]; then
-    sleep "$((attempt * 2))"
+  if [[ "$attempt" -lt 41 ]]; then
+    echo "Waiting for codex-profile@$V to become installable (attempt $attempt/41); retrying in 30 seconds."
+    sleep 30
   fi
 done
 [[ "$npm_installed" == "true" ]] || {
-  echo "codex-profile@$V was not installable after 10 attempts." >&2
+  echo "codex-profile@$V was not installable after 20 minutes of waiting." >&2
   exit 1
 }
 "$prefix/bin/codex-profile" help >/dev/null
