@@ -57,6 +57,14 @@ case "${1:-}" in
             printf '%s\n' '["0.6.0"]'
           fi
           ;;
+        scanning|scanning_mismatch|scanning_unavailable)
+          waited="$(awk -F: '$1 == "sleep" { total += $2 } END { print total + 0 }' "$RELEASE_WORKFLOW_TEST_LOG")"
+          if [ "$waited" -ge 1200 ] && [ "$FAKE_NPM_SCENARIO" != scanning_unavailable ]; then
+            printf '%s\n' '["0.6.0", "0.7.0"]'
+          else
+            printf '%s\n' '["0.6.0"]'
+          fi
+          ;;
         malformed_versions)
           printf '%s\n' '{"unexpected":true}'
           ;;
@@ -69,10 +77,10 @@ case "${1:-}" in
     elif [ "${2:-}" = 'codex-profile@0.7.0' ] && [ "${3:-}" = 'dist.integrity' ]; then
       printf '%s\n' 'view:integrity' >> "$RELEASE_WORKFLOW_TEST_LOG"
       case "$FAKE_NPM_SCENARIO" in
-        present|absent|race)
+        present|absent|race|scanning)
           printf '"%s"\n' "$local_integrity"
           ;;
-        mismatch)
+        mismatch|scanning_mismatch)
           printf '%s\n' '"sha512-ZGlmZmVyZW50LWFydGlmYWN0"'
           ;;
         malformed_integrity)
@@ -94,7 +102,7 @@ case "${1:-}" in
     }
     case "$FAKE_NPM_SCENARIO" in
       race) exit 1 ;;
-      absent) ;;
+      absent|scanning|scanning_mismatch|scanning_unavailable) ;;
       *) exit 64 ;;
     esac
     ;;
@@ -109,6 +117,7 @@ cat > "$npm_fake_bin/sleep" <<'FAKE_SLEEP'
 #!/bin/sh
 
 printf '%s\n' 'sleep' >> "$RELEASE_WORKFLOW_TEST_LOG"
+printf 'sleep:%s\n' "$1" >> "$RELEASE_WORKFLOW_TEST_LOG"
 FAKE_SLEEP
 chmod 755 "$npm_fake_bin/npm" "$npm_fake_bin/sleep"
 
@@ -156,11 +165,19 @@ require_npm_publish_scenario() {
   actual="$(grep -Fxc 'sleep' "$log" || true)"
   [[ "$actual" -eq "$expected_sleeps" ]] \
     || fail "npm $scenario backoff ran $actual time(s); expected $expected_sleeps"
+  if [[ "$scenario" == scanning* ]]; then
+    actual="$(grep -Fxc 'sleep:30' "$log" || true)"
+    [[ "$actual" -eq "$expected_sleeps" ]] \
+      || fail "npm $scenario did not poll every 30 seconds"
+  fi
 }
 
 require_npm_publish_scenario present success 1 1 1 0 0
 require_npm_publish_scenario absent success 1 2 1 1 0
 require_npm_publish_scenario race success 1 2 1 1 0
+require_npm_publish_scenario scanning success 1 42 1 1 40
+require_npm_publish_scenario scanning_unavailable failure 1 42 0 1 40
+require_npm_publish_scenario scanning_mismatch failure 1 42 1 1 40
 require_npm_publish_scenario transient failure 1 5 0 0 4
 require_npm_publish_scenario malformed_versions failure 1 5 0 0 4
 require_npm_publish_scenario malformed_integrity failure 1 5 5 0 4
@@ -181,6 +198,13 @@ printf '%s\n' install >> "$RELEASE_WORKFLOW_TEST_LOG"
 attempt="$(grep -Fxc install "$RELEASE_WORKFLOW_TEST_LOG")"
 if [ "$FAKE_NPM_VERIFY_SCENARIO" = retry ] && [ "$attempt" -lt 3 ]; then
   exit 1
+fi
+if [ "$FAKE_NPM_VERIFY_SCENARIO" = scanning ]; then
+  waited="$(awk -F: '$1 == "sleep" { total += $2 } END { print total + 0 }' "$RELEASE_WORKFLOW_TEST_LOG")"
+  if [ "$waited" -lt 1200 ]; then
+    printf '%s\n' 'npm error code E404: tarball is not available yet' >&2
+    exit 1
+  fi
 fi
 if [ "$FAKE_NPM_VERIFY_SCENARIO" = unavailable ]; then
   exit 1
@@ -213,6 +237,7 @@ FAKE_NPM_VERIFY
 cat > "$npm_verify_bin/sleep" <<'FAKE_NPM_VERIFY_SLEEP'
 #!/bin/sh
 printf '%s\n' sleep >> "$RELEASE_WORKFLOW_TEST_LOG"
+printf 'sleep:%s\n' "$1" >> "$RELEASE_WORKFLOW_TEST_LOG"
 FAKE_NPM_VERIFY_SLEEP
 chmod 755 "$npm_verify_bin/npm" "$npm_verify_bin/sleep"
 
@@ -246,9 +271,13 @@ run_npm_verify() {
   actual="$(grep -Fxc sleep "$log" || true)"
   [[ "$actual" -eq "$expected_sleeps" ]] \
     || fail "npm verify $scenario slept $actual times; expected $expected_sleeps"
+  actual="$(grep -Fxc 'sleep:30' "$log" || true)"
+  [[ "$actual" -eq "$expected_sleeps" ]] \
+    || fail "npm verify $scenario did not poll every 30 seconds"
 }
 
+run_npm_verify scanning success 41 40
 run_npm_verify retry success 3 2
-run_npm_verify unavailable failure 10 9
+run_npm_verify unavailable failure 41 40
 
 printf '%s\n' 'npm release tests passed.'
