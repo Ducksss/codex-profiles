@@ -7,6 +7,16 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 1.0.0 - 2026-09-13
+
+### Added
+
+- Opt-in CLI terminal titles (`CODEX_PROFILE_TERMINAL_TITLE=1`) showing the
+  profile and launch directory, plus terminal completion notifications
+  (`CODEX_PROFILE_NOTIFY=1`) for `exec`/`e` through `cli` and `run`. Notifications
+  preserve the command exit status; both features keep redirected streams free
+  of feedback and default to off.
+
 ### Changed
 
 - Reorganized the README around guided setup, everyday CLI and Desktop

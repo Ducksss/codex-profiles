@@ -433,6 +433,45 @@ The dynamic prefix, for example `[codex:work]`, appears only when
 profile changes and disappears when activation is unset or inconsistent.
 Your existing prompt is preserved; `shell-init` never edits startup files.
 
+### Terminal titles and completion notifications
+
+Opt in for a single launch, or export either variable in your shell startup file:
+
+```sh
+CODEX_PROFILE_TERMINAL_TITLE=1 codex-profile cli work
+CODEX_PROFILE_NOTIFY=1 codex-profile run exec "run tests"
+
+# Enable both for subsequent cli/run launches in this shell.
+export CODEX_PROFILE_TERMINAL_TITLE=1 CODEX_PROFILE_NOTIFY=1
+```
+
+Titles show `work · client-api`, using the selected profile and the basename of
+the launch directory. The title is set once before CLI launch; your terminal,
+Codex, or shell may subsequently replace it. The wrapper does not restore the
+previous title. This also works with the no-argument CLI picker.
+
+Notifications show `work / client-api: finished` on exit zero, or
+`work / client-api: failed (exit 23)` on failure. The exact command exit status
+is preserved. Notifications apply when the first forwarded argument is `exec`
+or its `e` alias, including `exec resume` and `exec review`. Put upstream options
+after that subcommand. Interactive sessions, login, and Desktop launches do not
+send completion notifications. These report process completion, not an agent's
+need for input.
+
+Both features default to off; unset the variables or set them to `0` to disable.
+They emit terminal escape sequences only when stderr is a terminal and `TERM`
+is set to something other than `dumb`. Stdout and stdin are unchanged, so
+`exec --json` output can still be redirected independently. Redirecting stderr
+also disables feedback. Labels use the launch directory, even if upstream
+arguments such as `-C` select another directory, and retain only characters printable in the current locale.
+No prompts, command output, or authentication data are included in notifications.
+
+Titles use OSC 2. Notifications use [OSC 9](https://iterm2.com/documentation-escape-codes.html),
+supported by terminals including iTerm2 and cmux; notification permissions and
+terminal settings determine whether a popup appears. Other terminals may ignore
+it, and multiplexers may filter it. No OS notification helper is installed or
+invoked.
+
 ### Copy known non-secret configuration
 
 ```sh
@@ -450,7 +489,7 @@ directories, and it refuses sensitive-looking configuration keys.
 codex-profile upgrade --dry-run
 codex-profile upgrade
 codex-profile upgrade --prefix /usr/local
-codex-profile upgrade --ref v0.11.1
+codex-profile upgrade --ref v1.0.0
 codex-profile upgrade --ref main
 ```
 
@@ -544,6 +583,8 @@ launch or log mode.
 | `CHATGPT_APP` | Preferred override for the ChatGPT application bundle. |
 | `CODEX_APP` | Legacy application-bundle override, checked after `CHATGPT_APP`. |
 | `CODEX_APP_BIN` | Deprecated executable override; accepted only for an executable inside an app bundle. |
+| `CODEX_PROFILE_TERMINAL_TITLE` | Set to `1` to label CLI terminal titles with profile and launch directory. |
+| `CODEX_PROFILE_NOTIFY` | Set to `1` for terminal notifications when `exec`/`e` finishes; preserves exit status. |
 | `CODEX_CLI` | Use a specific Codex CLI. An invalid explicit override fails instead of silently selecting another binary. |
 | `CODEX_BUNDLED_CLI` | Optional fallback Codex CLI checked after `PATH` and before the selected app's bundled CLI. |
 | `CODEX_PROFILE_CONFIG_HOME` | Override the private, versioned state directory containing workspace bindings, guard mode, and launcher metadata. |

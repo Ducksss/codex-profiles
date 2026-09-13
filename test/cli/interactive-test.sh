@@ -73,6 +73,86 @@ run_interactive() {
   output="${output//$'\r'/}"
 }
 
+test_cli_terminal_feedback() {
+  local subcommand
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-work"
+  cat > "$tmp/bin/codex" <<'CODEX'
+#!/usr/bin/env bash
+[[ "${1:-}" != --version ]] || { printf 'fake-codex 1.0\n'; exit 0; }
+printf 'stdout:%s\n' "$*"
+printf 'stderr:codex\n' >&2
+[[ "${FAKE_SIGNAL:-}" != TERM ]] || kill -TERM "$$"
+exit "${FAKE_EXIT:-0}"
+CODEX
+  run_interactive '' env TERM=xterm-256color "$SCRIPT" cli work exec check
+  assert_status 0
+  assert_not_contains $'\033]'
+
+  run_interactive '' env TERM=xterm-256color CODEX_PROFILE_TERMINAL_TITLE=1 "$SCRIPT" cli work
+  assert_status 0
+  assert_contains $'\033]2;work · workspace\007'
+  assert_not_contains $'\033]9;'
+
+  run_interactive '' env TERM=xterm-256color CODEX_PROFILE_NOTIFY=1 "$SCRIPT" cli work exec check
+  assert_status 0
+  assert_contains $'\033]9;work / workspace: finished\007'
+  assert_not_contains $'\033]2;'
+
+  run_cmd "${TEST_ENV[@]}" "$SCRIPT" workspace bind "$tmp/workspace" work
+  assert_status 0
+  run_interactive '' env TERM=xterm-256color CODEX_PROFILE_TERMINAL_TITLE=1 CODEX_PROFILE_NOTIFY=1 FAKE_EXIT=23 "$SCRIPT" run exec check
+  assert_status 23
+  assert_contains $'\033]2;work · workspace\007'
+  assert_contains $'\033]9;work / workspace: failed (exit 23)\007'
+  assert_contains 'stdout:exec check'
+  assert_contains 'stderr:codex'
+
+  run_interactive '' env TERM=xterm-256color CODEX_PROFILE_NOTIFY=1 FAKE_SIGNAL=TERM "$SCRIPT" cli work exec check
+  assert_status 143
+  assert_contains $'\033]9;work / workspace: failed (exit 143)\007'
+
+  run_interactive '' env TERM=xterm-256color CODEX_PROFILE_TERMINAL_TITLE=0 CODEX_PROFILE_NOTIFY=0 "$SCRIPT" cli work exec check
+  assert_status 0
+  assert_not_contains $'\033]'
+
+  for subcommand in '' login resume; do
+    run_interactive '' env TERM=xterm-256color CODEX_PROFILE_NOTIFY=1 "$SCRIPT" cli work "$subcommand"
+    assert_status 0
+    assert_not_contains $'\033]9;'
+  done
+  run_interactive '' env TERM=dumb CODEX_PROFILE_TERMINAL_TITLE=1 CODEX_PROFILE_NOTIFY=1 "$SCRIPT" cli work exec check
+  assert_status 0
+  assert_not_contains $'\033]'
+  run_cmd "${TEST_ENV[@]}" TERM=xterm-256color CODEX_PROFILE_TERMINAL_TITLE=1 CODEX_PROFILE_NOTIFY=1 FAKE_EXIT=23 "$SCRIPT" cli work exec check
+  assert_status 23
+  assert_not_contains $'\033]'
+}
+
+test_terminal_feedback_sanitizes_labels_and_preserves_streams() {
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-work"
+  mv "$tmp/workspace" "$tmp/project"$'\007\033\302\235'"[31m"
+  ln -s "$tmp/project"$'\007\033\302\235'"[31m" "$tmp/workspace"
+  cat > "$tmp/bin/codex" <<'CODEX'
+#!/usr/bin/env bash
+[[ "${1:-}" != --version ]] || { printf 'fake-codex 1.0\n'; exit 0; }
+IFS= read -r line
+printf 'input:%s\n' "$line"
+printf 'stderr:codex\n' >&2
+exit 7
+CODEX
+  # shellcheck disable=SC2016 # Expanded inside the terminal child.
+  run_interactive '' env TERM=xterm-256color CODEX_PROFILE_TERMINAL_TITLE=1 CODEX_PROFILE_NOTIFY=1 bash -c \
+    'cd -P .; printf "hello\n" | "$1" cli work e - > "$2"' _ "$SCRIPT" "$tmp/stdout"
+  assert_status 7
+  assert_contains $'\033]2;work · project[31m\007'
+  assert_contains $'\033]9;work / project[31m: failed (exit 7)\007'
+  assert_not_contains $'\033[31m'
+  [[ "$(cat "$tmp/stdout")" == 'input:hello' ]] || fail 'feedback corrupted stdout or stdin'
+  assert_contains 'stderr:codex'
+}
+
 test_terminal_help_presentation() {
   local plain
   prepare_interactive_test
@@ -302,6 +382,8 @@ ICON_TOOL
   assert_contains '"profile":"work"'
 }
 
+test_cli_terminal_feedback
+test_terminal_feedback_sanitizes_labels_and_preserves_streams
 test_terminal_help_presentation
 test_interactive_commands_require_terminal_before_mutation
 test_picker_selection_retries_and_excludes_symlinks
