@@ -7,6 +7,20 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- Initialized profile names and workspace guard mode in the terminal welcome
+  context, alongside the current project, binding, and shell selection.
+- Arrow-key profile selection with type-to-filter, Backspace editing, and
+  Escape/Ctrl-C cancellation. Exact names and menu numbers remain supported,
+  with the plain numbered picker retained for dumb or redirected terminals.
+- Command-specific usage, options, and examples through `help <command>` and
+  `<command> --help`/`-h`, including workspace and launcher subcommands.
+  Upstream Codex arguments after a profile or `run --` remain unchanged.
+- `list --details` profile overview cards showing Codex homes, bound projects,
+  and managed launcher availability without probing login or reading
+  authentication data.
+
 ### Fixed
 
 - Release verification tolerates npm scanning and availability delays with

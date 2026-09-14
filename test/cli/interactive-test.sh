@@ -28,7 +28,7 @@ printf '%s\n' "${FAKE_SYSTEM:-Linux}"
 UNAME
   chmod 755 "$tmp/bin/codex" "$tmp/bin/uname"
   TEST_ENV=(env HOME="$tmp/home" PATH="$tmp/bin:$PATH"
-    SHELL=/bin/bash ZDOTDIR="$tmp/home"
+    SHELL=/bin/bash ZDOTDIR="$tmp/home" TERM=dumb
     CODEX_CLI="$tmp/bin/codex" CODEX_PROFILE_CONFIG_HOME="$tmp/config"
     CODEX_PROFILE_LAUNCHER_ROOT="$tmp/apps" CODEX_PROFILE_NO_UPDATE_CHECK=1
     CHATGPT_APP="$tmp/ChatGPT.app" FAKE_TOOL_LOG="$tmp/tool.log")
@@ -57,6 +57,69 @@ test_picker_names_and_shell_default() {
   assert_status 1
   assert_not_contains '[1]'
   assert_not_contains 'Error:'
+}
+
+test_picker_keyboard_navigation_and_filter() {
+  local INTERACTIVE_WAIT_FOR='Filter:'
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-personal" "$tmp/home/.codex-work" "$tmp/home/.codex-workshop"
+  run_interactive '\033[B\n' env TERM=xterm-256color "$SCRIPT" cli
+  assert_status 0
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-work ARGS=' 'down selects next profile'
+  run_interactive '\033[A\n' env TERM=xterm-256color "$SCRIPT" cli
+  assert_status 0
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-workshop ARGS=' 'up wraps to last profile'
+  run_interactive 'ork\033[B\n' env TERM=xterm-256color NO_COLOR=1 "$SCRIPT" cli
+  assert_status 0
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-workshop ARGS=' 'arrows navigate filtered matches'
+  assert_not_contains $'\033[1;36m'
+  run_interactive 'zz\177\177personal\n' env TERM=xterm-256color "$SCRIPT" cli
+  assert_status 0
+  assert_contains 'No matching profiles'
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-personal ARGS=' 'backspace recovers from no matches'
+  run_interactive '#2\n' env TERM=xterm-256color "$SCRIPT" cli
+  assert_status 0
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-work ARGS=' 'explicit menu number works'
+  run_interactive '\n' env TERM=xterm-256color CODEX_PROFILE_NAME=work CODEX_HOME="$tmp/home/.codex-work" "$SCRIPT" cli
+  assert_status 0
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-work ARGS=' 'shell default in arrow picker'
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-12" "$tmp/home/.codex-2" "$tmp/home/.codex-my-work" "$tmp/home/.codex-work"
+  run_interactive '2\n' env TERM=xterm-256color "$SCRIPT" cli
+  assert_status 0
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-2 ARGS=' 'exact numeric name beats earlier substring'
+  run_interactive 'work\n' env TERM=xterm-256color "$SCRIPT" cli
+  assert_status 0
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-work ARGS=' 'exact name beats earlier substring'
+  run_interactive '4\n' env TERM=xterm-256color "$SCRIPT" cli
+  assert_status 0
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-work ARGS=' 'menu number selects original index'
+}
+
+test_picker_restores_terminal() {
+  local input expected INTERACTIVE_WAIT_FOR='Filter:'
+  for input in 'work\n' '\033' '\003' '\004' 'q\n'; do
+    prepare_interactive_test
+    mkdir -p "$tmp/home/.codex-work"
+    expected=1
+    [[ "$input" != 'work\n' ]] || expected=0
+    [[ "$input" != '\003' ]] || expected=130
+    # shellcheck disable=SC2016 # The child shell compares its terminal state.
+    run_interactive "$input" env TERM=xterm-256color bash -c '
+      trap : INT
+      # macOS may set the transient PENDIN bit when queued input is retyped.
+      before=$(stty -a | sed "s/-\{0,1\}pendin//g")
+      "$1" cli
+      result=$?
+      after=$(stty -a | sed "s/-\{0,1\}pendin//g")
+      [[ "$after" == "$before" ]] || { printf "terminal before=%s after=%s\n" "$before" "$after"; exit 99; }
+      exit "$result"
+    ' _ "$SCRIPT"
+    assert_status "$expected"
+    if [[ "$expected" != 0 ]]; then
+      [[ ! -e "$tmp/tool.log" ]] || fail 'cancelled arrow picker launched CLI'
+    fi
+  done
 }
 
 test_welcome_project_and_shell_context() {
@@ -231,13 +294,15 @@ test_setup_macos_bash_preserves_login_startup() {
 # Record the child status explicitly and keep stdin open until it exits: BSD
 # script can otherwise inject EOF before the piped answers reach the child.
 run_interactive() {
-  local input="$1" runner ready result attempt command_text
+  local input="$1" runner ready result attempt command_text transcript
   shift
   runner="$(mktemp "$tmp/runner.XXXXXX")"
   ready="$runner.ready"
   result="$runner.status"
+  transcript="$runner.transcript"
   {
     printf '#!/usr/bin/env bash\n'
+    printf 'trap : INT\n'
     printf 'cd %q || exit 1\n' "$tmp/workspace"
     printf ': > %q\n' "$ready"
     printf '%q ' "${TEST_ENV[@]}" "$@"
@@ -250,6 +315,12 @@ run_interactive() {
       [[ ! -f "$ready" ]] || break
       sleep 0.05
     done
+    if [[ -n "${INTERACTIVE_WAIT_FOR:-}" ]]; then
+      for ((attempt = 0; attempt < 200; attempt++)); do
+        if [[ -f "$transcript" ]] && grep -Fq "$INTERACTIVE_WAIT_FOR" "$transcript"; then break; fi
+        sleep 0.05
+      done
+    fi
     # A command with no selectable profiles can exit before consuming input.
     printf '%b' "$input" 2>/dev/null || true
     for ((attempt = 0; attempt < 200; attempt++)); do
@@ -257,9 +328,9 @@ run_interactive() {
       sleep 0.05
     done
   } | if [[ "$HOST_SYSTEM" == Darwin ]]; then
-    script -q /dev/null bash "$runner"
+    script -q -F "$transcript" bash "$runner"
   else
-    script -q -c "$command_text" /dev/null
+    script -q -f -c "$command_text" "$transcript"
   fi 2>&1)"
   set -e
   [[ -f "$result" ]] || fail "interactive command did not finish: $output"
@@ -576,6 +647,8 @@ ICON_TOOL
   assert_contains '"profile":"work"'
 }
 
+test_picker_keyboard_navigation_and_filter
+test_picker_restores_terminal
 test_picker_numeric_names_and_cancel
 test_run_app_recovers_requested_workspace
 test_run_recovery_preserves_streams_and_rejects_invalid_state

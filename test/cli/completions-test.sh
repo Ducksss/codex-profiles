@@ -73,6 +73,18 @@ for shell in bash zsh fish; do
   assert_contains work
   complete_words init ''
   assert_contains work
+  complete_words list --d
+  assert_contains --details
+  complete_words app --h
+  assert_equals --help
+  complete_words workspace bind --h
+  assert_equals --help
+  complete_words help ''
+  assert_contains app
+  assert_contains list
+  complete_words help workspace ''
+  assert_contains bind
+  assert_contains guard
   complete_words init new --share-with ''
   assert_equals client
   complete_words cli client ''
