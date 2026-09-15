@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PROGRAM="${0##*/}"
-VERSION="1.1.0"
+VERSION="1.2.0"
 CHATGPT_APP="${CHATGPT_APP:-}"
 CODEX_APP="${CODEX_APP:-}"
 CODEX_APP_BIN="${CODEX_APP_BIN:-}"
