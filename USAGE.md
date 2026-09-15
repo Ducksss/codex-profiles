@@ -65,9 +65,10 @@ codex-profile cli work exec "run tests and summarize failures"
 In a terminal, `codex-profile cli` or `codex-profile app` with no arguments
 shows a picker of initialized profiles. Use Up/Down to select and Enter to
 launch. Type part of a name to filter the list; Backspace removes characters.
-Escape or Ctrl-C cancels. The nearest workspace-bound profile and the current
-shell profile are marked separately. The initial selection prefers the bound
-profile, then a valid initialized shell selection when no workspace is bound.
+Escape or Ctrl-C cancels; Ctrl-C returns exit status 130. The nearest
+workspace-bound profile and current shell profile are marked separately.
+The initial selection prefers the bound profile, then a valid initialized
+shell selection when no workspace is bound.
 
 Exact profile names and menu numbers also work. Exact names take precedence,
 including numeric names; `#N` explicitly selects menu item N when a number

@@ -122,6 +122,34 @@ test_picker_restores_terminal() {
   done
 }
 
+test_picker_cancellation_status_reaches_all_commands() {
+  local command input expected INTERACTIVE_WAIT_FOR='Filter:'
+  local -a args
+  for command in cli app run 'run --app'; do
+    read -r -a args <<< "$command"
+    for input in '\003' '\033' '\004' 'q\n'; do
+      prepare_interactive_test
+      mkdir -p "$tmp/home/.codex-work"
+      expected=1
+      [[ "$input" != '\003' ]] || expected=130
+      # Deliver Ctrl-C as a byte so process-group SIGINT cannot mask a caller
+      # incorrectly replacing the picker's exit status with 1.
+      # shellcheck disable=SC2016 # The child shell checks its own terminal.
+      run_interactive "$input" env TERM=xterm-256color bash -c '
+        stty intr undef
+        before=$(stty -a | sed "s/-\{0,1\}pendin//g")
+        "$@"
+        result=$?
+        after=$(stty -a | sed "s/-\{0,1\}pendin//g")
+        [[ "$after" == "$before" ]] || exit 99
+        exit "$result"
+      ' _ "$SCRIPT" "${args[@]}"
+      assert_status "$expected"
+      [[ ! -e "$tmp/tool.log" && ! -e "$tmp/config" ]] || fail "cancelled $command launched or saved state"
+    done
+  done
+}
+
 test_welcome_project_and_shell_context() {
   prepare_interactive_test
   mkdir -p "$tmp/home/.codex-personal" "$tmp/home/.codex-work"
@@ -647,6 +675,7 @@ ICON_TOOL
   assert_contains '"profile":"work"'
 }
 
+test_picker_cancellation_status_reaches_all_commands
 test_picker_keyboard_navigation_and_filter
 test_picker_restores_terminal
 test_picker_numeric_names_and_cancel

@@ -1561,7 +1561,8 @@ command_app() {
   local profile="" workspace="" profile_set=no workspace_set=no positional_only=no
 
   if [[ "$#" -eq 0 ]]; then
-    profile="$(pick_profile)" || return 1
+    pick_profile || return $?
+    profile="$PICKED_PROFILE"
     profile_set=yes
   fi
 
@@ -2179,8 +2180,8 @@ welcome_context() {
 }
 
 cancel_interaction() {
-  printf '%s\n' "$*" >&2
-  exit 1
+  printf '%s\n' "$1" >&2
+  exit "${2:-1}"
 }
 
 # This subshell owns terminal settings; selection, cancellation and signals all
@@ -2202,7 +2203,8 @@ pick_profile_menu() (
   # Bash 3.2 unwinds local variables before an EXIT trap on cancellation.
   # shellcheck disable=SC2064 # Capture the quoted terminal state now.
   trap "stty $(printf '%q' "$terminal_state") 2>/dev/null || true" EXIT
-  trap 'cancel_interaction "Selection cancelled."' HUP INT TERM
+  trap 'cancel_interaction "Selection cancelled."' HUP TERM
+  trap 'cancel_interaction "Selection cancelled." 130' INT
   stty -echo -icanon min 1 time 0 || return 2
   [[ -n "${NO_COLOR+x}" ]] || { accent=$'\033[1;36m'; reset=$'\033[0m'; }
   for ((index = 0; index < ${#profiles[@]}; index++)); do
@@ -2290,7 +2292,8 @@ pick_profile_menu() (
           esac
         fi
         ;;
-      $'\003' | $'\004') cancel_interaction 'Selection cancelled.' ;;
+      $'\003') cancel_interaction 'Selection cancelled.' 130 ;;
+      $'\004') cancel_interaction 'Selection cancelled.' ;;
       $'\177' | $'\b') query="${query%?}"; selected=0; refilter=yes ;;
       $'\025') query=''; selected=0; refilter=yes ;;
       [[:print:]]) query="$query$key"; selected=0; refilter=yes ;;
@@ -2299,8 +2302,9 @@ pick_profile_menu() (
 )
 
 pick_profile() {
-  local profile choice index=0 default_choice="" default_profile="" shell_profile resolve_status
+  local profile choice index=0 default_choice="" default_profile="" shell_profile resolve_status previous_int_trap
   local -a profiles=()
+  PICKED_PROFILE=""
 
   require_interactive_terminal
   shell_profile="$(current_shell_profile)" || shell_profile=""
@@ -2328,12 +2332,17 @@ pick_profile() {
   [[ "$index" -gt 0 ]] || die "No initialized profiles; run '$PROGRAM setup <profile>' first."
 
   if [[ -t 2 && "${TERM:-dumb}" != dumb ]]; then
-    if pick_profile_menu "$default_profile" "$WORKSPACE_RESOLVED_PROFILE" "$shell_profile" "${profiles[@]}"; then
-      return 0
+    # Catch SIGINT in the caller so Bash waits for the menu's EXIT trap to
+    # restore the terminal before returning control to the user's shell.
+    previous_int_trap="$(trap -p INT)"
+    trap : INT
+    if PICKED_PROFILE="$(pick_profile_menu "$default_profile" "$WORKSPACE_RESOLVED_PROFILE" "$shell_profile" "${profiles[@]}")"; then
+      resolve_status=0
     else
       resolve_status=$?
-      [[ "$resolve_status" -eq 2 ]] || return "$resolve_status"
     fi
+    if [[ -n "$previous_int_trap" ]]; then eval "$previous_int_trap"; else trap - INT; fi
+    [[ "$resolve_status" -eq 2 ]] || return "$resolve_status"
   fi
   printf 'Choose a profile:\n' >&2
   for ((index = 0; index < ${#profiles[@]}; index++)); do
@@ -2349,18 +2358,18 @@ pick_profile() {
     IFS= read -r choice || cancel_interaction "Selection cancelled."
     [[ "$choice" != q && "$choice" != Q ]] || cancel_interaction "Selection cancelled."
     if [[ -z "$choice" && -n "$default_profile" ]]; then
-      printf '%s\n' "$default_profile"
+      PICKED_PROFILE="$default_profile"
       return 0
     fi
     for profile in "${profiles[@]}"; do
       if [[ "$choice" == "$profile" ]]; then
-        printf '%s\n' "$profile"
+        PICKED_PROFILE="$profile"
         return 0
       fi
     done
     for ((index = 0; index < ${#profiles[@]}; index++)); do
       if [[ "$choice" == "$((index + 1))" || "$choice" == "#$((index + 1))" ]]; then
-        printf '%s\n' "${profiles[index]}"
+        PICKED_PROFILE="${profiles[index]}"
         return 0
       fi
     done
@@ -2492,7 +2501,8 @@ command_setup() {
 command_cli() {
   local profile="${1:-}"
   if [[ "$#" -eq 0 ]]; then
-    profile="$(pick_profile)" || return 1
+    pick_profile || return $?
+    profile="$PICKED_PROFILE"
   fi
   [[ -n "$profile" ]] || die "Usage: $PROGRAM cli <profile> [codex-args...]"
   shift || true
@@ -3254,7 +3264,8 @@ command_run() {
       die "No workspace profile is bound to '$WORKSPACE_RESOLVED_PATH'. Run '$PROGRAM workspace bind $WORKSPACE_RESOLVED_PATH <profile>' first."
     fi
     printf 'No workspace profile is bound to %s.\n' "$WORKSPACE_RESOLVED_PATH" >&2
-    profile="$(pick_profile "$WORKSPACE_RESOLVED_PATH")" || return 1
+    pick_profile "$WORKSPACE_RESOLVED_PATH" || return $?
+    profile="$PICKED_PROFILE"
     interactive_yes_no "Bind $WORKSPACE_RESOLVED_PATH to $profile for future launches?" no "Run cancelled."
     if [[ "$INTERACTIVE_ANSWER" == yes ]]; then
       (command_workspace_bind "$WORKSPACE_RESOLVED_PATH" "$profile") >&2

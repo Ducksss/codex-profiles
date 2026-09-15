@@ -23,6 +23,9 @@ and this project follows semantic versioning for tagged releases.
 
 ### Fixed
 
+- Preserve Ctrl-C cancellation status 130 through interactive CLI, Desktop,
+  and unbound project launches, waiting for terminal restoration before
+  returning. Escape, Ctrl-D, and q still return status 1.
 - Release verification tolerates npm scanning and availability delays with
   separate 20-minute wait budgets for metadata and public installation,
   retrying every 30 seconds while preserving exact SHA-512 artifact integrity
