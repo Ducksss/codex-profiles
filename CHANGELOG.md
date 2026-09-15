@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 1.2.0 - 2026-09-15
+
 ### Added
 
 - Initialized profile names and workspace guard mode in the terminal welcome
