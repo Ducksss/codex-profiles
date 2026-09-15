@@ -94,10 +94,11 @@ codex-profile cli personal
 codex-profile cli work exec "review this repo"
 ```
 
-Run `codex-profile cli` without a name for an interactive picker. Type a profile
-name or menu number; Enter uses the project's binding, or your current shell
-profile when there is no binding. Both are marked separately. In scripts, pass
-the name explicitly. Each profile authenticates independently.
+Run `codex-profile cli` without a name for an interactive picker. Use the arrow
+keys and Enter, or type to filter profiles. The project's binding is selected
+first, or your current shell profile when there is no binding; both are marked
+separately. Exact names and menu numbers also work. In scripts, pass the name
+explicitly. Each profile authenticates independently.
 
 For a profile label and completions in your current shell:
 
@@ -229,8 +230,9 @@ codex-profile doctor
 ## Command reference
 
 Run `codex-profile` for the welcome screen or `codex-profile help` for all commands.
-In a non-dumb terminal, the welcome also shows this project's binding, the
-current shell profile, and the relevant launch commands.
+In a non-dumb terminal, the welcome also shows initialized profiles, this
+project's binding, the current shell profile, guard mode, and relevant launch
+commands. Use `codex-profile app --help` for one command's options and examples.
 
 | Task | Command |
 | --- | --- |
@@ -238,11 +240,13 @@ current shell profile, and the relevant launch commands.
 | Choose a CLI profile | `codex-profile cli` |
 | Choose a ChatGPT window (macOS) | `codex-profile app` |
 | List profiles | `codex-profile list` |
+| View profile homes, projects, and launchers | `codex-profile list --details` |
 | Inspect Codex-local status | `codex-profile status` |
 | Check your installation | `codex-profile doctor` |
 | Launch this project's profile | `codex-profile run` |
 | Find a profile's home | `codex-profile path work` |
 | Print shell integration | `codex-profile shell-init <bash\|zsh\|fish> [--prompt] [--completions]` |
+| Get help for a command | `codex-profile help app` |
 
 [Full command syntax](USAGE.md#command-reference) ·
 [Shell integration](USAGE.md#activate-a-codex-home-in-the-current-shell) ·

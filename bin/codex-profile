@@ -22,7 +22,7 @@ STATE_VERSION_FILE="$CODEX_PROFILE_CONFIG_HOME/state-version"
 STATE_LOCK_DIR="$CODEX_PROFILE_CONFIG_HOME/mutation.lock"
 STATE_LOCK_HELD=no
 
-# Presentation is confined to help; command output remains suitable for scripts.
+# Plain list and machine-readable output stay separate from presentation.
 render_help() {
   local width=80 size _rows detected header accent='' bold='' dim='' reset=''
   if [[ -t 1 && "${TERM:-dumb}" != dumb ]]; then
@@ -38,7 +38,7 @@ render_help() {
     fi
     case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
       *[uU][tT][fF]-8*|*[uU][tT][fF]8*)
-        if [[ "$width" -ge 52 ]]; then
+        if [[ "$width" -ge 52 && "${1:-}" != --rows ]]; then
           printf '\n%s' "$accent"
           cat <<'ART'
   ╭────────╮
@@ -52,11 +52,13 @@ ART
         ;;
     esac
   fi
-  header="  codex-profiles  v$VERSION"
-  if [[ "${#header}" -gt "$width" ]]; then
-    printf '\n%s\n' "$header" | fold -s -w "$width"
-  else
-    printf '\n%s  codex-profiles%s  %sv%s%s\n' "$bold" "$reset" "$dim" "$VERSION" "$reset"
+  if [[ "${1:-}" != --rows ]]; then
+    header="  codex-profiles  v$VERSION"
+    if [[ "${#header}" -gt "$width" ]]; then
+      printf '\n%s\n' "$header" | fold -s -w "$width"
+    else
+      printf '\n%s  codex-profiles%s  %sv%s%s\n' "$bold" "$reset" "$dim" "$VERSION" "$reset"
+    fi
   fi
   awk -v width="$width" -v accent="$accent" -v bold="$bold" -v reset="$reset" '
     function wrap(text, indent, color,    room, piece, cut) {
@@ -94,6 +96,256 @@ ART
   '
 }
 
+command_help() {
+  local topic="${1:-}" subcommand="${2:-}" syntax description examples options='' section=Options
+  [[ "$#" -le 2 ]] || die "Usage: $PROGRAM help [command] [subcommand]"
+  case "$topic${subcommand:+ $subcommand}" in
+    app | app-instance)
+      syntax="$topic [profile] [--instance] [--rebuild] [workspace]"
+      description='Open ChatGPT on macOS. Omit the profile to choose interactively. The workspace defaults to the current directory. Requires an initialized profile. default preserves the stock session; named windows use separate local state across Chat, Work, and Codex.'
+      options='--instance, --rebuild | Deprecated compatibility flags; the original signed app is always used.
+-- | Treat remaining arguments as the profile and workspace.'
+      [[ "$topic" != app-instance ]] || description="Deprecated alias for app. $description"
+      examples="$PROGRAM app
+$PROGRAM app work ~/Dev/project
+$PROGRAM app default"
+      ;;
+    cli)
+      syntax='cli [profile] [codex-args...]'
+      description='Run Codex CLI with an initialized profile. Omit the profile to choose interactively. All arguments after the profile are passed to Codex, including --help.'
+      examples="$PROGRAM cli
+$PROGRAM cli work exec \"review this repo\"
+$PROGRAM cli work --help"
+      ;;
+    login)
+      syntax='login <profile> [codex-login-args...]'
+      description='Authenticate an initialized Codex profile. Arguments after the profile are passed to codex login. Desktop account identity is not checked.'
+      examples="$PROGRAM login work
+$PROGRAM login work --help"
+      ;;
+    run)
+      syntax='run [--] [codex-args...]'
+      description='Run Codex using the nearest workspace binding. Without a binding, an interactive terminal offers profile selection and optional binding.'
+      options='--app [workspace] | Open the bound ChatGPT window (macOS); defaults to the current directory.
+-- | Pass following flags to Codex instead of this wrapper.'
+      examples="$PROGRAM run exec \"review this repo\"
+$PROGRAM run --app ~/Dev/project
+$PROGRAM run -- --help"
+      ;;
+    setup)
+      syntax='setup <profile>'
+      description='Guide profile creation, login, workspace binding, an optional macOS launcher, and opt-in shell integration. Requires an interactive terminal; completed steps are kept if cancelled.'
+      examples="$PROGRAM setup work"
+      ;;
+    init)
+      syntax='init <profile> [--share-with <source-profile>]'
+      description='Create a named Codex home. default maps to ~/.codex; other names map to ~/.codex-<profile>. Names accept letters, numbers, dots, dashes, and underscores and must start with a letter or number.'
+      options='--share-with <source-profile> | Link the documented configuration allowlist from an initialized profile. Auth, sessions and other private state remain separate; the target must not exist.'
+      examples="$PROGRAM init work
+$PROGRAM init work-2 --share-with work"
+      ;;
+    detach)
+      syntax='detach <profile>'
+      description='Replace shared configuration links with independent copies. Requires an initialized profile and leaves private state untouched.'
+      examples="$PROGRAM detach work-2"
+      ;;
+    clone-config)
+      syntax='clone-config <source-profile> <target-profile> [--force]'
+      description='Copy only config.toml and AGENTS.md between initialized profiles. Refuses sensitive-looking keys and symlinks; authentication data is never copied.'
+      options='--force, -f | Overwrite existing safe target configuration files.'
+      examples="$PROGRAM clone-config personal work
+$PROGRAM clone-config personal work --force"
+      ;;
+    remove)
+      syntax='remove <profile> [--yes]'
+      description='Permanently delete a profile home and its workspace bindings. Prompts for the profile name unless --yes is supplied. Shared configuration dependants must be detached first.'
+      options='--yes, -y | Skip the confirmation prompt.'
+      examples="$PROGRAM remove work"
+      ;;
+    list)
+      syntax='list [--details]'
+      description='List initialized profiles. Plain output prints one name per line for scripts.'
+      options='--details | Show profile cards with home, bound projects, and managed launcher availability.'
+      examples="$PROGRAM list
+$PROGRAM list --details"
+      ;;
+    path)
+      syntax='path <profile>'
+      description='Print the Codex home path without creating it. default maps to ~/.codex; other names map to ~/.codex-<profile>.'
+      examples="$PROGRAM path work"
+      ;;
+    workspace)
+      syntax='workspace <bind|unbind|list|status|guard> ...'
+      description='Bind projects to profiles and control warnings for profile mismatches. Run uses the nearest ancestor binding.'
+      section=Commands
+      options='bind <path> <profile> [--force] | Bind an existing directory to an initialized profile.
+unbind <path> | Remove an exact binding.
+list [--json] | List bindings and missing paths or profiles.
+status [--json] [path] | Show the nearest binding; defaults to the current directory.
+guard [off|warn|strict] | Read or change mismatch handling.'
+      examples="$PROGRAM workspace bind . work
+$PROGRAM workspace status
+$PROGRAM help workspace guard"
+      ;;
+    'workspace bind')
+      syntax='workspace bind <path> <profile> [--force]'
+      description='Bind an existing directory to an initialized profile. Descendant directories inherit the nearest binding.'
+      options='--force | Replace an existing binding to a different profile.'
+      examples="$PROGRAM workspace bind . work
+$PROGRAM workspace bind ~/Dev/project personal --force"
+      ;;
+    'workspace unbind')
+      syntax='workspace unbind <path>'
+      description='Remove the exact binding for a directory, including a recorded directory that no longer exists. An ancestor binding may still apply.'
+      examples="$PROGRAM workspace unbind ~/Dev/project"
+      ;;
+    'workspace list')
+      syntax='workspace list [--json]'
+      description='List workspace bindings, the guard mode, and missing paths or profiles.'
+      options='--json, -j | Emit machine-readable JSON.'
+      examples="$PROGRAM workspace list
+$PROGRAM workspace list --json"
+      ;;
+    'workspace status')
+      syntax='workspace status [--json] [path]'
+      description='Show the nearest ancestor binding and guard mode. The path defaults to the current directory.'
+      options='--json, -j | Emit machine-readable JSON.'
+      examples="$PROGRAM workspace status
+$PROGRAM workspace status --json ~/Dev/project"
+      ;;
+    'workspace guard')
+      syntax='workspace guard [off|warn|strict]'
+      description='Read the current guard mode, or set how launches and shell activation handle a workspace bound to another profile. The default is warn.'
+      section=Modes
+      options='off | Allow mismatched profiles silently.
+warn | Warn and continue.
+strict | Refuse mismatched profiles.'
+      examples="$PROGRAM workspace guard
+$PROGRAM workspace guard strict"
+      ;;
+    launcher)
+      syntax='launcher <create|list|path|remove> ...'
+      description='Manage named profile launchers for macOS. Launchers open the original signed ChatGPT app; they do not clone it.'
+      section=Commands
+      options='create <profile> [options] | Create a named launcher (macOS).
+list [--json] | List available managed launchers.
+path <profile> | Print the managed launcher path.
+remove <profile> [--yes] | Remove a launcher while preserving profile data.'
+      examples="$PROGRAM launcher create work --color teal
+$PROGRAM help launcher create"
+      ;;
+    'launcher create')
+      syntax='launcher create <profile> [options]'
+      description='Create a macOS launcher for an initialized profile. The default name is ChatGPT <profile>, under ~/Applications unless CODEX_PROFILE_LAUNCHER_ROOT is set.'
+      options='--name <display-name> | Set the launcher name.
+--color <color> | blue (default), green, teal, purple, pink, red, orange, or graphite.
+--force, -f | Replace an existing managed launcher.'
+      examples="$PROGRAM launcher create work --name \"ChatGPT Work\" --color teal"
+      ;;
+    'launcher list')
+      syntax='launcher list [--json]'
+      description='List available managed launchers with their profile, name, color, and path. Invalid or missing launchers are skipped with a warning.'
+      options='--json, -j | Emit machine-readable JSON.'
+      examples="$PROGRAM launcher list
+$PROGRAM launcher list --json"
+      ;;
+    'launcher path')
+      syntax='launcher path <profile>'
+      description='Print the path of an available managed launcher. Returns an error when the launcher is missing or unmanaged.'
+      examples="$PROGRAM launcher path work"
+      ;;
+    'launcher remove')
+      syntax='launcher remove <profile> [--yes]'
+      description='Remove a managed launcher and its record while preserving profile data. Prompts for the profile name unless --yes is supplied.'
+      options='--yes, -y | Skip the confirmation prompt.'
+      examples="$PROGRAM launcher remove work"
+      ;;
+    status)
+      syntax='status [--json] [profile]'
+      description='Show a read-only Codex-local overview for one profile or all profiles. Uses Codex CLI login status; account equality with Desktop is not inspected.'
+      options='--json, -j | Emit machine-readable JSON.'
+      examples="$PROGRAM status
+$PROGRAM status --json work"
+      ;;
+    doctor)
+      syntax='doctor [--json] [--check]'
+      description='Inspect the CLI, Desktop discovery, workspace registry, and unsafe private-state links. Desktop account equality is not verified.'
+      options='--json, -j | Emit machine-readable diagnostics.
+--check | Return nonzero when diagnostics report an unhealthy environment.'
+      examples="$PROGRAM doctor
+$PROGRAM doctor --json --check"
+      ;;
+    logs)
+      syntax='logs <profile> [--instance] [--path|--tail [lines]]'
+      description='Read the profile desktop log. Without an output option, print the entire log.'
+      options='--path | Print the log path without reading the log.
+--tail [lines] | Print the last lines; defaults to 50.
+--instance | Deprecated; use a legacy instance log only if the current log is absent.'
+      examples="$PROGRAM logs work --tail 50
+$PROGRAM logs work --path"
+      ;;
+    upgrade)
+      syntax='upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]'
+      description='Upgrade the standalone installation from the latest immutable final release by default. Package-manager installations should use their package manager.'
+      options='--dry-run, -n | Print the upgrade plan without installing; may fetch release metadata.
+--prefix <path> | Set the installation prefix.
+--ref <git-ref> | Select a repository ref instead of latest.'
+      examples="$PROGRAM upgrade --dry-run
+$PROGRAM upgrade"
+      ;;
+    version)
+      syntax='version'
+      description='Print the installed codex-profiles version. --version is an alias.'
+      examples="$PROGRAM version"
+      ;;
+    env)
+      syntax='env <profile> [--shell <bash|zsh|fish>]'
+      description='Print shell commands that set CODEX_HOME and CODEX_PROFILE_NAME for Codex-only use. Evaluate or source the output to activate it; this command does not create a profile.'
+      options='--shell <bash|zsh|fish> | Select output syntax; defaults to POSIX exports.'
+      examples="eval \"\$($PROGRAM env work)\"
+$PROGRAM env work --shell fish | source"
+      ;;
+    use)
+      syntax='use <profile>'
+      description='Activate a profile in the current shell through the shell-init wrapper. Install the wrapper first; direct execution cannot modify the parent shell.'
+      examples="eval \"\$($PROGRAM shell-init bash)\"
+$PROGRAM use work"
+      ;;
+    completions)
+      syntax='completions <bash|zsh|fish>'
+      description='Print completion definitions for codex-profile and codex-profiles. shell-init --completions can load these together with shell integration.'
+      examples="eval \"\$($PROGRAM completions bash)\"
+$PROGRAM completions fish | source"
+      ;;
+    shell-init)
+      syntax='shell-init <bash|zsh|fish> [--prompt] [--completions]'
+      description='Print shell integration that enables use. Evaluate the output in Bash/Zsh or source it in Fish, and add it to the corresponding shell startup file to persist it.'
+      options='--prompt | Add an active-profile indicator while preserving the existing prompt.
+--completions | Load shell completions alongside the wrapper.'
+      examples="eval \"\$($PROGRAM shell-init zsh --prompt --completions)\"
+$PROGRAM shell-init fish --prompt --completions | source"
+      ;;
+    help)
+      syntax='help [command] [subcommand]'
+      description='Show the full reference or help for one command. Commands also accept --help or -h immediately after their name, before positional arguments.'
+      examples="$PROGRAM help
+$PROGRAM app --help
+$PROGRAM help workspace bind"
+      ;;
+    *) die "Unknown help topic '$topic${subcommand:+ $subcommand}'. See '$PROGRAM help'." ;;
+  esac
+  render_help <<EOF_HELP
+$description
+Usage: $PROGRAM $syntax
+
+${options:+$section:
+$options
+
+}Examples:
+$examples
+EOF_HELP
+}
+
 welcome() {
   local context=""
   if [[ -t 1 && "${TERM:-dumb}" != dumb ]]; then
@@ -111,7 +363,7 @@ app | Choose a ChatGPT window (macOS)
 
 Everyday:
 run | Use this project's bound profile
-status | Inspect Codex-local profiles
+list --details | Profile homes, projects and launchers
 workspace bind . work | Bind this project to work
 
 Explore:
@@ -139,7 +391,7 @@ init <profile> [--share-with <source-profile>]
 detach <profile> | Make shared configuration independent
 clone-config <source-profile> <target-profile> [--force]
 remove <profile> [--yes]
-list | List profiles
+list [--details] | Names, or profile overview cards
 path <profile> | Print the Codex home path
 
 Workspaces:
@@ -162,7 +414,7 @@ doctor [--json] [--check] | Check the environment
 logs <profile> [--instance] [--path|--tail [lines]]
 upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
 version | Print the installed version
-help | Show this reference
+help [command [subcommand]] | Full or command-specific help
 
 Shell integration:
 env <profile> [--shell <bash|zsh|fish>]
@@ -1309,7 +1561,8 @@ command_app() {
   local profile="" workspace="" profile_set=no workspace_set=no positional_only=no
 
   if [[ "$#" -eq 0 ]]; then
-    profile="$(pick_profile)" || return 1
+    pick_profile || return $?
+    profile="$PICKED_PROFILE"
     profile_set=yes
   fi
 
@@ -1892,20 +2145,26 @@ current_shell_profile() {
 }
 
 welcome_context() {
-  local bound='Not bound' selected project="$PWD" resolve_status
+  local bound='Not bound' selected project="$PWD" resolve_status profile profiles="" guard
   case "$project" in
     "$HOME") project='~' ;;
     "$HOME"/*) project="~${project#"$HOME"}" ;;
   esac
   project="${project//[^[:print:]]/}"
   selected="$(current_shell_profile)" || selected='Not selected'
+  while IFS= read -r profile; do
+    profile_is_initialized "$profile" || continue
+    profiles="${profiles:+$profiles, }$profile"
+  done < <(discover_profiles yes)
+  guard="$(workspace_guard_mode)" || return 1
   if workspace_resolve "$PWD"; then
     bound="$WORKSPACE_RESOLVED_PROFILE"
   else
     resolve_status=$?
     [[ "$resolve_status" -eq 1 ]] || return "$resolve_status"
   fi
-  printf 'Project | %s\nBound profile | %s\nShell profile | %s\n\n' "$project" "$bound" "$selected"
+  printf 'Profiles | %s\nProject | %s\nBound profile | %s\nShell profile | %s\nGuard mode | %s\n\n' \
+    "${profiles:-None; run codex-profile setup work}" "$project" "$bound" "$selected" "$guard"
   if [[ -n "$WORKSPACE_RESOLVED_PROFILE" ]]; then
     if profile_is_initialized "$WORKSPACE_RESOLVED_PROFILE"; then
       printf 'Launch this project:\n%s run | Start Codex CLI\n' "$PROGRAM"
@@ -1921,13 +2180,131 @@ welcome_context() {
 }
 
 cancel_interaction() {
-  printf '%s\n' "$*" >&2
-  exit 1
+  printf '%s\n' "$1" >&2
+  exit "${2:-1}"
 }
 
+# This subshell owns terminal settings; selection, cancellation and signals all
+# restore them before the caller launches anything or asks its next question.
+pick_profile_menu() (
+  local preferred="$1" bound="$2" shell_profile="$3"
+  shift 3
+  local -a profiles=("$@") matches=()
+  local terminal_state size rows width height=10 rendered=0 selected=0 start index slot
+  local query='' key sequence target=-1 label marker accent='' reset='' refilter=no
+  size="$(stty size 2>/dev/null)" || return 2
+  read -r rows width <<< "$size"
+  width="${COLUMNS:-$width}"
+  [[ "$width" =~ ^[1-9][0-9]{1,3}$ ]] || width=80
+  [[ "$rows" =~ ^[1-9][0-9]*$ ]] || rows=24
+  [[ "$width" -ge 20 && "$rows" -ge 6 ]] || return 2
+  [[ "$rows" -ge 15 ]] || height=$((rows - 5))
+  terminal_state="$(stty -g)" || return 2
+  # Bash 3.2 unwinds local variables before an EXIT trap on cancellation.
+  # shellcheck disable=SC2064 # Capture the quoted terminal state now.
+  trap "stty $(printf '%q' "$terminal_state") 2>/dev/null || true" EXIT
+  trap 'cancel_interaction "Selection cancelled."' HUP TERM
+  trap 'cancel_interaction "Selection cancelled." 130' INT
+  stty -echo -icanon min 1 time 0 || return 2
+  [[ -n "${NO_COLOR+x}" ]] || { accent=$'\033[1;36m'; reset=$'\033[0m'; }
+  for ((index = 0; index < ${#profiles[@]}; index++)); do
+    [[ "${profiles[index]}" != "$preferred" ]] || selected="$index"
+  done
+
+  picker_row() {
+    printf '\r\033[K%s%.*s%s\n' "${2:-}" "$((width - 1))" "$1" "$reset" >&2
+    rendered=$((rendered + 1))
+  }
+
+  while true; do
+    matches=()
+    target=-1
+    # Exact numeric names win; #N always addresses the original menu number.
+    for ((index = 0; index < ${#profiles[@]}; index++)); do
+      if [[ "$query" == "${profiles[index]}" ]]; then target="$index"; break; fi
+    done
+    if [[ "$target" -eq -1 ]]; then
+      for ((index = 0; index < ${#profiles[@]}; index++)); do
+        if [[ "$query" == "$((index + 1))" || "$query" == "#$((index + 1))" ]]; then
+          target="$index"
+          break
+        fi
+      done
+    fi
+    for ((index = 0; index < ${#profiles[@]}; index++)); do
+      if [[ "${profiles[index]}" == *"$query"* || "$index" -eq "$target" ]]; then
+        if [[ "$refilter" == yes && "$index" -eq "$target" ]]; then selected="${#matches[@]}"; fi
+        matches+=("$index")
+      fi
+    done
+    refilter=no
+    [[ "$selected" -lt "${#matches[@]}" ]] || selected=0
+    if [[ "$rendered" -gt 0 ]]; then
+      printf '\033[%sA' "$rendered" >&2
+      for ((index = 0; index < rendered; index++)); do printf '\r\033[K\n' >&2; done
+      printf '\033[%sA' "$rendered" >&2
+    fi
+    rendered=0
+    picker_row 'Choose a profile:'
+    picker_row 'Up/Down: select  Enter: launch'
+    picker_row 'Type: filter  Esc: cancel'
+    picker_row "Filter: $query"
+    if [[ "${#matches[@]}" -eq 0 ]]; then
+      picker_row '  No matching profiles'
+    else
+      start=$((selected / height * height))
+      for ((slot = start; slot < ${#matches[@]} && slot < start + height; slot++)); do
+        index="${matches[slot]}"
+        marker=' '
+        [[ "$slot" -ne "$selected" ]] || marker='>'
+        label="$marker $((index + 1))) ${profiles[index]}"
+        [[ "${profiles[index]}" != "$bound" ]] || label="$label (workspace)"
+        [[ "${profiles[index]}" != "$shell_profile" ]] || label="$label (shell)"
+        if [[ "$slot" == "$selected" ]]; then picker_row "$label" "$accent"
+        else picker_row "$label"
+        fi
+      done
+    fi
+    IFS= read -r -n 1 key || cancel_interaction 'Selection cancelled.'
+    case "$key" in
+      '')
+        [[ "$query" != q && "$query" != Q ]] || cancel_interaction 'Selection cancelled.'
+        if [[ "${#matches[@]}" -gt 0 ]]; then
+          printf '%s\n' "${profiles[${matches[selected]}]}"
+          return 0
+        fi
+        ;;
+      $'\033')
+        sequence=''
+        IFS= read -r -n 1 -t 1 key || cancel_interaction 'Selection cancelled.'
+        if [[ "$key" == '[' || "$key" == O ]]; then
+          sequence="$key"
+          for ((index = 0; index < 8; index++)); do
+            IFS= read -r -n 1 -t 1 key || break
+            sequence="$sequence$key"
+            [[ "$key" != [A-Za-z~] ]] || break
+          done
+        fi
+        if [[ "${#matches[@]}" -gt 0 ]]; then
+          case "$sequence" in
+            '[A' | OA) selected=$(((selected + ${#matches[@]} - 1) % ${#matches[@]})) ;;
+            '[B' | OB) selected=$(((selected + 1) % ${#matches[@]})) ;;
+          esac
+        fi
+        ;;
+      $'\003') cancel_interaction 'Selection cancelled.' 130 ;;
+      $'\004') cancel_interaction 'Selection cancelled.' ;;
+      $'\177' | $'\b') query="${query%?}"; selected=0; refilter=yes ;;
+      $'\025') query=''; selected=0; refilter=yes ;;
+      [[:print:]]) query="$query$key"; selected=0; refilter=yes ;;
+    esac
+  done
+)
+
 pick_profile() {
-  local profile choice index=0 default_choice="" default_profile="" shell_profile resolve_status
+  local profile choice index=0 default_choice="" default_profile="" shell_profile resolve_status previous_int_trap
   local -a profiles=()
+  PICKED_PROFILE=""
 
   require_interactive_terminal
   shell_profile="$(current_shell_profile)" || shell_profile=""
@@ -1937,45 +2314,62 @@ pick_profile() {
     resolve_status=$?
     [[ "$resolve_status" -eq 1 ]] || return "$resolve_status"
   fi
-  printf 'Choose a profile:\n' >&2
   while IFS= read -r profile; do
     profile_is_initialized "$profile" || continue
     profiles+=("$profile")
     index=$((index + 1))
-    printf '  %s) %s' "$index" "$profile" >&2
     if [[ "$profile" == "$WORKSPACE_RESOLVED_PROFILE" ]]; then
-      printf ' (workspace)' >&2
       default_choice="$index"
       default_profile="$profile"
     fi
     if [[ "$profile" == "$shell_profile" ]]; then
-      printf ' (shell)' >&2
       if [[ -z "$default_choice" && -z "$WORKSPACE_RESOLVED_PROFILE" ]]; then
         default_choice="$index"
         default_profile="$profile"
       fi
     fi
-    printf '\n' >&2
   done < <(discover_profiles yes)
   [[ "$index" -gt 0 ]] || die "No initialized profiles; run '$PROGRAM setup <profile>' first."
+
+  if [[ -t 2 && "${TERM:-dumb}" != dumb ]]; then
+    # Catch SIGINT in the caller so Bash waits for the menu's EXIT trap to
+    # restore the terminal before returning control to the user's shell.
+    previous_int_trap="$(trap -p INT)"
+    trap : INT
+    if PICKED_PROFILE="$(pick_profile_menu "$default_profile" "$WORKSPACE_RESOLVED_PROFILE" "$shell_profile" "${profiles[@]}")"; then
+      resolve_status=0
+    else
+      resolve_status=$?
+    fi
+    if [[ -n "$previous_int_trap" ]]; then eval "$previous_int_trap"; else trap - INT; fi
+    [[ "$resolve_status" -eq 2 ]] || return "$resolve_status"
+  fi
+  printf 'Choose a profile:\n' >&2
+  for ((index = 0; index < ${#profiles[@]}; index++)); do
+    profile="${profiles[index]}"
+    printf '  %s) %s' "$((index + 1))" "$profile" >&2
+    [[ "$profile" != "$WORKSPACE_RESOLVED_PROFILE" ]] || printf ' (workspace)' >&2
+    [[ "$profile" != "$shell_profile" ]] || printf ' (shell)' >&2
+    printf '\n' >&2
+  done
 
   while true; do
     printf 'Profile name or number%s (q to cancel; #N selects menu item N): ' "${default_choice:+ [$default_choice]}" >&2
     IFS= read -r choice || cancel_interaction "Selection cancelled."
     [[ "$choice" != q && "$choice" != Q ]] || cancel_interaction "Selection cancelled."
     if [[ -z "$choice" && -n "$default_profile" ]]; then
-      printf '%s\n' "$default_profile"
+      PICKED_PROFILE="$default_profile"
       return 0
     fi
     for profile in "${profiles[@]}"; do
       if [[ "$choice" == "$profile" ]]; then
-        printf '%s\n' "$profile"
+        PICKED_PROFILE="$profile"
         return 0
       fi
     done
     for ((index = 0; index < ${#profiles[@]}; index++)); do
       if [[ "$choice" == "$((index + 1))" || "$choice" == "#$((index + 1))" ]]; then
-        printf '%s\n' "${profiles[index]}"
+        PICKED_PROFILE="${profiles[index]}"
         return 0
       fi
     done
@@ -2107,7 +2501,8 @@ command_setup() {
 command_cli() {
   local profile="${1:-}"
   if [[ "$#" -eq 0 ]]; then
-    profile="$(pick_profile)" || return 1
+    pick_profile || return $?
+    profile="$PICKED_PROFILE"
   fi
   [[ -n "$profile" ]] || die "Usage: $PROGRAM cli <profile> [codex-args...]"
   shift || true
@@ -2573,10 +2968,59 @@ command_status() {
 
 command_list() {
   local profile
+  if [[ "${1:-}" == --details ]]; then
+    [[ "$#" -eq 1 ]] || die "Usage: $PROGRAM list [--details]"
+    profile_overview_rows | render_help --rows
+    return
+  fi
+  [[ "$#" -eq 0 ]] || die "Usage: $PROGRAM list [--details]"
   while IFS= read -r profile; do
     profile_is_initialized "$profile" || continue
     printf '%s\n' "$profile"
   done < <(discover_profiles yes)
+}
+
+profile_overview_rows() {
+  local profile home line workspaces launcher state_file found=no system
+  workspace_registry_validate
+  system="$(uname -s)"
+  while IFS= read -r profile; do
+    profile_is_initialized "$profile" || continue
+    found=yes
+    home="$(codex_home_for_profile "$profile")"
+    home="${home//[^[:print:]]/}"
+    printf '\n%s:\nHome | %s\n' "$profile" "$home"
+    workspaces=no
+    if [[ -f "$WORKSPACE_REGISTRY" ]]; then
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -n "$line" ]] || continue
+        workspace_decode_registry_line "$line" || continue
+        [[ "$WORKSPACE_ROW_PROFILE" == "$profile" ]] || continue
+        printf 'Workspaces | %s%s\n' "${WORKSPACE_ROW_PATH//[^[:print:]]/}" "$([[ -d "$WORKSPACE_ROW_PATH" ]] || printf ' (missing)')"
+        workspaces=yes
+      done < "$WORKSPACE_REGISTRY"
+    fi
+    [[ "$workspaces" == yes ]] || printf 'Workspaces | None\n'
+    launcher='None; create with launcher create'
+    state_file="$(launcher_state_file "$profile")"
+    if [[ "$system" != Darwin ]]; then
+      launcher='Unsupported (macOS only)'
+    elif [[ -L "$LAUNCHER_STATE_DIR" || -L "$CODEX_PROFILE_LAUNCHER_ROOT" ]]; then
+      launcher='Stale (linked launcher directory); run doctor'
+    elif launcher_load_state "$profile"; then
+      if launcher_is_managed_for_profile "$LAUNCHER_STATE_PATH" "$profile"; then
+        launcher="Available: $LAUNCHER_STATE_PATH"
+      elif launcher_path_is_absent "$LAUNCHER_STATE_PATH"; then
+        launcher="Missing: $LAUNCHER_STATE_PATH"
+      else
+        launcher="Stale or unmanaged: $LAUNCHER_STATE_PATH"
+      fi
+    elif [[ -e "$state_file" || -L "$state_file" ]]; then
+      launcher="Stale record: $state_file"
+    fi
+    printf 'Launcher | %s\n' "${launcher//[^[:print:]]/}"
+  done < <(discover_profiles yes)
+  [[ "$found" == yes ]] || printf 'No initialized profiles. Run %s setup work.\n' "$PROGRAM"
 }
 
 command_workspace_bind() {
@@ -2820,7 +3264,8 @@ command_run() {
       die "No workspace profile is bound to '$WORKSPACE_RESOLVED_PATH'. Run '$PROGRAM workspace bind $WORKSPACE_RESOLVED_PATH <profile>' first."
     fi
     printf 'No workspace profile is bound to %s.\n' "$WORKSPACE_RESOLVED_PATH" >&2
-    profile="$(pick_profile "$WORKSPACE_RESOLVED_PATH")" || return 1
+    pick_profile "$WORKSPACE_RESOLVED_PATH" || return $?
+    profile="$PICKED_PROFILE"
     interactive_yes_no "Bind $WORKSPACE_RESOLVED_PATH to $profile for future launches?" no "Run cancelled."
     if [[ "$INTERACTIVE_ANSWER" == yes ]]; then
       (command_workspace_bind "$WORKSPACE_RESOLVED_PATH" "$profile") >&2
@@ -3573,6 +4018,17 @@ _codex_profile_candidates() {
       elif [[ "$#" -eq 1 && "$1" == --app ]]; then complete_dirs=yes
       fi
       ;;
+    list) [[ "$#" -ne 0 ]] || candidate_words='--details' ;;
+    help)
+      if [[ "$#" -eq 0 ]]; then
+        candidate_words='app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'
+      elif [[ "$#" -eq 1 ]]; then
+        case "$1" in
+          workspace) candidate_words='bind unbind list status guard' ;;
+          launcher) candidate_words='create list path remove' ;;
+        esac
+      fi
+      ;;
     doctor) candidate_words='--json --check' ;;
     completions | shell-init)
       if [[ "$#" -eq 0 ]]; then candidate_words='bash zsh fish'
@@ -3587,6 +4043,11 @@ _codex_profile_candidates() {
       esac
       ;;
   esac
+  if [[ "$cur" == -* ]] && { [[ "$#" -eq 0 ]] || \
+       { [[ "$#" -eq 1 ]] && [[ "$command" == workspace || "$command" == launcher ]]; }; }; then
+    candidate_words="$candidate_words --help -h"
+    complete_dirs=no
+  fi
   [[ "$profiles" != yes ]] || candidate_words="$candidate_words $(codex-profile list 2>/dev/null)"
   return 0
 }
@@ -3639,6 +4100,10 @@ function __codex_profile_complete
     set -l args (commandline -opc)
     set -e args[1]
     set -l cur (commandline -ct)
+    set -l unescaped (string unescape -- "$cur")
+    if test $status -eq 0
+        set cur "$unescaped"
+    end
     set -l candidates
     set -l profiles no
     set -l directories no
@@ -3779,6 +4244,19 @@ function __codex_profile_complete
             else if test $count -eq 1; and test $args[1] = --app
                 set directories yes
             end
+        case list
+            test $count -ne 0; or set candidates --details
+        case help
+            if test $count -eq 0
+                set candidates app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
+            else if test $count -eq 1
+                switch $args[1]
+                    case workspace
+                        set candidates bind unbind list status guard
+                    case launcher
+                        set candidates create list path remove
+                end
+            end
         case doctor
             set candidates --json --check
         case completions shell-init
@@ -3795,6 +4273,12 @@ function __codex_profile_complete
                 case '*'
                     set candidates --dry-run --prefix --ref -n
             end
+    end
+    if string match -q -- '-*' "$cur"
+        if test $count -eq 0; or begin; test $count -eq 1; and contains -- "$cmd" workspace launcher; end
+            set -a candidates --help -h
+            set directories no
+        end
     end
     if test $profiles = yes
         set -a candidates (codex-profile list 2>/dev/null)
@@ -3899,7 +4383,7 @@ command_shell_init() {
     bash | zsh)
       cat <<'EOF'
 codex-profile() {
-  if [ "${1:-}" = "use" ]; then
+  if [ "${1:-}" = "use" ] && [ "${2:-}" != --help ] && [ "${2:-}" != -h ]; then
     shift
     local __codex_profile_env
     __codex_profile_env="$(command codex-profile env "$@")" || return $?
@@ -3914,7 +4398,7 @@ EOF
     fish)
       cat <<'EOF'
 function codex-profile
-    if test (count $argv) -ge 1; and test "$argv[1]" = use
+    if test (count $argv) -ge 1; and test "$argv[1]" = use; and not contains -- "$argv[2]" --help -h
         set -l __cp_env (command codex-profile env --shell fish $argv[2..-1]); or return $status
         printf '%s\n' $__cp_env | source
     else
@@ -4122,6 +4606,24 @@ main() {
   [[ "$#" -ne 0 ]] || overview=yes
   shift || true
 
+  # Only wrapper-owned positions consume help. Profile operands and `--`
+  # keep subsequent flags available to the upstream Codex command.
+  if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
+    [[ "$#" -eq 1 ]] || die "Usage: $PROGRAM help [command [subcommand]]"
+    command_help "$command"
+    return
+  fi
+  if [[ "$command" == workspace || "$command" == launcher ]] && \
+     [[ "${2:-}" == --help || "${2:-}" == -h ]]; then
+    [[ "$#" -eq 2 ]] || die "Usage: $PROGRAM help [command [subcommand]]"
+    command_help "$command" "$1"
+    return
+  fi
+  if [[ "$command" == help && "$#" -gt 0 ]]; then
+    command_help "$@"
+    return
+  fi
+
   case "$command" in
     status | doctor | workspace | launcher)
       for arg in "$@"; do
@@ -4190,7 +4692,7 @@ main() {
       command_clone_config "$@"
       ;;
     list)
-      command_list
+      command_list "$@"
       ;;
     doctor)
       command_doctor "$@"

@@ -11,23 +11,34 @@ homes and, on macOS, named ChatGPT windows with separate local state.
 - Installed commands are `codex-profile` and `codex-profiles`.
 - Invoking `codex-profile` without arguments displays
   a compact command overview. `help`/`--help` displays the full grouped reference.
-  The welcome adds the current project directory, nearest binding, current
-  managed shell profile, and relevant launch commands in a non-dumb terminal,
-  without probing login status. Redirected/dumb output keeps the static overview.
+  The welcome adds initialized profiles, the current project directory, nearest
+  binding, current managed shell profile, guard mode (`off`, `warn`, or `strict`),
+  and relevant launch commands in a non-dumb terminal, without probing login
+  status. Redirected/dumb output keeps the static overview.
   Help adapts to terminal width; its banner uses UTF-8 terminals, and `NO_COLOR`
-  disables color. Redirected output is plain text. Command output is unchanged.
+  disables color. Redirected output is plain text.
+- `help <command>` and `<command> --help` (or `-h`) show focused usage, options,
+  and examples. Nested help supports `help workspace|launcher <subcommand>` and
+  `workspace|launcher <subcommand> --help`. Place the help flag immediately
+  after the command/subcommand: arguments after a profile in `cli` or `login`
+  and after `run --` still pass through to upstream Codex unchanged.
 - `default` maps to `~/.codex`; every other valid name `<x>` maps to
   `~/.codex-<x>`.
 - `init` creates profiles; guided `setup` calls it too. `cli`, `login`, `app`, and
   the target of `clone-config` require an initialized profile and fail on a
   missing name instead of materializing it.
-- With no arguments, `cli` and `app` show a terminal-only numbered picker of
-  initialized profiles, marking the nearest workspace-bound profile and current
-  shell profile separately. Enter selects the binding first, falling back to a
-  valid initialized shell profile when unbound. Exact profile names or menu
-  numbers select a profile; exact names take precedence, including numeric
-  names. `#N` explicitly selects menu item N, avoiding numeric-name collisions.
-  `q`, `Q`, and EOF cancel without an error message, retaining exit status 1.
+- With no arguments, `cli` and `app` show a terminal-only picker of initialized
+  profiles. Up/Down changes the selection, Enter launches it, typing filters by
+  a name substring, and Backspace edits the filter. Escape and Ctrl-C cancel;
+  Ctrl-C preserves exit status 130 through interactive launch commands.
+  The nearest workspace-bound profile and current shell profile are marked
+  separately. The initial selection prefers the binding, falling back to a
+  valid initialized shell profile when unbound. Exact names or menu numbers
+  also select a profile; exact names take precedence, including numeric names.
+  `#N` explicitly selects menu item N, avoiding numeric-name collisions.
+  `q` or `Q` followed by Enter, and EOF cancel without an error message,
+  retaining exit status 1. `TERM=dumb` or redirected picker output uses a plain
+  numbered menu accepting exact names, numbers, and Enter for the default.
   Select profiles named `q` or `Q` using `#N` for their menu item.
   No-argument launches fail without a terminal; explicit commands are unchanged.
 - `setup <profile>` requires a terminal and initializes or reuses the profile,
@@ -68,6 +79,11 @@ homes and, on macOS, named ChatGPT windows with separate local state.
   patching, re-signing, quitting, or replacing it.
 - `status` reports Codex-local authentication. The project does not inspect or
   verify whether a CLI login and ChatGPT Desktop window use the same account.
+- `list --details` shows all initialized profiles as overview cards with their
+  Codex home, bound workspace paths, and managed launcher availability and path.
+  It identifies missing or stale launchers and reports launchers as unsupported
+  on non-macOS systems. It reads local metadata without probing login status or
+  reading authentication data. Plain `list` keeps its existing tabular output.
 - `workspace bind <path> <profile>` stores a private local canonical-path
   binding. The nearest bound ancestor wins; no file is added to the project.
 - `run` uses the current directory's binding for Codex CLI, while `run --app`
@@ -158,6 +174,9 @@ codex-profile app work ~/Dev/work-project
 codex-profile launcher create default --name "ChatGPT Main" --color green
 codex-profile launcher create personal --name "ChatGPT Personal" --color blue
 codex-profile launcher list
+codex-profile list --details
+codex-profile app --help
+codex-profile help workspace bind
 codex-profile status --json
 eval "$(codex-profile env work)"
 eval "$(codex-profile shell-init zsh --prompt --completions)"

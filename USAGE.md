@@ -63,15 +63,21 @@ codex-profile cli work exec "run tests and summarize failures"
 ```
 
 In a terminal, `codex-profile cli` or `codex-profile app` with no arguments
-shows a numbered picker of initialized profiles. The nearest workspace-bound
-profile and the current shell profile are marked separately. Enter selects the
-bound profile first. When no workspace is bound, it defaults to a valid,
-initialized shell selection. Otherwise, choose an exact profile name or menu
-number. Exact names take precedence, including numeric names; `#N` explicitly
-selects menu item N when a number could also be a profile name. `q`, `Q`, or
-end-of-input cancel normally without an error message and return exit status 1;
-select profiles named `q` or `Q` using `#N` for their menu item. Scripts must
-pass an explicit profile: no-argument launches fail without a terminal.
+shows a picker of initialized profiles. Use Up/Down to select and Enter to
+launch. Type part of a name to filter the list; Backspace removes characters.
+Escape or Ctrl-C cancels; Ctrl-C returns exit status 130. The nearest
+workspace-bound profile and current shell profile are marked separately.
+The initial selection prefers the bound profile, then a valid initialized
+shell selection when no workspace is bound.
+
+Exact profile names and menu numbers also work. Exact names take precedence,
+including numeric names; `#N` explicitly selects menu item N when a number
+could also be a profile name. `q` or `Q` followed by Enter, or end-of-input,
+cancels without an error message and returns exit status 1; select profiles
+named `q` or `Q` using `#N` for their menu item. With `TERM=dumb` or redirected
+picker output, the picker falls back to a plain numbered menu accepting names,
+numbers, or Enter for the default. Scripts must pass an explicit profile:
+no-argument launches fail without a terminal.
 
 Optionally bind a project once, then let the current directory select its
 profile for both CLI and Desktop launches:
@@ -172,11 +178,18 @@ codex-profile init client-a
 codex-profile init client-b --share-with client-a
 codex-profile detach client-b
 codex-profile list
+codex-profile list --details
 codex-profile remove client-a
 codex-profile remove client-a --yes
 ```
 
 `list` and `status` are read-only. They do not create a directory for a typo.
+`list --details` shows a card for every initialized profile: its Codex home,
+bound workspace paths, and managed launcher availability and path. Missing or
+stale launchers are identified; non-macOS systems show launchers as unsupported.
+The overview reads local metadata without probing login status or reading
+authentication data. Plain `list` still prints one profile name per line.
+
 Removing a profile deletes its Codex home and, for a named Desktop profile, its
 local Electron data. It also removes bindings that target that profile, without
 deleting any project directory. Removal refuses to orphan a managed macOS
@@ -581,21 +594,34 @@ For Bash, save the output as
 
 Run `codex-profile` for a compact welcome screen and the most useful commands.
 In a non-dumb terminal, it also shows the current project directory, nearest
-workspace binding, current managed shell profile, and relevant launch commands.
+workspace binding, current managed shell profile, initialized profiles, guard
+mode (`off`, `warn`, or `strict`), and relevant launch commands.
 The binding and shell selection are separate: `run` follows the binding even
 when the shell uses another profile. This overview reads local routing and
 shell context without probing login status. Redirected output and `TERM=dumb`
 retain the static overview.
 
 Run `codex-profile help` (or `--help`) for the complete grouped reference,
-including advanced options and environment overrides. Use the command shown
-in the Usage line followed by a command from the list, for example
-`codex-profile setup work`.
+including advanced options and environment overrides. Each command also has
+focused usage, options, and examples:
+
+```sh
+codex-profile app --help
+codex-profile help app
+codex-profile workspace bind -h
+codex-profile help launcher create
+```
+
+Put `--help` or `-h` immediately after a command or a `workspace`/`launcher`
+subcommand. Arguments after a profile in `cli` or `login`, and arguments after
+`run --`, still go to upstream Codex: `codex-profile cli work --help` shows
+Codex's help, while `codex-profile cli --help` explains this wrapper.
 
 Help uses an overlapping-window mark, pixel lettering and subtle colors on
 UTF-8 terminals, and adapts to the terminal width. Narrow terminals and non-UTF-8
-locales get a compact text header. Set `NO_COLOR=1` for monochrome output; redirected output and
-`TERM=dumb` use plain text. Styling is limited to help and the welcome screen.
+locales get a compact text header. Set `NO_COLOR=1` for monochrome output;
+redirected output and `TERM=dumb` use plain text. Profile detail cards also
+adapt to the terminal width.
 
 ```text
 codex-profile app [<profile> [workspace]]
@@ -623,13 +649,14 @@ codex-profile env <profile> [--shell <bash|zsh|fish>]
 codex-profile use <profile>
 codex-profile logs <profile> [--path|--tail [lines]]
 codex-profile clone-config <source-profile> <target-profile> [--force]
-codex-profile list
+codex-profile list [--details]
 codex-profile doctor [--json] [--check]
 codex-profile completions <bash|zsh|fish>
 codex-profile shell-init <bash|zsh|fish> [--prompt] [--completions]
 codex-profile upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
 codex-profile version
 codex-profile --version
+codex-profile help [command [subcommand]]
 ```
 
 ### Deprecated compatibility spellings
