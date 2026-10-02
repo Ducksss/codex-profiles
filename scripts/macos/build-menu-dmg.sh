@@ -37,8 +37,9 @@ ln -s /Applications "$STAGING_DIR/Applications"
 install -m 644 "$ROOT_DIR/LICENSE" "$STAGING_DIR/License.txt"
 cat > "$STAGING_DIR/Read Me.txt" <<'EOF'
 Drag Codex Profiles.app to Applications, then open it.
-Use Add Workspace to create a profile and choose a project folder.
-Open that workspace in ChatGPT and sign in there if prompted.
+Open an existing profile, or use Create Profile on first run.
+No project folder is required. Add Workspace is an optional shortcut.
+Open the profile in ChatGPT and sign in there if prompted.
 Install the official ChatGPT desktop app to use ChatGPT launching.
 Terminal launching and CLI sign-in require the official Codex CLI.
 

@@ -5,11 +5,12 @@ It runs on macOS 13 or newer, on Apple silicon and Intel. It requires neither
 Swift nor a separate `codex-profile` installation on the user's Mac.
 
 Drag **Codex Profiles.app** to **Applications**, open it, and choose
-**Add Workspace…**. Select an existing profile or create one, then choose a
-project folder. The app opens its menu on first launch. **New Profile…** is
-also available in its settings menu.
+**Open** beside an existing profile. If none exists, choose **Create profile…**
+and enter a name such as `work` or `personal`. A project folder is not required.
+The app opens its menu on launch. **New profile…** is also in its gear menu.
+**Add workspace…** optionally binds a project folder to a profile for a shortcut.
 
-Open a workspace in **ChatGPT** to use the original installed ChatGPT app.
+Open a profile or workspace in **ChatGPT** to use the original installed ChatGPT app.
 A named profile opens a window with separate local Desktop state and may
 require sign-in inside that window. `default` uses the stock Desktop session.
 **Sign In to Codex CLI** in the settings menu starts the official CLI login in
@@ -25,22 +26,47 @@ a server-side account boundary.
 ## Menu and keyboard
 
 The menu uses system search, a profile filter and a ChatGPT/Terminal
-destination control. Pinned projects appear first; other projects follow
-their last successful launch. Rows show the project name, profile and folder,
+destination control. Profiles appear first and can open without a folder.
+Pinned projects follow; other projects follow their last successful launch.
+Workspace rows show the project name, profile and folder,
 with an explicit **Open** button and an actions menu. Missing folders and
-profiles show the reason and retain actions for repair or removal.
+profiles show the reason and retain actions for repair or removal. Refresh
+failures preserve loaded content while retaining committed binding changes.
 
-Search receives focus when the menu opens. ↑/↓ selects available projects;
-Return opens the selected project, or the first available search result.
+Search receives focus when the menu opens. ↑/↓ selects available profiles or
+projects; Return opens the selection, or the first available search result.
 ⌘1–9 opens the corresponding visible row, ⌘K focuses search, and ⌘R refreshes.
 Escape clears search before closing. Successful launches close the popover.
+
+Profile-only launches start in the home directory. Adding a project shortcut
+is a separate action; creating a profile never opens a folder picker unless
+you explicitly started **Add workspace…**.
+
+## System appearance and accessibility
+
+The running app inherits macOS appearance, including Auto switching between
+light and dark mode. Native controls, symbols, dialogs and the popover use
+system colours and materials. Custom row decoration resolves colours again
+when appearance or accent colours change.
+
+Reduce Motion disables popover animations and updates when the setting changes.
+Increase Contrast and Reduce Transparency use opaque system selection fills;
+NSPopover handles its own background material. Keyboard selection includes an
+outline and an accessibility selected state. Native controls and labelled
+actions support keyboard navigation and VoiceOver.
+
+Automated checks cover light → dark → light changes in the same view,
+system-colour/accessibility notifications, opaque selection policies, and
+keyboard/accessibility state. Actual VoiceOver announcements, OS preference
+switching, popover translucency and permission prompts still require a manual
+check on macOS. Follow [Apple's Dark Mode guidance](https://developer.apple.com/documentation/appkit/supporting-dark-mode-in-your-interface).
 
 These are renders of the actual AppKit view in light and dark appearance.
 They use an opaque system backdrop for layout review; live translucency is
 provided by NSPopover and depends on macOS appearance and accessibility settings.
 
-<img src="CodexProfilesMenu/Previews/menu-light.png" width="400" alt="Native workspace menu in light appearance">
-<img src="CodexProfilesMenu/Previews/menu-dark.png" width="400" alt="Native workspace menu in dark appearance">
+<img src="CodexProfilesMenu/Previews/menu-light.png" width="400" alt="Native profile and workspace menu in light appearance">
+<img src="CodexProfilesMenu/Previews/menu-dark.png" width="400" alt="Native profile and workspace menu in dark appearance">
 
 See the [design notes](CodexProfilesMenu/DESIGN.md) for Apple guidance and
 interaction behaviour. Re-render the previews after changing the view:

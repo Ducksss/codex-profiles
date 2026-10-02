@@ -13,6 +13,7 @@ struct CodexProfilesMenuTests {
         try await testStoreFilteringPinsAndRecents()
         try await testRefreshPreservesContentAndSerializesRequests()
         try await testMutationsAndLaunchResults()
+        try await testProfileOnlyLaunches()
         testProfileNames()
         try await testProcessDrainsBothStreams()
         try await testProcessTerminationAndLaunchFailure()
@@ -145,6 +146,8 @@ struct CodexProfilesMenuTests {
         expect(loaded && store.profiles.isEmpty && store.workspaces.isEmpty, "first run was not empty")
         let created = await store.createProfile("work-main")
         expect(created && store.profiles == ["work-main"], "profile creation did not refresh the GUI")
+        expect(store.workspaces.isEmpty && store.filteredTargets == [.profile("work-main")],
+            "creating a profile must immediately make it launchable without binding a folder")
         let profileHome = URL(fileURLWithPath: home).appendingPathComponent(".codex-work-main")
         let permissions = try FileManager.default.attributesOfItem(atPath: profileHome.path)[.posixPermissions] as? NSNumber
         expect(permissions?.intValue == 0o700, "created profile is not private")
@@ -357,7 +360,7 @@ struct CodexProfilesMenuTests {
         let store = fixture.store()
         await store.refresh()
         store.togglePin(alpha)
-        expect(await store.launch(alpha, in: .chatGPT), "successful launch reported failure")
+        expect(await store.launch(.workspace(alpha), in: .chatGPT), "successful launch reported failure")
         expect(store.launchingID == nil && store.statusMessage.contains("Opened"), "launch did not clear activity or report outcome")
         try fixture.writeWorkspaces([reassigned, beta], to: "next-workspaces.json")
         await store.rebindWorkspace(alpha, to: "personal")
@@ -381,12 +384,12 @@ struct CodexProfilesMenuTests {
         try fixture.write("launch failed", to: "launch-error")
         var launchError: String?
         store.onError = { launchError = $0 }
-        expect(!(await store.launch(alpha, in: .chatGPT)), "failed launch reported success")
+        expect(!(await store.launch(.workspace(alpha), in: .chatGPT)), "failed launch reported success")
         expect(store.launchingID == nil && store.statusMessage == "launch failed", "failed launch left activity or hid error")
         expect(launchError == "launch failed", "failed launch did not present its full error")
         let stale = binding("missing", "work", pathExists: false)
         let argumentsBefore = try fixture.read("arguments")
-        expect(!(await store.launch(stale, in: .chatGPT)), "missing folder was launched")
+        expect(!(await store.launch(.workspace(stale), in: .chatGPT)), "missing folder was launched")
         expect(try fixture.read("arguments") == argumentsBefore, "unavailable workspace invoked a process")
         let moved = binding("relocated", "work")
         store.togglePin(alpha)
@@ -405,12 +408,48 @@ struct CodexProfilesMenuTests {
         expect(movedRecents?[moved.id] == 123.0 && movedRecents?[alpha.id] == nil, "relocate did not preserve recency")
         try fixture.write("refresh failed after remove", to: "refresh-error")
         await store.unbindWorkspace(moved)
-        expect(store.workspaces == [moved, beta], "post-mutation refresh failure discarded loaded content")
+        expect(store.workspaces == [beta], "post-mutation refresh failure must retain unaffected rows and remove the committed binding")
         expect(store.statusMessage.contains("Removed") && store.statusMessage.contains("refresh failed after remove"), "successful mutation with failed reload lost either outcome")
+        let argumentsAfterRemoval = try fixture.read("arguments")
+        expect(!(await store.launch(.workspace(moved), in: .chatGPT)), "a removed binding must not launch from a stale row")
+        expect(try fixture.read("arguments") == argumentsAfterRemoval, "removed binding invoked the CLI")
+        let reassignedBeta = binding("beta", "work")
+        await store.rebindWorkspace(beta, to: "work")
+        expect(store.workspaces == [reassignedBeta], "a committed reassignment must update profile identity even if refresh fails")
+        let argumentsAfterReassignment = try fixture.read("arguments")
+        expect(!(await store.launch(.workspace(beta), in: .chatGPT)), "a stale row must not open the previous profile after reassignment")
+        expect(try fixture.read("arguments") == argumentsAfterReassignment, "stale profile identity invoked the CLI")
         do {
             try await CLIClient(executableURL: fixture.executable).bindWorkspace(path: alpha.path, profile: "--bad")
             expect(false, "invalid profile name was accepted")
         } catch CLIClientError.invalidProfileName {} catch { expect(false, "invalid profile produced unexpected error") }
+    }
+
+    private static func testProfileOnlyLaunches() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        try fixture.writeWorkspaces([])
+        let store = fixture.store()
+        expect(await store.refresh(), "profiles could not load without workspace bindings")
+        expect(store.filteredTargets == [.profile("default"), .profile("personal"), .profile("work")],
+            "all initialized profiles must be offered before any folders are added")
+        store.selectedProfile = "work"
+        store.query = "WORK"
+        expect(store.filteredTargets == [.profile("work")], "profile search and filtering must work without folders")
+        expect(await store.launch(.profile("work"), in: .chatGPT), "profile-only launch failed")
+        expect(try fixture.read("arguments").hasSuffix("app\u{0}work\u{0}\n"),
+            "profile launch must not fabricate a workspace argument")
+        expect(fixture.defaults.dictionary(forKey: "workspaceRecents") == nil,
+            "profile launches must not fabricate workspace history")
+        try fixture.write("profile launch refused", to: "launch-error")
+        expect(!(await store.launch(.profile("work"), in: .chatGPT)), "failed profile launch reported success")
+        expect(store.launchingID == nil && store.statusMessage == "profile launch refused", "profile failure left the menu busy or hid the error")
+        await expectFailure({ try await CLIClient(executableURL: fixture.executable).launch(.profile("../bad"), in: .chatGPT) },
+            containing: "Start with a letter or number")
+        let directory = try await ProcessRunner().run(executableURL: URL(fileURLWithPath: "/bin/pwd"), arguments: [])
+        let path = String(data: directory.standardOutput, encoding: .utf8)!.trimmingCharacters(in: .whitespacesAndNewlines)
+        expect(URL(fileURLWithPath: path).resolvingSymlinksInPath() == FileManager.default.homeDirectoryForCurrentUser.resolvingSymlinksInPath(),
+            "menu commands must start in the home directory rather than inherit a project binding")
     }
 
     private static func binding(_ name: String, _ profile: String, pathExists: Bool = true, profileExists: Bool = true) -> WorkspaceBinding {

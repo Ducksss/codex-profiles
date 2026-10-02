@@ -23,11 +23,10 @@ struct RenderPreview {
             ? []
             : [
                 workspace("\(home)/Dev/codex-profiles", profile: "work"),
-                workspace("\(home)/Dev/client-dashboard", profile: "client"),
                 workspace("\(home)/Dev/personal-site", profile: "personal"),
-                workspace("\(home)/Dev/agent-skills", profile: "work"),
             ]
-        store.loadPreview(bindings)
+        let profiles = CommandLine.arguments.contains("--empty") ? [] : ["default", "personal", "work"]
+        store.loadPreview(bindings, profiles: profiles)
         if let first = bindings.first { store.togglePin(first) }
         if CommandLine.arguments.contains("--no-results") { store.query = "does-not-exist" }
 

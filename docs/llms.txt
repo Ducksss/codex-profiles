@@ -188,8 +188,11 @@ confused with the ChatGPT mode named Work.
 ## Native macOS companion (unreleased source)
 
 Source checkouts also include an optional native menu-bar companion for
-macOS 13 or newer. It creates profiles, binds folders, searches and filters
-workspaces, and opens them in ChatGPT or Terminal through the bundled CLI.
+macOS 13 or newer. It creates and opens profiles in ChatGPT or Terminal
+without requiring a project folder. Workspace bindings are optional project
+shortcuts. Search and profile filtering cover both profiles and workspaces.
+The menu follows macOS appearance, accent, contrast, transparency and Reduce
+Motion preferences; profile operations use the bundled CLI.
 Desktop and Codex CLI sign-in remain separate. The app does not read tokens
 or cookies. This companion is not yet a published release download.
 

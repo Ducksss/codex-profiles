@@ -27,7 +27,7 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Codex Profiles uses Terminal to open a workspace or sign in to the Codex CLI with its selected profile.</string>
+    <string>Codex Profiles uses Terminal to open a profile or workspace, or sign in to the Codex CLI.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

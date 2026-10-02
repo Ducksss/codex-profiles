@@ -12,9 +12,9 @@ final class WorkspaceMenuViewController: NSViewController {
     private let footerLabel = NSTextField(labelWithString: "")
     private let refreshButton = NSButton()
     private let addButton = NSButton()
-    private var rows: [WorkspaceRowButton] = []
+    private var rows: [LaunchRowButton] = []
     private var scrollView: NSScrollView?
-    private var selectedID: WorkspaceBinding.ID?
+    private var selectedID: LaunchTarget.ID?
     private var heightConstraint: NSLayoutConstraint?
     private var destination: OpenDestination
     var onPreferredContentSizeChange: ((NSSize) -> Void)?
@@ -38,6 +38,10 @@ final class WorkspaceMenuViewController: NSViewController {
         heightConstraint = surface.heightAnchor.constraint(equalToConstant: 260)
         NSLayoutConstraint.activate([surface.widthAnchor.constraint(equalToConstant: 400), heightConstraint!])
         buildInterface()
+        NotificationCenter.default.addObserver(self, selector: #selector(redrawSystemColours),
+            name: NSColor.systemColorsDidChangeNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(redrawSystemColours),
+            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
         store.onChange = { [weak self] in self?.render() }
         store.onError = { [weak self] message in self?.presentError(message) }
         render()
@@ -55,14 +59,14 @@ final class WorkspaceMenuViewController: NSViewController {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.numericPad, .function])
         if modifiers.isEmpty {
             let responder = view.window?.firstResponder
-            let navigatingWorkspaces = responder === searchField || responder === searchField.currentEditor() || responder is WorkspaceRowButton
-            if [125, 126, 36, 76].contains(event.keyCode), !navigatingWorkspaces { return false }
+            let navigatingList = responder === searchField || responder === searchField.currentEditor() || responder is LaunchRowButton
+            if [125, 126, 36, 76].contains(event.keyCode), !navigatingList { return false }
             switch event.keyCode {
             case 125: moveSelection(by: 1); return true
             case 126: moveSelection(by: -1); return true
             case 36, 76:
-                if let workspace = store.filteredWorkspaces.first(where: { $0.id == selectedID })
-                    ?? store.filteredWorkspaces.first(where: \.isAvailable) { launch(workspace) }
+                if let item = store.filteredTargets.first(where: { $0.id == selectedID })
+                    ?? store.filteredTargets.first(where: \.isAvailable) { launch(item) }
                 return true
             case 53:
                 if !store.query.isEmpty { clearSearch() } else { onRequestClose?() }
@@ -76,8 +80,8 @@ final class WorkspaceMenuViewController: NSViewController {
         case "r": refresh(); return true
         case "q": NSApp.terminate(nil); return true
         case let value?:
-            guard let index = Int(value), (1...9).contains(index), store.filteredWorkspaces.indices.contains(index - 1) else { return false }
-            launch(store.filteredWorkspaces[index - 1]); return true
+            guard let index = Int(value), (1...9).contains(index), store.filteredTargets.indices.contains(index - 1) else { return false }
+            launch(store.filteredTargets[index - 1]); return true
         case nil: return false
         }
     }
@@ -103,19 +107,19 @@ final class WorkspaceMenuViewController: NSViewController {
         headerDivider.boxType = .separator
         headerDivider.translatesAutoresizingMaskIntoConstraints = false
 
-        searchField.placeholderString = "Search workspaces"
+        searchField.placeholderString = "Search profiles and workspaces"
         searchField.font = .systemFont(ofSize: 12)
         searchField.controlSize = .small
         searchField.target = self
         searchField.action = #selector(searchChanged)
         searchField.sendsSearchStringImmediately = true
         searchField.stringValue = store.query
-        searchField.setAccessibilityLabel("Search workspace names, paths and profiles")
+        searchField.setAccessibilityLabel("Search profile and workspace names or folder paths")
         profilePicker.target = self
         profilePicker.action = #selector(profileFilterChanged)
         profilePicker.controlSize = .small
         profilePicker.font = .systemFont(ofSize: 11)
-        profilePicker.setAccessibilityLabel("Filter workspaces by profile")
+        profilePicker.setAccessibilityLabel("Filter profiles and workspaces")
         profilePicker.widthAnchor.constraint(equalToConstant: 140).isActive = true
         destinationPicker.selectedSegment = destination == .chatGPT ? 0 : 1
         destinationPicker.segmentStyle = .rounded
@@ -123,7 +127,7 @@ final class WorkspaceMenuViewController: NSViewController {
         destinationPicker.target = self
         destinationPicker.action = #selector(destinationChanged)
         destinationPicker.font = .systemFont(ofSize: 11)
-        destinationPicker.setAccessibilityLabel("Open workspace in")
+        destinationPicker.setAccessibilityLabel("Open in")
         destinationPicker.widthAnchor.constraint(equalToConstant: 190).isActive = true
         toolbar.orientation = .horizontal
         toolbar.alignment = .centerY
@@ -148,13 +152,14 @@ final class WorkspaceMenuViewController: NSViewController {
         add.imagePosition = .imageLeading
         add.isBordered = false
         add.font = .systemFont(ofSize: 12)
+        add.toolTip = "Optional: bind a project folder to a profile"
         add.setContentHuggingPriority(.required, for: .horizontal)
         footerLabel.font = .systemFont(ofSize: 11)
         footerLabel.textColor = .secondaryLabelColor
         footerLabel.lineBreakMode = .byTruncatingTail
         footerLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         footerLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        configureSymbolButton(refreshButton, symbol: "arrow.clockwise", title: "Refresh workspaces (⌘R)", action: #selector(refresh))
+        configureSymbolButton(refreshButton, symbol: "arrow.clockwise", title: "Refresh profiles and workspaces (⌘R)", action: #selector(refresh))
         let footer = NSStackView(views: [add, NSView(), footerLabel, refreshButton])
         footer.orientation = .horizontal
         footer.alignment = .centerY
@@ -185,15 +190,15 @@ final class WorkspaceMenuViewController: NSViewController {
     }
 
     private func render() {
-        let populated = store.phase == .ready && !store.workspaces.isEmpty
+        let populated = store.phase == .ready && (!store.profiles.isEmpty || !store.workspaces.isEmpty)
         let shouldFocusSearch = populated && searchField.isHidden
         searchField.isHidden = !populated
         toolbar.isHidden = !populated
-        addButton.isHidden = !populated
-        footerLabel.stringValue = ["Choose a workspace to open", "Add a workspace to get started"].contains(store.statusMessage) ? "" : store.statusMessage
+        addButton.isHidden = !populated || store.profiles.isEmpty
+        footerLabel.stringValue = ["Choose a profile or workspace", "Create a profile to get started"].contains(store.statusMessage) ? "" : store.statusMessage
         footerLabel.toolTip = footerLabel.stringValue
         refreshButton.isEnabled = !store.isRefreshing
-        let currentSelection = store.filteredWorkspaces.first { $0.id == selectedID && $0.isAvailable }
+        let currentSelection = store.filteredTargets.first { $0.id == selectedID && $0.isAvailable }
         selectedID = currentSelection?.id
         profilePicker.removeAllItems()
         profilePicker.addItem(withTitle: "All profiles")
@@ -205,16 +210,17 @@ final class WorkspaceMenuViewController: NSViewController {
         scrollView = nil
         switch store.phase {
         case .idle, .loading:
-            showState(symbol: "square.stack.3d.up", title: "Loading your workspaces", detail: "Reading local profile bindings…", progress: true)
+            showState(symbol: "square.stack.3d.up", title: "Loading your profiles", detail: "Reading local profiles and bindings…", progress: true)
         case let .failed(message):
-            showState(symbol: "exclamationmark.triangle", title: "Couldn’t load workspaces", detail: message, actionTitle: "Try again", action: #selector(refresh))
-        case .ready where store.workspaces.isEmpty:
-            showState(symbol: "folder.badge.plus", title: "No workspaces yet", detail: "Add a project folder and choose its profile.", actionTitle: "Add workspace…", action: #selector(addWorkspace(_:)))
-        case .ready where store.filteredWorkspaces.isEmpty:
-            showState(symbol: "magnifyingglass", title: "No projects found", detail: "Try another name or profile.", actionTitle: "Reset filters", action: #selector(resetFilters))
-        case .ready: showWorkspaceList()
+            showState(symbol: "exclamationmark.triangle", title: "Couldn’t load profiles", detail: message, actionTitle: "Try again", action: #selector(refresh))
+        case .ready where store.profiles.isEmpty && store.workspaces.isEmpty:
+            showState(symbol: "person.crop.circle.badge.plus", title: "Create your first profile", detail: "Open separate ChatGPT windows for work and personal use.", actionTitle: "Create profile…", action: #selector(createProfile))
+        case .ready where store.filteredTargets.isEmpty:
+            showState(symbol: "magnifyingglass", title: "No matches", detail: "Try another profile or project name.", actionTitle: "Reset filters", action: #selector(resetFilters))
+        case .ready: showLaunchList()
         }
-        let contentHeight = scrollView?.documentView?.fittingSize.height ?? 100
+        let contentHeight = scrollView?.documentView?.fittingSize.height
+            ?? contentContainer.subviews.first.map { $0.fittingSize.height + 24 } ?? 100
         // Header, filters, separators and footer occupy 158 points.
         let height: CGFloat = populated ? min(500, max(260, 158 + contentHeight)) : 260
         heightConstraint?.constant = height
@@ -229,7 +235,7 @@ final class WorkspaceMenuViewController: NSViewController {
         }
     }
 
-    private func showWorkspaceList() {
+    private func showLaunchList() {
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
@@ -243,28 +249,32 @@ final class WorkspaceMenuViewController: NSViewController {
         stack.spacing = 0
         stack.translatesAutoresizingMaskIntoConstraints = false
         document.addSubview(stack)
-        var previousPinned: Bool?
-        for (index, workspace) in store.filteredWorkspaces.enumerated() {
-            let pinned = store.isPinned(workspace)
-            if previousPinned != pinned {
-                let heading = label(pinned ? "Pinned" : "Workspaces", size: 10, weight: .semibold)
+        var previousGroup: String?
+        for (index, item) in store.filteredTargets.enumerated() {
+            let pinned = item.workspace.map(store.isPinned) ?? false
+            let groupTitle = item.workspace == nil ? "Profiles" : pinned ? "Pinned workspaces" : "Workspaces"
+            if previousGroup != groupTitle {
+                let heading = label(groupTitle, size: 10, weight: .semibold)
                 heading.textColor = .secondaryLabelColor
                 let group = NSStackView(views: [heading, NSView()])
                 group.edgeInsets = NSEdgeInsets(top: 6, left: 14, bottom: 4, right: 14)
                 group.heightAnchor.constraint(equalToConstant: 24).isActive = true
                 stack.addArrangedSubview(group)
                 group.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-                previousPinned = pinned
+                previousGroup = groupTitle
             }
-            let row = WorkspaceRowButton(workspace: workspace, shortcutIndex: index, destination: destination,
-                pinned: pinned, selected: selectedID == workspace.id,
-                launching: store.launchingID == workspace.id, busy: store.launchingID != nil,
-                target: self, action: #selector(workspaceClicked(_:)))
-            row.onShowActions = { [weak self] sender in self?.showWorkspaceActions(workspace, from: sender) }
+            let row = LaunchRowButton(item: item, shortcutIndex: index, destination: destination,
+                pinned: pinned, selected: selectedID == item.id,
+                launching: store.launchingID == item.id, busy: store.launchingID != nil,
+                target: self, action: #selector(launchClicked(_:)))
+            row.onShowActions = { [weak self] sender in
+                if let workspace = item.workspace { self?.showWorkspaceActions(workspace, from: sender) }
+                else { self?.showProfileActions(item.profile, from: sender) }
+            }
             rows.append(row)
             stack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-            if index < store.filteredWorkspaces.count - 1 {
+            if index < store.filteredTargets.count - 1 {
                 let separator = NSBox()
                 separator.boxType = .separator
                 stack.addArrangedSubview(separator)
@@ -285,17 +295,17 @@ final class WorkspaceMenuViewController: NSViewController {
     }
 
     private func moveSelection(by offset: Int) {
-        let available = store.filteredWorkspaces.filter(\.isAvailable)
+        let available = store.filteredTargets.filter(\.isAvailable)
         guard !available.isEmpty else { return }
         let current = available.firstIndex { $0.id == selectedID } ?? (offset > 0 ? -1 : available.count)
         selectedID = available[min(available.count - 1, max(0, current + offset))].id
-        for row in rows { row.isSelectedRow = row.workspace.id == selectedID }
-        if let row = rows.first(where: { $0.workspace.id == selectedID }) { row.scrollToVisible(row.bounds) }
+        for row in rows { row.isSelectedRow = row.item.id == selectedID }
+        if let row = rows.first(where: { $0.item.id == selectedID }) { row.scrollToVisible(row.bounds) }
     }
 
-    private func launch(_ workspace: WorkspaceBinding) {
-        guard workspace.isAvailable, store.launchingID == nil else { return }
-        Task { if await store.launch(workspace, in: destination) { onRequestClose?() } }
+    private func launch(_ item: LaunchTarget) {
+        guard item.isAvailable, store.launchingID == nil else { return }
+        Task { if await store.launch(item, in: destination) { onRequestClose?() } }
     }
 
     private func showState(symbol: String, title: String, detail: String, progress: Bool = false, actionTitle: String? = nil, action: Selector? = nil) {
@@ -366,6 +376,19 @@ final class WorkspaceMenuViewController: NSViewController {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
     }
 
+    private func showProfileActions(_ profile: String, from sender: NSButton) {
+        let menu = NSMenu()
+        let signIn = NSMenuItem(title: "Sign in to Codex CLI…", action: #selector(signInToCLI(_:)), keyEquivalent: "")
+        signIn.target = self
+        signIn.representedObject = profile
+        menu.addItem(signIn)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
+    }
+
+    @objc private func redrawSystemColours() {
+        for row in rows { row.updateSystemColours() }
+    }
+
     private func label(_ text: String, size: CGFloat, weight: NSFont.Weight) -> NSTextField {
         let value = NSTextField(labelWithString: text)
         value.font = .systemFont(ofSize: size, weight: weight)
@@ -389,7 +412,7 @@ final class WorkspaceMenuViewController: NSViewController {
         return button
     }
 
-    @objc private func workspaceClicked(_ sender: WorkspaceRowButton) { launch(sender.workspace) }
+    @objc private func launchClicked(_ sender: LaunchRowButton) { launch(sender.item) }
     @objc private func refresh() { Task { await store.refresh() } }
     @objc private func clearSearch() { selectedID = nil; searchField.stringValue = ""; store.query = ""; focusSearch() }
     @objc private func resetFilters() { store.selectedProfile = nil; clearSearch() }
@@ -421,7 +444,7 @@ final class WorkspaceMenuViewController: NSViewController {
         chooseFolder(for: workspace.profile, replacing: workspace)
     }
     @objc private func addWorkspace(_ sender: NSButton) {
-        guard !store.profiles.isEmpty else { createProfile(); return }
+        guard !store.profiles.isEmpty else { promptForProfile(addingWorkspace: true); return }
         if let profile = store.selectedProfile ?? (store.profiles.count == 1 ? store.profiles.first : nil) { chooseFolder(for: profile); return }
         let menu = NSMenu(title: "Choose profile")
         for profile in store.profiles {
@@ -431,7 +454,7 @@ final class WorkspaceMenuViewController: NSViewController {
             menu.addItem(item)
         }
         menu.addItem(.separator())
-        let create = NSMenuItem(title: "New profile…", action: #selector(createProfile), keyEquivalent: "")
+        let create = NSMenuItem(title: "New profile…", action: #selector(createProfileForWorkspace), keyEquivalent: "")
         create.target = self
         menu.addItem(create)
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
@@ -489,7 +512,10 @@ final class WorkspaceMenuViewController: NSViewController {
     @objc private func showAbout() { onRequestClose?(); NSApp.orderFrontStandardAboutPanel(nil) }
     @objc private func quit() { NSApp.terminate(nil) }
 
-    @objc private func createProfile() {
+    @objc private func createProfile() { promptForProfile(addingWorkspace: false) }
+    @objc private func createProfileForWorkspace() { promptForProfile(addingWorkspace: true) }
+
+    private func promptForProfile(addingWorkspace: Bool) {
         let alert = NSAlert()
         alert.messageText = "Create a profile"
         alert.informativeText = "Choose a name such as work, personal or client. Sign into ChatGPT when you open its window."
@@ -506,7 +532,13 @@ final class WorkspaceMenuViewController: NSViewController {
             presentError(CLIClientError.invalidProfileName.localizedDescription)
             return
         }
-        Task { if await store.createProfile(name) { chooseFolder(for: name) } }
+        Task {
+            if await store.createProfile(name) {
+                clearSearch()
+                store.selectedProfile = name
+                if addingWorkspace { chooseFolder(for: name) }
+            }
+        }
     }
 
     @objc private func signInToCLI(_ sender: NSMenuItem) {
@@ -529,15 +561,15 @@ final class WorkspaceMenuViewController: NSViewController {
 
 final class FlippedView: NSView { override var isFlipped: Bool { true } }
 
-final class WorkspaceRowButton: NSButton {
-    let workspace: WorkspaceBinding
+final class LaunchRowButton: NSButton {
+    let item: LaunchTarget
     var onShowActions: ((NSButton) -> Void)?
-    var isSelectedRow: Bool { didSet { needsDisplay = true } }
+    var isSelectedRow: Bool { didSet { setAccessibilitySelected(isSelectedRow); needsDisplay = true } }
     private var isHovered = false
     private var tracking: NSTrackingArea?
 
-    init(workspace: WorkspaceBinding, shortcutIndex: Int, destination: OpenDestination, pinned: Bool, selected: Bool, launching: Bool, busy: Bool, target: AnyObject?, action: Selector?) {
-        self.workspace = workspace
+    init(item: LaunchTarget, shortcutIndex: Int, destination: OpenDestination, pinned: Bool, selected: Bool, launching: Bool, busy: Bool, target: AnyObject?, action: Selector?) {
+        self.item = item
         isSelectedRow = selected
         super.init(frame: .zero)
         self.target = target
@@ -546,28 +578,33 @@ final class WorkspaceRowButton: NSButton {
         isBordered = false
         wantsLayer = true
         focusRingType = .none
-        isEnabled = workspace.isAvailable && !busy
+        isEnabled = item.isAvailable && !busy
         translatesAutoresizingMaskIntoConstraints = false
-        heightAnchor.constraint(equalToConstant: workspace.isAvailable ? 56 : 72).isActive = true
-        setAccessibilityLabel("\(workspace.name), profile \(workspace.profile), \(workspace.path). \(workspace.availabilityReason ?? "Open in \(destination.label)")")
-        toolTip = "\(workspace.path)\nProfile: \(workspace.profile)"
-        let icon = NSImageView(image: NSImage(systemSymbolName: pinned ? "pin.fill" : "folder", accessibilityDescription: nil) ?? NSImage())
+        heightAnchor.constraint(equalToConstant: item.workspace == nil ? 44 : item.isAvailable ? 56 : 72).isActive = true
+        setAccessibilityLabel(item.workspace.map { "\($0.name), profile \($0.profile), \($0.path). \($0.availabilityReason ?? "Open in \(destination.label)")" }
+            ?? "Profile \(item.profile). Open in \(destination.label)")
+        setAccessibilitySelected(selected)
+        toolTip = item.workspace.map { "\($0.path)\nProfile: \($0.profile)" } ?? "Open profile \(item.profile) without a project folder"
+        let icon = NSImageView(image: NSImage(systemSymbolName: item.workspace == nil ? "person.crop.circle" : pinned ? "pin.fill" : "folder", accessibilityDescription: nil) ?? NSImage())
         icon.symbolConfiguration = .init(pointSize: 18, weight: .regular)
         icon.contentTintColor = .secondaryLabelColor
         icon.widthAnchor.constraint(equalToConstant: 22).isActive = true
-        let name = NSTextField(labelWithString: workspace.name)
+        let name = NSTextField(labelWithString: item.name)
         name.font = .systemFont(ofSize: 13, weight: .semibold)
         name.lineBreakMode = .byTruncatingTail
-        name.textColor = workspace.isAvailable ? .labelColor : .secondaryLabelColor
-        let metadata = NSTextField(labelWithString: "\(workspace.profile) · \(workspace.displayPath())")
+        name.textColor = item.isAvailable ? .labelColor : .secondaryLabelColor
+        let profileDetail = destination == .terminal ? "Codex CLI profile" : item.profile == "default" ? "Standard ChatGPT window" : "Separate ChatGPT window"
+        let metadata = NSTextField(labelWithString: item.workspace.map { "\($0.profile) · \($0.displayPath())" } ?? profileDetail)
         metadata.font = .systemFont(ofSize: 11)
         metadata.textColor = .secondaryLabelColor
         metadata.lineBreakMode = .byTruncatingMiddle
-        let metadataText = NSMutableAttributedString(attributedString: metadata.attributedStringValue)
-        metadataText.addAttribute(.font, value: NSFont.systemFont(ofSize: 11, weight: .medium),
-            range: NSRange(location: 0, length: (workspace.profile as NSString).length))
-        metadata.attributedStringValue = metadataText
-        metadata.toolTip = "Profile: \(workspace.profile)\n\(workspace.path)"
+        if let workspace = item.workspace {
+            let metadataText = NSMutableAttributedString(attributedString: metadata.attributedStringValue)
+            metadataText.addAttribute(.font, value: NSFont.systemFont(ofSize: 11, weight: .medium),
+                range: NSRange(location: 0, length: (workspace.profile as NSString).length))
+            metadata.attributedStringValue = metadataText
+        }
+        metadata.toolTip = toolTip
         let labels = NSStackView(views: [name, metadata])
         labels.orientation = .vertical
         labels.alignment = .leading
@@ -578,7 +615,7 @@ final class WorkspaceRowButton: NSButton {
         }
         labels.setContentHuggingPriority(.defaultLow, for: .horizontal)
         labels.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        if let reason = workspace.availabilityReason {
+        if let reason = item.workspace?.availabilityReason {
             let warning = NSTextField(labelWithString: reason)
             warning.font = .systemFont(ofSize: 10)
             warning.textColor = .secondaryLabelColor
@@ -587,7 +624,7 @@ final class WorkspaceRowButton: NSButton {
             warning.widthAnchor.constraint(equalTo: labels.widthAnchor).isActive = true
             warning.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
-        let open = NSButton(title: launching ? "Opening…" : "Open", target: self, action: #selector(openWorkspace(_:)))
+        let open = NSButton(title: launching ? "Opening…" : "Open", target: self, action: #selector(openTarget(_:)))
         open.bezelStyle = .rounded
         open.controlSize = .small
         open.font = .systemFont(ofSize: 11)
@@ -595,11 +632,11 @@ final class WorkspaceRowButton: NSButton {
         open.isEnabled = isEnabled
         open.widthAnchor.constraint(equalToConstant: launching ? 78 : 56).isActive = true
         open.toolTip = "Open in \(destination.label)" + (shortcutIndex < 9 ? " (⌘\(shortcutIndex + 1))" : "")
-        open.setAccessibilityLabel("Open \(workspace.name) in \(destination.label)")
-        let more = NSButton(image: NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Actions for \(workspace.name)") ?? NSImage(), target: self, action: #selector(showActions(_:)))
+        open.setAccessibilityLabel("Open \(item.name) in \(destination.label)")
+        let more = NSButton(image: NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Actions for \(item.name)") ?? NSImage(), target: self, action: #selector(showActions(_:)))
         more.isBordered = false
         more.contentTintColor = .secondaryLabelColor
-        more.toolTip = "Pin, change profile, or remove binding"
+        more.toolTip = item.workspace == nil ? "Sign in to Codex CLI" : "Pin, change profile, or remove binding"
         more.widthAnchor.constraint(equalToConstant: 22).isActive = true
         more.heightAnchor.constraint(equalToConstant: 24).isActive = true
         let row = NSStackView(views: [icon, labels, open, more])
@@ -618,11 +655,20 @@ final class WorkspaceRowButton: NSButton {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() {
+    override func updateLayer() { updateSystemColours() }
+
+    func updateSystemColours(
+        reduceTransparency: Bool = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency,
+        increaseContrast: Bool = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+    ) {
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            let fill: NSColor = isSelectedRow ? .controlAccentColor.withAlphaComponent(0.14)
-                : isHovered && isEnabled ? .quaternaryLabelColor.withAlphaComponent(0.08) : .clear
+            let solid = reduceTransparency || increaseContrast
+            let fill: NSColor = isSelectedRow ? (solid ? .unemphasizedSelectedContentBackgroundColor : .controlAccentColor.withAlphaComponent(0.14))
+                : isHovered && isEnabled ? (solid ? .unemphasizedSelectedContentBackgroundColor : .quaternaryLabelColor.withAlphaComponent(0.08)) : .clear
             layer?.backgroundColor = fill.cgColor
+            // Shape identifies keyboard selection even without colour cues.
+            layer?.borderWidth = isSelectedRow ? 1 : 0
+            layer?.borderColor = NSColor.labelColor.cgColor
         }
     }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
@@ -634,6 +680,6 @@ final class WorkspaceRowButton: NSButton {
     }
     override func mouseEntered(with event: NSEvent) { isHovered = true; needsDisplay = true }
     override func mouseExited(with event: NSEvent) { isHovered = false; needsDisplay = true }
-    @objc private func openWorkspace(_ sender: NSButton) { performClick(nil) }
+    @objc private func openTarget(_ sender: NSButton) { performClick(nil) }
     @objc private func showActions(_ sender: NSButton) { onShowActions?(sender) }
 }

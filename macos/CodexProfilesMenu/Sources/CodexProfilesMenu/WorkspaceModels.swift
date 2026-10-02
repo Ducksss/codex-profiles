@@ -13,6 +13,33 @@ enum OpenDestination: String {
 
 }
 
+enum LaunchTarget: Equatable, Identifiable {
+    case profile(String)
+    case workspace(WorkspaceBinding)
+
+    var workspace: WorkspaceBinding? {
+        if case let .workspace(binding) = self { return binding }
+        return nil
+    }
+
+    var profile: String {
+        switch self {
+        case let .profile(name): name
+        case let .workspace(binding): binding.profile
+        }
+    }
+
+    var id: String { workspace?.id ?? "profile\u{0}\(profile)" }
+    var name: String { workspace?.name ?? profile }
+    var isAvailable: Bool { workspace?.isAvailable ?? true }
+
+    func matches(_ query: String) -> Bool {
+        if let workspace { return workspace.matches(query) }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || profile.localizedCaseInsensitiveContains(trimmed)
+    }
+}
+
 struct WorkspaceListResponse: Decodable, Equatable {
     let guardMode: String
     let bindings: [WorkspaceBinding]

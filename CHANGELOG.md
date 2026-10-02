@@ -16,8 +16,14 @@ and this project follows semantic versioning for tagged releases.
   a clearer project, profile and folder hierarchy.
 - Profile creation, folder binding, optional CLI sign-in, and workspace
   actions to reveal, copy, reassign, relocate or remove a binding. Refreshes
-  preserve loaded content; missing folders and profiles show a repairable
-  state. Profile operations delegate to the existing CLI.
+  preserve loaded content and committed binding changes; missing folders and
+  profiles show a repairable state. Profile operations delegate to the existing CLI.
+- Profile-first setup and direct profile launches without choosing a project
+  folder. Workspace bindings remain optional shortcuts; profile launches start
+  in the home directory instead of inheriting the menu app's launch directory.
+- System appearance and accent updates, Reduce Motion support, opaque selection
+  for increased contrast or reduced transparency, and keyboard selection cues
+  exposed to accessibility clients without relying on colour alone.
 - Universal Apple silicon/Intel app and DMG builders with an Applications
   shortcut, SHA-256 checksum, and optional Developer ID signing and
   notarisation. Local builds are unsigned development artifacts.

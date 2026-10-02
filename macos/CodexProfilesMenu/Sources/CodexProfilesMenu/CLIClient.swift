@@ -34,6 +34,9 @@ struct ProcessRunner {
 
         process.executableURL = executableURL
         process.arguments = arguments
+        // Profile-only launches must not inherit a project binding from the
+        // directory where the menu app happened to start.
+        process.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
         process.standardOutput = standardOutput
         process.standardError = standardError
 
@@ -171,7 +174,8 @@ struct CLIClient: Sendable {
         }.value
     }
 
-    func launch(_ workspace: WorkspaceBinding, in destination: OpenDestination) async throws {
+    func launch(_ target: LaunchTarget, in destination: OpenDestination) async throws {
+        guard Self.isValidProfileName(target.profile) else { throw CLIClientError.invalidProfileName }
         let executableURL = try requiredExecutableURL()
         try await Task.detached(priority: .userInitiated) {
             let result: CommandResult
@@ -180,7 +184,7 @@ struct CLIClient: Sendable {
             case .chatGPT:
                 result = try await ProcessRunner().run(
                     executableURL: executableURL,
-                    arguments: ["app", workspace.profile, workspace.path]
+                    arguments: ["app", target.profile] + (target.workspace.map { [$0.path] } ?? [])
                 )
             case .terminal:
                 result = try await ProcessRunner().run(
@@ -189,8 +193,8 @@ struct CLIClient: Sendable {
                         "-e",
                         Self.terminalAppleScript,
                         executableURL.path,
-                        workspace.profile,
-                        workspace.path,
+                        target.profile,
+                        target.workspace?.path ?? FileManager.default.homeDirectoryForCurrentUser.path,
                     ]
                 )
             }

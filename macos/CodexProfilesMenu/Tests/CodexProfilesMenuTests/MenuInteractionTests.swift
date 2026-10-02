@@ -19,6 +19,23 @@ struct MenuInteractionTests {
         try Data("#!/bin/sh\nprintf '%s\\n' \"$@\" > '\(marker.path)'\n".utf8).write(to: executable)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
         let store = WorkspaceStore(client: CLIClient(executableURL: executable), defaults: defaults)
+        store.loadPreview([], profiles: ["work"])
+        let firstRunController = WorkspaceMenuViewController(store: store, defaults: defaults)
+        expect(descendants(firstRunController.view).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "work" },
+            "an initialized profile must be usable without any workspace binding")
+        var profileClosed = false
+        firstRunController.onRequestClose = { profileClosed = true }
+        let profileRow = descendants(firstRunController.view).compactMap { $0 as? LaunchRowButton }.first!
+        openButton(in: profileRow).performClick(nil)
+        for _ in 0..<100 where !profileClosed { try await Task.sleep(nanoseconds: 10_000_000) }
+        let profileArguments = try String(contentsOf: marker, encoding: .utf8)
+        expect(profileClosed && profileArguments == "app\nwork\n",
+            "a profile must open without supplying a workspace path")
+        expect(store.workspaces.isEmpty, "opening a profile must not create a workspace binding")
+        store.loadPreview([], profiles: [])
+        expect(descendants(firstRunController.view).compactMap { $0 as? NSButton }.contains { $0.title == "Create profile…" },
+            "first-run setup must ask for a profile rather than a project folder")
+
         let missing = workspace("/projects/missing", exists: false)
         let first = workspace("/projects/first")
         let last = workspace("/projects/last")
@@ -46,58 +63,73 @@ struct MenuInteractionTests {
         let search = searchFields[0]
         expect(allViews.contains { $0 is NSPopUpButton }, "profile filter must remain available")
         expect(allViews.contains { $0 is NSSegmentedControl }, "launch destination must remain available")
-        let initialRows = descendants(controller.view).compactMap { $0 as? WorkspaceRowButton }
+        let initialRows = descendants(controller.view).compactMap { $0 as? LaunchRowButton }
         let list = descendants(controller.view).compactMap { $0 as? NSScrollView }.first!
         let listWidth = list.contentView.bounds.width
-        expect(initialRows.count == 3, "all bindings must be rendered")
+        expect(initialRows.count == 4, "initialized profiles and all bindings must be rendered")
         expect(list.documentView!.bounds.height <= list.contentView.bounds.height + 1,
             "a short list must fit without clipping the last row or needing to scroll")
         expect(initialRows.allSatisfy { abs($0.frame.width - listWidth) < 1 }, "workspace rows must fill the list width")
         let separators = descendants(list).compactMap { $0 as? NSBox }.filter { $0.boxType == .separator }
         expect(separators.count >= initialRows.count - 1, "workspace rows must have native separators")
         expect(separators.allSatisfy { abs($0.frame.width - listWidth) < 1 }, "row separators must fill the list width")
-        for row in initialRows {
+        for row in initialRows where row.item.workspace != nil {
+            let workspace = row.item.workspace!
             let labels = descendants(row).compactMap { $0 as? NSTextField }
-            let name = labels.first { $0.stringValue == row.workspace.name }!
-            let path = labels.first { $0.stringValue == "\(row.workspace.profile) · \(row.workspace.displayPath())" }!
+            let name = labels.first { $0.stringValue == workspace.name }!
+            let path = labels.first { $0.stringValue == "\(workspace.profile) · \(workspace.displayPath())" }!
             expect(abs(row.convert(name.bounds.origin, from: name).x - row.convert(path.bounds.origin, from: path).x) < 1,
                 "workspace profile and path must align with project title")
             let icon = descendants(row).compactMap { $0 as? NSImageView }.first!
             expect(isMonochrome(icon.contentTintColor), "folder and pin symbols must use native monochrome tint")
             let open = openButton(in: row)
             expect(open.controlSize == .small, "explicit Open action must use a compact native button")
-            expect(open.isEnabled == row.workspace.isAvailable, "Open availability must match workspace availability")
-            expect(abs(row.frame.height - (row.workspace.isAvailable ? 56 : 72)) < 1,
+            expect(open.isEnabled == workspace.isAvailable, "Open availability must match workspace availability")
+            expect(abs(row.frame.height - (workspace.isAvailable ? 56 : 72)) < 1,
                 "rows must remain compact while leaving space for missing-folder guidance")
         }
         expect(initialRows.allSatisfy { !$0.isSelectedRow }, "opening must not paint an unsolicited grey selection")
-        expect(initialRows.first(where: { $0.workspace == missing })?.isEnabled == false, "missing workspace must not launch")
-        expect(descendants(initialRows.first(where: { $0.workspace == missing })!).contains { ($0 as? NSButton)?.toolTip?.contains("remove binding") == true }, "missing rows must retain an actions button")
+        expect(initialRows.first(where: { $0.item.workspace == missing })?.isEnabled == false, "missing workspace must not launch")
+        expect(descendants(initialRows.first(where: { $0.item.workspace == missing })!).contains { ($0 as? NSButton)?.toolTip?.contains("remove binding") == true }, "missing rows must retain an actions button")
         expect(controller.handleShortcut(key(125)), "down arrow must be handled")
-        expect(initialRows.first(where: { $0.workspace == first })?.isSelectedRow == true, "first down arrow must select the first available workspace")
+        expect(initialRows.first?.item == .profile("work") && initialRows.first?.isSelectedRow == true,
+            "first down arrow must select the profile before optional workspaces")
+        expect(controller.handleShortcut(key(125)), "next down arrow must be handled")
+        expect(initialRows.first(where: { $0.item.workspace == first })?.isSelectedRow == true,
+            "next down arrow must select the first available workspace")
         expect(controller.handleShortcut(key(125)), "second down arrow must be handled")
-        expect(initialRows.first(where: { $0.workspace == last })?.isSelectedRow == true, "arrow must skip unavailable workspace")
+        expect(initialRows.first(where: { $0.item.workspace == last })?.isSelectedRow == true, "arrow must skip unavailable workspace")
         expect(controller.handleShortcut(key(126)), "up arrow must be handled")
-        expect(initialRows.first(where: { $0.workspace == first })?.isSelectedRow == true, "up arrow must restore prior selection")
-        let actions = descendants(initialRows[0]).compactMap { $0 as? NSButton }.first { $0.toolTip?.contains("remove binding") == true }!
+        expect(initialRows.first(where: { $0.item.workspace == first })?.isSelectedRow == true, "up arrow must restore prior selection")
+        let actions = descendants(initialRows.first { $0.item.workspace == first }!).compactMap { $0 as? NSButton }.first { $0.toolTip?.contains("remove binding") == true }!
         window.makeFirstResponder(actions)
         expect(!controller.handleShortcut(key(36)), "Return on an actions button must retain its native action")
         expect(!controller.handleShortcut(key(125)), "arrows on a native control must retain native behaviour")
         controller.focusSearch()
         expect(initialRows.allSatisfy { !$0.isSelectedRow }, "focusing search on reopening must clear old selection")
         expect(controller.handleShortcut(key(126)), "up arrow must be handled from an unselected list")
-        expect(initialRows.first(where: { $0.workspace == last })?.isSelectedRow == true,
+        expect(initialRows.first(where: { $0.item.workspace == last })?.isSelectedRow == true,
             "first up arrow must select the last available workspace")
         controller.focusSearch()
         search.stringValue = "last"
         expect(search.sendAction(search.action, to: search.target), "native search action must have a receiver")
-        expect(descendants(controller.view).compactMap { $0 as? WorkspaceRowButton }.count == 1, "search must replace list with matching workspace")
-        expect(descendants(controller.view).compactMap { $0 as? WorkspaceRowButton }.allSatisfy { !$0.isSelectedRow },
+        expect(descendants(controller.view).compactMap { $0 as? LaunchRowButton }.count == 1, "search must replace list with matching workspace")
+        expect(descendants(controller.view).compactMap { $0 as? LaunchRowButton }.allSatisfy { !$0.isSelectedRow },
             "typing a new search must clear prior keyboard selection")
         search.stringValue = ""
         _ = search.sendAction(search.action, to: search.target)
-        expect(store.query.isEmpty && descendants(controller.view).compactMap { $0 as? WorkspaceRowButton }.count == 3,
+        expect(store.query.isEmpty && descendants(controller.view).compactMap { $0 as? LaunchRowButton }.count == 4,
             "native search cancel action must restore all workspaces")
+        search.stringValue = "does-not-exist"
+        _ = search.sendAction(search.action, to: search.target)
+        window.setContentSize(controller.preferredContentSize)
+        controller.view.layoutSubtreeIfNeeded()
+        let reset = descendants(controller.view).compactMap { $0 as? NSButton }.first { $0.title == "Reset filters" }!
+        expect(controller.view.convert(reset.bounds, from: reset).minY >= 50,
+            "the no-match reset button must fit above the footer with padding")
+        reset.performClick(nil)
+        expect(store.query.isEmpty && descendants(controller.view).compactMap { $0 as? LaunchRowButton }.count == 4,
+            "reset filters must restore the profile and workspace rows")
         search.stringValue = "last"
         _ = search.sendAction(search.action, to: search.target)
         var closed = false
@@ -109,6 +141,7 @@ struct MenuInteractionTests {
         closed = false
         _ = controller.handleShortcut(key(125))
         _ = controller.handleShortcut(key(125))
+        _ = controller.handleShortcut(key(125))
         _ = controller.handleShortcut(key(36))
         for _ in 0..<100 where !closed { try await Task.sleep(nanoseconds: 10_000_000) }
         expect(closed, "successful Return launch must dismiss popover")
@@ -118,7 +151,7 @@ struct MenuInteractionTests {
         closed = false
         search.stringValue = "first"
         _ = search.sendAction(search.action, to: search.target)
-        let firstRow = descendants(controller.view).compactMap { $0 as? WorkspaceRowButton }.first!
+        let firstRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first!
         openButton(in: firstRow).performClick(nil)
         for _ in 0..<100 where !closed { try await Task.sleep(nanoseconds: 10_000_000) }
         expect(closed, "successful explicit Open action must dismiss popover")
@@ -134,6 +167,45 @@ struct MenuInteractionTests {
         expect(closed && returnArgs.contains(last.path),
             "Return without arrow navigation must open the first available search result")
         store.query = ""
+        controller.focusSearch()
+        closed = false
+        _ = controller.handleShortcut(key(18, characters: "1", modifiers: .command))
+        for _ in 0..<100 where !closed { try await Task.sleep(nanoseconds: 10_000_000) }
+        let shortcutArguments = try String(contentsOf: marker, encoding: .utf8)
+        expect(closed && shortcutArguments == "app\nwork\n", "Command-1 must open the first visible profile without a folder")
+        let selectedRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first!
+        expect(controller.view.appearance == nil && selectedRow.appearance == nil,
+            "menu views must inherit the system appearance")
+        selectedRow.isSelectedRow = true
+        expect(selectedRow.isAccessibilitySelected(), "keyboard selection must be exposed to accessibility clients")
+        selectedRow.displayIfNeeded()
+        let expectedBorder = selectedRow.layer!.borderColor!
+        selectedRow.layer!.borderColor = NSColor.clear.cgColor
+        NotificationCenter.default.post(name: NSColor.systemColorsDidChangeNotification, object: nil)
+        expect(selectedRow.layer!.borderColor == expectedBorder,
+            "changing the system accent colours must update custom row decoration")
+        selectedRow.layer!.borderColor = NSColor.clear.cgColor
+        NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: NSWorkspace.shared)
+        expect(selectedRow.layer!.borderColor == expectedBorder,
+            "changing accessibility display options must update custom row decoration")
+        var borders: [CGFloat] = []
+        for appearance in [NSAppearance.Name.aqua, .darkAqua, .aqua] {
+            window.appearance = NSAppearance(named: appearance)
+            expect(selectedRow.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == appearance,
+                "an open menu must inherit light and dark appearance changes")
+            selectedRow.displayIfNeeded()
+            selectedRow.updateLayer()
+            let border = NSColor(cgColor: selectedRow.layer!.borderColor!)!.usingColorSpace(.sRGB)!
+            borders.append(border.redComponent)
+            expect(selectedRow.layer!.borderWidth > 0, "keyboard selection must include a shape cue rather than relying on colour")
+            for preferences in [(true, false), (false, true), (true, true)] {
+                selectedRow.updateSystemColours(reduceTransparency: preferences.0, increaseContrast: preferences.1)
+                expect(selectedRow.layer!.backgroundColor!.alpha > 0.99,
+                    "reduced transparency and increased contrast must use opaque system selection colours")
+            }
+        }
+        expect(borders[0] < 0.5 && borders[1] > 0.5 && borders[2] < 0.5,
+            "custom row decoration must resolve semantic colours again when appearance changes")
         store.loadPreview((0..<12).map { workspace("/projects/project-\($0)") })
         window.setContentSize(controller.preferredContentSize)
         controller.view.layoutSubtreeIfNeeded()
@@ -147,13 +219,13 @@ struct MenuInteractionTests {
     private static func workspace(_ path: String, exists: Bool = true) -> WorkspaceBinding {
         WorkspaceBinding(path: path, profile: "work", pathExists: exists, profileExists: true)
     }
-    private static func key(_ code: UInt16) -> NSEvent {
-        NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: code)!
+    private static func key(_ code: UInt16, characters: String = "", modifiers: NSEvent.ModifierFlags = []) -> NSEvent {
+        NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0, windowNumber: 0, context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code)!
     }
     private static func descendants(_ view: NSView) -> [NSView] {
         view.subviews.flatMap { [$0] + descendants($0) }
     }
-    private static func openButton(in row: WorkspaceRowButton) -> NSButton {
+    private static func openButton(in row: LaunchRowButton) -> NSButton {
         descendants(row).compactMap { $0 as? NSButton }.first { ["Open", "Opening…"].contains($0.title) }!
     }
     private static func isMonochrome(_ color: NSColor?) -> Bool {

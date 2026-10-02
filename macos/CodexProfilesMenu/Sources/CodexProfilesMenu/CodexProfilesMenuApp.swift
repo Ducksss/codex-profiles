@@ -30,7 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuController = controller
 
         popover.behavior = .transient
-        popover.animates = true
+        updateAccessibilityPreferences()
+        NSWorkspace.shared.notificationCenter.addObserver(self,
+            selector: #selector(updateAccessibilityPreferences),
+            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
         popover.contentSize = controller.preferredContentSize
         popover.contentViewController = controller
 
@@ -58,9 +61,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         if let eventMonitor {
             NSEvent.removeMonitor(eventMonitor)
         }
+    }
+
+    @objc private func updateAccessibilityPreferences() {
+        popover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 
     @objc private func togglePopover() {

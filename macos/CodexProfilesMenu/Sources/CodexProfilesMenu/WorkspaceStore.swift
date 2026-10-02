@@ -25,8 +25,8 @@ final class WorkspaceStore {
     private(set) var profiles: [String] = []
     private(set) var guardMode = "off"
     private(set) var isRefreshing = false
-    private(set) var launchingID: WorkspaceBinding.ID?
-    private(set) var statusMessage = "Choose a workspace to open"
+    private(set) var launchingID: LaunchTarget.ID?
+    private(set) var statusMessage = "Choose a profile or workspace"
 
     private let client: CLIClient
     private let defaults: UserDefaults
@@ -45,6 +45,12 @@ final class WorkspaceStore {
         sortByRecency(workspaces.filter {
             $0.matches(query) && (selectedProfile == nil || $0.profile == selectedProfile)
         })
+    }
+
+    var filteredTargets: [LaunchTarget] {
+        profiles.map(LaunchTarget.profile).filter {
+            $0.matches(query) && (selectedProfile == nil || $0.profile == selectedProfile)
+        } + filteredWorkspaces.map(LaunchTarget.workspace)
     }
 
     func isPinned(_ workspace: WorkspaceBinding) -> Bool {
@@ -77,7 +83,7 @@ final class WorkspaceStore {
         let task = Task { @MainActor in
             isRefreshing = true
             if !hasLoaded { phase = .loading }
-            statusMessage = "Refreshing workspaces…"
+            statusMessage = "Refreshing profiles…"
             notify()
 
             var succeeded = false
@@ -108,9 +114,9 @@ final class WorkspaceStore {
             }
             hasLoaded = true
             phase = .ready
-            statusMessage = workspaces.isEmpty
-                ? "Add a workspace to get started"
-                : "Choose a workspace to open"
+            statusMessage = profiles.isEmpty && workspaces.isEmpty
+                ? "Create a profile to get started"
+                : "Choose a profile or workspace"
             return true
         } catch {
             if !hasLoaded { phase = .failed(error.localizedDescription) }
@@ -171,6 +177,7 @@ final class WorkspaceStore {
 
         do {
             try await client.unbindWorkspace(path: workspace.path)
+            workspaces.removeAll { $0.path == workspace.path }
             forget(workspace)
             await refreshAfterMutation("Removed \(workspace.name) from the launcher")
         } catch {
@@ -192,6 +199,9 @@ final class WorkspaceStore {
                 pathExists: workspace.pathExists,
                 profileExists: true
             )
+            if let index = workspaces.firstIndex(where: { $0.path == workspace.path }) {
+                workspaces[index] = replacement
+            }
             movePreferences(from: workspace, to: replacement)
             await refreshAfterMutation("Assigned \(workspace.name) to \(profile)")
         } catch {
@@ -220,6 +230,7 @@ final class WorkspaceStore {
 
         do {
             try await client.unbindWorkspace(path: workspace.path)
+            workspaces.removeAll { $0.path == workspace.path }
             movePreferences(from: workspace, to: replacement)
             await refreshAfterMutation("Moved \(workspace.name) to \(replacement.name)")
         } catch {
@@ -247,21 +258,25 @@ final class WorkspaceStore {
     }
 
     @discardableResult
-    func launch(_ workspace: WorkspaceBinding, in destination: OpenDestination) async -> Bool {
+    func launch(_ target: LaunchTarget, in destination: OpenDestination) async -> Bool {
         guard launchingID == nil else { return false }
-        guard workspace.isAvailable else {
-            showMessage(workspace.availabilityReason ?? "Workspace is unavailable")
+        guard target.isAvailable else {
+            showMessage(target.workspace?.availabilityReason ?? "Profile is unavailable")
             return false
         }
-        launchingID = workspace.id
-        statusMessage = "Opening \(workspace.name) in \(destination.label)…"
+        if let workspace = target.workspace, !workspaces.contains(where: { $0.id == workspace.id }) {
+            showMessage("Workspace binding changed. Refresh and choose it again.")
+            return false
+        }
+        launchingID = target.id
+        statusMessage = "Opening \(target.name) in \(destination.label)…"
         notify()
 
         var succeeded = false
         do {
-            try await client.launch(workspace, in: destination)
-            remember(workspace)
-            statusMessage = "Opened \(workspace.name) in \(destination.label)"
+            try await client.launch(target, in: destination)
+            if let workspace = target.workspace { remember(workspace) }
+            statusMessage = "Opened \(target.name) in \(destination.label)"
             succeeded = true
         } catch {
             statusMessage = error.localizedDescription
@@ -274,13 +289,13 @@ final class WorkspaceStore {
     }
 
     #if TESTING
-    func loadPreview(_ bindings: [WorkspaceBinding]) {
+    func loadPreview(_ bindings: [WorkspaceBinding], profiles previewProfiles: [String]? = nil) {
         workspaces = bindings
-        profiles = Array(Set(["default", "personal", "work"] + bindings.map(\.profile))).sorted()
+        profiles = Array(Set(previewProfiles ?? bindings.filter(\.profileExists).map(\.profile))).sorted()
         guardMode = "warn"
         hasLoaded = true
         phase = .ready
-        statusMessage = bindings.isEmpty ? "Add a workspace to get started" : "Choose a workspace to open"
+        statusMessage = profiles.isEmpty && bindings.isEmpty ? "Create a profile to get started" : "Choose a profile or workspace"
         notify()
     }
     #endif

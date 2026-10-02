@@ -175,10 +175,14 @@ make menu-app
 open "build/macos/Codex Profiles.app"
 ```
 
-Search bound workspaces, filter by profile, and open a project in ChatGPT or
-Terminal. **Add workspace…** lets you create a profile and choose its folder.
-Pin frequent projects, repair moved folders, or change a binding from the
+Open an existing profile in ChatGPT or Terminal, or choose **Create profile…**
+on first run. No project folder is required. **Add workspace…** optionally
+binds a folder to a profile for project shortcuts. Search and filter profiles,
+pin frequent projects, repair moved folders, or change a binding from the
 row's actions menu. Use ↑/↓ and Return, or ⌘1–9, to launch from the keyboard.
+
+The menu follows the system's light/dark appearance, accent colours, contrast,
+transparency and Reduce Motion preferences, including changes while running.
 
 The app bundles the CLI and supports Apple silicon and Intel. Building needs
 Swift on macOS; installing the built app needs neither Swift nor a separate
