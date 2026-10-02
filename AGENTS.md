@@ -19,6 +19,8 @@ It is community-maintained and is **not** an official OpenAI project.
 ## Repository layout
 
 - `bin/codex-profile` — the entire CLI (Bash). Edit this for behavior changes.
+- `macos/` — optional native menu-bar companion; delegates profile operations
+  to the bundled CLI. Build and DMG programs live in `scripts/macos/`.
 - `agent.md` — user-facing install and profile-setup instructions for AI agents.
 - `.agents/skills/` — repo-local Codex outreach workflow skills.
 - `ops/outreach/` — project-internal distribution prompt, launch playbook, and

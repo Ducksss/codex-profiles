@@ -1,0 +1,333 @@
+import Foundation
+
+@MainActor
+final class WorkspaceStore {
+    enum Phase: Equatable {
+        case idle
+        case loading
+        case ready
+        case failed(String)
+    }
+
+    var onChange: (() -> Void)?
+    var onError: ((String) -> Void)?
+
+    var query = "" {
+        didSet { notify() }
+    }
+
+    var selectedProfile: String? {
+        didSet { notify() }
+    }
+
+    private(set) var phase: Phase = .idle
+    private(set) var workspaces: [WorkspaceBinding] = []
+    private(set) var profiles: [String] = []
+    private(set) var guardMode = "off"
+    private(set) var isRefreshing = false
+    private(set) var launchingID: WorkspaceBinding.ID?
+    private(set) var statusMessage = "Choose a workspace to open"
+
+    private let client: CLIClient
+    private let defaults: UserDefaults
+    private let recentsKey = "workspaceRecents"
+    private let pinsKey = "workspacePins"
+    private var refreshTask: Task<Bool, Never>?
+    private var refreshRequested = false
+    private var hasLoaded = false
+
+    init(client: CLIClient, defaults: UserDefaults = .standard) {
+        self.client = client
+        self.defaults = defaults
+    }
+
+    var filteredWorkspaces: [WorkspaceBinding] {
+        sortByRecency(workspaces.filter {
+            $0.matches(query) && (selectedProfile == nil || $0.profile == selectedProfile)
+        })
+    }
+
+    func isPinned(_ workspace: WorkspaceBinding) -> Bool {
+        (defaults.stringArray(forKey: pinsKey) ?? []).contains(workspace.id)
+    }
+
+    func togglePin(_ workspace: WorkspaceBinding) {
+        var pins = defaults.stringArray(forKey: pinsKey) ?? []
+        if let index = pins.firstIndex(of: workspace.id) {
+            pins.remove(at: index)
+        } else {
+            pins.append(workspace.id)
+        }
+        defaults.set(pins, forKey: pinsKey)
+        notify()
+    }
+
+    func refreshIfNeeded() async {
+        guard phase == .idle else { return }
+        await refresh()
+    }
+
+    @discardableResult
+    func refresh() async -> Bool {
+        if let refreshTask {
+            refreshRequested = true
+            return await refreshTask.value
+        }
+
+        let task = Task { @MainActor in
+            isRefreshing = true
+            if !hasLoaded { phase = .loading }
+            statusMessage = "Refreshing workspaces…"
+            notify()
+
+            var succeeded = false
+            repeat {
+                refreshRequested = false
+                succeeded = await loadSnapshot()
+            } while refreshRequested
+
+            isRefreshing = false
+            refreshTask = nil
+            notify()
+            return succeeded
+        }
+        refreshTask = task
+        return await task.value
+    }
+
+    private func loadSnapshot() async -> Bool {
+        do {
+            async let workspaceResponse = client.loadWorkspaces()
+            async let profileResponse = client.loadProfiles()
+            let (response, loadedProfiles) = try await (workspaceResponse, profileResponse)
+            workspaces = response.bindings
+            profiles = loadedProfiles
+            guardMode = response.guardMode
+            if let selectedProfile, !profiles.contains(selectedProfile) {
+                self.selectedProfile = nil
+            }
+            hasLoaded = true
+            phase = .ready
+            statusMessage = workspaces.isEmpty
+                ? "Add a workspace to get started"
+                : "Choose a workspace to open"
+            return true
+        } catch {
+            if !hasLoaded { phase = .failed(error.localizedDescription) }
+            statusMessage = "Could not refresh: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    @discardableResult
+    func bindWorkspace(path: String, profile: String) async -> Bool {
+        statusMessage = "Adding \(URL(fileURLWithPath: path).lastPathComponent)…"
+        notify()
+        defer { notify() }
+
+        do {
+            try await client.bindWorkspace(path: path, profile: profile)
+            return await refreshAfterMutation("Workspace added to \(profile)")
+        } catch {
+            statusMessage = error.localizedDescription
+            onError?(statusMessage)
+            return false
+        }
+    }
+
+    @discardableResult
+    func createProfile(_ profile: String) async -> Bool {
+        statusMessage = "Creating \(profile)…"
+        notify()
+        defer { notify() }
+
+        do {
+            try await client.createProfile(profile)
+            return await refreshAfterMutation("Profile \(profile) created")
+        } catch {
+            statusMessage = error.localizedDescription
+            onError?(statusMessage)
+            return false
+        }
+    }
+
+    func signInToCLI(_ profile: String) async {
+        statusMessage = "Opening sign-in for \(profile)…"
+        notify()
+
+        do {
+            try await client.signInToCLI(profile)
+            statusMessage = "Finish signing in to \(profile) in Terminal"
+        } catch {
+            statusMessage = error.localizedDescription
+            onError?(statusMessage)
+        }
+        notify()
+    }
+
+    func unbindWorkspace(_ workspace: WorkspaceBinding) async {
+        statusMessage = "Removing \(workspace.name)…"
+        notify()
+
+        do {
+            try await client.unbindWorkspace(path: workspace.path)
+            forget(workspace)
+            await refreshAfterMutation("Removed \(workspace.name) from the launcher")
+        } catch {
+            statusMessage = error.localizedDescription
+            onError?(statusMessage)
+        }
+        notify()
+    }
+
+    func rebindWorkspace(_ workspace: WorkspaceBinding, to profile: String) async {
+        statusMessage = "Assigning \(workspace.name) to \(profile)…"
+        notify()
+
+        do {
+            try await client.bindWorkspace(path: workspace.path, profile: profile, force: true)
+            let replacement = WorkspaceBinding(
+                path: workspace.path,
+                profile: profile,
+                pathExists: workspace.pathExists,
+                profileExists: true
+            )
+            movePreferences(from: workspace, to: replacement)
+            await refreshAfterMutation("Assigned \(workspace.name) to \(profile)")
+        } catch {
+            statusMessage = error.localizedDescription
+            onError?(statusMessage)
+        }
+        notify()
+    }
+
+    func relocateWorkspace(_ workspace: WorkspaceBinding, to path: String) async {
+        let canonicalPath = path.withCString { pointer in
+            guard let resolved = realpath(pointer, nil) else { return path }
+            defer { free(resolved) }
+            return String(cString: resolved)
+        }
+        guard canonicalPath != workspace.path else {
+            await refresh()
+            return
+        }
+        guard await bindWorkspace(path: canonicalPath, profile: workspace.profile) else { return }
+        guard let replacement = workspaces.first(where: { $0.path == canonicalPath && $0.profile == workspace.profile }) else {
+            showMessage("Could not verify the new folder binding; the previous binding was kept")
+            onError?(statusMessage)
+            return
+        }
+
+        do {
+            try await client.unbindWorkspace(path: workspace.path)
+            movePreferences(from: workspace, to: replacement)
+            await refreshAfterMutation("Moved \(workspace.name) to \(replacement.name)")
+        } catch {
+            statusMessage = "Could not remove the previous binding: \(error.localizedDescription)"
+            onError?(statusMessage)
+        }
+        notify()
+    }
+
+    @discardableResult
+    private func refreshAfterMutation(_ successMessage: String) async -> Bool {
+        if await refresh() {
+            statusMessage = successMessage
+            return true
+        } else {
+            statusMessage = "\(successMessage). \(statusMessage)"
+            onError?(statusMessage)
+            return false
+        }
+    }
+
+    func showMessage(_ message: String) {
+        statusMessage = message
+        notify()
+    }
+
+    @discardableResult
+    func launch(_ workspace: WorkspaceBinding, in destination: OpenDestination) async -> Bool {
+        guard launchingID == nil else { return false }
+        guard workspace.isAvailable else {
+            showMessage(workspace.availabilityReason ?? "Workspace is unavailable")
+            return false
+        }
+        launchingID = workspace.id
+        statusMessage = "Opening \(workspace.name) in \(destination.label)…"
+        notify()
+
+        var succeeded = false
+        do {
+            try await client.launch(workspace, in: destination)
+            remember(workspace)
+            statusMessage = "Opened \(workspace.name) in \(destination.label)"
+            succeeded = true
+        } catch {
+            statusMessage = error.localizedDescription
+            onError?(statusMessage)
+        }
+
+        launchingID = nil
+        notify()
+        return succeeded
+    }
+
+    #if TESTING
+    func loadPreview(_ bindings: [WorkspaceBinding]) {
+        workspaces = bindings
+        profiles = Array(Set(["default", "personal", "work"] + bindings.map(\.profile))).sorted()
+        guardMode = "warn"
+        hasLoaded = true
+        phase = .ready
+        statusMessage = bindings.isEmpty ? "Add a workspace to get started" : "Choose a workspace to open"
+        notify()
+    }
+    #endif
+
+    private func notify() {
+        onChange?()
+    }
+
+    private func remember(_ workspace: WorkspaceBinding) {
+        var recents = defaults.dictionary(forKey: recentsKey) as? [String: TimeInterval] ?? [:]
+        recents[workspace.id] = Date().timeIntervalSince1970
+        defaults.set(recents, forKey: recentsKey)
+    }
+
+    private func forget(_ workspace: WorkspaceBinding) {
+        defaults.set((defaults.stringArray(forKey: pinsKey) ?? []).filter { $0 != workspace.id }, forKey: pinsKey)
+        var recents = defaults.dictionary(forKey: recentsKey) as? [String: TimeInterval] ?? [:]
+        recents.removeValue(forKey: workspace.id)
+        defaults.set(recents, forKey: recentsKey)
+    }
+
+    private func movePreferences(from workspace: WorkspaceBinding, to replacement: WorkspaceBinding) {
+        guard workspace.id != replacement.id else { return }
+        var pins = defaults.stringArray(forKey: pinsKey) ?? []
+        if pins.contains(workspace.id) {
+            pins.removeAll { $0 == workspace.id }
+            if !pins.contains(replacement.id) { pins.append(replacement.id) }
+            defaults.set(pins, forKey: pinsKey)
+        }
+        var recents = defaults.dictionary(forKey: recentsKey) as? [String: TimeInterval] ?? [:]
+        if let date = recents.removeValue(forKey: workspace.id) {
+            recents[replacement.id] = max(date, recents[replacement.id] ?? 0)
+            defaults.set(recents, forKey: recentsKey)
+        }
+    }
+
+    private func sortByRecency(_ bindings: [WorkspaceBinding]) -> [WorkspaceBinding] {
+        let pins = Set(defaults.stringArray(forKey: pinsKey) ?? [])
+        let recents = defaults.dictionary(forKey: recentsKey) as? [String: TimeInterval] ?? [:]
+        return bindings.enumerated().sorted { lhs, rhs in
+            let lhsPinned = pins.contains(lhs.element.id)
+            let rhsPinned = pins.contains(rhs.element.id)
+            if lhsPinned != rhsPinned { return lhsPinned }
+            let lhsDate = recents[lhs.element.id] ?? 0
+            let rhsDate = recents[rhs.element.id] ?? 0
+            if lhsDate == rhsDate { return lhs.offset < rhs.offset }
+            return lhsDate > rhsDate
+        }.map(\.element)
+    }
+}

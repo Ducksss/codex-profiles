@@ -166,6 +166,32 @@ codex-profile run --app
 The original signed app stays untouched. For a named, colored shortcut in
 Finder or the Dock, see [macOS launchers](USAGE.md#add-named-color-coded-macos-launchers).
 
+### Use the native menu-bar companion
+
+Source checkouts can build **Codex Profiles.app** for macOS 13 or newer:
+
+```sh
+make menu-app
+open "build/macos/Codex Profiles.app"
+```
+
+Search bound workspaces, filter by profile, and open a project in ChatGPT or
+Terminal. **Add workspace…** lets you create a profile and choose its folder.
+Pin frequent projects, repair moved folders, or change a binding from the
+row's actions menu. Use ↑/↓ and Return, or ⌘1–9, to launch from the keyboard.
+
+The app bundles the CLI and supports Apple silicon and Intel. Building needs
+Swift on macOS; installing the built app needs neither Swift nor a separate
+`codex-profile` installation. ChatGPT launches require the official app;
+Terminal launches and optional CLI sign-in require the official Codex CLI.
+Desktop and CLI sign-in remain separate.
+
+`make menu-dmg` creates a disk image with an Applications shortcut and a
+SHA-256 checksum. Local builds are unsigned development artifacts. This
+companion is not yet a published release download. See the
+[macOS guide and previews](macos/README.md) for installation, keyboard
+controls, and Developer ID signing and notarisation.
+
 ## How separation works
 
 | Selection | Local state used |

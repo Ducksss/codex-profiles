@@ -7,6 +7,24 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- Native macOS menu-bar companion with a compact AppKit popover, system
+  search and controls, profile filtering, persistent pins, keyboard launches,
+  and explicit Open actions for named ChatGPT windows or Codex in Terminal.
+  Rows stay unselected until keyboard navigation and use denser spacing with
+  a clearer project, profile and folder hierarchy.
+- Profile creation, folder binding, optional CLI sign-in, and workspace
+  actions to reveal, copy, reassign, relocate or remove a binding. Refreshes
+  preserve loaded content; missing folders and profiles show a repairable
+  state. Profile operations delegate to the existing CLI.
+- Universal Apple silicon/Intel app and DMG builders with an Applications
+  shortcut, SHA-256 checksum, and optional Developer ID signing and
+  notarisation. Local builds are unsigned development artifacts.
+- Native interaction, CLI integration, subprocess and packaging checks, plus
+  light and dark layout previews with verified system backdrops. NSPopover
+  supplies the live material without a duplicate visual-effect layer.
+
 ## 1.2.0 - 2026-09-15
 
 ### Added
