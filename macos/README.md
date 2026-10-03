@@ -20,7 +20,9 @@ does not verify that Desktop and CLI use the same account.
 ChatGPT launching requires the official desktop app. Terminal launching and
 CLI login require the official Codex CLI, either installed separately or
 available from the desktop app. Terminal actions may ask for macOS Automation
-permission. Local-state separation does not isolate OS credentials or create
+permission. CLI discovery supports both legacy and current Desktop bundle
+layouts, including Finder launches without a separate CLI on PATH.
+Local-state separation does not isolate OS credentials or create
 a server-side account boundary.
 
 ## Menu and keyboard

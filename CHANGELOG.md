@@ -36,6 +36,13 @@ and this project follows semantic versioning for tagged releases.
   light and dark layout previews with verified system backdrops. NSPopover
   supplies the live material without a duplicate visual-effect layer.
 
+### Fixed
+
+- Discover the Codex CLI in current ChatGPT Desktop bundle layouts as well
+  as the legacy resource path. Finder-launched menu apps can read quota and
+  start CLI actions without a separately installed CLI on PATH; diagnostics
+  identify these engines as coming from the desktop bundle.
+
 ## 1.2.0 - 2026-09-15
 
 ### Added

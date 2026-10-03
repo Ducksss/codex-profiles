@@ -193,6 +193,8 @@ without requiring a project folder. Workspace bindings are optional project
 shortcuts. Search and profile filtering cover both profiles and workspaces.
 The menu follows macOS appearance, accent, contrast, transparency and Reduce
 Motion preferences; profile operations use the bundled CLI.
+CLI discovery supports current and legacy Desktop bundle layouts, including
+Finder launches without a separately installed Codex CLI on PATH.
 Profile rows show remaining Codex CLI quota and reported window durations;
 hover for reset times. Usage is read through the official app-server method
 account/rateLimits/read, cached in memory for 60 seconds and refreshed with
