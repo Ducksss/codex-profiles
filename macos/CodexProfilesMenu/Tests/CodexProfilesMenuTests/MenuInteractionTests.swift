@@ -19,13 +19,25 @@ struct MenuInteractionTests {
         try Data("#!/bin/sh\nprintf '%s\\n' \"$@\" > '\(marker.path)'\n".utf8).write(to: executable)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
         let store = WorkspaceStore(client: CLIClient(executableURL: executable), defaults: defaults)
-        store.loadPreview([], profiles: ["work"])
+        let checkedAt = Date()
+        let quota = ProfileUsage.available(CodexRateLimits(windows: [
+            RateLimitWindow(usedPercent: 23, windowDurationMins: 300, resetsAt: checkedAt.addingTimeInterval(3600).timeIntervalSince1970),
+            RateLimitWindow(usedPercent: 91, windowDurationMins: 10080, resetsAt: checkedAt.addingTimeInterval(86400).timeIntervalSince1970),
+        ]), checkedAt: checkedAt)
+        store.loadPreview([], profiles: ["work"], usage: ["work": quota])
         let firstRunController = WorkspaceMenuViewController(store: store, defaults: defaults)
         expect(descendants(firstRunController.view).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "work" },
             "an initialized profile must be usable without any workspace binding")
         var profileClosed = false
         firstRunController.onRequestClose = { profileClosed = true }
         let profileRow = descendants(firstRunController.view).compactMap { $0 as? LaunchRowButton }.first!
+        let usageView = descendants(profileRow).compactMap { $0 as? ProfileUsageView }.first!
+        expect(descendants(usageView).compactMap { $0 as? NSTextField }.map(\.stringValue) == ["5h", "77%", "7d", "9%"],
+            "profile rows must show remaining percentages and actual window durations")
+        expect(profileRow.accessibilityLabel()!.contains("77% remaining") && profileRow.accessibilityLabel()!.contains("Resets"),
+            "quota and reset times must be available to accessibility clients")
+        expect(usageView.toolTip!.contains("ChatGPT may use a different account") && usageView.toolTip!.contains("Checked"),
+            "quota tooltips must explain sign-in scope and freshness")
         openButton(in: profileRow).performClick(nil)
         for _ in 0..<100 where !profileClosed { try await Task.sleep(nanoseconds: 10_000_000) }
         let profileArguments = try String(contentsOf: marker, encoding: .utf8)
@@ -39,7 +51,7 @@ struct MenuInteractionTests {
         let missing = workspace("/projects/missing", exists: false)
         let first = workspace("/projects/first")
         let last = workspace("/projects/last")
-        store.loadPreview([first, missing, last])
+        store.loadPreview([first, missing, last], usage: ["work": quota])
         store.togglePin(first)
         let controller = WorkspaceMenuViewController(store: store, defaults: defaults)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 480), styleMask: .borderless, backing: .buffered, defer: false)
@@ -73,7 +85,16 @@ struct MenuInteractionTests {
         let separators = descendants(list).compactMap { $0 as? NSBox }.filter { $0.boxType == .separator }
         expect(separators.count >= initialRows.count - 1, "workspace rows must have native separators")
         expect(separators.allSatisfy { abs($0.frame.width - listWidth) < 1 }, "row separators must fill the list width")
+        let profileUsage = descendants(initialRows[0]).compactMap { $0 as? ProfileUsageView }.first!
+        let profileName = descendants(initialRows[0]).compactMap { $0 as? NSTextField }.first { $0.stringValue == "work" }!
+        let profileOpen = openButton(in: initialRows[0])
+        let nameFrame = initialRows[0].convert(profileName.bounds, from: profileName)
+        let usageFrame = initialRows[0].convert(profileUsage.bounds, from: profileUsage)
+        let openFrame = initialRows[0].convert(profileOpen.bounds, from: profileOpen)
+        expect(usageFrame.width == ProfileUsageView.columnWidth && nameFrame.maxX <= usageFrame.minX && usageFrame.maxX < openFrame.minX,
+            "quota must fit beside the profile without obscuring its name or Open button")
         for row in initialRows where row.item.workspace != nil {
+            expect(!descendants(row).contains { $0 is ProfileUsageView }, "workspace rows must not duplicate account quota")
             let workspace = row.item.workspace!
             let labels = descendants(row).compactMap { $0 as? NSTextField }
             let name = labels.first { $0.stringValue == workspace.name }!
@@ -206,6 +227,21 @@ struct MenuInteractionTests {
         }
         expect(borders[0] < 0.5 && borders[1] > 0.5 && borders[2] < 0.5,
             "custom row decoration must resolve semantic colours again when appearance changes")
+        let expired = ProfileUsage.available(CodexRateLimits(windows: [RateLimitWindow(usedPercent: 80, windowDurationMins: nil, resetsAt: 1)]), checkedAt: checkedAt)
+        store.loadPreview([], profiles: ["very-long-profile-name-for-a-client", "work"], usage: [
+            "work": expired, "very-long-profile-name-for-a-client": .unavailable(checkedAt: checkedAt),
+        ])
+        window.setContentSize(controller.preferredContentSize)
+        controller.view.layoutSubtreeIfNeeded()
+        let quotaRows = descendants(controller.view).compactMap { $0 as? LaunchRowButton }
+        expect(descendants(quotaRows[0]).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "Unavailable" },
+            "missing quota must say Unavailable rather than zero")
+        expect(openButton(in: quotaRows[0]).isEnabled, "unavailable quota must not disable Open")
+        expect(descendants(quotaRows[1]).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "—" },
+            "a passed reset must not show stale percentages")
+        let longName = descendants(quotaRows[0]).compactMap { $0 as? NSTextField }.first { $0.stringValue == "very-long-profile-name-for-a-client" }!
+        expect(longName.lineBreakMode == .byTruncatingTail && longName.toolTip == longName.stringValue,
+            "long profile names must truncate while retaining the full name on hover")
         store.loadPreview((0..<12).map { workspace("/projects/project-\($0)") })
         window.setContentSize(controller.preferredContentSize)
         controller.view.layoutSubtreeIfNeeded()

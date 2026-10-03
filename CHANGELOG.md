@@ -24,6 +24,11 @@ and this project follows semantic versioning for tagged releases.
 - System appearance and accent updates, Reduce Motion support, opaque selection
   for increased contrast or reduced transparency, and keyboard selection cues
   exposed to accessibility clients without relying on colour alone.
+- Remaining Codex CLI quota beside each profile, with reported window
+  durations, reset-time tooltips and accessible descriptions. Usage reads
+  delegate to the official app-server without reading credentials or sending
+  inference requests. Cached background reads have bounded concurrency,
+  deadlines and process cleanup; missing usage leaves launches available.
 - Universal Apple silicon/Intel app and DMG builders with an Applications
   shortcut, SHA-256 checksum, and optional Developer ID signing and
   notarisation. Local builds are unsigned development artifacts.

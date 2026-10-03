@@ -19,6 +19,11 @@ uses a system accent fill, a semantic outline and an accessibility selected
 state. Height follows content up to 500 points; longer lists scroll. Optional
 Add Workspace sits in the footer. The empty state offers Create Profile;
 creating a profile makes it immediately available without a folder picker.
+An inline **Codex left** column aligns beside profile names and before Open.
+It uses native text with monospaced percentage digits, reported quota-window
+durations and semantic colours. Low quota has a numeric cue as well as colour.
+Tooltips and the row's accessibility label include reset times, freshness and
+the Codex CLI sign-in scope. Workspace rows do not repeat account quota.
 Only explicitly adding a workspace asks for a folder. App-level setup, sign-in,
 About and Quit live in the gear menu.
 
@@ -66,6 +71,19 @@ recents and destination preference in UserDefaults. Profile-only launches start
 in the home directory, avoiding accidental project-binding inheritance. Explicit
 workspace launches pass their folder to the CLI and preserve its guard rules.
 
+Usage reads delegate to the official CLI app-server's
+[`account/rateLimits/read`](https://learn.chatgpt.com/docs/app-server) method,
+using its initialize/initialized handshake. The companion decodes only quota
+windows and ignores account identity, plan and credit metadata. A mapped Codex
+bucket takes precedence over the legacy response. Missing data stays
+unavailable and passed resets never imply a restored quota. The UI retains
+launch actions during reads and failures. A 60-second memory cache and two
+concurrent readers bound the cost; an explicit refresh bypasses the cache.
+Each reader runs in a private unbound directory, drops inherited credential
+override variables and has a ten-second deadline with owned-process cleanup.
+Quit waits for cancelled readers to exit. No inference or account-login RPCs
+are sent and no quota snapshots are persisted.
+
 The app uses NSStatusItem, a transient NSPopover and accessory activation.
 The AppKit implementation builds directly with swiftc without runtime dependencies.
 
@@ -73,7 +91,8 @@ Render previews from the actual view in Aqua and Dark Aqua on an opaque
 system window background. Offscreen rendering cannot sample the desktop; a
 behind-window effect there produces a grey fallback instead of live glass.
 The renderer verifies that the exported backdrop matches the system colour,
-and both appearances run in the native test suite. These are layout previews;
+and both appearances run in the native test suite. Quota numbers are sample
+values. These are layout previews;
 they do not demonstrate live translucency, system permission prompts or
 upstream app behaviour. The AppKit interaction runner checks profile-first
 setup, selection, search, dismissal and launch arguments against an isolated
@@ -82,3 +101,7 @@ system-colour and accessibility notifications, and verifies opaque selection
 policies and accessibility state. These checks do not change global OS
 preferences. Actual preference toggles, VoiceOver announcements and live
 popover glass require a manual macOS check.
+Quota checks cover the official wire contract, multiple buckets, nullable
+windows, exhaustion, expired resets, caching, concurrency, malformed replies,
+timeouts and cancellation. An isolated real CLI integration verifies profile
+selection and strict workspace-guard handling with a fake app-server.

@@ -193,6 +193,11 @@ without requiring a project folder. Workspace bindings are optional project
 shortcuts. Search and profile filtering cover both profiles and workspaces.
 The menu follows macOS appearance, accent, contrast, transparency and Reduce
 Motion preferences; profile operations use the bundled CLI.
+Profile rows show remaining Codex CLI quota and reported window durations;
+hover for reset times. Usage is read through the official app-server method
+account/rateLimits/read, cached in memory for 60 seconds and refreshed with
+Command-R. Missing usage does not disable launches. These limits belong to
+the selected profile's Codex CLI sign-in, which may differ from Desktop.
 Desktop and Codex CLI sign-in remain separate. The app does not read tokens
 or cookies. This companion is not yet a published release download.
 

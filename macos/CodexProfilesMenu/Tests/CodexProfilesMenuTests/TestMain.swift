@@ -20,6 +20,7 @@ struct CodexProfilesMenuTests {
         try await testCreatesAndBindsWithRealCLI()
         try await testErrorsRemainActionable()
         try await testTerminalCommandsPreserveArguments()
+        try await UsageTests.run()
         print("CodexProfilesMenu unit tests passed.")
     }
 

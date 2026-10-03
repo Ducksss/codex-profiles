@@ -37,11 +37,16 @@ swiftc \
   -parse-as-library \
   "$APP_SOURCE_DIR/WorkspaceModels.swift" \
   "$APP_SOURCE_DIR/CLIClient.swift" \
+  "$APP_SOURCE_DIR/AccountUsage.swift" \
   "$APP_SOURCE_DIR/WorkspaceStore.swift" \
   "$TEST_SOURCE" \
+  "$APP_PROJECT_DIR/Tests/CodexProfilesMenuTests/UsageTests.swift" \
   -o "$TMP_DIR/CodexProfilesMenuTests"
 mkdir "$TMP_DIR/home"
 HOME="$TMP_DIR/home" \
+  CODEX_ACCESS_TOKEN=usage-test-sentinel \
+  CODEX_API_KEY=usage-test-sentinel \
+  OPENAI_API_KEY=usage-test-sentinel \
   LIBDISPATCH_COOPERATIVE_POOL_STRICT=1 \
   CODEX_PROFILE_CONFIG_HOME="$TMP_DIR/home/.config/codex-profile" \
   CODEX_PROFILE_NO_UPDATE_CHECK=1 \

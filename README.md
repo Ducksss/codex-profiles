@@ -181,6 +181,12 @@ binds a folder to a profile for project shortcuts. Search and filter profiles,
 pin frequent projects, repair moved folders, or change a binding from the
 row's actions menu. Use ↑/↓ and Return, or ⌘1–9, to launch from the keyboard.
 
+Profile rows show remaining Codex CLI quota beside the name, with window
+durations and reset times on hover. The official CLI reads each profile's
+limits; unavailable readings leave the profile usable. ⌘R refreshes usage.
+These limits belong to the profile's Codex CLI sign-in; Desktop may use a
+different account.
+
 The menu follows the system's light/dark appearance, accent colours, contrast,
 transparency and Reduce Motion preferences, including changes while running.
 

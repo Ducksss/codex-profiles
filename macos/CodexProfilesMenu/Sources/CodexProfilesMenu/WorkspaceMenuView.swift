@@ -159,7 +159,7 @@ final class WorkspaceMenuViewController: NSViewController {
         footerLabel.lineBreakMode = .byTruncatingTail
         footerLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         footerLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        configureSymbolButton(refreshButton, symbol: "arrow.clockwise", title: "Refresh profiles and workspaces (⌘R)", action: #selector(refresh))
+        configureSymbolButton(refreshButton, symbol: "arrow.clockwise", title: "Refresh profiles, workspaces and Codex usage (⌘R)", action: #selector(refresh))
         let footer = NSStackView(views: [add, NSView(), footerLabel, refreshButton])
         footer.orientation = .horizontal
         footer.alignment = .centerY
@@ -197,7 +197,7 @@ final class WorkspaceMenuViewController: NSViewController {
         addButton.isHidden = !populated || store.profiles.isEmpty
         footerLabel.stringValue = ["Choose a profile or workspace", "Create a profile to get started"].contains(store.statusMessage) ? "" : store.statusMessage
         footerLabel.toolTip = footerLabel.stringValue
-        refreshButton.isEnabled = !store.isRefreshing
+        refreshButton.isEnabled = !store.isRefreshing && !store.isRefreshingUsage
         let currentSelection = store.filteredTargets.first { $0.id == selectedID && $0.isAvailable }
         selectedID = currentSelection?.id
         profilePicker.removeAllItems()
@@ -257,14 +257,25 @@ final class WorkspaceMenuViewController: NSViewController {
                 let heading = label(groupTitle, size: 10, weight: .semibold)
                 heading.textColor = .secondaryLabelColor
                 let group = NSStackView(views: [heading, NSView()])
-                group.edgeInsets = NSEdgeInsets(top: 6, left: 14, bottom: 4, right: 14)
+                group.edgeInsets = NSEdgeInsets(top: 6, left: 14, bottom: 4, right: 10)
+                if item.workspace == nil {
+                    let usageHeading = label("Codex left", size: 10, weight: .semibold)
+                    usageHeading.textColor = .secondaryLabelColor
+                    usageHeading.alignment = .center
+                    usageHeading.toolTip = "Remaining Codex CLI quota. ChatGPT may use a different account."
+                    usageHeading.widthAnchor.constraint(equalToConstant: ProfileUsageView.columnWidth).isActive = true
+                    group.addArrangedSubview(usageHeading)
+                    let actionsSpace = NSView()
+                    actionsSpace.widthAnchor.constraint(equalToConstant: 86).isActive = true
+                    group.addArrangedSubview(actionsSpace)
+                }
                 group.heightAnchor.constraint(equalToConstant: 24).isActive = true
                 stack.addArrangedSubview(group)
                 group.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
                 previousGroup = groupTitle
             }
             let row = LaunchRowButton(item: item, shortcutIndex: index, destination: destination,
-                pinned: pinned, selected: selectedID == item.id,
+                usage: store.usage[item.profile], pinned: pinned, selected: selectedID == item.id,
                 launching: store.launchingID == item.id, busy: store.launchingID != nil,
                 target: self, action: #selector(launchClicked(_:)))
             row.onShowActions = { [weak self] sender in
@@ -413,7 +424,7 @@ final class WorkspaceMenuViewController: NSViewController {
     }
 
     @objc private func launchClicked(_ sender: LaunchRowButton) { launch(sender.item) }
-    @objc private func refresh() { Task { await store.refresh() } }
+    @objc private func refresh() { Task { await store.refresh(); await store.refreshUsage(force: true) } }
     @objc private func clearSearch() { selectedID = nil; searchField.stringValue = ""; store.query = ""; focusSearch() }
     @objc private func resetFilters() { store.selectedProfile = nil; clearSearch() }
     @objc private func profileFilterChanged() { selectedID = nil; store.selectedProfile = profilePicker.indexOfSelectedItem == 0 ? nil : profilePicker.titleOfSelectedItem }
@@ -537,6 +548,7 @@ final class WorkspaceMenuViewController: NSViewController {
                 clearSearch()
                 store.selectedProfile = name
                 if addingWorkspace { chooseFolder(for: name) }
+                await store.refreshUsage()
             }
         }
     }
@@ -568,7 +580,7 @@ final class LaunchRowButton: NSButton {
     private var isHovered = false
     private var tracking: NSTrackingArea?
 
-    init(item: LaunchTarget, shortcutIndex: Int, destination: OpenDestination, pinned: Bool, selected: Bool, launching: Bool, busy: Bool, target: AnyObject?, action: Selector?) {
+    init(item: LaunchTarget, shortcutIndex: Int, destination: OpenDestination, usage: ProfileUsage?, pinned: Bool, selected: Bool, launching: Bool, busy: Bool, target: AnyObject?, action: Selector?) {
         self.item = item
         isSelectedRow = selected
         super.init(frame: .zero)
@@ -585,6 +597,11 @@ final class LaunchRowButton: NSButton {
             ?? "Profile \(item.profile). Open in \(destination.label)")
         setAccessibilitySelected(selected)
         toolTip = item.workspace.map { "\($0.path)\nProfile: \($0.profile)" } ?? "Open profile \(item.profile) without a project folder"
+        if item.workspace == nil {
+            let usageDetail = (usage ?? .loading).detail()
+            toolTip = "\(toolTip!)\n\(usageDetail)"
+            setAccessibilityLabel("Profile \(item.profile). Open in \(destination.label). \(usageDetail)")
+        }
         let icon = NSImageView(image: NSImage(systemSymbolName: item.workspace == nil ? "person.crop.circle" : pinned ? "pin.fill" : "folder", accessibilityDescription: nil) ?? NSImage())
         icon.symbolConfiguration = .init(pointSize: 18, weight: .regular)
         icon.contentTintColor = .secondaryLabelColor
@@ -592,6 +609,7 @@ final class LaunchRowButton: NSButton {
         let name = NSTextField(labelWithString: item.name)
         name.font = .systemFont(ofSize: 13, weight: .semibold)
         name.lineBreakMode = .byTruncatingTail
+        name.toolTip = item.name
         name.textColor = item.isAvailable ? .labelColor : .secondaryLabelColor
         let profileDetail = destination == .terminal ? "Codex CLI profile" : item.profile == "default" ? "Standard ChatGPT window" : "Separate ChatGPT window"
         let metadata = NSTextField(labelWithString: item.workspace.map { "\($0.profile) · \($0.displayPath())" } ?? profileDetail)
@@ -639,7 +657,10 @@ final class LaunchRowButton: NSButton {
         more.toolTip = item.workspace == nil ? "Sign in to Codex CLI" : "Pin, change profile, or remove binding"
         more.widthAnchor.constraint(equalToConstant: 22).isActive = true
         more.heightAnchor.constraint(equalToConstant: 24).isActive = true
-        let row = NSStackView(views: [icon, labels, open, more])
+        var rowViews: [NSView] = [icon, labels]
+        if item.workspace == nil { rowViews.append(ProfileUsageView(usage: usage ?? .loading)) }
+        rowViews += [open, more]
+        let row = NSStackView(views: rowViews)
         row.orientation = .horizontal
         row.alignment = .centerY
         row.distribution = .fill
@@ -682,4 +703,49 @@ final class LaunchRowButton: NSButton {
     override func mouseExited(with event: NSEvent) { isHovered = false; needsDisplay = true }
     @objc private func openTarget(_ sender: NSButton) { performClick(nil) }
     @objc private func showActions(_ sender: NSButton) { onShowActions?(sender) }
+}
+
+final class ProfileUsageView: NSStackView {
+    static let columnWidth: CGFloat = 88
+
+    init(usage: ProfileUsage, now: Date = Date()) {
+        super.init(frame: .zero)
+        orientation = .vertical
+        alignment = .width
+        spacing = 3
+        widthAnchor.constraint(equalToConstant: Self.columnWidth).isActive = true
+        setContentCompressionResistancePriority(.required, for: .horizontal)
+        toolTip = usage.detail(at: now)
+        setAccessibilityLabel("Codex quota remaining")
+        setAccessibilityValue(toolTip)
+
+        if case let .available(limits, _) = usage {
+            for (index, window) in limits.windows.enumerated() {
+                let duration = NSTextField(labelWithString: window.durationLabel ?? "Limit \(index + 1)")
+                duration.font = .systemFont(ofSize: 10)
+                duration.textColor = .secondaryLabelColor
+                duration.lineBreakMode = .byTruncatingTail
+                duration.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+                let remaining = NSTextField(labelWithString: window.hasReset(at: now) ? "—" : "\(window.remainingPercent)%")
+                remaining.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+                remaining.textColor = window.hasReset(at: now) ? .secondaryLabelColor : window.remainingPercent <= 10 ? .systemRed : .labelColor
+                remaining.setContentCompressionResistancePriority(.required, for: .horizontal)
+                let line = NSStackView(views: [duration, NSView(), remaining])
+                line.alignment = .lastBaseline
+                line.spacing = 4
+                addArrangedSubview(line)
+                line.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
+            }
+        } else {
+            let message = NSTextField(labelWithString: usage == .loading ? "Checking…" : "Unavailable")
+            message.font = .systemFont(ofSize: 10)
+            message.textColor = .secondaryLabelColor
+            message.alignment = .right
+            addArrangedSubview(message)
+            message.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }

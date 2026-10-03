@@ -23,6 +23,7 @@ final class WorkspaceStore {
     private(set) var phase: Phase = .idle
     private(set) var workspaces: [WorkspaceBinding] = []
     private(set) var profiles: [String] = []
+    private(set) var usage: [String: ProfileUsage] = [:]
     private(set) var guardMode = "off"
     private(set) var isRefreshing = false
     private(set) var launchingID: LaunchTarget.ID?
@@ -35,6 +36,11 @@ final class WorkspaceStore {
     private var refreshTask: Task<Bool, Never>?
     private var refreshRequested = false
     private var hasLoaded = false
+    private var usageTask: Task<Void, Never>?
+    private var usageRefreshRequested = false
+    private var forceUsageRefresh = false
+
+    var isRefreshingUsage: Bool { usageTask != nil }
 
     init(client: CLIClient, defaults: UserDefaults = .standard) {
         self.client = client
@@ -71,6 +77,66 @@ final class WorkspaceStore {
     func refreshIfNeeded() async {
         guard phase == .idle else { return }
         await refresh()
+        await refreshUsage()
+    }
+
+    func refreshUsage(force: Bool = false) async {
+        forceUsageRefresh = forceUsageRefresh || force
+        if let usageTask {
+            usageRefreshRequested = true
+            await usageTask.value
+            return
+        }
+        let task = Task { @MainActor in
+            repeat {
+                usageRefreshRequested = false
+                let now = Date()
+                let pending = profiles.filter { forceUsageRefresh || (usage[$0]?.needsRefresh(at: now) ?? true) }
+                forceUsageRefresh = false
+                for profile in pending { usage[profile] = .loading }
+                notify()
+                let client = self.client
+                // Two short-lived readers at most, even for a long profile list.
+                await withTaskGroup(of: (String, ProfileUsage).self) { group in
+                    var iterator = pending.makeIterator()
+                    func add(_ profile: String) {
+                        group.addTask {
+                            do {
+                                let limits = try await client.loadUsage(for: profile)
+                                return (profile, .available(limits, checkedAt: Date()))
+                            } catch {
+                                return (profile, .unavailable(checkedAt: Date()))
+                            }
+                        }
+                    }
+                    for _ in 0..<2 { if let profile = iterator.next() { add(profile) } }
+                    for await (profile, result) in group {
+                        guard !Task.isCancelled else { group.cancelAll(); return }
+                        if profiles.contains(profile) { usage[profile] = result; notify() }
+                        if let next = iterator.next() { add(next) }
+                    }
+                }
+                if Task.isCancelled {
+                    for profile in pending where usage[profile] == .loading { usage.removeValue(forKey: profile) }
+                }
+            } while usageRefreshRequested && !Task.isCancelled
+            usageTask = nil
+            notify()
+        }
+        usageTask = task
+        notify()
+        await task.value
+    }
+
+    func cancelUsageRefresh() {
+        usageRefreshRequested = false
+        forceUsageRefresh = false
+        usageTask?.cancel()
+    }
+
+    func stopUsageRefresh() async {
+        cancelUsageRefresh()
+        await usageTask?.value
     }
 
     @discardableResult
@@ -108,6 +174,7 @@ final class WorkspaceStore {
             let (response, loadedProfiles) = try await (workspaceResponse, profileResponse)
             workspaces = response.bindings
             profiles = loadedProfiles
+            usage = usage.filter { profiles.contains($0.key) }
             guardMode = response.guardMode
             if let selectedProfile, !profiles.contains(selectedProfile) {
                 self.selectedProfile = nil
@@ -289,9 +356,10 @@ final class WorkspaceStore {
     }
 
     #if TESTING
-    func loadPreview(_ bindings: [WorkspaceBinding], profiles previewProfiles: [String]? = nil) {
+    func loadPreview(_ bindings: [WorkspaceBinding], profiles previewProfiles: [String]? = nil, usage previewUsage: [String: ProfileUsage] = [:]) {
         workspaces = bindings
         profiles = Array(Set(previewProfiles ?? bindings.filter(\.profileExists).map(\.profile))).sorted()
+        usage = previewUsage
         guardMode = "warn"
         hasLoaded = true
         phase = .ready

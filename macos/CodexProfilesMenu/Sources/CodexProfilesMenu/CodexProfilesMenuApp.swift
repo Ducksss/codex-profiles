@@ -60,7 +60,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         togglePopover()
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard store.isRefreshingUsage else { return .terminateNow }
+        Task {
+            await store.stopUsageRefresh()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
+        store.cancelUsageRefresh()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         if let eventMonitor {
             NSEvent.removeMonitor(eventMonitor)
@@ -80,7 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             NSApp.activate(ignoringOtherApps: true)
             menuController?.focusSearch()
-            Task { await store.refresh() }
+            Task { await store.refresh(); await store.refreshUsage() }
         }
     }
 }

@@ -42,6 +42,35 @@ Profile-only launches start in the home directory. Adding a project shortcut
 is a separate action; creating a profile never opens a folder picker unless
 you explicitly started **Add workspace…**.
 
+## Codex usage beside each profile
+
+The **Codex left** column shows the percentage remaining in each reported
+quota window. Window labels come from the response: for example, `5h` and
+`7d`, or `15m` when that is the actual duration. Hover a reading for reset
+times and when it was checked. Missing limits show **Unavailable**; expired
+readings show a dash until refreshed. Neither state disables **Open**.
+
+Usage belongs to each profile's **Codex CLI** sign-in. Desktop sign-in can
+use a different account; the companion does not compare accounts. Sign in
+through the profile's actions menu, then press ⌘R. API-key accounts, older
+CLIs without this method, offline connections and profiles without CLI sign-in
+may not return ChatGPT-backed Codex quota.
+
+The companion uses the official [Codex app-server protocol](https://learn.chatgpt.com/docs/app-server)
+through `codex-profile cli <profile> app-server`. It initializes the server,
+reads `account/rateLimits/read`, and stops its own subprocess. It prefers the
+Codex bucket from `rateLimitsByLimitId`, falling back to the legacy snapshot.
+It does not read credential files or send inference requests. Credential
+override variables are removed from this query so they cannot substitute an
+inherited account for the profile's sign-in.
+
+Reads happen in the background when the menu opens. They are cached in
+memory for 60 seconds, refreshed after a reported reset or with ⌘R, and
+limited to two concurrent readers with a ten-second deadline per reader.
+The query uses a private temporary directory to avoid unrelated workspace
+guard bindings. Timeouts, failures, cancellation and Quit stop owned readers;
+usage errors do not interrupt profile launches or open error dialogs.
+
 ## System appearance and accessibility
 
 The running app inherits macOS appearance, including Auto switching between
@@ -61,7 +90,8 @@ keyboard/accessibility state. Actual VoiceOver announcements, OS preference
 switching, popover translucency and permission prompts still require a manual
 check on macOS. Follow [Apple's Dark Mode guidance](https://developer.apple.com/documentation/appkit/supporting-dark-mode-in-your-interface).
 
-These are renders of the actual AppKit view in light and dark appearance.
+These are renders of the actual AppKit view in light and dark appearance,
+with sample quota values for layout review.
 They use an opaque system backdrop for layout review; live translucency is
 provided by NSPopover and depends on macOS appearance and accessibility settings.
 

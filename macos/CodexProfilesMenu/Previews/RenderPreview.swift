@@ -26,7 +26,17 @@ struct RenderPreview {
                 workspace("\(home)/Dev/personal-site", profile: "personal"),
             ]
         let profiles = CommandLine.arguments.contains("--empty") ? [] : ["default", "personal", "work"]
-        store.loadPreview(bindings, profiles: profiles)
+        // Deterministic sample quotas for layout review, never account data.
+        let now = Date()
+        func sample(_ primary: Double, _ secondary: Double) -> ProfileUsage {
+            .available(CodexRateLimits(windows: [
+                RateLimitWindow(usedPercent: primary, windowDurationMins: 300, resetsAt: now.addingTimeInterval(7200).timeIntervalSince1970),
+                RateLimitWindow(usedPercent: secondary, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(259200).timeIntervalSince1970),
+            ]), checkedAt: now)
+        }
+        store.loadPreview(bindings, profiles: profiles, usage: [
+            "default": sample(18, 36), "personal": sample(43, 22), "work": sample(93, 59),
+        ])
         if let first = bindings.first { store.togglePin(first) }
         if CommandLine.arguments.contains("--no-results") { store.query = "does-not-exist" }
 
