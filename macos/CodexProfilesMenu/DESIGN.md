@@ -20,12 +20,16 @@ state. Height follows content up to 500 points; longer lists scroll. Optional
 Add Workspace sits in the footer. The empty state offers Create Profile;
 creating a profile makes it immediately available without a folder picker.
 An inline **Codex left** column aligns beside profile names and before Open.
-It uses native text with monospaced percentage digits, reported quota-window
-durations and semantic colours. Low quota has a numeric cue as well as colour.
-Tooltips and the row's accessibility label include reset times, freshness and
-the Codex CLI sign-in scope. Workspace rows do not repeat account quota.
+Each reported window shows its duration, a 4-point capacity meter and a
+right-aligned monospaced percentage. Meters use the secondary label colour,
+orange at 25% or less and red at 10% or less, where the number also turns red;
+the number always carries the value. A low window replaces the row's
+destination description with its name and reset countdown. Tooltips and the
+row's accessibility label include relative and absolute reset times,
+freshness and the Codex CLI sign-in scope. Workspace rows do not repeat
+account quota.
 Only explicitly adding a workspace asks for a folder. App-level setup, sign-in,
-About and Quit live in the gear menu.
+Open at Login, About and Quit live in the gear menu.
 
 Apple's [menu-bar guidance](https://developer.apple.com/design/human-interface-guidelines/the-menu-bar#Menu-bar-extras)
 prefers a menu unless the functionality calls for richer controls. Search,
@@ -57,9 +61,14 @@ Successful launches dismiss the popover. Failed launches leave the error
 visible. Folder pickers and About dismiss the menu before opening; alerts can
 remain above it. Dialogs and native menus retain their own keyboard handling.
 
-Profile actions offer optional Codex CLI sign-in. Workspace actions: pin/unpin,
+Every row's actions open it once in ChatGPT or Terminal without changing the
+default destination. Profile actions add a workspace for that profile and offer
+optional Codex CLI sign-in. Workspace actions: pin/unpin,
 reveal in Finder, copy path, change profile, locate a moved folder, and remove
-only the binding. Locating binds the new
+only the binding. Menus disable inapplicable items explicitly, because NSMenu's
+default auto-enabling re-enables any item whose target responds. A row whose
+binding is changing shows Updating… and refuses launches and further changes
+until the CLI reports the outcome. Locating binds the new
 folder successfully before removing the old entry. Profile reassignment keeps
 pin and recency metadata. The app refreshes when opened, coalesces concurrent
 refreshes, and keeps loaded content on refresh failure. Committed reassignment,
@@ -77,15 +86,24 @@ using its initialize/initialized handshake. The companion decodes only quota
 windows and ignores account identity, plan and credit metadata. A mapped Codex
 bucket takes precedence over the legacy response. Missing data stays
 unavailable and passed resets never imply a restored quota. The UI retains
-launch actions during reads and failures. A 60-second memory cache and two
+launch actions during reads and failures. A refresh dims the previous reading
+instead of replacing it with a placeholder. Readings update their rows in
+place, so hover, keyboard focus and the VoiceOver cursor survive while they
+stream in; only structural changes rebuild the list, and the profile filter is
+rebuilt only when profiles change. A 60-second memory cache and two
 concurrent readers bound the cost; an explicit refresh bypasses the cache.
+Replies are framed by newline without rescanning buffered bytes, so the 1 MiB
+output bound is reached in linear time.
 Each reader runs in a private unbound directory, drops inherited credential
 override variables and has a ten-second deadline with owned-process cleanup.
 Quit waits for cancelled readers to exit. No inference or account-login RPCs
 are sent and no quota snapshots are persisted.
 
 The app uses NSStatusItem, a transient NSPopover and accessory activation.
-The AppKit implementation builds directly with swiftc without runtime dependencies.
+Open at Login uses `SMAppService.mainApp`; a login launch stays in the menu
+bar, a launch by the user opens the menu, and reopening the running app shows
+it. The AppKit implementation builds directly with swiftc without runtime
+dependencies.
 
 Render previews from the actual view in Aqua and Dark Aqua on an opaque
 system window background. Offscreen rendering cannot sample the desktop; a
@@ -103,5 +121,7 @@ preferences. Actual preference toggles, VoiceOver announcements and live
 popover glass require a manual macOS check.
 Quota checks cover the official wire contract, multiple buckets, nullable
 windows, exhaustion, expired resets, caching, concurrency, malformed replies,
-timeouts and cancellation. An isolated real CLI integration verifies profile
+timeouts and cancellation. The interaction runner also checks in-place usage
+updates, refresh dimming, rows being changed, menu enablement after AppKit
+validation, one-off destinations and Open at Login through a fake login item. An isolated real CLI integration verifies profile
 selection and strict workspace-guard handling with a fake app-server.

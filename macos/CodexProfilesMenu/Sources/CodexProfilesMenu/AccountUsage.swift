@@ -17,8 +17,65 @@ struct RateLimitWindow: Decodable, Equatable, Sendable {
         return "\(minutes)m"
     }
 
+    var level: QuotaLevel { QuotaLevel(remainingPercent: remainingPercent) }
+
     func hasReset(at date: Date) -> Bool {
         resetsAt.map { $0 <= date.timeIntervalSince1970 } ?? false
+    }
+
+    /// Reset time in words, e.g. "Resets in 2 hr, 14 min (3:40 PM)".
+    func resetDescription(at date: Date) -> String {
+        guard let resetsAt else { return "Reset time unavailable" }
+        let reset = Date(timeIntervalSince1970: resetsAt)
+        let clock = UsageFormat.clock(reset, relativeTo: date)
+        guard !hasReset(at: date) else { return "Reset at \(clock)" }
+        return "Resets in \(UsageFormat.countdown(to: reset, from: date, style: .short)) (\(clock))"
+    }
+}
+
+/// Severity shared by meters, numbers and summaries. Numbers always carry
+/// the value; colour only adds emphasis.
+enum QuotaLevel: Equatable {
+    case normal
+    case low
+    case critical
+
+    init(remainingPercent: Int) {
+        self = remainingPercent <= 10 ? .critical : remainingPercent <= 25 ? .low : .normal
+    }
+}
+
+enum UsageFormat {
+    private static let countdownFormatter: DateComponentsFormatter = {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.day, .hour, .minute]
+        formatter.maximumUnitCount = 2
+        return formatter
+    }()
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+    private static let dateTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("MMMdjmm")
+        return formatter
+    }()
+
+    /// Time remaining, rounded up to whole minutes: "2h 14m" or "2 hr, 14 min".
+    static func countdown(to date: Date, from now: Date, style: DateComponentsFormatter.UnitsStyle) -> String {
+        countdownFormatter.unitsStyle = style
+        let minutes = max(1, (date.timeIntervalSince(now) / 60).rounded(.up))
+        return countdownFormatter.string(from: minutes * 60) ?? "\(Int(minutes))m"
+    }
+
+    /// A time today, or a date and time otherwise.
+    static func clock(_ date: Date, relativeTo now: Date) -> String {
+        Calendar.current.isDate(date, inSameDayAs: now)
+            ? timeFormatter.string(from: date)
+            : dateTimeFormatter.string(from: date)
     }
 }
 
@@ -47,37 +104,64 @@ struct CodexRateLimits: Equatable, Sendable {
 }
 
 enum ProfileUsage: Equatable, Sendable {
-    case loading
     case available(CodexRateLimits, checkedAt: Date)
     case unavailable(checkedAt: Date)
 
     func needsRefresh(at date: Date) -> Bool {
         switch self {
-        case .loading: return false
         case let .unavailable(checkedAt): return date.timeIntervalSince(checkedAt) >= 60
         case let .available(limits, checkedAt):
             return date.timeIntervalSince(checkedAt) >= 60 || limits.windows.contains { $0.hasReset(at: date) }
         }
     }
+}
+
+/// A profile's latest reading and whether a newer one is being read.
+/// Refreshing keeps the previous reading visible instead of blanking it.
+struct UsageState: Equatable {
+    var reading: ProfileUsage?
+    var isRefreshing = false
+
+    var limits: CodexRateLimits? {
+        if case let .available(limits, _) = reading { return limits }
+        return nil
+    }
+
+    /// The window that blocks first, once it is low enough to mention.
+    func constrainingWindow(at date: Date) -> RateLimitWindow? {
+        limits?.windows
+            .filter { !$0.hasReset(at: date) && $0.level != .normal }
+            .min { lhs, rhs in
+                lhs.remainingPercent != rhs.remainingPercent
+                    ? lhs.remainingPercent < rhs.remainingPercent
+                    : (lhs.resetsAt ?? 0) > (rhs.resetsAt ?? 0)
+            }
+    }
+
+    /// A compact row summary such as "5h limit low · resets in 1h 12m".
+    func summary(at date: Date = Date()) -> String? {
+        guard let window = constrainingWindow(at: date) else { return nil }
+        let name = window.durationLabel.map { "\($0) limit" } ?? "Limit"
+        let state = window.remainingPercent == 0 ? "reached" : "low"
+        guard let resetsAt = window.resetsAt else { return "\(name) \(state)" }
+        let countdown = UsageFormat.countdown(to: Date(timeIntervalSince1970: resetsAt), from: date, style: .abbreviated)
+        return "\(name) \(state) · resets in \(countdown)"
+    }
 
     func detail(at date: Date = Date()) -> String {
-        switch self {
-        case .loading: return "Checking Codex usage for this profile…"
-        case .unavailable:
+        guard case let .available(limits, checkedAt) = reading else {
+            if reading == nil || isRefreshing { return "Checking Codex usage for this profile…" }
             return "Codex usage is unavailable. Sign in to Codex CLI for this profile, check your connection, then refresh (⌘R). ChatGPT may use a different account."
-        case let .available(limits, checkedAt):
-            let formatter = DateFormatter()
-            formatter.dateStyle = .short
-            formatter.timeStyle = .short
-            let windows = limits.windows.enumerated().map { index, window in
-                let label = window.durationLabel ?? "Limit \(index + 1)"
-                let remaining = window.hasReset(at: date) ? "Awaiting a fresh reading" : "\(window.remainingPercent)% remaining"
-                let reset = window.resetsAt.map { "Resets \(formatter.string(from: Date(timeIntervalSince1970: $0)))" }
-                    ?? "Reset time unavailable"
-                return "\(label): \(remaining). \(reset)."
-            }
-            return (["Codex CLI quota for this profile."] + windows + ["Checked \(formatter.string(from: checkedAt)). Refresh with ⌘R. ChatGPT may use a different account."]).joined(separator: "\n")
         }
+        let windows = limits.windows.enumerated().map { index, window in
+            let label = window.durationLabel ?? "Limit \(index + 1)"
+            let remaining = window.hasReset(at: date) ? "Awaiting a fresh reading" : "\(window.remainingPercent)% remaining"
+            return "\(label): \(remaining). \(window.resetDescription(at: date))."
+        }
+        let checked = "Checked \(UsageFormat.clock(checkedAt, relativeTo: date))."
+        let freshness = isRefreshing ? "Refreshing… \(checked)" : "\(checked) Refresh with ⌘R."
+        return (["Codex CLI quota for this profile."] + windows + ["\(freshness) ChatGPT may use a different account."])
+            .joined(separator: "\n")
     }
 }
 

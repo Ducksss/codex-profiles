@@ -34,8 +34,9 @@ struct RenderPreview {
                 RateLimitWindow(usedPercent: secondary, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(259200).timeIntervalSince1970),
             ]), checkedAt: now)
         }
+        // One healthy, one low and one critical profile show every meter state.
         store.loadPreview(bindings, profiles: profiles, usage: [
-            "default": sample(18, 36), "personal": sample(43, 22), "work": sample(93, 59),
+            "default": sample(18, 36), "personal": sample(43, 78), "work": sample(93, 59),
         ])
         if let first = bindings.first { store.togglePin(first) }
         if CommandLine.arguments.contains("--no-results") { store.query = "does-not-exist" }

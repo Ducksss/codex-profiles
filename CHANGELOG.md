@@ -18,6 +18,12 @@ and this project follows semantic versioning for tagged releases.
   actions to reveal, copy, reassign, relocate or remove a binding. Refreshes
   preserve loaded content and committed binding changes; missing folders and
   profiles show a repairable state. Profile operations delegate to the existing CLI.
+  A row whose binding is changing shows progress and cannot launch until the
+  CLI reports the outcome. Unavailable actions stay disabled in row menus.
+- Row actions open a profile or workspace in the other destination without
+  changing the default, and add a workspace directly from a profile.
+- Open at Login in the gear menu. Login launches stay in the menu bar; opening
+  the app again from Finder or Spotlight shows the menu.
 - Profile-first setup and direct profile launches without choosing a project
   folder. Workspace bindings remain optional shortcuts; profile launches start
   in the home directory instead of inheriting the menu app's launch directory.
@@ -25,13 +31,18 @@ and this project follows semantic versioning for tagged releases.
   for increased contrast or reduced transparency, and keyboard selection cues
   exposed to accessibility clients without relying on colour alone.
 - Remaining Codex CLI quota beside each profile, with reported window
-  durations, reset-time tooltips and accessible descriptions. Usage reads
-  delegate to the official app-server without reading credentials or sending
-  inference requests. Cached background reads have bounded concurrency,
-  deadlines and process cleanup; missing usage leaves launches available.
+  durations, compact meters, reset countdowns and accessible descriptions.
+  Low windows are emphasised and named with their reset time in the row.
+  Usage reads delegate to the official app-server without reading
+  credentials or sending inference requests. Cached background reads have
+  bounded concurrency, deadlines and process cleanup; refreshes keep the
+  previous reading visible and update rows in place; missing usage leaves
+  launches available.
 - Universal Apple silicon/Intel app and DMG builders with an Applications
   shortcut, SHA-256 checksum, and optional Developer ID signing and
-  notarisation. Local builds are unsigned development artifacts.
+  notarisation. A failed publication restores the previous image and checksum
+  together. Local builds are unsigned development artifacts.
+- Terminal launches explain how to allow Automation when macOS denies it.
 - Native interaction, CLI integration, subprocess and packaging checks, plus
   light and dark layout previews with verified system backdrops. NSPopover
   supplies the live material without a duplicate visual-effect layer.

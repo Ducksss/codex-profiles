@@ -24,6 +24,11 @@ final class WorkspaceStore {
     private(set) var workspaces: [WorkspaceBinding] = []
     private(set) var profiles: [String] = []
     private(set) var usage: [String: ProfileUsage] = [:]
+    /// Profiles with a usage read in flight; their previous reading stays visible.
+    private(set) var readingUsage: Set<String> = []
+    /// Folders whose binding is being changed. Their rows cannot launch until
+    /// the CLI reports the outcome, so a stale row never opens the old profile.
+    private(set) var changingPaths: Set<String> = []
     private(set) var guardMode = "off"
     private(set) var isRefreshing = false
     private(set) var launchingID: LaunchTarget.ID?
@@ -63,6 +68,19 @@ final class WorkspaceStore {
         (defaults.stringArray(forKey: pinsKey) ?? []).contains(workspace.id)
     }
 
+    func usageState(for profile: String) -> UsageState {
+        UsageState(reading: usage[profile], isRefreshing: readingUsage.contains(profile))
+    }
+
+    func isChanging(_ target: LaunchTarget) -> Bool {
+        target.workspace.map { changingPaths.contains($0.path) } ?? false
+    }
+
+    /// Whether a row may launch now: available, current and not being changed.
+    func canLaunch(_ target: LaunchTarget) -> Bool {
+        target.isAvailable && !isChanging(target)
+    }
+
     func togglePin(_ workspace: WorkspaceBinding) {
         var pins = defaults.stringArray(forKey: pinsKey) ?? []
         if let index = pins.firstIndex(of: workspace.id) {
@@ -93,7 +111,7 @@ final class WorkspaceStore {
                 let now = Date()
                 let pending = profiles.filter { forceUsageRefresh || (usage[$0]?.needsRefresh(at: now) ?? true) }
                 forceUsageRefresh = false
-                for profile in pending { usage[profile] = .loading }
+                readingUsage.formUnion(pending)
                 notify()
                 let client = self.client
                 // Two short-lived readers at most, even for a long profile list.
@@ -112,13 +130,14 @@ final class WorkspaceStore {
                     for _ in 0..<2 { if let profile = iterator.next() { add(profile) } }
                     for await (profile, result) in group {
                         guard !Task.isCancelled else { group.cancelAll(); return }
-                        if profiles.contains(profile) { usage[profile] = result; notify() }
+                        readingUsage.remove(profile)
+                        if profiles.contains(profile) { usage[profile] = result }
+                        notify()
                         if let next = iterator.next() { add(next) }
                     }
                 }
-                if Task.isCancelled {
-                    for profile in pending where usage[profile] == .loading { usage.removeValue(forKey: profile) }
-                }
+                // Cancelled reads keep the previous reading and record nothing new.
+                readingUsage.subtract(pending)
             } while usageRefreshRequested && !Task.isCancelled
             usageTask = nil
             notify()
@@ -194,6 +213,12 @@ final class WorkspaceStore {
 
     @discardableResult
     func bindWorkspace(path: String, profile: String) async -> Bool {
+        guard beginChanging([path]) else { return false }
+        defer { endChanging([path]) }
+        return await bind(path: path, profile: profile)
+    }
+
+    private func bind(path: String, profile: String) async -> Bool {
         statusMessage = "Adding \(URL(fileURLWithPath: path).lastPathComponent)…"
         notify()
         defer { notify() }
@@ -239,6 +264,8 @@ final class WorkspaceStore {
     }
 
     func unbindWorkspace(_ workspace: WorkspaceBinding) async {
+        guard beginChanging([workspace.path]) else { return }
+        defer { endChanging([workspace.path]) }
         statusMessage = "Removing \(workspace.name)…"
         notify()
 
@@ -255,6 +282,8 @@ final class WorkspaceStore {
     }
 
     func rebindWorkspace(_ workspace: WorkspaceBinding, to profile: String) async {
+        guard beginChanging([workspace.path]) else { return }
+        defer { endChanging([workspace.path]) }
         statusMessage = "Assigning \(workspace.name) to \(profile)…"
         notify()
 
@@ -288,7 +317,10 @@ final class WorkspaceStore {
             await refresh()
             return
         }
-        guard await bindWorkspace(path: canonicalPath, profile: workspace.profile) else { return }
+        let paths = [workspace.path, canonicalPath]
+        guard beginChanging(paths) else { return }
+        defer { endChanging(paths) }
+        guard await bind(path: canonicalPath, profile: workspace.profile) else { return }
         guard let replacement = workspaces.first(where: { $0.path == canonicalPath && $0.profile == workspace.profile }) else {
             showMessage("Could not verify the new folder binding; the previous binding was kept")
             onError?(statusMessage)
@@ -324,11 +356,32 @@ final class WorkspaceStore {
         notify()
     }
 
+    /// Marks folders as changing for one binding mutation. Returns false when
+    /// another change to one of them is still in flight.
+    private func beginChanging(_ paths: [String]) -> Bool {
+        guard changingPaths.isDisjoint(with: paths) else {
+            showMessage("Wait for the current change to that workspace to finish.")
+            return false
+        }
+        changingPaths.formUnion(paths)
+        notify()
+        return true
+    }
+
+    private func endChanging(_ paths: [String]) {
+        changingPaths.subtract(paths)
+        notify()
+    }
+
     @discardableResult
     func launch(_ target: LaunchTarget, in destination: OpenDestination) async -> Bool {
         guard launchingID == nil else { return false }
         guard target.isAvailable else {
             showMessage(target.workspace?.availabilityReason ?? "Profile is unavailable")
+            return false
+        }
+        if let workspace = target.workspace, changingPaths.contains(workspace.path) {
+            showMessage("\(workspace.name) is being updated. Try again when it finishes.")
             return false
         }
         if let workspace = target.workspace, !workspaces.contains(where: { $0.id == workspace.id }) {
@@ -356,10 +409,13 @@ final class WorkspaceStore {
     }
 
     #if TESTING
-    func loadPreview(_ bindings: [WorkspaceBinding], profiles previewProfiles: [String]? = nil, usage previewUsage: [String: ProfileUsage] = [:]) {
+    func loadPreview(_ bindings: [WorkspaceBinding], profiles previewProfiles: [String]? = nil, usage previewUsage: [String: ProfileUsage] = [:],
+                     readingUsage previewReading: Set<String> = [], changingPaths previewChanging: Set<String> = []) {
         workspaces = bindings
         profiles = Array(Set(previewProfiles ?? bindings.filter(\.profileExists).map(\.profile))).sorted()
         usage = previewUsage
+        readingUsage = previewReading
+        changingPaths = previewChanging
         guardMode = "warn"
         hasLoaded = true
         phase = .ready

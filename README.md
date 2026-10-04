@@ -178,14 +178,17 @@ open "build/macos/Codex Profiles.app"
 Open an existing profile in ChatGPT or Terminal, or choose **Create profile…**
 on first run. No project folder is required. **Add workspace…** optionally
 binds a folder to a profile for project shortcuts. Search and filter profiles,
-pin frequent projects, repair moved folders, or change a binding from the
-row's actions menu. Use ↑/↓ and Return, or ⌘1–9, to launch from the keyboard.
+pin frequent projects, repair moved folders, change a binding, or open a row
+in the other destination from its actions menu. Use ↑/↓ and Return, or ⌘1–9,
+to launch from the keyboard. **Open at Login** in the gear menu keeps the
+companion in the menu bar.
 
 Profile rows show remaining Codex CLI quota beside the name, with window
-durations and reset times on hover. The official CLI reads each profile's
-limits; unavailable readings leave the profile usable. ⌘R refreshes usage.
-These limits belong to the profile's Codex CLI sign-in; Desktop may use a
-different account.
+durations, compact meters and reset times on hover. A low window turns its
+meter orange or red and shows when it resets. The official CLI reads each
+profile's limits; unavailable readings leave the profile usable. ⌘R refreshes
+usage. These limits belong to the profile's Codex CLI sign-in; Desktop may use
+a different account.
 
 The menu follows the system's light/dark appearance, accent colours, contrast,
 transparency and Reduce Motion preferences, including changes while running.

@@ -13,7 +13,9 @@ struct CodexProfilesMenuTests {
         try await testStoreFilteringPinsAndRecents()
         try await testRefreshPreservesContentAndSerializesRequests()
         try await testMutationsAndLaunchResults()
+        try await testInFlightChangesBlockStaleLaunches()
         try await testProfileOnlyLaunches()
+        testTerminalPermissionErrorsAreActionable()
         testProfileNames()
         try await testProcessDrainsBothStreams()
         try await testProcessTerminationAndLaunchFailure()
@@ -426,6 +428,43 @@ struct CodexProfilesMenuTests {
         } catch CLIClientError.invalidProfileName {} catch { expect(false, "invalid profile produced unexpected error") }
     }
 
+    private static func testInFlightChangesBlockStaleLaunches() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let alpha = binding("alpha", "work")
+        let reassigned = binding("alpha", "personal")
+        try fixture.writeWorkspaces([alpha])
+        let store = fixture.store()
+        await store.refresh()
+        try fixture.writeWorkspaces([reassigned], to: "next-workspaces.json")
+        try fixture.write("", to: "hold-mutation")
+        let rebind = Task { await store.rebindWorkspace(alpha, to: "personal") }
+        try await waitForFile(fixture.url("mutation-started"))
+        expect(store.isChanging(.workspace(alpha)) && !store.canLaunch(.workspace(alpha)),
+            "a reassignment in flight must mark its row as changing")
+        let argumentsDuringChange = try fixture.read("arguments")
+        expect(!(await store.launch(.workspace(alpha), in: .chatGPT)),
+            "a row whose binding the CLI may already have changed must not launch its previous profile")
+        expect(store.statusMessage.contains("being updated"), "a refused launch must explain why")
+        await store.unbindWorkspace(alpha)
+        expect(try fixture.read("arguments") == argumentsDuringChange, "a launch or second change during reassignment invoked the CLI")
+        try FileManager.default.removeItem(at: fixture.url("hold-mutation"))
+        await rebind.value
+        expect(store.changingPaths.isEmpty && store.workspaces == [reassigned], "the reassignment did not finish cleanly")
+        expect(await store.launch(.workspace(reassigned), in: .chatGPT), "the replacement row must launch once the change finishes")
+    }
+
+    private static func testTerminalPermissionErrorsAreActionable() {
+        func result(_ message: String) -> CommandResult {
+            CommandResult(standardOutput: Data(), standardError: Data(message.utf8), terminationStatus: 1)
+        }
+        let denied = result("36:120: execution error: Not authorized to send Apple events to Terminal. (-1743)\n")
+        expect(CLIClient.terminalErrorMessage(from: denied).contains("Privacy & Security › Automation"),
+            "a denied Automation permission must say where to allow it")
+        expect(CLIClient.terminalErrorMessage(from: result("Terminal got an error: busy\n")) == "Terminal got an error: busy",
+            "other Terminal errors must keep their own message")
+    }
+
     private static func testProfileOnlyLaunches() async throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
@@ -498,6 +537,12 @@ struct CodexProfilesMenuTests {
                 ;;
               list:*) cat "$fixture/profiles" ;;
               workspace:bind|workspace:unbind)
+                touch "$fixture/mutation-started"
+                count=0
+                while [ -f "$fixture/hold-mutation" ] && [ "$count" -lt 500 ]; do
+                  sleep 0.01
+                  count=$((count + 1))
+                done
                 if [ -f "$fixture/mutation-error" ]; then cat "$fixture/mutation-error" >&2; exit 1; fi
                 if [ "$2" = unbind ] && [ -f "$fixture/next-unbound-workspaces.json" ]; then
                   cp "$fixture/next-unbound-workspaces.json" "$fixture/workspaces.json"

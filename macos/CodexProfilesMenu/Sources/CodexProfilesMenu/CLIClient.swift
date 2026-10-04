@@ -169,7 +169,7 @@ struct CLIClient: Sendable {
                 arguments: ["-e", Self.terminalLoginAppleScript, executableURL.path, profile]
             )
             guard result.terminationStatus == 0 else {
-                throw CLIClientError.commandFailed(Self.errorMessage(from: result))
+                throw CLIClientError.commandFailed(Self.terminalErrorMessage(from: result))
             }
         }.value
     }
@@ -178,16 +178,17 @@ struct CLIClient: Sendable {
         guard Self.isValidProfileName(target.profile) else { throw CLIClientError.invalidProfileName }
         let executableURL = try requiredExecutableURL()
         try await Task.detached(priority: .userInitiated) {
-            let result: CommandResult
-
             switch destination {
             case .chatGPT:
-                result = try await ProcessRunner().run(
+                let result = try await ProcessRunner().run(
                     executableURL: executableURL,
                     arguments: ["app", target.profile] + (target.workspace.map { [$0.path] } ?? [])
                 )
+                guard result.terminationStatus == 0 else {
+                    throw CLIClientError.commandFailed(Self.errorMessage(from: result))
+                }
             case .terminal:
-                result = try await ProcessRunner().run(
+                let result = try await ProcessRunner().run(
                     executableURL: URL(fileURLWithPath: "/usr/bin/osascript"),
                     arguments: [
                         "-e",
@@ -197,10 +198,9 @@ struct CLIClient: Sendable {
                         target.workspace?.path ?? FileManager.default.homeDirectoryForCurrentUser.path,
                     ]
                 )
-            }
-
-            guard result.terminationStatus == 0 else {
-                throw CLIClientError.commandFailed(Self.errorMessage(from: result))
+                guard result.terminationStatus == 0 else {
+                    throw CLIClientError.commandFailed(Self.terminalErrorMessage(from: result))
+                }
             }
         }.value
     }
@@ -293,5 +293,14 @@ struct CLIClient: Sendable {
         if let error, !error.isEmpty { return error }
         if let output, !output.isEmpty { return output }
         return "codex-profile exited with status \(result.terminationStatus)."
+    }
+
+    /// osascript reports a denied Automation permission as error -1743.
+    static func terminalErrorMessage(from result: CommandResult) -> String {
+        let message = errorMessage(from: result)
+        guard message.contains("(-1743)") || message.localizedCaseInsensitiveContains("not authorized to send apple events") else {
+            return message
+        }
+        return "Codex Profiles isn’t allowed to control Terminal. Turn it on in System Settings › Privacy & Security › Automation, then try again."
     }
 }

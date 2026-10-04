@@ -195,10 +195,14 @@ The menu follows macOS appearance, accent, contrast, transparency and Reduce
 Motion preferences; profile operations use the bundled CLI.
 CLI discovery supports current and legacy Desktop bundle layouts, including
 Finder launches without a separately installed Codex CLI on PATH.
-Profile rows show remaining Codex CLI quota and reported window durations;
-hover for reset times. Usage is read through the official app-server method
-account/rateLimits/read, cached in memory for 60 seconds and refreshed with
-Command-R. Missing usage does not disable launches. These limits belong to
+Profile rows show remaining Codex CLI quota with compact meters and reported
+window durations; a window at 25% or less is highlighted and its reset
+countdown replaces the row description. Hover for reset times. Usage is read
+through the official app-server method account/rateLimits/read, cached in
+memory for 60 seconds and refreshed with Command-R; a refresh keeps the
+previous reading visible. Missing usage does not disable launches. Row
+actions open either destination once, and Open at Login keeps the companion
+in the menu bar. These limits belong to
 the selected profile's Codex CLI sign-in, which may differ from Desktop.
 Desktop and Codex CLI sign-in remain separate. The app does not read tokens
 or cookies. This companion is not yet a published release download.

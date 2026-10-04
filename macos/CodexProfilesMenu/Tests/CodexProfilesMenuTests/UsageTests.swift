@@ -6,6 +6,7 @@ enum UsageTests {
     static func run() async throws {
         try decodingAndFreshness()
         lineFraming()
+        summariesAndResetTimes()
         print("Checking usage handshake and isolation…")
         try await handshakeAndIsolation()
         print("Checking usage failure and cancellation cleanup…")
@@ -45,8 +46,10 @@ enum UsageTests {
         expect(cached.needsRefresh(at: now.addingTimeInterval(60)), "the next open must refresh after 60 seconds")
         let expired = ProfileUsage.available(CodexRateLimits(windows: [RateLimitWindow(usedPercent: 90, windowDurationMins: 300, resetsAt: 1001)]), checkedAt: now)
         expect(expired.needsRefresh(at: now.addingTimeInterval(2)), "a reset must invalidate cached usage")
-        expect(expired.detail(at: now.addingTimeInterval(2)).contains("Awaiting a fresh reading"), "a passed reset must not invent restored quota")
-        expect(unknown.windows[0].resetsAt == nil && ProfileUsage.available(unknown, checkedAt: now).detail(at: now).contains("Reset time unavailable"),
+        let expiredDetail = UsageState(reading: expired).detail(at: now.addingTimeInterval(2))
+        expect(expiredDetail.contains("Awaiting a fresh reading") && expiredDetail.contains("Reset at") && !expiredDetail.contains("Resets in"),
+            "a passed reset must not invent restored quota or a future reset")
+        expect(unknown.windows[0].resetsAt == nil && UsageState(reading: .available(unknown, checkedAt: now)).detail(at: now).contains("Reset time unavailable"),
             "missing reset times must have an honest description")
         expect(ProfileUsage.unavailable(checkedAt: now).needsRefresh(at: now.addingTimeInterval(60)), "unavailable profiles must be retried")
     }
@@ -61,6 +64,32 @@ enum UsageTests {
         var bounded = LineBuffer(limit: 8)
         expect(bounded.append(Array("12345678".utf8)[...]) && !bounded.append(Array("9".utf8)[...]),
             "output beyond the limit must be refused even without a newline")
+    }
+
+    private static func summariesAndResetTimes() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        func window(_ remaining: Double, _ minutes: Int?, resetIn seconds: TimeInterval?) -> RateLimitWindow {
+            RateLimitWindow(usedPercent: 100 - remaining, windowDurationMins: minutes, resetsAt: seconds.map { now.timeIntervalSince1970 + $0 })
+        }
+        func state(_ windows: RateLimitWindow...) -> UsageState {
+            UsageState(reading: .available(CodexRateLimits(windows: windows), checkedAt: now))
+        }
+        expect([QuotaLevel(remainingPercent: 26), QuotaLevel(remainingPercent: 25), QuotaLevel(remainingPercent: 10), QuotaLevel(remainingPercent: 0)]
+            == [.normal, .low, .critical, .critical], "quota levels changed their thresholds")
+        expect(state(window(80, 300, resetIn: 600), window(60, 10080, resetIn: 86400)).summary(at: now) == nil,
+            "healthy quota must keep the destination description")
+        expect(state(window(20, 300, resetIn: 4320), window(60, 10080, resetIn: 86400)).summary(at: now) == "5h limit low · resets in 1h 12m",
+            "a low window must summarise its countdown")
+        expect(state(window(0, 300, resetIn: 600), window(0, 10080, resetIn: 90000)).summary(at: now) == "7d limit reached · resets in 1d 1h",
+            "with every window exhausted, the later reset decides when Codex is usable")
+        expect(state(window(5, 300, resetIn: -1), window(70, 10080, resetIn: 9000)).summary(at: now) == nil,
+            "an expired window must not be summarised as low")
+        expect(state(window(5, nil, resetIn: nil)).summary(at: now) == "Limit low", "missing durations and reset times must stay honest")
+        expect(window(50, 300, resetIn: 30).resetDescription(at: now).hasPrefix("Resets in 1 min"), "sub-minute resets must round up")
+        let refreshing = UsageState(reading: .available(CodexRateLimits(windows: [window(50, 300, resetIn: 600)]), checkedAt: now), isRefreshing: true)
+        expect(refreshing.limits != nil && refreshing.detail(at: now).contains("Refreshing"), "a refresh must keep the previous reading and say so")
+        expect(UsageState(reading: .unavailable(checkedAt: now), isRefreshing: true).detail(at: now).hasPrefix("Checking"),
+            "retrying an unavailable reading must say it is checking")
     }
 
     private static func handshakeAndIsolation() async throws {
@@ -125,7 +154,8 @@ enum UsageTests {
         try await waitForFile(fixture.url("pid-profile2"))
         let second = Task { await store.refreshUsage() }
         try await Task.sleep(nanoseconds: 100_000_000)
-        expect(store.isRefreshingUsage && store.usage["profile1"] == .loading, "loading must be visible without blocking profile rows")
+        expect(store.isRefreshingUsage && store.usageState(for: "profile1") == UsageState(reading: nil, isRefreshing: true),
+            "loading must be visible without blocking profile rows")
         expect(!FileManager.default.fileExists(atPath: fixture.url("pid-profile3").path), "more than two app-servers started together")
         try FileManager.default.removeItem(at: fixture.url("hold"))
         await first.value
@@ -138,8 +168,20 @@ enum UsageTests {
         expect(try fixture.read("calls").split(whereSeparator: \.isNewline).count == 6, "overlapping refreshes must coalesce and use the cache")
         await store.refreshUsage()
         expect(try fixture.read("calls").split(whereSeparator: \.isNewline).count == 6, "fresh usage spawned redundant readers")
-        await store.refreshUsage(force: true)
+        guard case let .available(_, firstChecked) = store.usage["profile1"] else { fatalError("profile usage was not cached") }
+        try fixture.write("", to: "hold")
+        let forced = Task { await store.refreshUsage(force: true) }
+        try await waitForCalls(fixture, count: 8)
+        let refreshing = store.usageState(for: "profile1")
+        expect(refreshing.isRefreshing && refreshing.limits?.windows.map(\.remainingPercent) == [77, 9],
+            "a refresh must keep the previous reading visible instead of blanking it")
+        try FileManager.default.removeItem(at: fixture.url("hold"))
+        await forced.value
         expect(try fixture.read("calls").split(whereSeparator: \.isNewline).count == 12, "explicit refresh must bypass the cache")
+        guard case let .available(_, secondChecked) = store.usage["profile1"], secondChecked > firstChecked else {
+            fatalError("a completed refresh must replace the previous reading")
+        }
+        expect(store.readingUsage.isEmpty, "finished reads must not stay marked as refreshing")
 
         let unavailable = try Fixture(mode: "rate-error")
         defer { unavailable.cleanup() }
@@ -150,7 +192,7 @@ enum UsageTests {
         await failedStore.refreshUsage()
         guard case .unavailable = failedStore.usage["work"] else { fatalError("failed usage must remain unavailable rather than show zero") }
         expect(!alerted && failedStore.filteredTargets == [.profile("work")], "usage failures must not hide launchable profiles or raise alerts")
-        expect(!failedStore.usage["work"]!.detail().contains("private diagnostic"), "upstream diagnostic text leaked into the UI")
+        expect(!failedStore.usageState(for: "work").detail().contains("private diagnostic"), "upstream diagnostic text leaked into the UI")
 
         let quitting = try Fixture(mode: "hang")
         defer { quitting.cleanup() }
@@ -161,8 +203,16 @@ enum UsageTests {
         await quittingStore.stopUsageRefresh()
         await refresh.value
         let stopped = try !quitting.isRunning("work")
-        expect(!quittingStore.isRefreshingUsage && quittingStore.usage["work"] == nil && stopped,
+        expect(!quittingStore.isRefreshingUsage && quittingStore.usage["work"] == nil && quittingStore.readingUsage.isEmpty && stopped,
             "Quit must await process cleanup and discard unfinished cache entries")
+    }
+
+    private static func waitForCalls(_ fixture: Fixture, count: Int) async throws {
+        let deadline = Date().addingTimeInterval(3)
+        while (try? fixture.read("calls").split(whereSeparator: \.isNewline).count) ?? 0 < count {
+            expect(Date() < deadline, "the forced refresh did not start its readers")
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
     }
 
     private static func realWrapperRespectsProfileAndGuard() async throws {

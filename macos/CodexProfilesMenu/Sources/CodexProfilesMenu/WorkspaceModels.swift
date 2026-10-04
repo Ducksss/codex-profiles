@@ -11,6 +11,12 @@ enum OpenDestination: String {
         }
     }
 
+    var symbolName: String {
+        switch self {
+        case .chatGPT: "macwindow"
+        case .terminal: "terminal"
+        }
+    }
 }
 
 enum LaunchTarget: Equatable, Identifiable {

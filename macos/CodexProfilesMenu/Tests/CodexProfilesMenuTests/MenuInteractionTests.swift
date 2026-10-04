@@ -249,7 +249,103 @@ struct MenuInteractionTests {
         expect(controller.preferredContentSize.height == 500, "long lists must retain the compact height limit")
         expect(longList.documentView!.bounds.height > longList.contentView.bounds.height,
             "projects beyond the height limit must remain in the scrollable document")
+
+        // Usage readings stream in after opening; they must not rebuild the list.
+        store.loadPreview([first], profiles: ["work", "personal"], usage: ["work": quota])
+        let picker = descendants(controller.view).compactMap { $0 as? NSPopUpButton }.first!
+        let pickerItem = picker.item(at: 1)
+        let stableRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first { $0.item == .profile("work") }!
+        let lowQuota = ProfileUsage.available(CodexRateLimits(windows: [
+            RateLimitWindow(usedPercent: 95, windowDurationMins: 300, resetsAt: checkedAt.addingTimeInterval(4320).timeIntervalSince1970),
+        ]), checkedAt: checkedAt)
+        store.loadPreview([first], profiles: ["work", "personal"], usage: ["work": lowQuota], readingUsage: ["work"])
+        let updatedRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first { $0.item == .profile("work") }!
+        expect(updatedRow === stableRow && picker.item(at: 1) === pickerItem,
+            "a usage reading must update rows in place without rebuilding the list or the profile filter")
+        let updatedText = descendants(updatedRow).compactMap { $0 as? NSTextField }.map(\.stringValue)
+        expect(updatedText.contains("5%") && updatedText.contains { $0.hasPrefix("5h limit low · resets in ") },
+            "the row must show the newer reading and when the low window resets")
+        let refreshingUsage = descendants(updatedRow).compactMap { $0 as? ProfileUsageView }.first!
+        expect(refreshingUsage.arrangedSubviews.allSatisfy { $0.alphaValue < 1 } && refreshingUsage.toolTip!.contains("Refreshing"),
+            "a refresh must dim the previous reading rather than hide it")
+        expect(descendants(refreshingUsage).contains { $0 is QuotaMeter }, "each quota window must have a meter beside its percentage")
+
+        // A row whose binding is changing shows progress and refuses launches.
+        store.loadPreview([first, last], profiles: ["work"], usage: ["work": quota], changingPaths: [last.path])
+        let changingRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first { $0.item.workspace == last }!
+        expect(!changingRow.isEnabled && openButton(in: changingRow).title == "Updating…" && !openButton(in: changingRow).isEnabled,
+            "a row being changed must show progress and refuse launches")
+        expect(descendants(changingRow).compactMap { $0 as? NSButton }.first { $0.toolTip?.contains("remove binding") == true }?.isEnabled == false,
+            "a row being changed must not accept another change")
+        controller.focusSearch()
+        _ = controller.handleShortcut(key(125))
+        _ = controller.handleShortcut(key(125))
+        _ = controller.handleShortcut(key(125))
+        expect(changingRow.isSelectedRow == false, "keyboard selection must skip a row being changed")
+
+        // Disabled actions stay disabled through AppKit's menu validation.
+        store.loadPreview([first, missing], profiles: ["work", "personal"])
+        let missingMenu = controller.actionsMenu(for: .workspace(missing))
+        missingMenu.update()
+        expect(!item("Show in Finder", in: missingMenu).isEnabled && !item("Open in ChatGPT", in: missingMenu).isEnabled
+            && !item("Open in Terminal", in: missingMenu).isEnabled,
+            "a missing folder must not be revealed or opened from its actions")
+        expect(item("Change profile", in: missingMenu).submenu!.items.allSatisfy { !$0.isEnabled }, "a missing folder cannot be reassigned")
+        expect(item("Locate moved folder…", in: missingMenu).isEnabled, "a missing folder must remain repairable")
+        let firstMenu = controller.actionsMenu(for: .workspace(first))
+        let choices = item("Change profile", in: firstMenu).submenu!
+        choices.update()
+        expect(choices.items.first { $0.title == "work" }?.isEnabled == false && choices.items.first { $0.title == "personal" }?.isEnabled == true,
+            "only another profile may be chosen")
+        let profileMenu = controller.actionsMenu(for: .profile("work"))
+        expect(["Open in ChatGPT", "Open in Terminal", "Add workspace…", "Sign in to Codex CLI…"].allSatisfy { item($0, in: profileMenu).isEnabled },
+            "profile actions must offer both destinations, a workspace shortcut and CLI sign-in")
+
+        // A row action opens the other destination without changing the default.
+        defaults.set(OpenDestination.terminal.rawValue, forKey: "openDestination")
+        let login = FakeLoginItem()
+        let terminalController = WorkspaceMenuViewController(store: store, defaults: defaults, loginItem: login)
+        _ = terminalController.view
+        var terminalClosed = false
+        terminalController.onRequestClose = { terminalClosed = true }
+        try? FileManager.default.removeItem(at: marker)
+        let alternate = terminalController.actionsMenu(for: .profile("work"))
+        alternate.performActionForItem(at: alternate.indexOfItem(withTitle: "Open in ChatGPT"))
+        for _ in 0..<100 where !terminalClosed { try await Task.sleep(nanoseconds: 10_000_000) }
+        expect(terminalClosed && (try? String(contentsOf: marker, encoding: .utf8)) == "app\nwork\n",
+            "Open in ChatGPT must launch ChatGPT while Terminal stays the default")
+        expect(defaults.string(forKey: "openDestination") == OpenDestination.terminal.rawValue, "a row action must not change the default destination")
+
+        // Open at Login reflects and changes the login item.
+        var settings = terminalController.settingsMenu()
+        expect(item("Open at Login", in: settings).state == .off, "Open at Login must start off")
+        settings.performActionForItem(at: settings.indexOfItem(withTitle: "Open at Login"))
+        expect(login.status == .enabled && item("Open at Login", in: terminalController.settingsMenu()).state == .on,
+            "choosing Open at Login must register the app")
+        settings = terminalController.settingsMenu()
+        settings.performActionForItem(at: settings.indexOfItem(withTitle: "Open at Login"))
+        expect(login.status == .disabled && !login.openedSettings, "choosing it again must unregister the app")
+        login.statusAfterRegister = .requiresApproval
+        settings = terminalController.settingsMenu()
+        settings.performActionForItem(at: settings.indexOfItem(withTitle: "Open at Login"))
+        expect(login.openedSettings && item("Open at Login", in: terminalController.settingsMenu()).state == .mixed,
+            "a login item awaiting approval must open Login Items settings and show a mixed state")
         print("Native menu interaction tests passed.")
+    }
+
+    @MainActor
+    private final class FakeLoginItem: LoginItemControlling {
+        var status = LoginItemStatus.disabled
+        var statusAfterRegister = LoginItemStatus.enabled
+        var openedSettings = false
+        func register() throws { status = statusAfterRegister }
+        func unregister() throws { status = .disabled }
+        func openSystemSettings() { openedSettings = true }
+    }
+
+    private static func item(_ title: String, in menu: NSMenu) -> NSMenuItem {
+        guard let item = menu.items.first(where: { $0.title == title }) else { fatalError("missing menu item: \(title)") }
+        return item
     }
 
     private static func workspace(_ path: String, exists: Bool = true) -> WorkspaceBinding {
@@ -262,7 +358,7 @@ struct MenuInteractionTests {
         view.subviews.flatMap { [$0] + descendants($0) }
     }
     private static func openButton(in row: LaunchRowButton) -> NSButton {
-        descendants(row).compactMap { $0 as? NSButton }.first { ["Open", "Opening…"].contains($0.title) }!
+        descendants(row).compactMap { $0 as? NSButton }.first { ["Open", "Opening…", "Updating…"].contains($0.title) }!
     }
     private static func isMonochrome(_ color: NSColor?) -> Bool {
         color == .labelColor || color == .secondaryLabelColor

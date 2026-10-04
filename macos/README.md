@@ -7,8 +7,11 @@ Swift nor a separate `codex-profile` installation on the user's Mac.
 Drag **Codex Profiles.app** to **Applications**, open it, and choose
 **Open** beside an existing profile. If none exists, choose **Create profile…**
 and enter a name such as `work` or `personal`. A project folder is not required.
-The app opens its menu on launch. **New profile…** is also in its gear menu.
-**Add workspace…** optionally binds a project folder to a profile for a shortcut.
+The app opens its menu when you launch it. **New profile…** is also in its gear
+menu. **Add workspace…** optionally binds a project folder to a profile for a
+shortcut. **Open at Login** in the gear menu starts the app quietly in the menu
+bar when you log in; macOS may ask you to allow it in Login Items. Opening the
+app again from Finder or Spotlight shows the menu.
 
 Open a profile or workspace in **ChatGPT** to use the original installed ChatGPT app.
 A named profile opens a window with separate local Desktop state and may
@@ -34,6 +37,13 @@ Workspace rows show the project name, profile and folder,
 with an explicit **Open** button and an actions menu. Missing folders and
 profiles show the reason and retain actions for repair or removal. Refresh
 failures preserve loaded content while retaining committed binding changes.
+While a binding change is in progress, its row shows **Updating…** and cannot
+open, so it never launches the previous profile.
+
+Every row's actions menu offers **Open in ChatGPT** and **Open in Terminal**,
+which use that destination once without changing the default. Profile rows
+also offer **Add workspace…** for that profile and **Sign in to Codex CLI…**.
+Actions that cannot apply, such as revealing a missing folder, are disabled.
 
 Search receives focus when the menu opens. ↑/↓ selects available profiles or
 projects; Return opens the selection, or the first available search result.
@@ -47,10 +57,14 @@ you explicitly started **Add workspace…**.
 ## Codex usage beside each profile
 
 The **Codex left** column shows the percentage remaining in each reported
-quota window. Window labels come from the response: for example, `5h` and
-`7d`, or `15m` when that is the actual duration. Hover a reading for reset
-times and when it was checked. Missing limits show **Unavailable**; expired
-readings show a dash until refreshed. Neither state disables **Open**.
+quota window, with a small meter beside it. Window labels come from the
+response: for example, `5h` and `7d`, or `15m` when that is the actual
+duration. At 25% or less a meter turns orange, and at 10% or less it and its
+number turn red; the number always carries the value. A low window also
+replaces the row's description with its reset time, such as
+`5h limit low · resets in 1h 12m`. Hover a reading for each reset time and
+when it was checked. Missing limits show **Unavailable**; expired readings
+show a dash until refreshed. Neither state disables **Open**.
 
 Usage belongs to each profile's **Codex CLI** sign-in. Desktop sign-in can
 use a different account; the companion does not compare accounts. Sign in
@@ -69,6 +83,8 @@ inherited account for the profile's sign-in.
 Reads happen in the background when the menu opens. They are cached in
 memory for 60 seconds, refreshed after a reported reset or with ⌘R, and
 limited to two concurrent readers with a ten-second deadline per reader.
+During a refresh the previous reading stays visible, dimmed, and each row
+updates in place as its reading arrives, keeping hover and keyboard focus.
 The query uses a private temporary directory to avoid unrelated workspace
 guard bindings. Timeouts, failures, cancellation and Quit stop owned readers;
 usage errors do not interrupt profile launches or open error dialogs.
@@ -161,7 +177,8 @@ The script signs the companion with hardened runtime and the Apple Events
 entitlement needed for Terminal, signs the DMG, submits it to Apple, requires
 an **Accepted** result, staples and validates the ticket, and assesses the
 DMG with Gatekeeper. It writes the final DMG and checksum only after those
-checks pass. Notarisation results are retained beside the output for diagnosis.
+checks pass, and restores the previous pair if publishing them fails.
+Notarisation results are retained beside the output for diagnosis.
 No credentials are stored in the repository. The original ChatGPT app is
 never modified or signed by this builder.
 

@@ -57,7 +57,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 event.window == self.menuController?.view.window else { return event }
             return self.menuController?.handleShortcut(event) == true ? nil : event
         }
-        togglePopover()
+        // Login launches stay in the menu bar; launches by the user open the menu.
+        if !Self.launchedAsLoginItem { togglePopover() }
+    }
+
+    /// Opening the app again from Finder or Spotlight shows the menu.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !popover.isShown { togglePopover() }
+        return false
+    }
+
+    private static var launchedAsLoginItem: Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent else { return false }
+        return event.eventID == kAEOpenApplication
+            && event.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

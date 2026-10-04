@@ -2,8 +2,29 @@ import AppKit
 
 @MainActor
 final class WorkspaceMenuViewController: NSViewController {
+    /// Everything that shapes the list except live usage. Usage updates rows in
+    /// place, so streaming readings keep hover, focus and the VoiceOver cursor.
+    private struct ListModel: Equatable {
+        struct Row: Equatable {
+            let item: LaunchTarget
+            let pinned: Bool
+            let launching: Bool
+            let changing: Bool
+            let enabled: Bool
+        }
+
+        let destination: OpenDestination
+        let rows: [Row]
+    }
+
+    private struct LaunchRequest {
+        let item: LaunchTarget
+        let destination: OpenDestination
+    }
+
     private let store: WorkspaceStore
     private let defaults: UserDefaults
+    private let loginItem: LoginItemControlling
     private let searchField = NSSearchField()
     private let profilePicker = NSPopUpButton()
     private let destinationPicker = NSSegmentedControl(labels: ["ChatGPT", "Terminal"], trackingMode: .selectOne, target: nil, action: nil)
@@ -17,12 +38,15 @@ final class WorkspaceMenuViewController: NSViewController {
     private var selectedID: LaunchTarget.ID?
     private var heightConstraint: NSLayoutConstraint?
     private var destination: OpenDestination
+    private var renderedList: ListModel?
+    private var renderedProfiles: [String]?
     var onPreferredContentSizeChange: ((NSSize) -> Void)?
     var onRequestClose: (() -> Void)?
 
-    init(store: WorkspaceStore, defaults: UserDefaults = .standard) {
+    init(store: WorkspaceStore, defaults: UserDefaults = .standard, loginItem: LoginItemControlling? = nil) {
         self.store = store
         self.defaults = defaults
+        self.loginItem = loginItem ?? MainAppLoginItem()
         destination = defaults.string(forKey: "openDestination") == OpenDestination.terminal.rawValue ? .terminal : .chatGPT
         super.init(nibName: nil, bundle: nil)
         preferredContentSize = NSSize(width: 400, height: 260)
@@ -65,8 +89,8 @@ final class WorkspaceMenuViewController: NSViewController {
             case 125: moveSelection(by: 1); return true
             case 126: moveSelection(by: -1); return true
             case 36, 76:
-                if let item = store.filteredTargets.first(where: { $0.id == selectedID })
-                    ?? store.filteredTargets.first(where: \.isAvailable) { launch(item) }
+                let targets = store.filteredTargets
+                if let item = targets.first(where: { $0.id == selectedID }) ?? targets.first(where: store.canLaunch) { launch(item) }
                 return true
             case 53:
                 if !store.query.isEmpty { clearSearch() } else { onRequestClose?() }
@@ -80,8 +104,9 @@ final class WorkspaceMenuViewController: NSViewController {
         case "r": refresh(); return true
         case "q": NSApp.terminate(nil); return true
         case let value?:
-            guard let index = Int(value), (1...9).contains(index), store.filteredTargets.indices.contains(index - 1) else { return false }
-            launch(store.filteredTargets[index - 1]); return true
+            let targets = store.filteredTargets
+            guard let index = Int(value), (1...9).contains(index), targets.indices.contains(index - 1) else { return false }
+            launch(targets[index - 1]); return true
         case nil: return false
         }
     }
@@ -190,6 +215,7 @@ final class WorkspaceMenuViewController: NSViewController {
     }
 
     private func render() {
+        let targets = store.filteredTargets
         let populated = store.phase == .ready && (!store.profiles.isEmpty || !store.workspaces.isEmpty)
         let shouldFocusSearch = populated && searchField.isHidden
         searchField.isHidden = !populated
@@ -198,12 +224,18 @@ final class WorkspaceMenuViewController: NSViewController {
         footerLabel.stringValue = ["Choose a profile or workspace", "Create a profile to get started"].contains(store.statusMessage) ? "" : store.statusMessage
         footerLabel.toolTip = footerLabel.stringValue
         refreshButton.isEnabled = !store.isRefreshing && !store.isRefreshingUsage
-        let currentSelection = store.filteredTargets.first { $0.id == selectedID && $0.isAvailable }
-        selectedID = currentSelection?.id
-        profilePicker.removeAllItems()
-        profilePicker.addItem(withTitle: "All profiles")
-        for profile in store.profiles { profilePicker.addItem(withTitle: profile) }
-        profilePicker.selectItem(at: store.selectedProfile.flatMap { store.profiles.firstIndex(of: $0) }.map { $0 + 1 } ?? 0)
+        selectedID = targets.first { $0.id == selectedID && store.canLaunch($0) }?.id
+        updateProfilePicker()
+
+        let list = store.phase == .ready && !targets.isEmpty ? listModel(for: targets) : nil
+        if let list, list == renderedList, scrollView != nil {
+            for row in rows {
+                row.isSelectedRow = row.item.id == selectedID
+                if row.item.workspace == nil { row.update(usage: store.usageState(for: row.item.profile)) }
+            }
+            return
+        }
+        renderedList = list
         let scrollPosition = scrollView?.contentView.bounds.origin ?? .zero
         contentContainer.subviews.forEach { $0.removeFromSuperview() }
         rows.removeAll()
@@ -215,9 +247,10 @@ final class WorkspaceMenuViewController: NSViewController {
             showState(symbol: "exclamationmark.triangle", title: "Couldn’t load profiles", detail: message, actionTitle: "Try again", action: #selector(refresh))
         case .ready where store.profiles.isEmpty && store.workspaces.isEmpty:
             showState(symbol: "person.crop.circle.badge.plus", title: "Create your first profile", detail: "Open separate ChatGPT windows for work and personal use.", actionTitle: "Create profile…", action: #selector(createProfile))
-        case .ready where store.filteredTargets.isEmpty:
+        case .ready where targets.isEmpty:
             showState(symbol: "magnifyingglass", title: "No matches", detail: "Try another profile or project name.", actionTitle: "Reset filters", action: #selector(resetFilters))
-        case .ready: showLaunchList()
+        case .ready:
+            if let list { showLaunchList(list) }
         }
         let contentHeight = scrollView?.documentView?.fittingSize.height
             ?? contentContainer.subviews.first.map { $0.fittingSize.height + 24 } ?? 100
@@ -235,7 +268,32 @@ final class WorkspaceMenuViewController: NSViewController {
         }
     }
 
-    private func showLaunchList() {
+    private func listModel(for targets: [LaunchTarget]) -> ListModel {
+        ListModel(destination: destination, rows: targets.map { item in
+            ListModel.Row(
+                item: item,
+                pinned: item.workspace.map(store.isPinned) ?? false,
+                launching: store.launchingID == item.id,
+                changing: store.isChanging(item),
+                enabled: store.canLaunch(item) && store.launchingID == nil
+            )
+        })
+    }
+
+    /// Rebuilds the filter only when profiles change, so an open filter menu
+    /// is not replaced while usage readings arrive.
+    private func updateProfilePicker() {
+        if renderedProfiles != store.profiles {
+            profilePicker.removeAllItems()
+            profilePicker.addItem(withTitle: "All profiles")
+            for profile in store.profiles { profilePicker.addItem(withTitle: profile) }
+            renderedProfiles = store.profiles
+        }
+        let index = store.selectedProfile.flatMap { store.profiles.firstIndex(of: $0) }.map { $0 + 1 } ?? 0
+        if profilePicker.indexOfSelectedItem != index { profilePicker.selectItem(at: index) }
+    }
+
+    private func showLaunchList(_ list: ListModel) {
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
@@ -250,9 +308,9 @@ final class WorkspaceMenuViewController: NSViewController {
         stack.translatesAutoresizingMaskIntoConstraints = false
         document.addSubview(stack)
         var previousGroup: String?
-        for (index, item) in store.filteredTargets.enumerated() {
-            let pinned = item.workspace.map(store.isPinned) ?? false
-            let groupTitle = item.workspace == nil ? "Profiles" : pinned ? "Pinned workspaces" : "Workspaces"
+        for (index, model) in list.rows.enumerated() {
+            let item = model.item
+            let groupTitle = item.workspace == nil ? "Profiles" : model.pinned ? "Pinned workspaces" : "Workspaces"
             if previousGroup != groupTitle {
                 let heading = label(groupTitle, size: 10, weight: .semibold)
                 heading.textColor = .secondaryLabelColor
@@ -261,7 +319,7 @@ final class WorkspaceMenuViewController: NSViewController {
                 if item.workspace == nil {
                     let usageHeading = label("Codex left", size: 10, weight: .semibold)
                     usageHeading.textColor = .secondaryLabelColor
-                    usageHeading.alignment = .center
+                    usageHeading.alignment = .right
                     usageHeading.toolTip = "Remaining Codex CLI quota. ChatGPT may use a different account."
                     usageHeading.widthAnchor.constraint(equalToConstant: ProfileUsageView.columnWidth).isActive = true
                     group.addArrangedSubview(usageHeading)
@@ -274,18 +332,18 @@ final class WorkspaceMenuViewController: NSViewController {
                 group.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
                 previousGroup = groupTitle
             }
-            let row = LaunchRowButton(item: item, shortcutIndex: index, destination: destination,
-                usage: store.usage[item.profile], pinned: pinned, selected: selectedID == item.id,
-                launching: store.launchingID == item.id, busy: store.launchingID != nil,
-                target: self, action: #selector(launchClicked(_:)))
+            let row = LaunchRowButton(item: item, shortcutIndex: index, destination: list.destination,
+                usage: item.workspace == nil ? store.usageState(for: item.profile) : nil, pinned: model.pinned,
+                selected: selectedID == item.id, launching: model.launching, changing: model.changing,
+                enabled: model.enabled, target: self, action: #selector(launchClicked(_:)))
             row.onShowActions = { [weak self] sender in
-                if let workspace = item.workspace { self?.showWorkspaceActions(workspace, from: sender) }
-                else { self?.showProfileActions(item.profile, from: sender) }
+                guard let self else { return }
+                self.actionsMenu(for: item).popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
             }
             rows.append(row)
             stack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-            if index < store.filteredTargets.count - 1 {
+            if index < list.rows.count - 1 {
                 let separator = NSBox()
                 separator.boxType = .separator
                 stack.addArrangedSubview(separator)
@@ -306,7 +364,7 @@ final class WorkspaceMenuViewController: NSViewController {
     }
 
     private func moveSelection(by offset: Int) {
-        let available = store.filteredTargets.filter(\.isAvailable)
+        let available = store.filteredTargets.filter(store.canLaunch)
         guard !available.isEmpty else { return }
         let current = available.firstIndex { $0.id == selectedID } ?? (offset > 0 ? -1 : available.count)
         selectedID = available[min(available.count - 1, max(0, current + offset))].id
@@ -314,8 +372,10 @@ final class WorkspaceMenuViewController: NSViewController {
         if let row = rows.first(where: { $0.item.id == selectedID }) { row.scrollToVisible(row.bounds) }
     }
 
-    private func launch(_ item: LaunchTarget) {
-        guard item.isAvailable, store.launchingID == nil else { return }
+    /// The store explains refusals, such as a missing folder, in the footer.
+    private func launch(_ item: LaunchTarget, in requested: OpenDestination? = nil) {
+        guard store.launchingID == nil else { return }
+        let destination = requested ?? self.destination
         Task { if await store.launch(item, in: destination) { onRequestClose?() } }
     }
 
@@ -350,54 +410,100 @@ final class WorkspaceMenuViewController: NSViewController {
         NSLayoutConstraint.activate([stack.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor), stack.centerYAnchor.constraint(equalTo: contentContainer.centerYAnchor), stack.widthAnchor.constraint(lessThanOrEqualTo: contentContainer.widthAnchor, constant: -24)])
     }
 
-    private func showWorkspaceActions(_ workspace: WorkspaceBinding, from sender: NSButton) {
+    /// A row's actions. Items are enabled explicitly: NSMenu's default
+    /// auto-enabling would re-enable every item whose target responds.
+    func actionsMenu(for item: LaunchTarget) -> NSMenu {
         let menu = NSMenu()
-        func item(_ title: String, _ action: Selector, _ symbol: String) -> NSMenuItem {
-            let value = NSMenuItem(title: title, action: action, keyEquivalent: "")
-            value.target = self
-            value.representedObject = workspace
-            value.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-            return value
+        menu.autoenablesItems = false
+        let idle = store.launchingID == nil
+        for destination in [OpenDestination.chatGPT, .terminal] {
+            let open = menuItem("Open in \(destination.label)", #selector(openFromMenu(_:)), symbol: destination.symbolName,
+                LaunchRequest(item: item, destination: destination))
+            open.isEnabled = idle && store.canLaunch(item)
+            menu.addItem(open)
         }
-        menu.addItem(item(store.isPinned(workspace) ? "Unpin workspace" : "Pin workspace", #selector(togglePin(_:)), "pin"))
-        let reveal = item("Show in Finder", #selector(revealWorkspace(_:)), "folder")
+        menu.addItem(.separator())
+        guard let workspace = item.workspace else {
+            menu.addItem(menuItem("Add workspace…", #selector(addWorkspaceForProfile(_:)), symbol: "folder.badge.plus", item.profile))
+            menu.addItem(menuItem("Sign in to Codex CLI…", #selector(signInToCLI(_:)), symbol: "person.badge.key", item.profile))
+            return menu
+        }
+        let changing = store.isChanging(item)
+        menu.addItem(menuItem(store.isPinned(workspace) ? "Unpin workspace" : "Pin workspace", #selector(togglePin(_:)), symbol: "pin", workspace))
+        let reveal = menuItem("Show in Finder", #selector(revealWorkspace(_:)), symbol: "folder", workspace)
         reveal.isEnabled = workspace.pathExists
         menu.addItem(reveal)
-        let copy = item("Copy path", #selector(copyWorkspacePath(_:)), "doc.on.doc")
-        menu.addItem(copy)
+        menu.addItem(menuItem("Copy path", #selector(copyWorkspacePath(_:)), symbol: "doc.on.doc", workspace))
         let reassign = NSMenuItem(title: "Change profile", action: nil, keyEquivalent: "")
+        reassign.image = NSImage(systemSymbolName: "person.2", accessibilityDescription: nil)
         let profiles = NSMenu()
+        profiles.autoenablesItems = false
         for profile in store.profiles {
-            let choice = NSMenuItem(title: profile, action: #selector(reassignWorkspace(_:)), keyEquivalent: "")
-            choice.target = self
-            choice.representedObject = [workspace.path, profile]
+            let choice = menuItem(profile, #selector(reassignWorkspace(_:)), symbol: nil, [workspace.path, profile])
             choice.state = profile == workspace.profile ? .on : .off
-            choice.isEnabled = workspace.pathExists && profile != workspace.profile && store.launchingID == nil
+            choice.isEnabled = workspace.pathExists && profile != workspace.profile && idle && !changing
             profiles.addItem(choice)
         }
         reassign.submenu = profiles
+        reassign.isEnabled = !store.profiles.isEmpty
         menu.addItem(reassign)
         if !workspace.pathExists {
-            menu.addItem(item("Locate moved folder…", #selector(locateWorkspace(_:)), "folder.badge.questionmark"))
+            let locate = menuItem("Locate moved folder…", #selector(locateWorkspace(_:)), symbol: "folder.badge.questionmark", workspace)
+            locate.isEnabled = !changing
+            menu.addItem(locate)
         }
         menu.addItem(.separator())
-        let remove = item("Remove workspace binding", #selector(removeWorkspace(_:)), "minus.circle")
-        remove.isEnabled = store.launchingID == nil
+        let remove = menuItem("Remove workspace binding", #selector(removeWorkspace(_:)), symbol: "minus.circle", workspace)
+        remove.isEnabled = idle && !changing
         menu.addItem(remove)
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
+        return menu
     }
 
-    private func showProfileActions(_ profile: String, from sender: NSButton) {
+    func settingsMenu() -> NSMenu {
         let menu = NSMenu()
-        let signIn = NSMenuItem(title: "Sign in to Codex CLI…", action: #selector(signInToCLI(_:)), keyEquivalent: "")
-        signIn.target = self
-        signIn.representedObject = profile
-        menu.addItem(signIn)
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
+        menu.autoenablesItems = false
+        menu.addItem(menuItem("New profile…", #selector(createProfile), symbol: nil, nil))
+        let login = NSMenuItem(title: "Sign in to Codex CLI", action: nil, keyEquivalent: "")
+        let profiles = NSMenu()
+        for profile in store.profiles { profiles.addItem(menuItem(profile, #selector(signInToCLI(_:)), symbol: nil, profile)) }
+        login.submenu = profiles
+        login.isEnabled = !store.profiles.isEmpty
+        menu.addItem(login)
+        menu.addItem(.separator())
+        let openAtLogin = menuItem("Open at Login", #selector(toggleOpenAtLogin), symbol: nil, nil)
+        switch loginItem.status {
+        case .enabled: openAtLogin.state = .on
+        case .requiresApproval:
+            openAtLogin.state = .mixed
+            openAtLogin.toolTip = "Allow Codex Profiles in System Settings › General › Login Items"
+        case .disabled: openAtLogin.state = .off
+        }
+        menu.addItem(openAtLogin)
+        menu.addItem(.separator())
+        menu.addItem(menuItem("About Codex Profiles", #selector(showAbout), symbol: nil, nil))
+        let guardItem = NSMenuItem(title: "Workspace guard: \(store.guardMode)", action: nil, keyEquivalent: "")
+        guardItem.isEnabled = false
+        menu.addItem(guardItem)
+        menu.addItem(.separator())
+        let quit = menuItem("Quit Codex Profiles", #selector(quit), symbol: nil, nil)
+        quit.keyEquivalent = "q"
+        menu.addItem(quit)
+        return menu
+    }
+
+    private func menuItem(_ title: String, _ action: Selector, symbol: String?, _ represented: Any?) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        item.representedObject = represented
+        item.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
+        return item
     }
 
     @objc private func redrawSystemColours() {
-        for row in rows { row.updateSystemColours() }
+        for row in rows {
+            row.updateSystemColours()
+            row.redrawUsageMeters()
+        }
     }
 
     private func label(_ text: String, size: CGFloat, weight: NSFont.Weight) -> NSTextField {
@@ -424,6 +530,10 @@ final class WorkspaceMenuViewController: NSViewController {
     }
 
     @objc private func launchClicked(_ sender: LaunchRowButton) { launch(sender.item) }
+    @objc private func openFromMenu(_ sender: NSMenuItem) {
+        guard let request = sender.representedObject as? LaunchRequest else { return }
+        launch(request.item, in: request.destination)
+    }
     @objc private func refresh() { Task { await store.refresh(); await store.refreshUsage(force: true) } }
     @objc private func clearSearch() { selectedID = nil; searchField.stringValue = ""; store.query = ""; focusSearch() }
     @objc private func resetFilters() { store.selectedProfile = nil; clearSearch() }
@@ -471,6 +581,7 @@ final class WorkspaceMenuViewController: NSViewController {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
     }
     @objc private func profileChosen(_ sender: NSMenuItem) { if let profile = sender.representedObject as? String { chooseFolder(for: profile) } }
+    @objc private func addWorkspaceForProfile(_ sender: NSMenuItem) { if let profile = sender.representedObject as? String { chooseFolder(for: profile) } }
 
     private func chooseFolder(for profile: String, replacing: WorkspaceBinding? = nil) {
         let panel = NSOpenPanel()
@@ -492,36 +603,33 @@ final class WorkspaceMenuViewController: NSViewController {
     }
 
     @objc private func showSettingsMenu(_ sender: NSButton) {
-        let menu = NSMenu()
-        let create = NSMenuItem(title: "New profile…", action: #selector(createProfile), keyEquivalent: "")
-        create.target = self
-        menu.addItem(create)
-        let login = NSMenuItem(title: "Sign in to Codex CLI", action: nil, keyEquivalent: "")
-        let profiles = NSMenu()
-        for profile in store.profiles {
-            let item = NSMenuItem(title: profile, action: #selector(signInToCLI(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = profile
-            profiles.addItem(item)
-        }
-        login.submenu = profiles
-        login.isEnabled = !store.profiles.isEmpty
-        menu.addItem(login)
-        menu.addItem(.separator())
-        let about = NSMenuItem(title: "About Codex Profiles", action: #selector(showAbout), keyEquivalent: "")
-        about.target = self
-        menu.addItem(about)
-        let guardItem = NSMenuItem(title: "Workspace guard: \(store.guardMode)", action: nil, keyEquivalent: "")
-        guardItem.isEnabled = false
-        menu.addItem(guardItem)
-        menu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quit Codex Profiles", action: #selector(quit), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
+        settingsMenu().popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
     }
     @objc private func showAbout() { onRequestClose?(); NSApp.orderFrontStandardAboutPanel(nil) }
     @objc private func quit() { NSApp.terminate(nil) }
+
+    @objc private func toggleOpenAtLogin() {
+        do {
+            switch loginItem.status {
+            case .enabled:
+                try loginItem.unregister()
+                store.showMessage("Codex Profiles won’t open at login")
+            case .requiresApproval:
+                loginItem.openSystemSettings()
+                store.showMessage("Allow Codex Profiles in Login Items")
+            case .disabled:
+                try loginItem.register()
+                if loginItem.status == .requiresApproval {
+                    loginItem.openSystemSettings()
+                    store.showMessage("Allow Codex Profiles in Login Items")
+                } else {
+                    store.showMessage("Codex Profiles will open at login")
+                }
+            }
+        } catch {
+            presentError("Couldn’t change Open at Login: \(error.localizedDescription)")
+        }
+    }
 
     @objc private func createProfile() { promptForProfile(addingWorkspace: false) }
     @objc private func createProfileForWorkspace() { promptForProfile(addingWorkspace: true) }
@@ -579,10 +687,19 @@ final class LaunchRowButton: NSButton {
     var isSelectedRow: Bool { didSet { setAccessibilitySelected(isSelectedRow); needsDisplay = true } }
     private var isHovered = false
     private var tracking: NSTrackingArea?
+    private let destination: OpenDestination
+    private let metadata: NSTextField
+    private let profileDetail: String
+    private let usageView: ProfileUsageView?
 
-    init(item: LaunchTarget, shortcutIndex: Int, destination: OpenDestination, usage: ProfileUsage?, pinned: Bool, selected: Bool, launching: Bool, busy: Bool, target: AnyObject?, action: Selector?) {
+    init(item: LaunchTarget, shortcutIndex: Int, destination: OpenDestination, usage: UsageState?, pinned: Bool, selected: Bool,
+         launching: Bool, changing: Bool, enabled: Bool, target: AnyObject?, action: Selector?) {
         self.item = item
+        self.destination = destination
         isSelectedRow = selected
+        profileDetail = destination == .terminal ? "Codex CLI profile" : item.profile == "default" ? "Standard ChatGPT window" : "Separate ChatGPT window"
+        metadata = NSTextField(labelWithString: item.workspace.map { "\($0.profile) · \($0.displayPath())" } ?? profileDetail)
+        usageView = item.workspace == nil ? ProfileUsageView(usage: usage ?? UsageState()) : nil
         super.init(frame: .zero)
         self.target = target
         self.action = action
@@ -590,18 +707,14 @@ final class LaunchRowButton: NSButton {
         isBordered = false
         wantsLayer = true
         focusRingType = .none
-        isEnabled = item.isAvailable && !busy
+        isEnabled = enabled
         translatesAutoresizingMaskIntoConstraints = false
         heightAnchor.constraint(equalToConstant: item.workspace == nil ? 44 : item.isAvailable ? 56 : 72).isActive = true
-        setAccessibilityLabel(item.workspace.map { "\($0.name), profile \($0.profile), \($0.path). \($0.availabilityReason ?? "Open in \(destination.label)")" }
-            ?? "Profile \(item.profile). Open in \(destination.label)")
+        let state = changing ? "Updating" : "Open in \(destination.label)"
+        setAccessibilityLabel(item.workspace.map { "\($0.name), profile \($0.profile), \($0.path). \($0.availabilityReason ?? state)" }
+            ?? "Profile \(item.profile). \(state)")
         setAccessibilitySelected(selected)
         toolTip = item.workspace.map { "\($0.path)\nProfile: \($0.profile)" } ?? "Open profile \(item.profile) without a project folder"
-        if item.workspace == nil {
-            let usageDetail = (usage ?? .loading).detail()
-            toolTip = "\(toolTip!)\n\(usageDetail)"
-            setAccessibilityLabel("Profile \(item.profile). Open in \(destination.label). \(usageDetail)")
-        }
         let icon = NSImageView(image: NSImage(systemSymbolName: item.workspace == nil ? "person.crop.circle" : pinned ? "pin.fill" : "folder", accessibilityDescription: nil) ?? NSImage())
         icon.symbolConfiguration = .init(pointSize: 18, weight: .regular)
         icon.contentTintColor = .secondaryLabelColor
@@ -611,11 +724,10 @@ final class LaunchRowButton: NSButton {
         name.lineBreakMode = .byTruncatingTail
         name.toolTip = item.name
         name.textColor = item.isAvailable ? .labelColor : .secondaryLabelColor
-        let profileDetail = destination == .terminal ? "Codex CLI profile" : item.profile == "default" ? "Standard ChatGPT window" : "Separate ChatGPT window"
-        let metadata = NSTextField(labelWithString: item.workspace.map { "\($0.profile) · \($0.displayPath())" } ?? profileDetail)
         metadata.font = .systemFont(ofSize: 11)
         metadata.textColor = .secondaryLabelColor
-        metadata.lineBreakMode = .byTruncatingMiddle
+        // Paths keep both ends readable; prose keeps its beginning.
+        metadata.lineBreakMode = item.workspace == nil ? .byTruncatingTail : .byTruncatingMiddle
         if let workspace = item.workspace {
             let metadataText = NSMutableAttributedString(attributedString: metadata.attributedStringValue)
             metadataText.addAttribute(.font, value: NSFont.systemFont(ofSize: 11, weight: .medium),
@@ -642,23 +754,25 @@ final class LaunchRowButton: NSButton {
             warning.widthAnchor.constraint(equalTo: labels.widthAnchor).isActive = true
             warning.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
-        let open = NSButton(title: launching ? "Opening…" : "Open", target: self, action: #selector(openTarget(_:)))
+        let openTitle = launching ? "Opening…" : changing ? "Updating…" : "Open"
+        let open = NSButton(title: openTitle, target: self, action: #selector(openTarget(_:)))
         open.bezelStyle = .rounded
         open.controlSize = .small
         open.font = .systemFont(ofSize: 11)
         open.contentTintColor = .labelColor
-        open.isEnabled = isEnabled
-        open.widthAnchor.constraint(equalToConstant: launching ? 78 : 56).isActive = true
+        open.isEnabled = enabled
+        open.widthAnchor.constraint(equalToConstant: openTitle == "Open" ? 56 : 78).isActive = true
         open.toolTip = "Open in \(destination.label)" + (shortcutIndex < 9 ? " (⌘\(shortcutIndex + 1))" : "")
         open.setAccessibilityLabel("Open \(item.name) in \(destination.label)")
         let more = NSButton(image: NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Actions for \(item.name)") ?? NSImage(), target: self, action: #selector(showActions(_:)))
         more.isBordered = false
         more.contentTintColor = .secondaryLabelColor
-        more.toolTip = item.workspace == nil ? "Sign in to Codex CLI" : "Pin, change profile, or remove binding"
+        more.toolTip = item.workspace == nil ? "Open elsewhere, add a workspace, or sign in to Codex CLI" : "Open elsewhere, pin, change profile, or remove binding"
+        more.isEnabled = !changing
         more.widthAnchor.constraint(equalToConstant: 22).isActive = true
         more.heightAnchor.constraint(equalToConstant: 24).isActive = true
         var rowViews: [NSView] = [icon, labels]
-        if item.workspace == nil { rowViews.append(ProfileUsageView(usage: usage ?? .loading)) }
+        if let usageView { rowViews.append(usageView) }
         rowViews += [open, more]
         let row = NSStackView(views: rowViews)
         row.orientation = .horizontal
@@ -671,10 +785,24 @@ final class LaunchRowButton: NSButton {
             row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14), row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             row.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
+        if item.workspace == nil { update(usage: usage ?? UsageState()) }
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// Shows a newer usage reading without rebuilding the row.
+    func update(usage: UsageState, now: Date = Date()) {
+        guard let usageView else { return }
+        usageView.update(usage, now: now)
+        let detail = usage.detail(at: now)
+        toolTip = "Open profile \(item.profile) without a project folder\n\(detail)"
+        metadata.toolTip = toolTip
+        // A low quota matters more than the destination description.
+        metadata.stringValue = usage.summary(at: now) ?? profileDetail
+        setAccessibilityLabel("Profile \(item.profile). Open in \(destination.label). \(detail)")
+    }
+
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() { updateSystemColours() }
 
@@ -692,6 +820,8 @@ final class LaunchRowButton: NSButton {
             layer?.borderColor = NSColor.labelColor.cgColor
         }
     }
+
+    func redrawUsageMeters() { usageView?.redrawMeters() }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -706,46 +836,112 @@ final class LaunchRowButton: NSButton {
 }
 
 final class ProfileUsageView: NSStackView {
-    static let columnWidth: CGFloat = 88
+    static let columnWidth: CGFloat = 100
 
-    init(usage: ProfileUsage, now: Date = Date()) {
+    init(usage: UsageState, now: Date = Date()) {
         super.init(frame: .zero)
         orientation = .vertical
         alignment = .width
-        spacing = 3
+        spacing = 4
         widthAnchor.constraint(equalToConstant: Self.columnWidth).isActive = true
         setContentCompressionResistancePriority(.required, for: .horizontal)
-        toolTip = usage.detail(at: now)
         setAccessibilityLabel("Codex quota remaining")
-        setAccessibilityValue(toolTip)
+        update(usage, now: now)
+    }
 
-        if case let .available(limits, _) = usage {
-            for (index, window) in limits.windows.enumerated() {
-                let duration = NSTextField(labelWithString: window.durationLabel ?? "Limit \(index + 1)")
-                duration.font = .systemFont(ofSize: 10)
-                duration.textColor = .secondaryLabelColor
-                duration.lineBreakMode = .byTruncatingTail
-                duration.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-                let remaining = NSTextField(labelWithString: window.hasReset(at: now) ? "—" : "\(window.remainingPercent)%")
-                remaining.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-                remaining.textColor = window.hasReset(at: now) ? .secondaryLabelColor : window.remainingPercent <= 10 ? .systemRed : .labelColor
-                remaining.setContentCompressionResistancePriority(.required, for: .horizontal)
-                let line = NSStackView(views: [duration, NSView(), remaining])
-                line.alignment = .lastBaseline
-                line.spacing = 4
-                addArrangedSubview(line)
-                line.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
-            }
-        } else {
-            let message = NSTextField(labelWithString: usage == .loading ? "Checking…" : "Unavailable")
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// Replaces the readings in place. A refresh dims the previous reading
+    /// rather than hiding it; expired windows show a dash, never restored quota.
+    func update(_ usage: UsageState, now: Date = Date()) {
+        arrangedSubviews.forEach { $0.removeFromSuperview() }
+        toolTip = usage.detail(at: now)
+        setAccessibilityValue(toolTip)
+        guard let limits = usage.limits else {
+            let checking = usage.reading == nil || usage.isRefreshing
+            let message = NSTextField(labelWithString: checking ? "Checking…" : "Unavailable")
             message.font = .systemFont(ofSize: 10)
             message.textColor = .secondaryLabelColor
             message.alignment = .right
             addArrangedSubview(message)
             message.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
+            return
         }
+        for (index, window) in limits.windows.enumerated() {
+            let expired = window.hasReset(at: now)
+            let duration = NSTextField(labelWithString: window.durationLabel ?? "Limit \(index + 1)")
+            duration.font = .systemFont(ofSize: 10)
+            duration.textColor = .secondaryLabelColor
+            duration.alignment = .right
+            duration.lineBreakMode = .byTruncatingTail
+            duration.setContentHuggingPriority(.defaultLow, for: .horizontal)
+            duration.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            let meter = QuotaMeter()
+            meter.fraction = expired ? 0 : CGFloat(window.remainingPercent) / 100
+            meter.level = expired ? .normal : window.level
+            let remaining = NSTextField(labelWithString: expired ? "—" : "\(window.remainingPercent)%")
+            remaining.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+            remaining.textColor = expired ? .secondaryLabelColor : window.level == .critical ? .systemRed : .labelColor
+            remaining.alignment = .right
+            remaining.widthAnchor.constraint(equalToConstant: 30).isActive = true
+            let line = NSStackView(views: [duration, meter, remaining])
+            line.distribution = .fill
+            line.alignment = .centerY
+            line.spacing = 4
+            line.alphaValue = usage.isRefreshing ? 0.45 : 1
+            addArrangedSubview(line)
+            line.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
+        }
+    }
+
+    func redrawMeters() {
+        for line in arrangedSubviews { for case let meter as QuotaMeter in line.subviews { meter.needsDisplay = true } }
+    }
+}
+
+/// A thin capacity bar beside each quota percentage. The number carries the
+/// value; low and critical colours only add emphasis.
+final class QuotaMeter: NSView {
+    var fraction: CGFloat = 0 { didSet { needsDisplay = true } }
+    var level: QuotaLevel = .normal { didSet { needsDisplay = true } }
+    private let fill = CALayer()
+
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        fill.actions = ["bounds": NSNull(), "position": NSNull(), "backgroundColor": NSNull(), "cornerRadius": NSNull()]
+        layer?.addSublayer(fill)
+        setAccessibilityElement(false)
+        translatesAutoresizingMaskIntoConstraints = false
+        widthAnchor.constraint(equalToConstant: 32).isActive = true
+        heightAnchor.constraint(equalToConstant: 4).isActive = true
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override var wantsUpdateLayer: Bool { true }
+    override func layout() { super.layout(); needsDisplay = true }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
+
+    override func updateLayer() {
+        guard let layer else { return }
+        let contrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer.backgroundColor = (contrast ? NSColor.tertiaryLabelColor : .quaternaryLabelColor).cgColor
+            let colour: NSColor = switch level {
+            case .critical: .systemRed
+            case .low: .systemOrange
+            case .normal: contrast ? .labelColor : .secondaryLabelColor
+            }
+            fill.backgroundColor = colour.cgColor
+        }
+        let radius = bounds.height / 2
+        layer.cornerRadius = radius
+        fill.cornerRadius = radius
+        // Keep any remaining quota visible as at least a dot.
+        let width = fraction > 0 ? max(bounds.height, bounds.width * min(1, fraction)) : 0
+        fill.frame = CGRect(x: 0, y: 0, width: width, height: bounds.height)
+    }
 }
