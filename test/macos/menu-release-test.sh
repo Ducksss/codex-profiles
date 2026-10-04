@@ -71,6 +71,20 @@ for tool in codesign hdiutil xcrun spctl; do
   ln -s release-boundary "$FAKE_BIN/$tool"
 done
 
+# Fails only the checksum's move from the build directory into the output,
+# after the new image has already been published.
+cat > "$FAKE_BIN/mv" <<'MOVE'
+#!/usr/bin/env bash
+source_path="${*: -2:1}"
+source_parent="${source_path%/*}"
+if [[ -n "${RELEASE_TEST_FAIL_CHECKSUM_PUBLISH:-}" && "${!#}" == *.dmg.sha256 \
+  && "${source_parent##*/}" == .menu-dmg.* ]]; then
+  exit 92
+fi
+exec /bin/mv "$@"
+MOVE
+chmod 755 "$FAKE_BIN/mv"
+
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$FIXTURE_ROOT/Info.plist")"
 DMG_NAME="Codex-Profiles-$VERSION-universal.dmg"
 SIGNING_IDENTITY='Developer ID Application: Test Fixture (TESTTEAM)'
@@ -126,6 +140,27 @@ for failed_stage in app-sign app-verify dmg-sign dmg-verify notary-submit staple
   if run_release Accepted "$failed_stage"; then fail "$failed_stage failure unexpectedly published a DMG"; fi
   assert_equals 'last release operation' "$failed_stage" "$(tail -n 1 "$TMP_DIR/events")"
   [[ ! -e "$OUTPUT_DIR/$DMG_NAME" && ! -e "$OUTPUT_DIR/$DMG_NAME.sha256" ]]
+done
+
+for preserve_existing in no yes; do
+  OUTPUT_DIR="$TMP_DIR/interrupted-$preserve_existing output"
+  mkdir -p "$OUTPUT_DIR"
+  if [[ "$preserve_existing" == yes ]]; then
+    printf 'previous image\n' > "$OUTPUT_DIR/$DMG_NAME"
+    printf 'previous checksum\n' > "$OUTPUT_DIR/$DMG_NAME.sha256"
+  fi
+  if RELEASE_TEST_FAIL_CHECKSUM_PUBLISH=1 run_release Accepted; then
+    fail 'A failed checksum publication reported success'
+  fi
+  if [[ "$preserve_existing" == yes ]]; then
+    assert_equals 'image after failed publication' 'previous image' "$(< "$OUTPUT_DIR/$DMG_NAME")"
+    assert_equals 'checksum after failed publication' 'previous checksum' "$(< "$OUTPUT_DIR/$DMG_NAME.sha256")"
+  else
+    [[ ! -e "$OUTPUT_DIR/$DMG_NAME" && ! -e "$OUTPUT_DIR/$DMG_NAME.sha256" ]] \
+      || fail 'A failed publication left an image without its checksum'
+  fi
+  [[ -z "$(find "$OUTPUT_DIR" -name '.menu-dmg.*' -print -quit)" ]] \
+    || fail 'A failed publication left its build directory behind'
 done
 
 printf 'Signing and notarization boundary tests passed without credentials or uploads.\n'

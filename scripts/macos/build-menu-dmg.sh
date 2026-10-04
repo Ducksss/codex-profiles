@@ -21,7 +21,40 @@ APP_DIR="$OUTPUT_DIR/Codex Profiles.app"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_DIR/Contents/Info.plist")"
 DMG_NAME="Codex-Profiles-$VERSION-universal.dmg"
 TMP_DIR="$(mktemp -d "$OUTPUT_DIR/.menu-dmg.XXXXXX")"
-trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
+PUBLISHING=0
+
+# A failed or interrupted publication restores the previous image and
+# checksum, so a checksum never sits beside an image it does not describe.
+cleanup() {
+  local artifact
+  if ((PUBLISHING)); then
+    for artifact in "$DMG_NAME" "$DMG_NAME.sha256"; do
+      if [[ -e "$TMP_DIR/previous/$artifact" ]]; then
+        mv -f "$TMP_DIR/previous/$artifact" "$OUTPUT_DIR/$artifact"
+      elif [[ ! -e "$TMP_DIR/$artifact" ]]; then
+        rm -f "$OUTPUT_DIR/$artifact"
+      fi
+    done
+  fi
+  rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
+trap 'exit 130' HUP INT TERM
+
+publish() {
+  local artifact
+  mkdir "$TMP_DIR/previous"
+  PUBLISHING=1
+  for artifact in "$DMG_NAME" "$DMG_NAME.sha256"; do
+    if [[ -e "$OUTPUT_DIR/$artifact" ]]; then
+      mv -f "$OUTPUT_DIR/$artifact" "$TMP_DIR/previous/$artifact"
+    fi
+  done
+  mv -f "$TMP_DIR/$DMG_NAME" "$OUTPUT_DIR/$DMG_NAME"
+  mv -f "$TMP_DIR/$DMG_NAME.sha256" "$OUTPUT_DIR/$DMG_NAME.sha256"
+  PUBLISHING=0
+}
+
 STAGING_DIR="$TMP_DIR/volume"
 mkdir "$STAGING_DIR"
 ditto "$APP_DIR" "$STAGING_DIR/Codex Profiles.app"
@@ -75,7 +108,7 @@ fi
   cd "$TMP_DIR"
   shasum -a 256 "$DMG_NAME" > "$DMG_NAME.sha256"
 )
-mv -f "$TMP_DIR/$DMG_NAME" "$TMP_DIR/$DMG_NAME.sha256" "$OUTPUT_DIR/"
+publish
 printf 'Built %s\n' "$OUTPUT_DIR/$DMG_NAME"
 if [[ -z "$SIGNING_IDENTITY" ]]; then
   printf 'Unsigned development build; public releases require Developer ID signing and notarization.\n'
