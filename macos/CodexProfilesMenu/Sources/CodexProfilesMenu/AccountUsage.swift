@@ -87,6 +87,40 @@ enum UsageReadError: Error, Equatable {
     case invalidResponse
 }
 
+/// Newline-delimited framing that searches each received byte once, so an
+/// unterminated reply reaches the size limit in linear time.
+struct LineBuffer {
+    let limit: Int
+    private var storage: [UInt8] = []
+    private var start = 0
+    private var searched = 0
+    private var received = 0
+
+    init(limit: Int) { self.limit = limit }
+
+    /// Returns false once the total output exceeds the limit.
+    mutating func append(_ bytes: ArraySlice<UInt8>) -> Bool {
+        received += bytes.count
+        guard received <= limit else { return false }
+        if start > 0 {
+            storage.removeSubrange(..<start)
+            searched -= start
+            start = 0
+        }
+        storage.append(contentsOf: bytes)
+        return true
+    }
+
+    mutating func next() -> Data? {
+        guard let newline = storage[searched...].firstIndex(of: 10) else {
+            searched = storage.count
+            return nil
+        }
+        defer { start = newline + 1; searched = start }
+        return Data(storage[start..<newline])
+    }
+}
+
 extension CLIClient {
     func loadUsage(for profile: String, timeout: TimeInterval = 10) async throws -> CodexRateLimits {
         guard Self.isValidProfileName(profile) else { throw CLIClientError.invalidProfileName }
@@ -168,8 +202,8 @@ private final class AccountUsageReader: @unchecked Sendable {
         try input.fileHandleForReading.close()
         try output.fileHandleForWriting.close()
         let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(max(0, timeout) * 1_000_000_000)
-        var buffer = Data()
-        var receivedBytes = 0
+        var lines = LineBuffer(limit: 1_048_576)
+        var bytes = [UInt8](repeating: 0, count: 65_536)
 
         func send(_ message: [String: Any]) throws {
             var data = try JSONSerialization.data(withJSONObject: message)
@@ -180,10 +214,8 @@ private final class AccountUsageReader: @unchecked Sendable {
             while true {
                 try checkCancellation()
                 guard DispatchTime.now().uptimeNanoseconds < deadline else { throw UsageReadError.timedOut }
-                while let newline = buffer.firstIndex(of: 10) {
-                    let line = buffer.prefix(upTo: newline)
-                    buffer.removeSubrange(...newline)
-                    guard let message = try JSONSerialization.jsonObject(with: line) as? [String: Any] else {
+                while let line = lines.next() {
+                    guard let message = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any] else {
                         throw UsageReadError.invalidResponse
                     }
                     // Ignore asynchronous notifications and unrelated replies.
@@ -200,12 +232,9 @@ private final class AccountUsageReader: @unchecked Sendable {
                     throw UsageReadError.unavailable
                 }
                 guard ready > 0 else { continue }
-                var bytes = [UInt8](repeating: 0, count: 4096)
                 let count = Darwin.read(descriptor.fd, &bytes, bytes.count)
                 guard count > 0 else { throw UsageReadError.unavailable }
-                receivedBytes += count
-                guard receivedBytes <= 1_048_576 else { throw UsageReadError.invalidResponse }
-                buffer.append(contentsOf: bytes.prefix(count))
+                guard lines.append(bytes[..<count]) else { throw UsageReadError.invalidResponse }
             }
         }
 

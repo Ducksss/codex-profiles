@@ -5,6 +5,7 @@ import Foundation
 enum UsageTests {
     static func run() async throws {
         try decodingAndFreshness()
+        lineFraming()
         print("Checking usage handshake and isolation…")
         try await handshakeAndIsolation()
         print("Checking usage failure and cancellation cleanup…")
@@ -50,6 +51,18 @@ enum UsageTests {
         expect(ProfileUsage.unavailable(checkedAt: now).needsRefresh(at: now.addingTimeInterval(60)), "unavailable profiles must be retried")
     }
 
+    private static func lineFraming() {
+        var lines = LineBuffer(limit: 64)
+        expect(lines.append(Array(#"{"id":1}"#.utf8)[...]) && lines.next() == nil, "a partial line must wait for its newline")
+        expect(lines.append(Array("\n{\"id\":2}\n{\"i".utf8)[...]), "chunks within the limit must be accepted")
+        expect(lines.next() == Data(#"{"id":1}"#.utf8) && lines.next() == Data(#"{"id":2}"#.utf8) && lines.next() == nil,
+            "lines split across and within chunks must be framed exactly once")
+        expect(lines.append(Array("d\":3}\n".utf8)[...]) && lines.next() == Data(#"{"id":3}"#.utf8), "a line resumed after compaction lost bytes")
+        var bounded = LineBuffer(limit: 8)
+        expect(bounded.append(Array("12345678".utf8)[...]) && !bounded.append(Array("9".utf8)[...]),
+            "output beyond the limit must be refused even without a newline")
+    }
+
     private static func handshakeAndIsolation() async throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
@@ -78,7 +91,8 @@ enum UsageTests {
             do { _ = try await CLIClient(executableURL: fixture.executable).loadUsage(for: "work", timeout: mode == "hang" ? 0.3 : 2); fatalError("\(mode) unexpectedly succeeded") }
             catch {
                 if mode == "hang" { expect(error as? UsageReadError == .timedOut, "a stalled server must reach its deadline") }
-                if mode == "oversized" { expect(error as? UsageReadError == .invalidResponse, "oversized output must hit the memory bound") }
+                if mode == "oversized" { expect(error as? UsageReadError == .invalidResponse, "oversized output must hit the memory bound, not \(error)") }
+                if mode == "malformed" { expect(error as? UsageReadError == .invalidResponse, "malformed JSON must be an invalid response, not \(error)") }
                 if ["init-error", "rate-error"].contains(mode) {
                     expect(error as? UsageReadError == .unavailable, "\(mode) returned \(String(describing: error as? UsageReadError)) (\(type(of: error))) instead of unavailable usage")
                 }
