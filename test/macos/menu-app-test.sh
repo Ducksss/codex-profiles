@@ -54,7 +54,15 @@ HOME="$TMP_DIR/home" \
   PROFILE_TEST_CLI="$ROOT_DIR/bin/codex-profile" \
   "$TMP_DIR/CodexProfilesMenuTests" &
 TEST_PID=$!
-(sleep 30; kill "$TEST_PID" 2>/dev/null || true) >/dev/null 2>&1 &
+# Stopping the watchdog must also stop its sleep, which would otherwise
+# outlive the test as an orphan.
+(
+  trap 'kill "$sleeper" 2>/dev/null; exit 0' TERM
+  sleep 30 &
+  sleeper=$!
+  wait "$sleeper"
+  kill "$TEST_PID" 2>/dev/null || true
+) >/dev/null 2>&1 &
 WATCHDOG_PID=$!
 if wait "$TEST_PID"; then
   kill "$WATCHDOG_PID" 2>/dev/null || true
