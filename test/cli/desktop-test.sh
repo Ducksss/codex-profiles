@@ -294,6 +294,58 @@ BROKEN_CODEX
   rm -rf "$tmp"
 }
 
+test_bundled_cli_layouts_work_without_codex_on_path() {
+  local tmp chatgpt_app relative_path bundled_cli
+  for relative_path in \
+    Contents/Resources/codex \
+    Contents/Resources/codex-cli/bin/codex \
+    Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex; do
+    tmp="$(mktemp -d)"
+    chatgpt_app="$tmp/Applications With Spaces/ChatGPT.app"
+    write_fake_chatgpt_app_bundle "$chatgpt_app" "bundled CLI layout"
+    bundled_cli="$chatgpt_app/$relative_path"
+    if [[ "$relative_path" != Contents/Resources/codex ]]; then
+      mkdir -p "${bundled_cli%/*}"
+      mv "$chatgpt_app/Contents/Resources/codex" "$bundled_cli"
+    fi
+    mkdir -p "$tmp/home/.codex-work"
+
+    run_cmd env -u CODEX_CLI -u CODEX_BUNDLED_CLI \
+      HOME="$tmp/home" PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+      CHATGPT_APP="$chatgpt_app" "$SCRIPT" cli work app-server
+    assert_status 0
+    assert_contains "BUNDLED_CODEX_HOME=$tmp/home/.codex-work"
+    assert_contains "BUNDLED_ARGS=app-server"
+
+    run_cmd env -u CODEX_CLI -u CODEX_BUNDLED_CLI \
+      HOME="$tmp/home" PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+      CHATGPT_APP="$chatgpt_app" "$SCRIPT" doctor
+    assert_contains "desktop bundle"
+    assert_contains "$bundled_cli"
+    rm -rf "$tmp"
+  done
+}
+
+test_bundled_binary_falls_back_after_an_unhealthy_wrapper() {
+  local tmp chatgpt_app bundled_cli wrapper
+  tmp="$(mktemp -d)"
+  chatgpt_app="$tmp/ChatGPT.app"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "bundled binary fallback"
+  bundled_cli="$chatgpt_app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+  wrapper="$chatgpt_app/Contents/Resources/codex-cli/bin/codex"
+  mkdir -p "${bundled_cli%/*}" "${wrapper%/*}" "$tmp/home/.codex-work"
+  mv "$chatgpt_app/Contents/Resources/codex" "$bundled_cli"
+  printf '#!/bin/sh\nexit 72\n' > "$wrapper"
+  chmod 755 "$wrapper"
+  run_cmd env -u CODEX_CLI -u CODEX_BUNDLED_CLI \
+    HOME="$tmp/home" PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+    CHATGPT_APP="$chatgpt_app" "$SCRIPT" cli work app-server
+  assert_status 0
+  assert_contains "BUNDLED_CODEX_HOME=$tmp/home/.codex-work"
+  assert_contains "BUNDLED_ARGS=app-server"
+  rm -rf "$tmp"
+}
+
 test_app_refuses_access_token_override() {
   local tmp chatgpt_app fake_bin tool_log
   tmp="$(mktemp -d)"
@@ -463,6 +515,8 @@ test_legacy_codex_app_bin_locates_its_signed_app_bundle
 test_legacy_codex_app_bin_rejects_a_different_executable_in_the_bundle
 test_invalid_chatgpt_app_override_does_not_fall_back_silently
 test_explicit_codex_cli_must_be_healthy
+test_bundled_cli_layouts_work_without_codex_on_path
+test_bundled_binary_falls_back_after_an_unhealthy_wrapper
 test_app_refuses_access_token_override
 test_named_app_user_data_symlinks_are_refused
 test_app_refuses_linked_desktop_logs_without_touching_the_target

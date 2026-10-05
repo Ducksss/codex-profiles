@@ -1,7 +1,7 @@
 PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
 
-.PHONY: install uninstall lint test check path-smoke-test install-smoke-test npm-package-test outreach
+.PHONY: install uninstall lint test check path-smoke-test install-smoke-test npm-package-test menu-app menu-dmg menu-app-preview menu-app-test outreach
 
 install:
 	install -d "$(BINDIR)"
@@ -55,6 +55,18 @@ install-smoke-test:
 
 npm-package-test:
 	bash test/install/npm-package-test.sh
+
+menu-app:
+	scripts/macos/build-menu-app.sh
+
+menu-dmg:
+	scripts/macos/build-menu-dmg.sh
+
+menu-app-preview:
+	scripts/macos/render-menu-preview.sh
+
+menu-app-test:
+	bash test/macos/menu-app-test.sh
 
 # Operational helper for the outreach tracker (not part of the shipped CLI).
 # Usage: make outreach ARGS="list --owned"

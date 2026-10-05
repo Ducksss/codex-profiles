@@ -185,6 +185,35 @@ eval "$(codex-profile shell-init zsh --prompt --completions)"
 The word `work` in these examples is an arbitrary profile name. It must not be
 confused with the ChatGPT mode named Work.
 
+## Native macOS companion (unreleased source)
+
+Source checkouts also include an optional native menu-bar companion for
+macOS 13 or newer. It creates and opens profiles in ChatGPT or Terminal
+without requiring a project folder. Workspace bindings are optional project
+shortcuts. Search and profile filtering cover both profiles and workspaces.
+The menu follows macOS appearance, accent, contrast, transparency and Reduce
+Motion preferences; profile operations use the bundled CLI.
+CLI discovery supports current and legacy Desktop bundle layouts, including
+Finder launches without a separately installed Codex CLI on PATH.
+Profile rows show remaining Codex CLI quota with compact meters and reported
+window durations; a window at 25% or less is highlighted and its reset
+countdown replaces the row description. Hover for reset times. Usage is read
+through the official app-server method account/rateLimits/read, cached in
+memory for 60 seconds and refreshed with Command-R; a refresh keeps the
+previous reading visible. Missing usage does not disable launches. Row
+actions open either destination once, and Open at Login keeps the companion
+in the menu bar. These limits belong to
+the selected profile's Codex CLI sign-in, which may differ from Desktop.
+Desktop and Codex CLI sign-in remain separate. The app does not read tokens
+or cookies. This companion is not yet a published release download.
+
+`make menu-app` builds a universal Apple silicon/Intel app; `make menu-dmg`
+adds an Applications shortcut and SHA-256 checksum. Builds require Swift on
+macOS; installed apps need neither Swift nor a separate codex-profile CLI.
+Local builds are unsigned; public distribution needs Developer ID signing
+and notarisation. Build and release guide:
+https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md
+
 ## Workspace routing
 
 Workspace bindings contain only a physical canonical path and profile name.

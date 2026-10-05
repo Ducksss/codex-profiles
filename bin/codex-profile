@@ -1477,6 +1477,14 @@ codex_cli_error_message() {
   printf 'No healthy Codex CLI found. Install Codex, repair PATH, or set CODEX_CLI=/path/to/codex.\n'
 }
 
+desktop_codex_cli_candidates() {
+  local app="$1"
+  printf '%s\n' \
+    "$app/Contents/Resources/codex" \
+    "$app/Contents/Resources/codex-cli/bin/codex" \
+    "$app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+}
+
 try_find_codex_cli() {
   local app bundled_cli path_cli
 
@@ -1498,11 +1506,12 @@ try_find_codex_cli() {
   fi
 
   if app="$(try_find_desktop_app 2> /dev/null)"; then
-    bundled_cli="$app/Contents/Resources/codex"
-    if codex_cli_is_healthy "$bundled_cli"; then
-      printf '%s\n' "$bundled_cli"
-      return 0
-    fi
+    while IFS= read -r bundled_cli; do
+      if codex_cli_is_healthy "$bundled_cli"; then
+        printf '%s\n' "$bundled_cli"
+        return 0
+      fi
+    done < <(desktop_codex_cli_candidates "$app")
   fi
 
   return 1
@@ -1510,7 +1519,7 @@ try_find_codex_cli() {
 
 codex_cli_source() {
   local codex_cli="$1"
-  local path_cli app
+  local path_cli app bundled_cli
 
   if [[ -n "${CODEX_CLI:-}" && "$codex_cli" == "$CODEX_CLI" ]]; then
     printf 'CODEX_CLI\n'
@@ -1528,9 +1537,13 @@ codex_cli_source() {
     return 0
   fi
 
-  if app="$(try_find_desktop_app 2> /dev/null)" && [[ "$codex_cli" == "$app/Contents/Resources/codex" ]]; then
-    printf 'desktop bundle\n'
-    return 0
+  if app="$(try_find_desktop_app 2> /dev/null)"; then
+    while IFS= read -r bundled_cli; do
+      if [[ "$codex_cli" == "$bundled_cli" ]]; then
+        printf 'desktop bundle\n'
+        return 0
+      fi
+    done < <(desktop_codex_cli_candidates "$app")
   fi
 
   printf 'discovered\n'
