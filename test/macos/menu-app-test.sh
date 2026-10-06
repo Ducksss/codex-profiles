@@ -29,6 +29,9 @@ fi
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 SWIFT_TARGET="$(uname -m)-apple-macosx13.0"
+# Run native tests in French via process-only user-default arguments. CI runs
+# in English, so this catches tests that depend on the machine's language.
+TEST_LOCALE=(-AppleLanguages '(fr)' -AppleLocale fr_FR)
 
 swiftc \
   -module-cache-path "$TMP_DIR/module-cache" \
@@ -52,7 +55,7 @@ HOME="$TMP_DIR/home" \
   CODEX_PROFILE_NO_UPDATE_CHECK=1 \
   PROFILE_TEST_TMP="$TMP_DIR" \
   PROFILE_TEST_CLI="$ROOT_DIR/bin/codex-profile" \
-  "$TMP_DIR/CodexProfilesMenuTests" &
+  "$TMP_DIR/CodexProfilesMenuTests" "${TEST_LOCALE[@]}" &
 TEST_PID=$!
 # Stopping the watchdog must also stop its sleep, which would otherwise
 # outlive the test as an orphan.
@@ -83,7 +86,7 @@ swiftc \
   "$APP_SOURCE_DIR"/*.swift \
   "$APP_PROJECT_DIR/Tests/CodexProfilesMenuTests/MenuInteractionTests.swift" \
   -o "$TMP_DIR/MenuInteractionTests"
-"$TMP_DIR/MenuInteractionTests"
+"$TMP_DIR/MenuInteractionTests" "${TEST_LOCALE[@]}"
 
 swiftc \
   -module-cache-path "$TMP_DIR/module-cache" \

@@ -26,8 +26,9 @@ orange at 25% or less and red at 10% or less, where the number also turns red;
 the number always carries the value. A low window replaces the row's
 destination description with its name and reset countdown. Tooltips and the
 row's accessibility label include relative and absolute reset times,
-freshness and the Codex CLI sign-in scope. Workspace rows do not repeat
-account quota.
+freshness and the Codex CLI sign-in scope. Countdowns stay in English to match
+the surrounding text, while clock times follow the user's locale and
+12/24-hour setting. Workspace rows do not repeat account quota.
 Only explicitly adding a workspace asks for a folder. App-level setup, sign-in,
 Open at Login, About and Quit live in the gear menu.
 

@@ -50,6 +50,11 @@ enum UsageFormat {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.day, .hour, .minute]
         formatter.maximumUnitCount = 2
+        // Countdowns sit inside English sentences, so they stay English; clock
+        // times still follow the user's locale and 12/24-hour setting.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = calendar
         return formatter
     }()
     private static let timeFormatter: DateFormatter = {
