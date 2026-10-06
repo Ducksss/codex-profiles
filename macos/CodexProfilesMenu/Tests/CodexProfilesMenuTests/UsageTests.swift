@@ -86,6 +86,14 @@ enum UsageTests {
             "an expired window must not be summarised as low")
         expect(state(window(5, nil, resetIn: nil)).summary(at: now) == "Limit low", "missing durations and reset times must stay honest")
         expect(window(50, 300, resetIn: 30).resetDescription(at: now).hasPrefix("Resets in 1 min"), "sub-minute resets must round up")
+        // Unlike countdowns, clock times follow the user's locale and hour
+        // cycle; the native test harness runs in French, a 24-hour locale.
+        let noon = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: now)!
+        let reset = noon.addingTimeInterval(600)
+        let localClock = DateFormatter.localizedString(from: reset, dateStyle: .none, timeStyle: .short)
+        let resetWindow = RateLimitWindow(usedPercent: 50, windowDurationMins: 300, resetsAt: reset.timeIntervalSince1970)
+        expect(UsageFormat.clock(reset, relativeTo: noon) == localClock && resetWindow.resetDescription(at: noon).hasSuffix("(\(localClock))"),
+            "clock times must follow the user's locale and 12/24-hour setting")
         let refreshing = UsageState(reading: .available(CodexRateLimits(windows: [window(50, 300, resetIn: 600)]), checkedAt: now), isRefreshing: true)
         expect(refreshing.limits != nil && refreshing.detail(at: now).contains("Refreshing"), "a refresh must keep the previous reading and say so")
         expect(UsageState(reading: .unavailable(checkedAt: now), isRefreshing: true).detail(at: now).hasPrefix("Checking"),
