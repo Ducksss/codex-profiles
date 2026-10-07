@@ -7,13 +7,16 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 1.3.0 - 2026-10-07
+
 ### Added
 
 - Native macOS menu-bar companion with a compact AppKit popover, system
   search and controls, profile filtering, persistent pins, keyboard launches,
   and explicit Open actions for named ChatGPT windows or Codex in Terminal.
   Rows stay unselected until keyboard navigation and use denser spacing with
-  a clearer project, profile and folder hierarchy.
+  a clearer project, profile and folder hierarchy. Build it from a source
+  checkout with `make menu-app`; this release has no signed app download.
 - Profile creation, folder binding, optional CLI sign-in, and workspace
   actions to reveal, copy, reassign, relocate or remove a binding. Refreshes
   preserve loaded content and committed binding changes; missing folders and
