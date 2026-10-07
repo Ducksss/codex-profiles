@@ -16,7 +16,8 @@ windows on macOS, and bind projects to the profile they use.
 [Watch the full 30-second video with sound](https://github.com/Ducksss/codex-profiles/blob/main/docs/launch.mp4).*
 
 [Quick start](#quick-start) · [Workflows](#everyday-workflows) ·
-[Manual](USAGE.md) · [Project site](https://ducksss.github.io/codex-profiles/)
+[Menu-bar app](#use-the-menu-bar-app-macos) · [Manual](USAGE.md) ·
+[Project site](https://ducksss.github.io/codex-profiles/)
 
 <details>
 <summary>See the CLI welcome screen</summary>
@@ -30,6 +31,7 @@ windows on macOS, and bind projects to the profile they use.
 - **Choose a profile:** each name selects its own Codex home, login, and sessions.
 - **Keep windows separate:** named macOS launches select local state for the whole ChatGPT window.
 - **Remember your project:** bind a directory once, then launch its profile with `run`.
+- **Switch from the menu bar:** a [native macOS app](#use-the-menu-bar-app-macos) shows each profile's remaining Codex quota and opens it in one click.
 
 A single Bash script with no runtime dependencies beyond standard system tools.
 Community-maintained; not an official OpenAI project.
@@ -166,44 +168,41 @@ codex-profile run --app
 The original signed app stays untouched. For a named, colored shortcut in
 Finder or the Dock, see [macOS launchers](USAGE.md#add-named-color-coded-macos-launchers).
 
-### Use the native menu-bar companion
+### Use the menu-bar app (macOS)
 
-Source checkouts can build **Codex Profiles.app** for macOS 13 or newer:
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/Ducksss/codex-profiles/raw/refs/heads/main/macos/CodexProfilesMenu/Previews/menu-dark.png">
+  <img src="https://github.com/Ducksss/codex-profiles/raw/refs/heads/main/macos/CodexProfilesMenu/Previews/menu-light.png" width="400" alt="Codex Profiles menu-bar app: three profiles with remaining Codex quota meters, one low in orange and one critical in red with its reset time, followed by pinned and recent workspaces with Open buttons.">
+</picture>
+
+*The app's actual view, rendered with sample quota values.*
+
+**Codex Profiles.app** keeps every profile one click away in the menu bar:
+
+- **Open anything fast:** open a profile, or a project bound to one, in
+  ChatGPT or Terminal. Search, filter, pin projects, or press ⌘1–9.
+- **See quota before you switch:** each profile shows its remaining Codex CLI
+  quota as meters that turn orange or red when low, with the reset time.
+- **Set up without the terminal:** create profiles, sign in to the Codex CLI,
+  and add, reassign or repair project bindings. No project folder is required.
+- **Native on macOS:** it follows light/dark mode, accent colour, contrast,
+  transparency and Reduce Motion. **Open at Login** keeps it in the menu bar.
+
+Build it from a source checkout on macOS 13 or newer (building needs Swift):
 
 ```sh
 make menu-app
 open "build/macos/Codex Profiles.app"
 ```
 
-Open an existing profile in ChatGPT or Terminal, or choose **Create profile…**
-on first run. No project folder is required. **Add workspace…** optionally
-binds a folder to a profile for project shortcuts. Search and filter profiles,
-pin frequent projects, repair moved folders, change a binding, or open a row
-in the other destination from its actions menu. Use ↑/↓ and Return, or ⌘1–9,
-to launch from the keyboard. **Open at Login** in the gear menu keeps the
-companion in the menu bar.
-
-Profile rows show remaining Codex CLI quota beside the name, with window
-durations, compact meters and reset times on hover. A low window turns its
-meter orange or red and shows when it resets. The official CLI reads each
-profile's limits; unavailable readings leave the profile usable. ⌘R refreshes
-usage. These limits belong to the profile's Codex CLI sign-in; Desktop may use
-a different account.
-
-The menu follows the system's light/dark appearance, accent colours, contrast,
-transparency and Reduce Motion preferences, including changes while running.
-
-The app bundles the CLI and supports Apple silicon and Intel. Building needs
-Swift on macOS; installing the built app needs neither Swift nor a separate
-`codex-profile` installation. ChatGPT launches require the official app;
-Terminal launches and optional CLI sign-in require the official Codex CLI.
-Desktop and CLI sign-in remain separate.
-
-`make menu-dmg` creates a disk image with an Applications shortcut and a
-SHA-256 checksum. Local builds are unsigned development artifacts. This
-companion is not yet a published release download. See the
-[macOS guide and previews](macos/README.md) for installation, keyboard
-controls, and Developer ID signing and notarisation.
+Move it to Applications to keep it, especially before turning on Open at
+Login. The app bundles the CLI and runs on Apple silicon and Intel. ChatGPT
+launches need the official app; Terminal launches and CLI sign-in need the
+official Codex CLI. Quota belongs to each profile's Codex CLI sign-in, and
+Desktop may use a different account. There is no signed download yet:
+`make menu-dmg` builds an unsigned disk image. See the
+[macOS guide](macos/README.md) for keyboard controls, usage details, and
+Developer ID signing and notarisation.
 
 ## How separation works
 
