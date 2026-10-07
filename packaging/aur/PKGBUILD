@@ -1,6 +1,6 @@
 # Maintainer: Ducksss <https://github.com/Ducksss>
 pkgname=codex-profile
-pkgver=1.2.0
+pkgver=1.3.0
 pkgrel=1
 pkgdesc="Named Codex CLI profiles with separate local ChatGPT desktop state"
 arch=('any')
@@ -12,7 +12,7 @@ source=(
   "LICENSE-$pkgver::https://raw.githubusercontent.com/Ducksss/codex-profiles/v$pkgver/LICENSE"
 )
 sha256sums=(
-  '8b32679d8be7d44eaf424c9f1fdf971817226c35b155c33c0082f98243825a2a'
+  'b836129d608e38682653827b8281e0169c90e1420079bbf5d34a143024d6236f'
   '9ff3b3e5b6a234802d746443539abda82c35d1581a98249b40636dd5acff4364'
 )
 

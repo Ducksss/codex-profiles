@@ -138,8 +138,8 @@ and creates a compressed, read-only DMG with an Applications shortcut:
 
 ```text
 build/macos/Codex Profiles.app
-build/macos/Codex-Profiles-1.2.0-universal.dmg
-build/macos/Codex-Profiles-1.2.0-universal.dmg.sha256
+build/macos/Codex-Profiles-1.3.0-universal.dmg
+build/macos/Codex-Profiles-1.3.0-universal.dmg.sha256
 ```
 
 `make menu-app` builds just the app. `MENU_APP_BUILD_DIR` changes the output
