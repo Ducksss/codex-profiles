@@ -2,8 +2,9 @@
 
 **Named Codex homes. Separate ChatGPT windows.**
 
-Keep personal, work, and client Codex profiles organized. Open named ChatGPT
-windows on macOS, and bind projects to the profile they use.
+Use personal, work, and client accounts on one computer without signing out.
+Each profile gets its own Codex CLI home and, on macOS, its own ChatGPT
+window. Bind a project to the profile it uses, or switch from the menu bar.
 
 [![CI](https://github.com/Ducksss/codex-profiles/actions/workflows/ci.yml/badge.svg)](https://github.com/Ducksss/codex-profiles/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/Ducksss/codex-profiles?sort=semver)](https://github.com/Ducksss/codex-profiles/releases)
@@ -15,33 +16,23 @@ windows on macOS, and bind projects to the profile they use.
 *10-second looping overview; desktop UI is illustrative.
 [Watch the full 30-second video with sound](https://github.com/Ducksss/codex-profiles/blob/main/docs/launch.mp4).*
 
-[Quick start](#quick-start) · [Workflows](#everyday-workflows) ·
-[Menu-bar app](#use-the-menu-bar-app-macos) · [Manual](USAGE.md) ·
-[Project site](https://ducksss.github.io/codex-profiles/)
-
-<details>
-<summary>See the CLI welcome screen</summary>
-
-![Actual codex-profiles welcome screen: overlapping terminal windows, the Codex Profiles wordmark, and commands for setup, CLI, Desktop, and workspace binding.](docs/welcome.svg)
-
-*The CLI's welcome screen. Run `codex-profile` to see it in your terminal.*
-
-</details>
-
 - **Choose a profile:** each name selects its own Codex home, login, and sessions.
 - **Keep windows separate:** named macOS launches select local state for the whole ChatGPT window.
 - **Remember your project:** bind a directory once, then launch its profile with `run`.
-- **Switch from the menu bar:** a [native macOS app](#use-the-menu-bar-app-macos) shows each profile's remaining Codex quota and opens it in one click.
+- **Switch from the menu bar:** a [native macOS app](#menu-bar-app-macos) shows each profile's remaining Codex quota and opens it in one click.
 
-A single Bash script with no runtime dependencies beyond standard system tools.
-Community-maintained; not an official OpenAI project.
+The CLI is a single Bash script with no runtime dependencies beyond standard
+system tools. Community-maintained; not an official OpenAI project.
+
+[Quick start](#quick-start) · [Workflows](#everyday-workflows) ·
+[Menu-bar app](#menu-bar-app-macos) · [Manual](USAGE.md) ·
+[Project site](https://ducksss.github.io/codex-profiles/)
 
 ## Quick start
 
-You need Bash and a working Codex CLI (on `PATH`, or discoverable from the
-installed macOS app). Desktop launches also require the installed ChatGPT app.
-The npm installation below requires npm; a standalone installer is available
-under [other installation methods](#install).
+You need Bash and OpenAI's Codex CLI, either on `PATH` or inside the installed
+ChatGPT app. Opening ChatGPT windows also needs the ChatGPT desktop app on
+macOS. Without npm, use [another installation method](#install).
 
 ```sh
 npm install -g codex-profile
@@ -49,16 +40,21 @@ codex-profile setup work
 codex-profile cli work
 ```
 
-`setup work` creates the profile and offers Codex CLI login. Accept the login
-prompt and authenticate with the account you want for this profile. Setup also
-offers project binding, terminal integration, and a launcher on macOS; each is
-optional and defaults to no. Terminal integration adds the profile prompt,
-completions, tab titles, and completion notifications to your shell startup
-file after showing the exact snippet for approval. Open a new shell to use it.
-Setup requires an interactive terminal and can reuse an existing profile.
+`setup work` creates the `work` profile and offers to sign in to the Codex
+CLI; use the account you want for this profile. It then offers three optional
+extras, each defaulting to no:
 
-The npm package is **`codex-profile`** (singular). It installs both
-`codex-profile` and `codex-profiles`; the plural npm package is another project.
+- a project binding;
+- shell integration: a profile label in your prompt, completions, tab titles
+  and completion notifications, shown for approval before your startup file
+  changes (open a new shell to use it);
+- a macOS launcher.
+
+Setup needs an interactive terminal and can reuse an existing profile.
+
+**Note:** the npm package is **`codex-profile`** (singular) and installs both
+the `codex-profile` and `codex-profiles` commands. The plural npm package is a
+different project.
 
 For scripts or manual setup:
 
@@ -68,8 +64,8 @@ codex-profile login work
 codex-profile cli work
 ```
 
-Initialize a name before launching it. Commands refuse unknown profiles so a
-typo does not silently create another home.
+Initialize a name before launching it. Commands refuse unknown profiles, so a
+typo can't silently create another home.
 
 ### Let your agent set it up
 
@@ -96,31 +92,31 @@ codex-profile cli personal
 codex-profile cli work exec "review this repo"
 ```
 
-Run `codex-profile cli` without a name for an interactive picker. Use the arrow
-keys and Enter, or type to filter profiles. The project's binding is selected
-first, or your current shell profile when there is no binding; both are marked
-separately. Exact names and menu numbers also work. In scripts, pass the name
-explicitly. Each profile authenticates independently.
+Run `codex-profile cli` without a name to pick a profile: use the arrow keys
+and Enter, type to filter, or enter a name or menu number. The picker
+preselects the current project's bound profile, or your shell's current
+profile when there is no binding, and marks both. In scripts, pass the name
+explicitly. Each profile signs in independently.
 
 For a profile label and completions in your current shell:
 
 ```sh
-# Use bash instead of zsh for Bash.
+# For Bash, replace zsh with bash.
 eval "$(codex-profile shell-init zsh --prompt --completions)"
 codex-profile use work
 ```
 
 Fish and persistent setup are covered in [shell integration](USAGE.md#activate-a-codex-home-in-the-current-shell).
 
-To label terminal tabs and receive one-shot completion notifications, opt in:
+To label terminal tabs and get a notification when a one-shot command finishes:
 
 ```sh
 export CODEX_PROFILE_TERMINAL_TITLE=1 CODEX_PROFILE_NOTIFY=1
 codex-profile cli work exec "run tests"
 ```
 
-Titles identify the profile and launch directory. Notifications require a
-compatible terminal. [Terminal feedback details](USAGE.md#terminal-titles-and-completion-notifications).
+Titles show the profile and launch directory; notifications need a compatible
+terminal. See [terminal feedback](USAGE.md#terminal-titles-and-completion-notifications).
 
 ### Let the project choose its profile
 
@@ -133,11 +129,11 @@ codex-profile run exec "run tests and summarize failures"
 ```
 
 The nearest bound parent directory wins, so subprojects can use different
-profiles. Bindings are private local metadata; no project files are changed.
-In a terminal, `run` without a binding offers profile selection and optional
-binding. Declining the binding still launches the selected profile.
-Explicitly launching a different profile warns by default.
-[Workspace rules and strict mode](USAGE.md#bind-projects-to-profiles).
+profiles. Bindings are private local metadata; no project files change. In an
+unbound directory, `run` in a terminal offers to pick a profile and bind it;
+declining the binding still launches the profile. Explicitly launching a
+profile other than the bound one warns by default. See
+[workspace rules and strict mode](USAGE.md#bind-projects-to-profiles).
 
 ### Open a named ChatGPT window on macOS
 
@@ -147,7 +143,7 @@ Using the initialized `work` profile:
 codex-profile app work
 ```
 
-Sign into ChatGPT in the named window when prompted. Desktop and CLI sign-in
+Sign in to ChatGPT in the named window when prompted. Desktop and CLI sign-in
 are separate; the tool does not verify that they use the same account.
 Different names can run side by side, and reopening a name reuses its process
 and local data. The selected local state covers **Chat, Work, and Codex**.
@@ -168,7 +164,7 @@ codex-profile run --app
 The original signed app stays untouched. For a named, colored shortcut in
 Finder or the Dock, see [macOS launchers](USAGE.md#add-named-color-coded-macos-launchers).
 
-### Use the menu-bar app (macOS)
+## Menu-bar app (macOS)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://github.com/Ducksss/codex-profiles/raw/refs/heads/main/macos/CodexProfilesMenu/Previews/menu-dark.png">
@@ -177,7 +173,7 @@ Finder or the Dock, see [macOS launchers](USAGE.md#add-named-color-coded-macos-l
 
 *The app's actual view, rendered with sample quota values.*
 
-**Codex Profiles.app** keeps every profile one click away in the menu bar:
+**Codex Profiles.app** keeps every profile one click away:
 
 - **Open anything fast:** open a profile, or a project bound to one, in
   ChatGPT or Terminal. Search, filter, pin projects, or press ⌘1–9.
@@ -188,21 +184,27 @@ Finder or the Dock, see [macOS launchers](USAGE.md#add-named-color-coded-macos-l
 - **Native on macOS:** it follows light/dark mode, accent colour, contrast,
   transparency and Reduce Motion. **Open at Login** keeps it in the menu bar.
 
-Build it from a source checkout on macOS 13 or newer (building needs Swift):
+Build it from a source checkout on macOS 13 or newer (building needs Swift),
+then move it to Applications to keep it, especially before turning on Open at
+Login:
 
 ```sh
 make menu-app
 open "build/macos/Codex Profiles.app"
 ```
 
-Move it to Applications to keep it, especially before turning on Open at
-Login. The app bundles the CLI and runs on Apple silicon and Intel. ChatGPT
-launches need the official app; Terminal launches and CLI sign-in need the
-official Codex CLI. Quota belongs to each profile's Codex CLI sign-in, and
-Desktop may use a different account. There is no signed download yet:
-`make menu-dmg` builds an unsigned disk image. See the
-[macOS guide](macos/README.md) for keyboard controls, usage details, and
-Developer ID signing and notarisation.
+- **Includes `codex-profile`:** the app carries its own copy of this tool and
+  runs on Apple silicon and Intel, so you don't need to install
+  codex-profiles separately.
+- **Needs OpenAI's Codex CLI** for Terminal launches, CLI sign-in and quota
+  readings, either on `PATH` or inside the ChatGPT app. ChatGPT launches need
+  the ChatGPT desktop app.
+- **Quota follows the CLI sign-in:** each reading belongs to that profile's
+  Codex CLI account; its ChatGPT window may be signed in to a different one.
+- **No signed download yet:** `make menu-dmg` builds an unsigned disk image.
+
+The [macOS guide](macos/README.md) covers keyboard shortcuts, quota details,
+and Developer ID signing.
 
 ## How separation works
 
@@ -215,6 +217,10 @@ Developer ID signing and notarisation.
 Profiles do not inherit from `default`. Explicit configuration sharing is
 available through [`init --share-with`](USAGE.md#share-configuration-not-identity-or-runtime-state).
 Profile names such as `work` are your labels, independent of ChatGPT's Work mode.
+
+Codex's own `--profile` option selects configuration within one home; this
+tool selects the home itself, including its sign-in and sessions. `status`
+reports Codex-local status, not the account shown in a Desktop window.
 
 The tool never reads or copies authentication tokens or ChatGPT cookies.
 **Local-state separation is not an account, OS, or server-side security
@@ -267,10 +273,18 @@ codex-profile doctor
 
 ## Command reference
 
-Run `codex-profile` for the welcome screen or `codex-profile help` for all commands.
-In a non-dumb terminal, the welcome also shows initialized profiles, this
-project's binding, the current shell profile, guard mode, and relevant launch
-commands. Use `codex-profile app --help` for one command's options and examples.
+Run `codex-profile` for the welcome screen. In an interactive terminal it also
+shows your profiles, this project's binding, your shell's current profile, the
+workspace guard mode, and relevant launch commands. Run `codex-profile help`
+for every command, or `codex-profile help app` for one command's options and
+examples.
+
+<details>
+<summary>See the welcome screen</summary>
+
+![Actual codex-profiles welcome screen: overlapping terminal windows, the Codex Profiles wordmark, and commands for setup, CLI, Desktop, and workspace binding.](docs/welcome.svg)
+
+</details>
 
 | Task | Command |
 | --- | --- |
@@ -293,9 +307,10 @@ commands. Use `codex-profile app --help` for one command's options and examples.
 
 ## Platform support
 
-CLI commands work on macOS and Linux. `app` and `launcher create` require macOS.
-The CLI can use Bash, Zsh, or Fish shell integration. Terminal artwork adapts to
-width and UTF-8 support; `NO_COLOR=1` disables colors, and piped help is plain text.
+CLI commands work on macOS and Linux. `app` and `launcher create` require
+macOS, and the menu-bar app requires macOS 13 or newer. Shell integration
+supports Bash, Zsh, and Fish. Terminal artwork adapts to width and UTF-8
+support; `NO_COLOR=1` disables colors, and piped help is plain text.
 
 ## Help and documentation
 
@@ -306,15 +321,12 @@ width and UTF-8 support; `NO_COLOR=1` disables colors, and piped help is plain t
 - [Report a bug](https://github.com/Ducksss/codex-profiles/issues) or [discuss a workflow](https://github.com/Ducksss/codex-profiles/discussions).
 - [Agent setup instructions](agent.md) and [machine-readable summary](https://ducksss.github.io/codex-profiles/llms.txt).
 
-Upstream Codex's `--profile` selects configuration within one home; this tool
-selects the home itself. `status` reports Codex-local status, not the account
-shown in a Desktop window. See the [FAQ](USAGE.md#faq) for more.
-
 ## Contributing
 
 See the [contributor guide](https://github.com/Ducksss/codex-profiles/blob/main/CONTRIBUTING.md)
 and [coding-agent instructions](https://github.com/Ducksss/codex-profiles/blob/main/AGENTS.md).
-There is no build step. Run the complete local gate before submitting changes:
+The CLI has no build step; the macOS app builds with `make menu-app`. Run the
+complete local gate before submitting changes:
 
 ```sh
 make check
