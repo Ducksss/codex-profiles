@@ -7,6 +7,22 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- Low-quota alerts in the macOS menu-bar companion. The menu-bar icon adds a
+  badge when an initialized profile's Codex quota window is at 25% or less,
+  with an exclamation mark at 10% or less; it stays a monochrome template
+  image, and its tooltip and VoiceOver label name each profile, window and
+  reset time. An opt-in **Low-quota alerts** toggle in the gear menu is off by
+  default and asks for notification permission only when turned on; a denial
+  explains how to allow notifications in System Settings. Notifications fire
+  when a profile crosses into low or critical, at most once per level per
+  reset period and never for quota already low at launch, name the reset
+  time, and mention another profile with clearly more of the same window
+  left. Clicking one opens the menu. While alerts are on, usage is checked
+  about every five minutes through the existing bounded reader. The app never
+  switches profiles or accounts automatically.
+
 ### Changed
 
 - Made the macOS menu-bar app the README's main entry point, with native

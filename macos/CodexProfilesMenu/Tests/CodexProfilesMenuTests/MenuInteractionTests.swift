@@ -330,7 +330,73 @@ struct MenuInteractionTests {
         settings.performActionForItem(at: settings.indexOfItem(withTitle: "Open at Login"))
         expect(login.openedSettings && item("Open at Login", in: terminalController.settingsMenu()).state == .mixed,
             "a login item awaiting approval must open Login Items settings and show a mixed state")
+
+        // Low-quota alerts start off and ask for permission only when chosen.
+        // Fresh readings keep the background pass from starting a reader.
+        store.loadPreview([], profiles: ["work"], usage: ["work": quota])
+        let notifier = FakeNotifier()
+        let alerts = QuotaAlertController(store: store, notifier: notifier, defaults: defaults, refreshInterval: 3600)
+        let alertsController = WorkspaceMenuViewController(store: store, defaults: defaults, loginItem: login, alerts: alerts)
+        _ = alertsController.view
+        alerts.start()
+        settings = alertsController.settingsMenu()
+        settings.update()
+        expect(item("Low-quota alerts", in: settings).state == .off && item("Low-quota alerts", in: settings).isEnabled
+            && notifier.requests == 0 && notifier.permissionChecks == 0,
+            "Low-quota alerts must start off without touching notification permission")
+        expect(!terminalController.settingsMenu().items.contains { $0.title == "Low-quota alerts" },
+            "the toggle needs an alerts controller")
+        settings.performActionForItem(at: settings.indexOfItem(withTitle: "Low-quota alerts"))
+        for _ in 0..<100 where !store.statusMessage.hasPrefix("Low-quota alerts") { try await Task.sleep(nanoseconds: 10_000_000) }
+        expect(alerts.isEnabled && notifier.requests == 1 && item("Low-quota alerts", in: alertsController.settingsMenu()).state == .on
+            && store.statusMessage == "Low-quota alerts on · usage checked every 5 minutes",
+            "choosing Low-quota alerts must ask once, turn alerts on and say how often usage is checked")
+        expect(defaults.bool(forKey: "lowQuotaAlerts"), "the choice must persist")
+        notifier.current = .denied
+        await alerts.refreshPermission()
+        let revoked = item("Low-quota alerts", in: alertsController.settingsMenu())
+        expect(revoked.state == .mixed && revoked.toolTip?.contains("System Settings › Notifications") == true,
+            "revoked notification permission must show a mixed state that explains where to allow it")
+        settings = alertsController.settingsMenu()
+        settings.performActionForItem(at: settings.indexOfItem(withTitle: "Low-quota alerts"))
+        for _ in 0..<100 where alerts.isEnabled { try await Task.sleep(nanoseconds: 10_000_000) }
+        expect(!alerts.isEnabled && !store.isRefreshingUsageInBackground && item("Low-quota alerts", in: alertsController.settingsMenu()).state == .off,
+            "choosing it again must turn alerts and background reads off")
+
+        // The status icon stays a labelled template image; low quota changes
+        // its shape, never only its colour.
+        let icons = [QuotaLevel.normal, .low, .critical].map { StatusItemIcon.image(for: $0, accessibilityDescription: "Codex Profiles. Low Codex quota: work") }
+        expect(icons.allSatisfy { $0.isTemplate && $0.accessibilityDescription == "Codex Profiles. Low Codex quota: work" },
+            "every icon state must be a template image carrying the accessibility label")
+        let badgeCentre = NSPoint(x: icons[1].size.width - 4, y: 4)
+        let badgeEdge = NSPoint(x: icons[1].size.width - 6.5, y: 4)
+        expect(icons[1].size.width > icons[0].size.width && alpha(icons[1], at: badgeCentre) > 0.9 && alpha(icons[1], at: badgeEdge) > 0.9,
+            "a low quota must add a solid badge")
+        expect(alpha(icons[2], at: badgeCentre) < 0.1 && alpha(icons[2], at: badgeEdge) > 0.9,
+            "a critical quota must cut an exclamation mark into the badge")
         print("Native menu interaction tests passed.")
+    }
+
+    @MainActor
+    private final class FakeNotifier: QuotaNotifying {
+        var current = NotificationPermission.notDetermined
+        var permissionChecks = 0
+        var requests = 0
+        func permission() async -> NotificationPermission { permissionChecks += 1; return current }
+        func requestPermission() async -> Bool { requests += 1; current = .allowed; return true }
+        func post(_ notification: QuotaNotification) {}
+    }
+
+    /// Alpha of an image at a point, measured at 2x like a Retina menu bar.
+    private static func alpha(_ image: NSImage, at point: NSPoint) -> CGFloat {
+        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(image.size.width * 2), pixelsHigh: Int(image.size.height * 2),
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .calibratedRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        bitmap.size = image.size
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+        image.draw(in: NSRect(origin: .zero, size: image.size))
+        NSGraphicsContext.restoreGraphicsState()
+        return bitmap.colorAt(x: Int(point.x * 2), y: Int((image.size.height - point.y) * 2))?.alphaComponent ?? 0
     }
 
     @MainActor

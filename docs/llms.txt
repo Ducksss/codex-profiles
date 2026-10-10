@@ -200,7 +200,12 @@ window durations; a window at 25% or less is highlighted and its reset
 countdown replaces the row description. Hover for reset times. Usage is read
 through the official app-server method account/rateLimits/read, cached in
 memory for 60 seconds and refreshed with Command-R; a refresh keeps the
-previous reading visible. Missing usage does not disable launches. Row
+previous reading visible. Missing usage does not disable launches. The
+menu-bar icon adds a badge shape when a profile's window is low or
+critical. An opt-in, default-off Low-quota alerts toggle requests
+notification permission only when turned on, notifies once per level per
+reset period when a profile crosses into low or critical, and checks usage
+about every five minutes while on; it never switches profiles. Row
 actions open either destination once, and Open at Login keeps the companion
 in the menu bar. These limits belong to
 the selected profile's Codex CLI sign-in, which may differ from Desktop.
