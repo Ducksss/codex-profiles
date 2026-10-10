@@ -248,8 +248,9 @@ enum UsageTests {
             "the official app-server did not receive the selected profile's CODEX_HOME")
     }
 
+    /// A fake app-server, also used by the low-quota alert tests.
     @MainActor
-    private struct Fixture {
+    struct Fixture {
         let root: URL
         var executable: URL { url("server") }
 

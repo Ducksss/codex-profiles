@@ -161,6 +161,11 @@ CLI quota window. Meters turn orange at 25% or less and red at 10% or less,
 and a low-limit row shows when it resets. Hover a reading for its window
 duration and reset time, or press **⌘R** to refresh.
 
+The menu-bar icon gains a badge when a profile runs low. Turn on
+**Low-quota alerts** in the gear menu to get a notification when a profile
+crosses into low or critical. Alerts are off by default, and the app never
+switches profiles for you.
+
 Quota belongs to that profile's **Codex CLI sign-in**. To sign in, use
 **Sign in to Codex CLI…** in the profile's actions menu, then refresh.
 ChatGPT Desktop may use a different account, and the app does not compare

@@ -80,7 +80,8 @@ It does not read credential files or send inference requests. Credential
 override variables are removed from this query so they cannot substitute an
 inherited account for the profile's sign-in.
 
-Reads happen in the background when the menu opens. They are cached in
+Reads happen in the background when the menu opens, and about every five
+minutes while **Low-quota alerts** is on. They are cached in
 memory for 60 seconds, refreshed after a reported reset or with ⌘R, and
 limited to two concurrent readers with a ten-second deadline per reader.
 During a refresh the previous reading stays visible, dimmed, and each row
@@ -88,6 +89,42 @@ updates in place as its reading arrives, keeping hover and keyboard focus.
 The query uses a private temporary directory to avoid unrelated workspace
 guard bindings. Timeouts, failures, cancellation and Quit stop owned readers;
 usage errors do not interrupt profile launches or open error dialogs.
+
+## Low-quota alerts
+
+The menu-bar icon marks low quota on its own. When an initialized profile's
+tightest Codex window is at 25% or less, the icon gains a badge dot; at 10%
+or less the badge carries an exclamation mark. The icon stays a monochrome
+template image, so its shape, not colour, carries the state. Its tooltip and
+VoiceOver label name each profile and window, for example
+`work: 5h limit at 8%, resets 14:20`. The badge clears when that window's
+reset time passes. Quota in a window only falls until it resets, so the badge
+stays accurate between readings. The icon needs no permission and starts no
+reads of its own.
+
+**Low-quota alerts** in the gear menu adds macOS notifications. It is off by
+default, and macOS asks for notification permission only when you turn it on.
+If notifications are not allowed, alerts stay off and the app explains how to
+allow them in **System Settings › Notifications**. If permission is revoked
+later, the menu item shows a mixed state; choose it to turn alerts off.
+
+A notification announces a crossing into low or critical, not a state that
+was already there: the first reading after launch, or after turning alerts
+on, is the baseline. Each profile and window notifies at most once per level
+per reset period. The notification names the reset time. When another
+profile has at least 50% of the same window left in a reading under 15
+minutes old, it also says so, for example `personal has 70% left.` Clicking
+the notification opens the menu.
+
+While alerts are on, the app checks usage about every five minutes through
+the same reader, cache, two-reader limit, deadlines and process cleanup.
+Checks stop when alerts are turned off or the app quits, and no reader starts
+when no profile is initialized. A login launch lists profiles once; profiles
+created outside the app join the checks the next time the menu opens.
+
+The app never switches profiles or accounts for you. It shows the numbers
+and you choose which profile to open. This is deliberate: Codex Profiles
+separates local state and is not a tool for evading rate limits.
 
 ## System appearance and accessibility
 
@@ -104,9 +141,12 @@ actions support keyboard navigation and VoiceOver.
 
 Automated checks cover light → dark → light changes in the same view,
 system-colour/accessibility notifications, opaque selection policies, and
-keyboard/accessibility state. Actual VoiceOver announcements, OS preference
-switching, popover translucency and permission prompts still require a manual
-check on macOS. Follow [Apple's Dark Mode guidance](https://developer.apple.com/documentation/appkit/supporting-dark-mode-in-your-interface).
+keyboard/accessibility state. Alert checks cover the badge shapes, crossing
+and de-duplication rules, headroom choice, the default-off preference,
+permission denial and background checks following the toggle, using a fake
+notification center. Actual VoiceOver announcements, OS preference
+switching, popover translucency, notification banners and permission prompts
+still require a manual check on macOS. Follow [Apple's Dark Mode guidance](https://developer.apple.com/documentation/appkit/supporting-dark-mode-in-your-interface).
 
 These are renders of the actual AppKit view in light and dark appearance,
 with sample quota values for layout review.

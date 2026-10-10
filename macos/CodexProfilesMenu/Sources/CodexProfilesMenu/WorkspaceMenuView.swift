@@ -25,6 +25,7 @@ final class WorkspaceMenuViewController: NSViewController {
     private let store: WorkspaceStore
     private let defaults: UserDefaults
     private let loginItem: LoginItemControlling
+    private let alerts: QuotaAlertController?
     private let searchField = NSSearchField()
     private let profilePicker = NSPopUpButton()
     private let destinationPicker = NSSegmentedControl(labels: ["ChatGPT", "Terminal"], trackingMode: .selectOne, target: nil, action: nil)
@@ -43,10 +44,12 @@ final class WorkspaceMenuViewController: NSViewController {
     var onPreferredContentSizeChange: ((NSSize) -> Void)?
     var onRequestClose: (() -> Void)?
 
-    init(store: WorkspaceStore, defaults: UserDefaults = .standard, loginItem: LoginItemControlling? = nil) {
+    init(store: WorkspaceStore, defaults: UserDefaults = .standard, loginItem: LoginItemControlling? = nil,
+         alerts: QuotaAlertController? = nil) {
         self.store = store
         self.defaults = defaults
         self.loginItem = loginItem ?? MainAppLoginItem()
+        self.alerts = alerts
         destination = defaults.string(forKey: "openDestination") == OpenDestination.terminal.rawValue ? .terminal : .chatGPT
         super.init(nibName: nil, bundle: nil)
         preferredContentSize = NSSize(width: 400, height: 260)
@@ -479,6 +482,18 @@ final class WorkspaceMenuViewController: NSViewController {
         case .disabled: openAtLogin.state = .off
         }
         menu.addItem(openAtLogin)
+        if let alerts {
+            let lowQuota = menuItem("Low-quota alerts", #selector(toggleLowQuotaAlerts), symbol: nil, nil)
+            if alerts.isEnabled && alerts.permission == .denied {
+                lowQuota.state = .mixed
+                lowQuota.toolTip = "Notifications are off. Allow Codex Profiles in System Settings › Notifications, or choose this to turn alerts off."
+            } else {
+                lowQuota.state = alerts.isEnabled ? .on : .off
+                lowQuota.toolTip = "Notify when a profile’s Codex quota falls to 25%, and again at 10%. Checks usage every 5 minutes; never switches profiles."
+            }
+            lowQuota.isEnabled = !alerts.isChanging
+            menu.addItem(lowQuota)
+        }
         menu.addItem(.separator())
         menu.addItem(menuItem("About Codex Profiles", #selector(showAbout), symbol: nil, nil))
         let guardItem = NSMenuItem(title: "Workspace guard: \(store.guardMode)", action: nil, keyEquivalent: "")
@@ -628,6 +643,20 @@ final class WorkspaceMenuViewController: NSViewController {
             }
         } catch {
             presentError("Couldn’t change Open at Login: \(error.localizedDescription)")
+        }
+    }
+
+    @objc private func toggleLowQuotaAlerts() {
+        guard let alerts else { return }
+        Task {
+            switch await alerts.setEnabled(!alerts.isEnabled) {
+            case .enabled: store.showMessage("Low-quota alerts on · usage checked every 5 minutes")
+            case .disabled: store.showMessage("Low-quota alerts off")
+            case .denied:
+                store.showMessage("Notifications are off for Codex Profiles")
+                presentError(QuotaAlertController.permissionDeniedMessage)
+            case .busy: break
+            }
         }
     }
 

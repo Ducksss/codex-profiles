@@ -11,6 +11,8 @@ final class WorkspaceStore {
 
     var onChange: (() -> Void)?
     var onError: ((String) -> Void)?
+    /// Called when a usage reading changes, whether or not the menu is open.
+    var onUsageChange: (() -> Void)?
 
     var query = "" {
         didSet { notify() }
@@ -23,7 +25,9 @@ final class WorkspaceStore {
     private(set) var phase: Phase = .idle
     private(set) var workspaces: [WorkspaceBinding] = []
     private(set) var profiles: [String] = []
-    private(set) var usage: [String: ProfileUsage] = [:]
+    private(set) var usage: [String: ProfileUsage] = [:] {
+        didSet { if usage != oldValue { onUsageChange?() } }
+    }
     /// Profiles with a usage read in flight; their previous reading stays visible.
     private(set) var readingUsage: Set<String> = []
     /// Folders whose binding is being changed. Their rows cannot launch until
@@ -44,8 +48,11 @@ final class WorkspaceStore {
     private var usageTask: Task<Void, Never>?
     private var usageRefreshRequested = false
     private var forceUsageRefresh = false
+    private var backgroundUsageTask: Task<Void, Never>?
 
     var isRefreshingUsage: Bool { usageTask != nil }
+    /// Whether periodic usage reads are scheduled, which only low-quota alerts request.
+    var isRefreshingUsageInBackground: Bool { backgroundUsageTask != nil }
 
     init(client: CLIClient, defaults: UserDefaults = .standard) {
         self.client = client
@@ -147,7 +154,40 @@ final class WorkspaceStore {
         await task.value
     }
 
+    /// Reads usage now and then about every `interval` seconds until stopped.
+    /// Each pass goes through refreshUsage, so the cache, the two-reader bound,
+    /// deadlines and process cleanup apply unchanged. Without initialized
+    /// profiles a pass starts no reader.
+    func startBackgroundUsageRefresh(every interval: TimeInterval) {
+        guard backgroundUsageTask == nil else { return }
+        let period = Duration.milliseconds(Int64(max(0.01, interval) * 1000))
+        backgroundUsageTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let store = self else { return }
+                await store.refreshUsageInBackground()
+                // Tolerance lets macOS coalesce the wake-up with other timers.
+                try? await Task.sleep(for: period, tolerance: period / 5, clock: .continuous)
+            }
+        }
+    }
+
+    /// Stops scheduling reads. A read already in flight finishes or times out
+    /// as usual, because the menu may be waiting for the same reading.
+    func stopBackgroundUsageRefresh() {
+        backgroundUsageTask?.cancel()
+        backgroundUsageTask = nil
+    }
+
+    private func refreshUsageInBackground() async {
+        // A login launch has not listed profiles yet; the menu refreshes the
+        // list whenever it opens.
+        if !hasLoaded { await refresh() }
+        guard !profiles.isEmpty, !Task.isCancelled else { return }
+        await refreshUsage()
+    }
+
     func cancelUsageRefresh() {
+        stopBackgroundUsageRefresh()
         usageRefreshRequested = false
         forceUsageRefresh = false
         usageTask?.cancel()
