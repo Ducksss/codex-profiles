@@ -179,8 +179,9 @@ Finder or the Dock, see [macOS launchers](USAGE.md#add-named-color-coded-macos-l
   ChatGPT or Terminal. Search, filter, pin projects, or press ⌘1–9.
 - **See quota before you switch:** each profile shows its remaining Codex CLI
   quota as meters that turn orange or red when low, with the reset time.
-- **Set up without the terminal:** create profiles, sign in to the Codex CLI,
-  and add, reassign or repair project bindings. No project folder is required.
+- **Set up from the menu:** create profiles, start Codex CLI sign-in in
+  Terminal, and add, reassign or repair project bindings. No project folder is
+  required.
 - **Native on macOS:** it follows light/dark mode, accent colour, contrast,
   transparency and Reduce Motion. **Open at Login** keeps it in the menu bar.
 
@@ -220,7 +221,8 @@ Profile names such as `work` are your labels, independent of ChatGPT's Work mode
 
 Codex's own `--profile` option selects configuration within one home; this
 tool selects the home itself, including its sign-in and sessions. `status`
-reports Codex-local status, not the account shown in a Desktop window.
+reports Codex-local status, not the account shown in a Desktop window. See
+the [FAQ](USAGE.md#faq) for more.
 
 The tool never reads or copies authentication tokens or ChatGPT cookies.
 **Local-state separation is not an account, OS, or server-side security
