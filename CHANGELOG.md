@@ -7,6 +7,18 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- `usage [--json] [profile...]` shows remaining Codex CLI quota for named or
+  all initialized profiles on macOS and Linux: each reported window's duration,
+  percentage left, low and critical marks, and reset time. Reads use the
+  official Codex app-server, like the menu-bar companion, without reading
+  credentials or sending inference requests; up to four run at once with a
+  per-profile `CODEX_PROFILE_USAGE_TIMEOUT` (default 10 seconds). Signed-out
+  profiles name the `login` command to run, JSON states mirror `status --json`,
+  and named profiles that cannot be read return nonzero. The command never
+  switches profiles.
+
 ### Changed
 
 - Made the macOS menu-bar app the README's main entry point, with native

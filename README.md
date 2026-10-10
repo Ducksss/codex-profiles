@@ -242,7 +242,8 @@ opens a named ChatGPT window on macOS. `run` uses the nearest project binding.
 ### Command reference
 
 Run `codex-profile help` for all commands or `codex-profile help app` for
-one command. `codex-profile status` reports Codex-local status only.
+one command. `codex-profile status` reports Codex-local status only, and
+`codex-profile usage` shows each profile's remaining Codex quota.
 
 [Full manual and FAQ](USAGE.md) · [Shell integration](USAGE.md#activate-a-codex-home-in-the-current-shell) ·
 [Completions](USAGE.md#shell-completions) · [Environment overrides](USAGE.md#environment-overrides)
