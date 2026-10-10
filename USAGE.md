@@ -404,6 +404,27 @@ Named launches already use separate local state and can run in parallel, so
 is accepted as a deprecated no-op because no app clone exists to rebuild. New
 scripts should use `codex-profile app <name> [workspace]`.
 
+### Use the macOS menu-bar app
+
+The optional **Codex Profiles.app** opens profiles and bound projects from the
+menu bar and shows each profile's remaining Codex CLI quota. Build it from a
+source checkout on macOS 13 or newer with the Xcode Command Line Tools, which
+include Swift (`xcode-select --install`):
+
+```sh
+make menu-app
+open "build/macos/Codex Profiles.app"
+make menu-dmg   # optional: unsigned disk image with an Applications shortcut
+```
+
+Move the app to Applications before turning on **Open at Login** in its gear
+menu. It includes its own `codex-profile`, so this tool needs no separate
+installation, but Terminal launches, Codex CLI sign-in and quota readings use
+the official Codex CLI. Quota belongs to each profile's Codex CLI sign-in; a
+named ChatGPT window may use a different account. The app never reads tokens
+or cookies. See the [macOS guide](https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md) for keyboard shortcuts, quota
+details, and Developer ID signing.
+
 ### Read Desktop logs
 
 ```sh
@@ -736,6 +757,9 @@ retains legacy `Codex.app` detection for older installations. The launcher
 opens the original signed app with a profile-specific environment and user-data
 directory; it never copies or re-signs an application bundle.
 
+The optional [menu-bar app](#use-the-macos-menu-bar-app) requires macOS 13 or
+newer and runs on Apple silicon and Intel.
+
 ## Security and privacy model
 
 Local-state separation is not an account, OS, or server-side boundary.
@@ -852,6 +876,7 @@ Answer these points accurately:
 make test   # syntax and every Bash/Node behavior suite
 make lint   # ShellCheck over the canonical shell inventory
 make check  # complete local gate
+make menu-app  # build the macOS menu-bar app (needs Xcode Command Line Tools)
 ```
 
 Tests mirror the repository's CLI, install, packaging, release, site, and

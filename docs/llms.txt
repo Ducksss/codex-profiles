@@ -185,14 +185,16 @@ eval "$(codex-profile shell-init zsh --prompt --completions)"
 The word `work` in these examples is an arbitrary profile name. It must not be
 confused with the ChatGPT mode named Work.
 
-## Native macOS companion (unreleased source)
+## Native macOS menu-bar app (build from source)
 
-Source checkouts also include an optional native menu-bar companion for
+Since 1.3.0, source checkouts include an optional native menu-bar app for
 macOS 13 or newer. It creates and opens profiles in ChatGPT or Terminal
 without requiring a project folder. Workspace bindings are optional project
 shortcuts. Search and profile filtering cover both profiles and workspaces.
 The menu follows macOS appearance, accent, contrast, transparency and Reduce
-Motion preferences; profile operations use the bundled CLI.
+Motion preferences; profile operations use the app's bundled codex-profile.
+Terminal launches, Codex CLI sign-in and quota readings need the official
+Codex CLI.
 CLI discovery supports current and legacy Desktop bundle layouts, including
 Finder launches without a separately installed Codex CLI on PATH.
 Profile rows show remaining Codex CLI quota with compact meters and reported
@@ -205,7 +207,7 @@ actions open either destination once, and Open at Login keeps the companion
 in the menu bar. These limits belong to
 the selected profile's Codex CLI sign-in, which may differ from Desktop.
 Desktop and Codex CLI sign-in remain separate. The app does not read tokens
-or cookies. This companion is not yet a published release download.
+or cookies. There is no signed download yet; build it from a source checkout.
 
 `make menu-app` builds a universal Apple silicon/Intel app; `make menu-dmg`
 adds an Applications shortcut and SHA-256 checksum. Builds require Swift on
