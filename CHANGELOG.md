@@ -7,6 +7,19 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- Raycast extension in `raycast/`, built from source for now
+  (`cd raycast && npm install && npm run dev`). **Open Profile** opens a
+  profile's ChatGPT window or its Codex CLI in Terminal and copies or reveals
+  its `CODEX_HOME`; **Open Workspace** opens bound project folders with their
+  profile; **Codex Usage** lists every quota window with Low and Critical tags,
+  reset countdowns, and Codex CLI sign-in for profiles that are not signed in.
+  Every operation delegates to the `codex-profile` CLI with argument lists;
+  the extension never reads auth data, never switches profiles by itself,
+  and finds the CLI under Raycast's minimal `PATH`. The npm package does not
+  include it.
+
 ### Changed
 
 - Made the macOS menu-bar app the README's main entry point, with native
