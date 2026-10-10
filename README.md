@@ -304,6 +304,7 @@ binding selects the profile for `run`, and bindings remain private local metadat
 | Choose a ChatGPT window (macOS) | `codex-profile app` |
 | List profiles and project bindings | `codex-profile list --details` |
 | Inspect Codex-local status | `codex-profile status` |
+| See remaining Codex quota per profile | `codex-profile usage` |
 | Check your installation | `codex-profile doctor` |
 | Launch this project's profile | `codex-profile run` |
 | Find a profile's home | `codex-profile path work` |

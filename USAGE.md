@@ -322,6 +322,30 @@ homes and symlinked or hard-linked private state such as `auth.json`,
 across profiles or break current Desktop session operations. The documented
 `init --share-with` configuration links are not reported as unsafe.
 
+### Check remaining Codex quota
+
+```sh
+codex-profile usage
+codex-profile usage work personal
+codex-profile usage --json work
+```
+
+`usage` reads each initialized profile's Codex CLI quota through the official
+Codex app-server, the same request the menu-bar companion makes. It does not
+read `auth.json` or other credentials, and it sends no inference requests. Each
+reported window shows its duration, percentage left and reset time; 25% or
+less is marked low and 10% or less critical. Signed-out profiles name the
+`login` command to run. ChatGPT Desktop may use a different account.
+
+Reads run up to four at a time and wait up to `CODEX_PROFILE_USAGE_TIMEOUT`
+seconds (default 10) each. The overview exits 0 unless the Codex CLI is
+missing; when profiles are named, any profile that cannot be read makes the
+command return 1. JSON output lists `profiles` with `name`, `home`, `state`
+(`ok`, `not_logged_in`, `unavailable`, `not_initialized` or `error`), `detail`
+when not `ok`, and `windows` with `duration_mins`, `used_percent`,
+`remaining_percent` and `resets_at` (Unix seconds); durations and reset times
+may be `null`. The command reports quota only: it never switches profiles.
+
 Ordinary `doctor` remains informational. `doctor --check` exits nonzero when
 the CLI is missing, status collection fails, workspace state is invalid or
 stale, or private profile state is linked; JSON includes top-level `healthy`
@@ -644,6 +668,7 @@ codex-profile run [--] [codex-args...]
 codex-profile run --app [workspace]
 codex-profile status [profile]
 codex-profile status --json [profile]
+codex-profile usage [--json] [profile...]
 codex-profile path <profile>
 codex-profile env <profile> [--shell <bash|zsh|fish>]
 codex-profile use <profile>
@@ -680,6 +705,7 @@ launch or log mode.
 | `CODEX_APP_BIN` | Deprecated executable override; accepted only for an executable inside an app bundle. |
 | `CODEX_PROFILE_TERMINAL_TITLE` | Set to `1` to label CLI terminal titles with profile and launch directory. |
 | `CODEX_PROFILE_NOTIFY` | Set to `1` for terminal notifications when `exec`/`e` finishes; preserves exit status. |
+| `CODEX_PROFILE_USAGE_TIMEOUT` | Seconds `usage` waits for each profile's quota read, from 1 to 999; default `10`. |
 | `CODEX_CLI` | Use a specific Codex CLI. An invalid explicit override fails instead of silently selecting another binary. |
 | `CODEX_BUNDLED_CLI` | Optional fallback Codex CLI checked after `PATH` and before the selected app's bundled CLI. |
 | `CODEX_PROFILE_CONFIG_HOME` | Override the private, versioned state directory containing workspace bindings, guard mode, and launcher metadata. |

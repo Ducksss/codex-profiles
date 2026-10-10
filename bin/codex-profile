@@ -267,6 +267,14 @@ $PROGRAM launcher list --json"
       examples="$PROGRAM status
 $PROGRAM status --json work"
       ;;
+    usage)
+      syntax='usage [--json] [profile...]'
+      description='Show remaining Codex CLI quota for the named profiles, or for every initialized profile. Reads use the official Codex app-server without reading credentials or sending inference requests, and wait up to CODEX_PROFILE_USAGE_TIMEOUT seconds (default 10) per profile. Returns nonzero when a named profile cannot be read. ChatGPT may use a different account.'
+      options='--json, -j | Emit machine-readable JSON.'
+      examples="$PROGRAM usage
+$PROGRAM usage work personal
+$PROGRAM usage --json work"
+      ;;
     doctor)
       syntax='doctor [--json] [--check]'
       description='Inspect the CLI, Desktop discovery, workspace registry, and unsafe private-state links. Desktop account equality is not verified.'
@@ -410,6 +418,7 @@ launcher remove <profile> [--yes]
 Inspect and maintain:
 status [profile] | Read-only Codex-local overview
 status --json [profile]
+usage [--json] [profile...] | Remaining Codex quota per profile
 doctor [--json] [--check] | Check the environment
 logs <profile> [--instance] [--path|--tail [lines]]
 upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
@@ -449,6 +458,7 @@ CODEX_CLI | Codex CLI binary path
 CODEX_BUNDLED_CLI | Bundled Codex CLI fallback path
 CODEX_PROFILE_TERMINAL_TITLE | Set to 1 for CLI profile/directory titles
 CODEX_PROFILE_NOTIFY | Set to 1 for exec completion notifications
+CODEX_PROFILE_USAGE_TIMEOUT | Seconds per usage read; default: 10
 CODEX_PROFILE_CONFIG_HOME | Private versioned control-state storage
 CODEX_PROFILE_LAUNCHER_ROOT | Launcher directory; default: ~/Applications
 CODEX_PROFILE_APP_INSTANCE_ROOT | Legacy clone root; doctor only, read-only
@@ -2979,6 +2989,463 @@ command_status() {
   return "$status_code"
 }
 
+# Codex quota comes from the official app-server's account/rateLimits/read
+# request. No account files, tokens, or inference requests are involved.
+USAGE_READ_PARALLELISM=4
+USAGE_REPLY_LIMIT=1048576
+
+usage_timeout_seconds() {
+  local timeout="${CODEX_PROFILE_USAGE_TIMEOUT:-10}"
+
+  [[ "$timeout" =~ ^[1-9][0-9]{0,2}$ ]] || \
+    die "CODEX_PROFILE_USAGE_TIMEOUT must be a whole number of seconds from 1 to 999."
+  printf '%s\n' "$timeout"
+}
+
+# Classifies one app-server line for request id $1. Prints skip for other
+# messages, invalid, signed_out, error, ok (initialize), none, or one
+# "window<TAB>used<TAB>remaining<TAB>duration<TAB>resets" row per window.
+usage_parse_reply() {
+  awk -v want="$1" -v mode="$2" '
+    function ws() { while (pos <= n && index(" \t\r\n", substr(s, pos, 1))) pos++ }
+    function str(   out, c, e) {
+      out = ""
+      pos++
+      while (pos <= n) {
+        c = substr(s, pos, 1)
+        if (c == "\"") { pos++; return out }
+        if (c == "\\") {
+          e = substr(s, pos + 1, 1)
+          if (e == "u") { out = out "?"; pos += 6; continue }
+          out = out ((e == "n" || e == "t" || e == "r" || e == "b" || e == "f") ? " " : e)
+          pos += 2
+        } else if (match(substr(s, pos), /^[^"\\]+/)) {
+          out = out substr(s, pos, RLENGTH)
+          pos += RLENGTH
+        } else {
+          break
+        }
+      }
+      bad = 1
+      return out
+    }
+    function val(path,   c, v, key, i) {
+      ws()
+      c = substr(s, pos, 1)
+      if (c == "{") {
+        pos++
+        obj[path] = 1
+        ws()
+        if (substr(s, pos, 1) == "}") { pos++; return }
+        while (!bad) {
+          ws()
+          if (substr(s, pos, 1) != "\"") { bad = 1; return }
+          key = str()
+          ws()
+          if (substr(s, pos, 1) != ":") { bad = 1; return }
+          pos++
+          val((path == "") ? key : (path "." key))
+          ws()
+          c = substr(s, pos++, 1)
+          if (c == "}") return
+          if (c != ",") bad = 1
+        }
+        return
+      }
+      if (c == "[") {
+        pos++
+        ws()
+        if (substr(s, pos, 1) == "]") { pos++; return }
+        for (i = 0; !bad; i++) {
+          val(path "." i)
+          ws()
+          c = substr(s, pos++, 1)
+          if (c == "]") return
+          if (c != ",") bad = 1
+        }
+        return
+      }
+      if (c == "\"") { v = str(); kind[path] = "s"; data[path] = v; return }
+      if (match(substr(s, pos), /^(true|false|null|-?[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?)/)) {
+        v = substr(s, pos, RLENGTH)
+        pos += RLENGTH
+        kind[path] = (v == "null") ? "z" : ((v == "true" || v == "false") ? "b" : "n")
+        data[path] = v
+        return
+      }
+      bad = 1
+    }
+    {
+      s = $0; n = length(s); pos = 1; bad = 0
+      val("")
+      ws()
+      if (bad || pos <= n || !("" in obj)) { print "invalid"; exit }
+      if (("method" in kind) || ("method" in obj) || kind["id"] != "n" || data["id"] != want) {
+        print "skip"
+        exit
+      }
+      if (("error" in obj) || (("error" in kind) && kind["error"] != "z")) {
+        print (index(tolower(data["error.message"]), "authentication") ? "signed_out" : "error")
+        exit
+      }
+      if (!("result" in obj)) { print "error"; exit }
+      if (mode == "init") { print "ok"; exit }
+      base = ("result.rateLimitsByLimitId.codex" in obj) ? "result.rateLimitsByLimitId.codex" : "result.rateLimits"
+      if (!(base in obj)) { print "none"; exit }
+      limit = base ".limitId"
+      if ((limit in kind) && kind[limit] != "z" && !(kind[limit] == "s" && data[limit] == "codex")) {
+        print "none"
+        exit
+      }
+      found = 0
+      for (w = 1; w <= 2; w++) {
+        name = base "." ((w == 1) ? "primary" : "secondary")
+        if (!(name in obj) || kind[name ".usedPercent"] != "n") continue
+        used = data[name ".usedPercent"] + 0
+        if (used < 0) used = 0
+        if (used > 100) used = 100
+        printf "window\t%s\t%d\t%s\t%s\n", data[name ".usedPercent"], int(100 - used),
+          (kind[name ".windowDurationMins"] == "n") ? data[name ".windowDurationMins"] : "",
+          (kind[name ".resetsAt"] == "n") ? data[name ".resetsAt"] : ""
+        found = 1
+      }
+      if (!found) print "none"
+      exit
+    }
+  '
+}
+
+# Waits for the reply to request $1 on descriptor 4, setting USAGE_REPLY.
+# Partial lines are kept until their newline arrives.
+usage_await_reply() {
+  local want="$1" mode="${2:-}" line server_gone=no
+
+  while :; do
+    if IFS= read -r line <&4; then
+      line="$USAGE_PENDING$line"
+      USAGE_PENDING=''
+      USAGE_RECEIVED=$((USAGE_RECEIVED + ${#line} + 1))
+      if [[ "$USAGE_RECEIVED" -gt "$USAGE_REPLY_LIMIT" ]]; then
+        USAGE_REPLY=invalid
+        return 0
+      fi
+      [[ "$line" == *'"id"'* ]] || continue
+      USAGE_REPLY="$(printf '%s\n' "$line" | usage_parse_reply "$want" "$mode")"
+      [[ "$USAGE_REPLY" == skip ]] || return 0
+      continue
+    fi
+    USAGE_PENDING="$USAGE_PENDING$line"
+    USAGE_RECEIVED=$((USAGE_RECEIVED + ${#line}))
+    if [[ "$USAGE_RECEIVED" -gt "$USAGE_REPLY_LIMIT" ]]; then
+      USAGE_REPLY=invalid
+      return 0
+    fi
+    if [[ "$SECONDS" -ge "$USAGE_DEADLINE" ]]; then
+      USAGE_REPLY=timeout
+      return 0
+    fi
+    if ! kill -0 "$USAGE_SERVER_PID" 2> /dev/null; then
+      # Drain anything written just before the server exited, then give up.
+      if [[ "$server_gone" == yes ]]; then
+        USAGE_REPLY=error
+        return 0
+      fi
+      server_gone=yes
+      continue
+    fi
+    sleep 0.05
+  done
+}
+
+usage_stop_server() {
+  [[ -n "${USAGE_SERVER_PID:-}" ]] || return 0
+  # Closing stdin lets the server exit on its own; signals are the fallback.
+  exec 3>&-
+  for _ in 1 2 3 4 5; do
+    kill -0 "$USAGE_SERVER_PID" 2> /dev/null || break
+    sleep 0.1
+  done
+  kill -TERM "$USAGE_SERVER_PID" 2> /dev/null || true
+  for _ in 1 2 3; do
+    kill -0 "$USAGE_SERVER_PID" 2> /dev/null || break
+    sleep 0.1
+  done
+  kill -KILL "$USAGE_SERVER_PID" 2> /dev/null || true
+  wait "$USAGE_SERVER_PID" 2> /dev/null || true
+  USAGE_SERVER_PID=''
+}
+
+# Reads one profile's quota and prints a usage_parse_reply result or timeout.
+# The subshell keeps its descriptors, server, and temporary files private.
+usage_read_profile() (
+  USAGE_HOME="$1"
+  USAGE_CLI="$2"
+  # SECONDS has whole-second resolution; the extra second guarantees the
+  # full timeout instead of expiring at the next tick.
+  USAGE_DEADLINE=$((SECONDS + $3 + 1))
+  USAGE_PENDING=''
+  USAGE_RECEIVED=0
+  USAGE_REPLY=error
+  USAGE_SERVER_PID=''
+  USAGE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/codex-profile-usage.XXXXXX")" || {
+    printf 'error\n'
+    exit 0
+  }
+  trap 'usage_stop_server; rm -rf "$USAGE_DIR"' EXIT
+  trap 'exit 1' HUP INT TERM
+
+  if ! mkfifo "$USAGE_DIR/in" || ! : > "$USAGE_DIR/out"; then
+    printf 'error\n'
+    exit 0
+  fi
+  # Read-write keeps the FIFO open without blocking on a reader.
+  exec 3<> "$USAGE_DIR/in"
+  exec 4< "$USAGE_DIR/out"
+  (
+    exec 3>&- 4<&-
+    # A private, empty directory keeps project configuration out of the read.
+    cd "$USAGE_DIR" || exit 1
+    unset CODEX_ACCESS_TOKEN CODEX_API_KEY OPENAI_API_KEY
+    CODEX_HOME="$USAGE_HOME" exec "$USAGE_CLI" app-server \
+      < "$USAGE_DIR/in" > "$USAGE_DIR/out" 2> /dev/null
+  ) &
+  USAGE_SERVER_PID=$!
+
+  printf '{"id":1,"method":"initialize","params":{"clientInfo":{"name":"codex_profile_cli","title":"codex-profile","version":"%s"}}}\n' \
+    "$VERSION" >&3 2> /dev/null || true
+  usage_await_reply 1 init
+  if [[ "$USAGE_REPLY" == ok ]]; then
+    printf '%s\n' '{"method":"initialized"}' '{"id":2,"method":"account/rateLimits/read"}' \
+      >&3 2> /dev/null || true
+    usage_await_reply 2
+  fi
+  printf '%s\n' "$USAGE_REPLY"
+)
+
+usage_duration_label() {
+  local minutes="$1" index="$2"
+
+  if [[ ! "$minutes" =~ ^[1-9][0-9]*$ ]]; then
+    printf 'Limit %s\n' "$index"
+  elif (( minutes % 1440 == 0 )); then
+    printf '%sd limit\n' "$((minutes / 1440))"
+  elif (( minutes % 60 == 0 )); then
+    printf '%sh limit\n' "$((minutes / 60))"
+  else
+    printf '%sm limit\n' "$minutes"
+  fi
+}
+
+usage_format_epoch() {
+  date -d "@$1" "+$2" 2> /dev/null || date -r "$1" "+$2" 2> /dev/null
+}
+
+usage_window_text() {
+  local remaining="$1" resets="$2" now="$3"
+  local text minutes days hours clock
+
+  resets="${resets%%.*}"
+  if [[ "$resets" =~ ^[0-9]+$ && "$resets" -le "$now" ]]; then
+    clock="$(usage_format_epoch "$resets" '%H:%M')" || clock=''
+    printf 'Awaiting a fresh reading%s\n' "${clock:+ (reset at $clock)}"
+    return
+  fi
+
+  text="$remaining% left"
+  if [[ "$remaining" -eq 0 ]]; then
+    text="$text (limit reached)"
+  elif [[ "$remaining" -le 10 ]]; then
+    text="$text (critical)"
+  elif [[ "$remaining" -le 25 ]]; then
+    text="$text (low)"
+  fi
+
+  if [[ ! "$resets" =~ ^[0-9]+$ ]]; then
+    printf '%s, reset time unavailable\n' "$text"
+    return
+  fi
+  minutes=$(((resets - now + 59) / 60))
+  days=$((minutes / 1440))
+  hours=$((minutes % 1440 / 60))
+  minutes=$((minutes % 60))
+  if [[ "$days" -gt 0 ]]; then
+    text="$text, resets in ${days}d"
+    [[ "$hours" -eq 0 ]] || text="$text ${hours}h"
+  elif [[ "$hours" -gt 0 ]]; then
+    text="$text, resets in ${hours}h"
+    [[ "$minutes" -eq 0 ]] || text="$text ${minutes}m"
+  else
+    text="$text, resets in $((minutes > 0 ? minutes : 1))m"
+  fi
+  if [[ "$(usage_format_epoch "$resets" '%Y%m%d')" == "$(usage_format_epoch "$now" '%Y%m%d')" ]]; then
+    clock="$(usage_format_epoch "$resets" '%H:%M')" || clock=''
+  else
+    clock="$(usage_format_epoch "$resets" '%b %e %H:%M')" || clock=''
+    clock="${clock//  / }"
+  fi
+  printf '%s%s\n' "$text" "${clock:+ at $clock}"
+}
+
+# Maps a reader result file to USAGE_STATE and USAGE_DETAIL.
+usage_classify() {
+  local profile="$1" result_file="$2" timeout="$3" first=''
+
+  [[ ! -s "$result_file" ]] || IFS= read -r first < "$result_file" || true
+  case "$first" in
+    window$'\t'*)
+      USAGE_STATE=ok
+      USAGE_DETAIL=''
+      ;;
+    signed_out)
+      USAGE_STATE=not_logged_in
+      USAGE_DETAIL="Not signed in. Run '$PROGRAM login $profile'."
+      ;;
+    timeout)
+      USAGE_STATE=unavailable
+      USAGE_DETAIL="Timed out after ${timeout}s waiting for Codex usage. Check your connection, then retry."
+      ;;
+    none)
+      USAGE_STATE=unavailable
+      USAGE_DETAIL='Codex reported no usage limits for this profile.'
+      ;;
+    *)
+      USAGE_STATE=unavailable
+      USAGE_DETAIL='Codex usage is unavailable. Check your connection and Codex CLI version, then retry.'
+      ;;
+  esac
+}
+
+usage_json_number_or_null() {
+  if [[ -n "$1" ]]; then printf '%s' "$1"; else printf 'null'; fi
+}
+
+command_usage() {
+  local json=no explicit=no timeout codex_cli='' cli_error='' profile home
+  local status_code=0 index first=yes now kind used remaining duration resets window
+  local profiles=() pids=()
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --json | -j) json=yes ;;
+      -*) die "Unknown usage option '$1'." ;;
+      *)
+        validate_profile "$1"
+        profiles+=("$1")
+        explicit=yes
+        ;;
+    esac
+    shift
+  done
+  timeout="$(usage_timeout_seconds)"
+
+  if [[ "$explicit" == no ]]; then
+    while IFS= read -r profile; do
+      profile_is_initialized "$profile" || continue
+      profiles+=("$profile")
+    done < <(discover_profiles yes)
+  fi
+
+  if ! codex_cli="$(try_find_codex_cli)"; then
+    codex_cli=''
+    cli_error="$(codex_cli_error_message)"
+    [[ "$json" == yes || "${#profiles[@]}" -eq 0 ]] || die "$cli_error"
+  fi
+
+  USAGE_RESULTS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/codex-profile-usage.XXXXXX")" || \
+    die 'Cannot create a temporary directory for usage reads.'
+  trap 'rm -rf "$USAGE_RESULTS_DIR"' EXIT
+  # Readers ignore SIGINT in the background, so stop them explicitly.
+  trap 'kill -TERM $(jobs -p) 2> /dev/null; exit 130' INT
+  trap 'kill -TERM $(jobs -p) 2> /dev/null; exit 1' HUP TERM
+
+  for ((index = 0; index < ${#profiles[@]}; index++)); do
+    profile="${profiles[index]}"
+    if [[ -z "$codex_cli" ]] || ! profile_is_initialized "$profile"; then
+      continue
+    fi
+    if [[ "${#pids[@]}" -ge "$USAGE_READ_PARALLELISM" ]]; then
+      wait "${pids[0]}" 2> /dev/null || true
+      pids=("${pids[@]:1}")
+    fi
+    usage_read_profile "$(codex_home_for_profile "$profile")" "$codex_cli" "$timeout" \
+      > "$USAGE_RESULTS_DIR/$index" 2> /dev/null &
+    pids+=("$!")
+  done
+  for ((index = 0; index < ${#pids[@]}; index++)); do
+    wait "${pids[index]}" 2> /dev/null || true
+  done
+
+  now="$(date +%s)"
+  [[ "$json" == no ]] || printf '{"profiles":['
+  for ((index = 0; index < ${#profiles[@]}; index++)); do
+    profile="${profiles[index]}"
+    home="$(codex_home_for_profile "$profile")"
+    if ! profile_is_initialized "$profile"; then
+      USAGE_STATE=not_initialized
+      USAGE_DETAIL='Not initialized'
+    elif [[ -z "$codex_cli" ]]; then
+      USAGE_STATE=error
+      USAGE_DETAIL="$cli_error"
+    else
+      usage_classify "$profile" "$USAGE_RESULTS_DIR/$index" "$timeout"
+    fi
+    [[ "$explicit" == no || "$USAGE_STATE" == ok ]] || status_code=1
+    [[ -n "$codex_cli" ]] || status_code=1
+
+    if [[ "$json" == yes ]]; then
+      [[ "$first" == yes ]] || printf ','
+      first=no
+      printf '{"name":'
+      json_string "$profile"
+      printf ',"home":'
+      json_string "$home"
+      printf ',"state":'
+      json_string "$USAGE_STATE"
+      [[ "$USAGE_STATE" == ok ]] || { printf ',"detail":'; json_string "$USAGE_DETAIL"; }
+      printf ',"windows":['
+      window=0
+      if [[ "$USAGE_STATE" == ok ]]; then
+        while IFS=$'\t' read -r kind used remaining duration resets; do
+          [[ "$kind" == window ]] || continue
+          [[ "$window" -eq 0 ]] || printf ','
+          window=$((window + 1))
+          printf '{"duration_mins":%s,"used_percent":%s,"remaining_percent":%s,"resets_at":%s}' \
+            "$(usage_json_number_or_null "$duration")" "$used" "$remaining" \
+            "$(usage_json_number_or_null "$resets")"
+        done < "$USAGE_RESULTS_DIR/$index"
+      fi
+      printf ']}'
+      continue
+    fi
+
+    {
+      printf '\n%s:\n' "$profile"
+      if [[ "$USAGE_STATE" == ok ]]; then
+        window=0
+        while IFS=$'\t' read -r kind used remaining duration resets; do
+          [[ "$kind" == window ]] || continue
+          window=$((window + 1))
+          printf '%s | %s\n' "$(usage_duration_label "$duration" "$window")" \
+            "$(usage_window_text "$remaining" "$resets" "$now")"
+        done < "$USAGE_RESULTS_DIR/$index"
+      else
+        printf 'Usage | %s\n' "${USAGE_DETAIL//[^[:print:]]/}"
+      fi
+    } >> "$USAGE_RESULTS_DIR/rows"
+  done
+
+  if [[ "$json" == yes ]]; then
+    printf ']}\n'
+  elif [[ "${#profiles[@]}" -eq 0 ]]; then
+    printf 'No initialized profiles. Run %s setup work.\n' "$PROGRAM"
+  else
+    printf '\nCodex CLI quota per profile. ChatGPT may use a different account.\n' \
+      >> "$USAGE_RESULTS_DIR/rows"
+    render_help --rows < "$USAGE_RESULTS_DIR/rows"
+  fi
+  return "$status_code"
+}
+
 command_list() {
   local profile
   if [[ "${1:-}" == --details ]]; then
@@ -3925,7 +4392,7 @@ _codex_profile_candidates() {
   candidate_words=''
   complete_dirs=no
   if [[ "$#" -eq 0 ]]; then
-    candidate_words='app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'
+    candidate_words='app app-instance cli login init setup detach remove launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help'
     return 0
   fi
   shift
@@ -3969,6 +4436,10 @@ _codex_profile_candidates() {
     status)
       candidate_words='--json -j'
       [[ "$positional" -ne 0 || "$cur" == -* ]] || profiles=yes
+      ;;
+    usage)
+      candidate_words='--json -j'
+      [[ "$cur" == -* ]] || profiles=yes
       ;;
     env)
       if [[ "$prev" == --shell ]]; then candidate_words='bash zsh fish'
@@ -4034,7 +4505,7 @@ _codex_profile_candidates() {
     list) [[ "$#" -ne 0 ]] || candidate_words='--details' ;;
     help)
       if [[ "$#" -eq 0 ]]; then
-        candidate_words='app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'
+        candidate_words='app app-instance cli login init setup detach remove launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help'
       elif [[ "$#" -eq 1 ]]; then
         case "$1" in
           workspace) candidate_words='bind unbind list status guard' ;;
@@ -4121,7 +4592,7 @@ function __codex_profile_complete
     set -l profiles no
     set -l directories no
     if test (count $args) -eq 0
-        printf '%s\n' app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
+        printf '%s\n' app app-instance cli login init setup detach remove launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help
         return
     end
     set -l cmd $args[1]
@@ -4259,9 +4730,12 @@ function __codex_profile_complete
             end
         case list
             test $count -ne 0; or set candidates --details
+        case usage
+            set candidates --json -j
+            string match -q -- '-*' "$cur"; or set profiles yes
         case help
             if test $count -eq 0
-                set candidates app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
+                set candidates app app-instance cli login init setup detach remove launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help
             else if test $count -eq 1
                 switch $args[1]
                     case workspace
@@ -4638,7 +5112,7 @@ main() {
   fi
 
   case "$command" in
-    status | doctor | workspace | launcher)
+    status | usage | doctor | workspace | launcher)
       for arg in "$@"; do
         if [[ "$arg" == "--json" || "$arg" == "-j" ]]; then
           json_command=yes
@@ -4688,6 +5162,9 @@ main() {
       ;;
     status)
       command_status "$@"
+      ;;
+    usage)
+      command_usage "$@"
       ;;
     path)
       command_path "$@"
