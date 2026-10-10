@@ -200,9 +200,15 @@ export async function loadProfiles(cli: string, signal?: AbortSignal): Promise<P
   const names = parseProfileList(result.stdout);
   return Promise.all(
     names.map(async (name): Promise<ProfileEntry> => {
-      const path = await runCli(cli, ["path", name], { signal });
-      const home = path.code === 0 ? path.stdout.trim().split(/\r?\n/).pop() : undefined;
-      return { name, home: home && home.startsWith("/") ? home : undefined };
+      // The home is optional decoration: one failed lookup keeps the list.
+      try {
+        const path = await runCli(cli, ["path", name], { signal, timeout: 10_000 });
+        const home = path.code === 0 ? path.stdout.trim().split(/\r?\n/).pop() : undefined;
+        return { name, home: home && home.startsWith("/") ? home : undefined };
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        return { name };
+      }
     }),
   );
 }

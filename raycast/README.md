@@ -70,7 +70,7 @@ boundary; see the project's
 
 ## Development
 
-From a checkout of the codex-profiles repository, with Node.js 22.22 or newer:
+From a checkout of the codex-profiles repository, with Node.js 22.22.2 or newer:
 
 ```sh
 cd raycast
