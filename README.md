@@ -210,11 +210,13 @@ Codex's own `--profile` option selects settings within one home, while this
 tool selects the home itself. See the [profile layout](USAGE.md#how-profiles-map-to-disk)
 and [FAQ](USAGE.md#faq).
 
-The tool never reads or copies authentication tokens or ChatGPT cookies, and
-opens the original signed ChatGPT app. **Local-state separation is not an
-account, OS or server-side security boundary.** OS credentials, external tools
-and server-side policies remain outside its control. Use separate OS users
-when you need a stronger boundary. See the [security model](SECURITY.md).
+The tool does not read or copy authentication file contents or ChatGPT cookies.
+The Desktop launcher checks for a non-empty `CODEX_ACCESS_TOKEN` override
+and refuses to start if one is present. It opens the original signed ChatGPT
+app. **Local-state separation is not an account, OS or server-side security
+boundary.** OS credentials, external tools and server-side policies remain
+outside its control. Use separate OS users when you need a stronger boundary.
+See the [security model](SECURITY.md).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
