@@ -186,3 +186,28 @@ Follow [Apple's distribution testing guidance](https://developer.apple.com/docum
 to test a downloaded release on a fresh Mac, including opening from the image
 and after moving to Applications. Publishing the resulting files is a separate
 maintainer step; the build does not upload them to GitHub.
+
+### Publish a signed download
+
+A public download is deferred until the project has a Developer ID. The
+signing and notarisation build above is ready; publishing still needs these
+maintainer steps:
+
+1. Enrol in the [Apple Developer Program](https://developer.apple.com/programs/)
+   and create a **Developer ID Application** certificate. Install it in
+   Keychain and store notarisation credentials as described above.
+2. Decide how the DMG reaches the release. GitHub Releases here are
+   immutable, and the `Release` workflow publishes each release without
+   assets, so a DMG cannot be added to a release after it is published. Either
+   change the workflow to create a draft, upload the DMG and `.sha256`, then
+   publish; or add a macOS job that signs and notarises in CI. A CI job needs
+   the certificate exported as a password-protected `.p12` and an App Store
+   Connect API key for `notarytool`, stored as `release` environment secrets.
+   Either way, a version that already has a published release cannot gain a
+   DMG, so the first download ships with a new version.
+3. After a release carries the notarised DMG, add a Homebrew cask beside the
+   `codex-profile` formula in
+   [Ducksss/homebrew-tap](https://github.com/Ducksss/homebrew-tap), pointing at
+   the release asset and its SHA-256.
+4. Test the downloaded DMG on a Mac that has never built the app, following
+   Apple's distribution testing guidance above, before announcing it.
