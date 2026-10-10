@@ -72,6 +72,9 @@ if (!pkg.files.includes('docs/llms.txt') || pkg.files.includes('docs')) {
 if (pkg.files.some((entry) => entry === 'ops' || entry.startsWith('ops/'))) {
   throw new Error('project-internal operations must not ship in the npm package');
 }
+if (pkg.files.some((entry) => entry === 'raycast' || entry.startsWith('raycast/'))) {
+  throw new Error('the Raycast extension must not ship in the npm package');
+}
 NODE
 
 node - <<'NODE'

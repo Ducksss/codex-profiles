@@ -190,6 +190,18 @@ Opening the app again from Finder or Spotlight brings its controls back.
 See the [macOS manual](https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md)
 for all controls and accessibility details.
 
+### Raycast
+
+Prefer [Raycast](https://www.raycast.com)? The [Raycast extension](raycast/README.md)
+opens profiles and bound workspaces in ChatGPT or Terminal and shows each
+profile's remaining Codex quota. Like the menu-bar app, it delegates every
+operation to `codex-profile`. It isn't in the Raycast Store yet; build it from
+a source checkout with Node.js:
+
+```sh
+cd raycast && npm install && npm run dev
+```
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## How separation works

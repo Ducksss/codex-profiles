@@ -39,6 +39,11 @@ out/
 exports/
 outputs/
 
+# Raycast extension dependencies, build output and generated types
+raycast/node_modules/
+raycast/dist/
+raycast/raycast-env.d.ts
+
 # Local demo/video production workspaces
 codex-profiles-video/
 codex-profiles-hyperframes/
