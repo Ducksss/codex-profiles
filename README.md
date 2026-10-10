@@ -185,9 +185,9 @@ Finder or the Dock, see [macOS launchers](USAGE.md#add-named-color-coded-macos-l
 - **Native on macOS:** it follows light/dark mode, accent colour, contrast,
   transparency and Reduce Motion. **Open at Login** keeps it in the menu bar.
 
-Build it from a source checkout on macOS 13 or newer (building needs Swift),
-then move it to Applications to keep it, especially before turning on Open at
-Login:
+Build it from a source checkout on macOS 13 or newer (building needs Swift and
+Apple's command-line tools), then move it to Applications to keep it,
+especially before turning on Open at Login:
 
 ```sh
 make menu-app

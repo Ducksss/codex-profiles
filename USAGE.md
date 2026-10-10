@@ -408,7 +408,8 @@ scripts should use `codex-profile app <name> [workspace]`.
 
 The optional **Codex Profiles.app** opens profiles and bound projects from the
 menu bar and shows each profile's remaining Codex CLI quota. Build it from a
-source checkout on macOS 13 or newer; building needs Swift:
+source checkout on macOS 13 or newer with the Swift compiler and Apple's
+command-line tools:
 
 ```sh
 make menu-app
@@ -875,7 +876,7 @@ Answer these points accurately:
 make test   # syntax and every Bash/Node behavior suite
 make lint   # ShellCheck over the canonical shell inventory
 make check  # complete local gate
-make menu-app  # build the macOS menu-bar app (macOS with Swift)
+make menu-app  # build the macOS menu-bar app (Swift and command-line tools)
 ```
 
 Tests mirror the repository's CLI, install, packaging, release, site, and
