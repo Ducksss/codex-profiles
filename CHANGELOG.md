@@ -28,6 +28,8 @@ and this project follows semantic versioning for tagged releases.
 - Made the macOS menu-bar app the README's main entry point, with native
   previews, source installation and menu workflows before the CLI reference.
   Followed Best-README-Template's project, setup and contributor structure.
+- Refined the app introduction with its native icon, a shorter first-run guide
+  and expandable CLI details, keeping the menu-bar workflow in focus.
 
 ## 1.3.0 - 2026-10-07
 
