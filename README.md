@@ -221,10 +221,10 @@ Check your installation with `codex-profile doctor`.
 
 </details>
 
-<details>
-<summary>CLI workflows and reference</summary>
-
 ### Everyday workflows
+
+<details>
+<summary>Launch profiles and projects from the terminal</summary>
 
 ```sh
 codex-profile cli work exec "review this repo"
@@ -236,6 +236,8 @@ codex-profile run --app
 
 Run `codex-profile cli` without a name for the profile picker. `app work`
 opens a named ChatGPT window on macOS. `run` uses the nearest project binding.
+
+</details>
 
 ### Command reference
 
@@ -253,8 +255,6 @@ For agent-led setup, use [agent.md](agent.md) or the
 CLI commands work on macOS and Linux. `app` and `launcher create` require
 macOS. Shell integration supports Bash, Zsh and Fish. `NO_COLOR=1` disables
 terminal colours, and piped help is plain text.
-
-</details>
 
 ## Roadmap
 
