@@ -47,6 +47,7 @@ npm install -g \
 [[ ! -e "$TMP_PREFIX/lib/node_modules/codex-profile/docs/index.html" ]]
 [[ ! -e "$TMP_PREFIX/lib/node_modules/codex-profile/media" ]]
 [[ ! -e "$TMP_PREFIX/lib/node_modules/codex-profile/ops" ]]
+[[ ! -e "$TMP_PREFIX/lib/node_modules/codex-profile/raycast" ]]
 
 "$TMP_PREFIX/bin/codex-profile" help >/dev/null
 version_output="$("$TMP_PREFIX/bin/codex-profiles" version)"
