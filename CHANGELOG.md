@@ -67,6 +67,17 @@ and this project follows semantic versioning for tagged releases.
   notarisation. A failed publication restores the previous image and checksum
   together. Local builds are unsigned development artifacts.
 - Terminal launches explain how to allow Automation when macOS denies it.
+- Raycast extension in `raycast/`, built from source for now
+  (`cd raycast && npm install && npm run dev`). **Open Profile** opens a
+  profile's ChatGPT window or its Codex CLI in Terminal and copies or reveals
+  its `CODEX_HOME`; **Open Workspace** opens bound project folders with their
+  profile; **Codex Usage** lists every quota window with Low, Critical and
+  Limit reached tags, reset countdowns, and Codex CLI sign-in for profiles
+  that are not signed in. Every operation delegates to the `codex-profile`
+  CLI, found under Raycast's minimal `PATH` or inside the menu-bar app;
+  background calls use argument lists, and Terminal launches quote values with
+  AppleScript's `quoted form of`. The extension never reads auth data and
+  never switches profiles by itself. The npm package does not include it.
 - Native interaction, CLI integration, subprocess and packaging checks, plus
   light and dark layout previews with verified system backdrops. NSPopover
   supplies the live material without a duplicate visual-effect layer.
