@@ -143,6 +143,14 @@ use a dedicated fine-grained `TAP_TOKEN` limited to `Ducksss/homebrew-tap` with
 Contents read/write. Do not reuse a broad personal or organization token; the
 actual npm publish and tap push remain the authoritative write checks.
 
+npm write tokens expire, so rotate `NPM_TOKEN` before a release when preflight
+reports that it cannot authenticate. `scripts/release/set-npm-token.sh` prompts
+for the new token without echoing it, or reads it from a pipe such as a
+password manager CLI, and runs the same owner checks against an isolated npm
+configuration so this machine's own npm login cannot mask a bad token. It then
+replaces the repository secret through `gh secret set` on stdin, so the token
+never appears in shell history or a process argument list.
+
 `npm publish` can finish before the package becomes publicly available: npm's
 [publish-time scanning](https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/)
 typically takes about five minutes and can take 15 minutes or more. Registry
