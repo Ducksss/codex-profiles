@@ -167,7 +167,7 @@ test_completions_generate_shell_scripts() {
   for shell in bash zsh fish; do
     run_cmd "$SCRIPT" completions "$shell"
     assert_status 0
-    assert_contains 'app app-instance cli login init setup detach remove launcher workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help'
+    assert_contains 'app app-instance cli login init setup detach remove launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help'
     assert_contains '--share-with'
     assert_contains '--prompt --completions'
     assert_contains '--instance --rebuild'

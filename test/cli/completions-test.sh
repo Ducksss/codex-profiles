@@ -62,7 +62,7 @@ for shell in bash zsh fish; do
     continue
   fi
   "$SCRIPT" completions "$shell" > "$TMP_ROOT/completions.$shell"
-  for command in app app-instance cli login detach remove status path env use logs clone-config; do
+  for command in app app-instance cli login detach remove status usage path env use logs clone-config; do
     complete_words "$command" ''
     assert_contains client
     assert_not_contains default
@@ -105,6 +105,12 @@ for shell in bash zsh fish; do
   assert_contains client
   complete_words status client --j
   assert_contains --json
+  complete_words usage --j
+  assert_contains --json
+  complete_words usage --json client ''
+  assert_contains client
+  complete_words help ''
+  assert_contains usage
   complete_words env client --shell ''
   assert_contains bash
   assert_contains zsh
