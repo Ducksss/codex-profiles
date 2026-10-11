@@ -98,20 +98,28 @@ or less the badge carries an exclamation mark. The icon stays a monochrome
 template image, so its shape, not colour, carries the state. Its tooltip and
 VoiceOver label name each profile and window, for example
 `work: 5h limit at 8%, resets 14:20`. The badge clears when that window's
-reset time passes. Quota in a window only falls until it resets, so the badge
-stays accurate between readings. The icon needs no permission and starts no
-reads of its own.
+reset time passes. Quota in a window only falls until it resets, so a reading
+stays an upper bound on what is left: the badge never overstates the remaining
+quota, but a profile can run lower than it shows until the next reading. The
+icon needs no permission and starts no reads of its own.
 
 **Low-quota alerts** in the gear menu adds macOS notifications. It is off by
 default, and macOS asks for notification permission only when you turn it on.
 If notifications are not allowed, alerts stay off and the app explains how to
-allow them in **System Settings › Notifications**. If permission is revoked
-later, the menu item shows a mixed state; choose it to turn alerts off.
+allow them in **System Settings › Notifications**. A permission prompt left
+unanswered for two minutes counts as not allowed; allow notifications and
+choose the toggle again. If permission is revoked later, or was never granted
+to this copy of the app, the menu item shows a mixed state; choose it to turn
+alerts off.
 
 A notification announces a crossing into low or critical, not a state that
-was already there: the first reading after launch, or after turning alerts
-on, is the baseline. Each profile and window notifies at most once per level
-per reset period. The notification names the reset time. When another
+was already there: the first settled reading after launch, or after turning
+alerts on, is the baseline. Readings still refreshing at that moment do not
+count. Each profile and window notifies at most once per level per reset
+period. A reset period follows the reported reset time, so an early reset
+starts a new one, while reset times that differ by seconds do not. A window
+without a reported reset time notifies again only after climbing more than
+five points above the threshold. The notification names the reset time. When another
 profile has at least 50% of the same window left in a reading under 15
 minutes old, it also says so, for example `personal has 70% left.` Clicking
 the notification opens the menu.
@@ -141,10 +149,11 @@ actions support keyboard navigation and VoiceOver.
 
 Automated checks cover light → dark → light changes in the same view,
 system-colour/accessibility notifications, opaque selection policies, and
-keyboard/accessibility state. Alert checks cover the badge shapes, crossing
-and de-duplication rules, headroom choice, the default-off preference,
-permission denial and background checks following the toggle, using a fake
-notification center. Actual VoiceOver announcements, OS preference
+keyboard/accessibility state. Alert checks cover the badge shapes at 1x and
+2x, crossing and de-duplication rules across jitter, early resets and missing
+reset times, the baseline after turning alerts on, headroom choice, the
+default-off preference, denied, undecided and unanswered permission, and
+background checks following the toggle, using a fake notification center. Actual VoiceOver announcements, OS preference
 switching, popover translucency, notification banners and permission prompts
 still require a manual check on macOS. Follow [Apple's Dark Mode guidance](https://developer.apple.com/documentation/appkit/supporting-dark-mode-in-your-interface).
 

@@ -34,6 +34,9 @@ struct QuotaAlert: Equatable {
 /// upper bound until then even when the menu has not been opened since.
 struct QuotaIndicator: Equatable {
     static let normal = QuotaIndicator(alerts: [], nextChange: nil)
+    /// The longest wait before the icon is re-evaluated, so an implausible
+    /// reset time can neither overflow the timer nor postpone a check for long.
+    static let maximumRefreshDelay: TimeInterval = 86_400
 
     /// Most constrained first.
     let alerts: [QuotaAlert]
@@ -61,6 +64,14 @@ struct QuotaIndicator: Equatable {
         self.init(alerts: alerts, nextChange: alerts.compactMap(\.window.resetsAt).min().map(Date.init(timeIntervalSince1970:)))
     }
 
+    /// Seconds until the icon must be re-evaluated: just after the earliest
+    /// reset, and never more than a day ahead.
+    func refreshDelay(at now: Date) -> TimeInterval? {
+        guard let nextChange, nextChange > now else { return nil }
+        let delay = nextChange.timeIntervalSince(now) + 1
+        return delay.isFinite ? min(delay, Self.maximumRefreshDelay) : Self.maximumRefreshDelay
+    }
+
     func lines(at now: Date) -> [String] {
         let shown = alerts.prefix(4).map { $0.description(at: now) }
         return alerts.count > 4 ? shown + ["and \(alerts.count - 4) more"] : shown
@@ -85,8 +96,14 @@ struct QuotaIndicator: Equatable {
 /// per reset period, and a profile gets one notification per reading.
 struct QuotaCrossingTracker {
     /// Reset times can vary by a few seconds between readings of the same
-    /// period; a record outlives its reset by this margin.
+    /// period. Readings whose reset times lie within this margin share one
+    /// period; a different reset time, including an early reset, starts a new
+    /// one. A record also outlives its reset by this margin.
     static let resetGrace: TimeInterval = 60
+    /// Without a reset time there is no period to wait for, so a notified
+    /// level re-arms only once the window is more than this many points above
+    /// that level's threshold, never while it hovers at the threshold.
+    static let recoveryMargin = 5
 
     private struct WindowID: Hashable {
         let profile: String
@@ -107,6 +124,13 @@ struct QuotaCrossingTracker {
         notified.removeAll()
     }
 
+    /// Whether two readings can belong to one reset period. A missing reset
+    /// time is no evidence of a new period.
+    private static func samePeriod(_ lhs: TimeInterval?, _ rhs: TimeInterval?) -> Bool {
+        guard let lhs, let rhs else { return true }
+        return abs(lhs - rhs) <= resetGrace
+    }
+
     /// Records the current readings and returns the profiles that crossed into
     /// low or critical since the previous reading, most constrained first.
     mutating func observe(_ usage: [String: ProfileUsage], profiles: [String], at now: Date) -> [QuotaAlert] {
@@ -124,13 +148,20 @@ struct QuotaCrossingTracker {
                 // A passed reset restores the quota; the reading no longer applies.
                 let level = window.hasReset(at: now) ? .normal : window.level
                 if let mark = notified[id] {
-                    let expired = mark.resetsAt.map { time >= $0 + Self.resetGrace } ?? (level == .normal)
-                    if expired { notified[id] = nil }
+                    if !Self.samePeriod(mark.resetsAt, window.resetsAt) || mark.resetsAt.map({ time >= $0 + Self.resetGrace }) == true {
+                        notified[id] = nil
+                    } else if mark.resetsAt == nil || window.resetsAt == nil {
+                        let rearmed = QuotaLevel(remainingPercent: window.remainingPercent - Self.recoveryMargin)
+                        if rearmed < mark.level {
+                            notified[id] = rearmed == .normal ? nil : Mark(level: rearmed, resetsAt: mark.resetsAt)
+                        }
+                    }
                 }
                 let previous = observed[id]
                 observed[id] = Mark(level: level, resetsAt: window.resetsAt)
                 guard let previous else { continue }
-                let previousLevel = previous.resetsAt.map { $0 <= time } == true ? .normal : previous.level
+                // A reading from an earlier period says nothing about this one.
+                let previousLevel = Self.samePeriod(previous.resetsAt, window.resetsAt) ? previous.level : .normal
                 guard level > previousLevel, level > (notified[id]?.level ?? .normal) else { continue }
                 notified[id] = Mark(level: level, resetsAt: window.resetsAt)
                 crossed.append(QuotaAlert(profile: profile, window: window, slot: id.slot))
@@ -238,6 +269,8 @@ enum QuotaAlertToggle: Equatable {
 @MainActor
 final class QuotaAlertController {
     nonisolated static let refreshInterval: TimeInterval = 300
+    /// How long an unanswered permission prompt may keep the toggle waiting.
+    nonisolated static let permissionTimeout: TimeInterval = 120
     nonisolated static let permissionDeniedMessage = "Codex Profiles isn’t allowed to send notifications. Turn them on in System Settings › Notifications › Codex Profiles, then choose Low-quota alerts again. The menu-bar icon still marks low quota."
 
     var onIndicatorChange: ((QuotaIndicator) -> Void)?
@@ -250,17 +283,24 @@ final class QuotaAlertController {
     private let notifier: QuotaNotifying
     private let preferences: QuotaAlertPreferences
     private let refreshInterval: TimeInterval
+    private let permissionTimeout: TimeInterval
     private var tracker = QuotaCrossingTracker()
     private var indicatorTimer: Task<Void, Never>?
 
     var isEnabled: Bool { preferences.isEnabled }
 
+    /// Alerts are on, but macOS will not show them: permission was denied, or
+    /// was never granted to this copy of the app.
+    var isBlocked: Bool { isEnabled && (permission == .denied || permission == .notDetermined) }
+
     init(store: WorkspaceStore, notifier: QuotaNotifying, defaults: UserDefaults = .standard,
-         refreshInterval: TimeInterval = QuotaAlertController.refreshInterval) {
+         refreshInterval: TimeInterval = QuotaAlertController.refreshInterval,
+         permissionTimeout: TimeInterval = QuotaAlertController.permissionTimeout) {
         self.store = store
         self.notifier = notifier
         preferences = QuotaAlertPreferences(defaults: defaults)
         self.refreshInterval = refreshInterval
+        self.permissionTimeout = permissionTimeout
         store.onUsageChange = { [weak self] in self?.usageDidChange() }
     }
 
@@ -291,15 +331,34 @@ final class QuotaAlertController {
         isChanging = true
         defer { isChanging = false }
         var answer = await notifier.permission()
-        if answer == .notDetermined { answer = await notifier.requestPermission() ? .allowed : .denied }
+        if answer == .notDetermined { answer = await requestPermission() ? .allowed : .denied }
         guard answer == .allowed else { return .denied }
         permission = answer
         preferences.isEnabled = true
-        // Readings already on screen are the baseline, never a crossing.
+        // Settled, fresh readings on screen are the baseline, never a crossing.
+        // A reading still refreshing or due again is left out, so its next
+        // reading becomes the baseline instead of a crossing from stale data.
+        let now = Date()
+        let settled = store.usage.filter { !store.readingUsage.contains($0.key) && !$0.value.needsRefresh(at: now) }
         tracker.reset()
-        _ = tracker.observe(store.usage, profiles: store.profiles, at: Date())
+        _ = tracker.observe(settled, profiles: store.profiles, at: now)
         store.startBackgroundUsageRefresh(every: refreshInterval)
         return .enabled
+    }
+
+    /// Asks for permission, but stops waiting after `permissionTimeout`, so an
+    /// unanswered prompt cannot keep the toggle disabled. A later Allow still
+    /// counts the next time the person chooses Low-quota alerts.
+    private func requestPermission() async -> Bool {
+        let wait = PermissionWait()
+        return await withCheckedContinuation { continuation in
+            wait.continuation = continuation
+            Task { wait.finish(await notifier.requestPermission()) }
+            Task { [permissionTimeout] in
+                try? await Task.sleep(for: .seconds(permissionTimeout))
+                wait.finish(false)
+            }
+        }
     }
 
     func usageDidChange(at now: Date = Date()) {
@@ -317,15 +376,25 @@ final class QuotaAlertController {
         indicatorTimer?.cancel()
         indicatorTimer = nil
         // Clear the icon when the earliest low window resets, even without a new reading.
-        if let change = next.nextChange, change > now {
-            let delay = change.timeIntervalSince(now) + 1
+        if let delay = next.refreshDelay(at: now) {
             indicatorTimer = Task { @MainActor [weak self] in
-                guard (try? await Task.sleep(for: .milliseconds(Int64(delay * 1000)), clock: .continuous)) != nil else { return }
+                guard (try? await Task.sleep(for: .seconds(delay), clock: .continuous)) != nil else { return }
                 self?.updateIndicator(at: Date())
             }
         }
         guard next != indicator else { return }
         indicator = next
         onIndicatorChange?(next)
+    }
+}
+
+/// The first permission answer, or the timeout, whichever comes first.
+@MainActor
+private final class PermissionWait {
+    var continuation: CheckedContinuation<Bool, Never>?
+
+    func finish(_ granted: Bool) {
+        continuation?.resume(returning: granted)
+        continuation = nil
     }
 }

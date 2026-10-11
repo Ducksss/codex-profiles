@@ -110,22 +110,35 @@ The status item reflects low quota from readings the app already holds, so it
 needs no permission and starts no reads. When an initialized profile's
 constraining window is low or critical and not yet reset, the template icon
 gains a badge cut out from the symbol: a solid dot when low, an exclamation
-mark cut into it when critical. Shape carries the state and the icon stays
+mark cut into it when critical. The 9-point badge and its one-point bar, gap
+and dot sit on whole points, so the mark stays legible on 1x displays as well
+as Retina. Shape carries the state and the icon stays
 monochrome; the tooltip and accessibility label name each profile, window,
 remaining percentage and reset clock time, such as
 `work: 5h limit at 8%, resets 14:20`. A one-shot timer re-evaluates the icon
-at the earliest reset. Remaining quota only falls within a window, so a
+at the earliest reset, waiting at most a day so an implausible reset time
+cannot overflow it. Remaining quota only falls within a window, so a
 reading stays a true upper bound until then.
 
 Low-quota alerts is an opt-in gear-menu toggle, off by default so the app
 never shows an unrequested permission prompt. Authorization is requested only
 when the toggle is turned on; denial keeps it off and explains System
-Settings › Notifications, and permission revoked later shows a mixed state
-that turns alerts off when chosen. Notifications announce crossings, never
-states: the first reading after launch or after enabling is a baseline. Each
-profile window notifies at most once per level and reset period, with a
-60-second grace for reset times that vary between readings, and a profile
-gets one notification per reading. A later critical notification replaces
+Settings › Notifications. A prompt left unanswered for two minutes is treated
+as a denial, so the toggle never stays disabled; allowing notifications later
+and choosing the toggle again turns alerts on. Permission revoked later, or
+never granted to this copy of the app, shows a mixed state that turns alerts
+off when chosen. Notifications announce crossings, never
+states: the first settled reading after launch or after enabling is a
+baseline, and readings still refreshing or older than the 60-second cache are
+left out of it. A reset period is identified by its reset time: readings
+whose reset times lie within 60 seconds of each other share a period, so
+jitter neither repeats nor invents a crossing, and a different reset time,
+including an early reset, starts a new period. Each profile window notifies
+at most once per level and reset period, and a profile
+gets one notification per reading. A window without a reported reset time
+re-arms a level only after climbing more than five points above its
+threshold (over 30% for low, over 15% for critical), so a reading hovering at
+a threshold cannot repeat. A later critical notification replaces
 the low one for the same window. The body names the reset time and mentions
 another profile only when it has at least 50% of the same window left, no
 low window of its own and a reading under 15 minutes old. Clicking a
@@ -157,7 +170,9 @@ timeouts and cancellation. The interaction runner also checks in-place usage
 updates, refresh dimming, rows being changed, menu enablement after AppKit
 validation, one-off destinations and Open at Login through a fake login item. An isolated real CLI integration verifies profile
 selection and strict workspace-guard handling with a fake app-server.
-Alert checks cover indicator state, crossing and de-duplication, headroom
-choice, preference persistence, permission denial, background reads that
-follow the toggle and the badge shapes, using a fake notifier. Real banners
-and permission prompts require a manual macOS check.
+Alert checks cover indicator state and its bounded timer, crossing and
+de-duplication across jitter, early resets and missing reset times, the
+settled baseline after enabling, headroom choice, preference persistence,
+permission denial, undecided and unanswered prompts, background reads that
+follow the toggle and the badge shapes at 1x and 2x, using a fake notifier.
+Real banners and permission prompts require a manual macOS check.

@@ -352,6 +352,10 @@ struct MenuInteractionTests {
             && store.statusMessage == "Low-quota alerts on · usage checked every 5 minutes",
             "choosing Low-quota alerts must ask once, turn alerts on and say how often usage is checked")
         expect(defaults.bool(forKey: "lowQuotaAlerts"), "the choice must persist")
+        notifier.current = .notDetermined
+        await alerts.refreshPermission()
+        expect(item("Low-quota alerts", in: alertsController.settingsMenu()).state == .mixed,
+            "alerts on without a permission answer must show the same mixed state as a denial")
         notifier.current = .denied
         await alerts.refreshPermission()
         let revoked = item("Low-quota alerts", in: alertsController.settingsMenu())
@@ -368,12 +372,22 @@ struct MenuInteractionTests {
         let icons = [QuotaLevel.normal, .low, .critical].map { StatusItemIcon.image(for: $0, accessibilityDescription: "Codex Profiles. Low Codex quota: work") }
         expect(icons.allSatisfy { $0.isTemplate && $0.accessibilityDescription == "Codex Profiles. Low Codex quota: work" },
             "every icon state must be a template image carrying the accessibility label")
-        let badgeCentre = NSPoint(x: icons[1].size.width - 4, y: 4)
-        let badgeEdge = NSPoint(x: icons[1].size.width - 6.5, y: 4)
-        expect(icons[1].size.width > icons[0].size.width && alpha(icons[1], at: badgeCentre) > 0.9 && alpha(icons[1], at: badgeEdge) > 0.9,
-            "a low quota must add a solid badge")
-        expect(alpha(icons[2], at: badgeCentre) < 0.1 && alpha(icons[2], at: badgeEdge) > 0.9,
-            "a critical quota must cut an exclamation mark into the badge")
+        // The badge fills the bottom-right 9-point square. Points name pixel
+        // centres in its middle column: the bar, the gap, the dot, and a point
+        // of solid badge beside the column.
+        expect(icons[1].size.width > icons[0].size.width && StatusItemIcon.badgeDiameter == 9, "a badge must widen the icon")
+        let column = icons[1].size.width - 4.5
+        let bar = NSPoint(x: column, y: 5.5)
+        let gap = NSPoint(x: column, y: 2.5)
+        let dot = NSPoint(x: column, y: 1.5)
+        let beside = NSPoint(x: column - 2, y: 4.5)
+        for scale in [1, 2] {
+            expect([bar, gap, dot, beside].allSatisfy { alpha(icons[1], at: $0, scale: scale) > 0.9 },
+                "a low quota must add a solid badge at \(scale)x")
+            expect(alpha(icons[2], at: bar, scale: scale) < 0.1 && alpha(icons[2], at: dot, scale: scale) < 0.1
+                && alpha(icons[2], at: gap, scale: scale) > 0.9 && alpha(icons[2], at: beside, scale: scale) > 0.9,
+                "a critical quota must cut a bar and a separate dot into the badge at \(scale)x")
+        }
         print("Native menu interaction tests passed.")
     }
 
@@ -387,16 +401,18 @@ struct MenuInteractionTests {
         func post(_ notification: QuotaNotification) {}
     }
 
-    /// Alpha of an image at a point, measured at 2x like a Retina menu bar.
-    private static func alpha(_ image: NSImage, at point: NSPoint) -> CGFloat {
-        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(image.size.width * 2), pixelsHigh: Int(image.size.height * 2),
+    /// Alpha of an image at a point, rendered at 1x like a standard display or
+    /// 2x like a Retina menu bar.
+    private static func alpha(_ image: NSImage, at point: NSPoint, scale: Int) -> CGFloat {
+        let factor = CGFloat(scale)
+        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(image.size.width * factor), pixelsHigh: Int(image.size.height * factor),
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .calibratedRGB, bytesPerRow: 0, bitsPerPixel: 0)!
         bitmap.size = image.size
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
         image.draw(in: NSRect(origin: .zero, size: image.size))
         NSGraphicsContext.restoreGraphicsState()
-        return bitmap.colorAt(x: Int(point.x * 2), y: Int((image.size.height - point.y) * 2))?.alphaComponent ?? 0
+        return bitmap.colorAt(x: Int(point.x * factor), y: Int((image.size.height - point.y) * factor))?.alphaComponent ?? 0
     }
 
     @MainActor

@@ -484,9 +484,9 @@ final class WorkspaceMenuViewController: NSViewController {
         menu.addItem(openAtLogin)
         if let alerts {
             let lowQuota = menuItem("Low-quota alerts", #selector(toggleLowQuotaAlerts), symbol: nil, nil)
-            if alerts.isEnabled && alerts.permission == .denied {
+            if alerts.isBlocked {
                 lowQuota.state = .mixed
-                lowQuota.toolTip = "Notifications are off. Allow Codex Profiles in System Settings › Notifications, or choose this to turn alerts off."
+                lowQuota.toolTip = "Notifications are not allowed. Allow Codex Profiles in System Settings › Notifications, or choose this to turn alerts off; turning them on again asks macOS."
             } else {
                 lowQuota.state = alerts.isEnabled ? .on : .off
                 lowQuota.toolTip = "Notify when a profile’s Codex quota falls to 25%, and again at 10%. Checks usage every 5 minutes; never switches profiles."

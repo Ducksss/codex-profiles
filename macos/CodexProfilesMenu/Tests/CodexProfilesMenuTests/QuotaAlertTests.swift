@@ -10,6 +10,8 @@ enum QuotaAlertTests {
         preferencePersistence()
         print("Checking low-quota alert permission and notifications…")
         try await controllerAsksOnlyWhenTurnedOn()
+        await enablingIgnoresUnsettledReadings()
+        await unansweredPermissionStopsWaiting()
         print("Checking background usage refresh only while alerts are on…")
         try await backgroundRefreshFollowsAlerts()
         print("Low-quota indicator, crossing, headroom and preference tests passed.")
@@ -64,6 +66,15 @@ enum QuotaAlertTests {
         let many = Dictionary(uniqueKeysWithValues: (1...6).map { ("p\($0)", reading([window(Double($0), 300, resetIn: 600)])) })
         let crowded = QuotaIndicator(usage: many, profiles: many.keys.sorted(), at: now)
         expect(crowded.lines(at: now).count == 5 && crowded.lines(at: now).last == "and 2 more", "a long list must stay compact")
+
+        expect(indicator.refreshDelay(at: now) == 3601 && QuotaIndicator.normal.refreshDelay(at: now) == nil,
+            "the icon must be re-evaluated just after the earliest reset, and only when something is low")
+        let implausible = QuotaIndicator(usage: ["work": reading([window(5, 300, resetIn: 1e17)])], profiles: ["work"], at: now)
+        expect(implausible.refreshDelay(at: now) == QuotaIndicator.maximumRefreshDelay && QuotaIndicator.maximumRefreshDelay == 86_400,
+            "an implausible reset time must not overflow the timer; the icon is checked again within a day")
+        expect(QuotaIndicator(alerts: [], nextChange: Date(timeIntervalSince1970: .infinity)).refreshDelay(at: now) == QuotaIndicator.maximumRefreshDelay
+            && QuotaIndicator(alerts: [], nextChange: now.addingTimeInterval(-1)).refreshDelay(at: now) == nil,
+            "non-finite and past reset times must not schedule an invalid wait")
     }
 
     private static func crossingDetectionAndDeduplication() {
@@ -83,8 +94,49 @@ enum QuotaAlertTests {
         expect(observe([window(0, 300, resetIn: reset)]).isEmpty, "reaching the limit is still the critical level")
         let nextPeriod = now.addingTimeInterval(reset + QuotaCrossingTracker.resetGrace)
         expect(observe([window(90, 300, resetIn: 18000, from: nextPeriod)], at: nextPeriod).isEmpty, "a restored quota must not notify")
-        let low = observe([window(22, 300, resetIn: 17000, from: nextPeriod)], at: nextPeriod)
+        let low = observe([window(22, 300, resetIn: 18000, from: nextPeriod)], at: nextPeriod)
         expect(low.count == 1 && low[0].level == .low, "a new reset period must notify again")
+
+        // An early reset restores the quota with a new reset time before the old one passes.
+        var early = QuotaCrossingTracker()
+        func observeEarly(_ remaining: Double, resetsAt: TimeInterval, at date: Date) -> [QuotaAlert] {
+            early.observe(["work": reading([window(remaining, 300, resetIn: resetsAt - now.timeIntervalSince1970)], checkedAt: date)],
+                profiles: ["work"], at: date)
+        }
+        let oldReset = now.timeIntervalSince1970 + reset
+        _ = observeEarly(40, resetsAt: oldReset, at: now)
+        expect(observeEarly(20, resetsAt: oldReset, at: now.addingTimeInterval(60)).count == 1, "falling to 20% must notify once")
+        let earlyReset = now.addingTimeInterval(600)
+        let newReset = earlyReset.timeIntervalSince1970 + 18000
+        expect(observeEarly(100, resetsAt: newReset, at: earlyReset).isEmpty, "an early reset must not notify by itself")
+        let afterEarly = observeEarly(20, resetsAt: newReset, at: now.addingTimeInterval(1800))
+        expect(afterEarly.count == 1 && afterEarly[0].level == .low,
+            "an early reset must start a new period, so falling low again notifies before the old reset time")
+
+        // Reset times jitter by seconds; a reading just past the old reset can still belong to its period.
+        var jitter = QuotaCrossingTracker()
+        _ = jitter.observe(["work": reading([window(20, 300, resetIn: reset)])], profiles: ["work"], at: now)
+        let straddling = now.addingTimeInterval(reset + 5)
+        expect(jitter.observe(["work": reading([window(19, 300, resetIn: 5, from: straddling)], checkedAt: straddling)],
+            profiles: ["work"], at: straddling).isEmpty,
+            "a reset time that moved by seconds must not turn an already-low quota into a crossing")
+
+        // Without a reset time, a level re-arms only after a clear recovery.
+        var unknown = QuotaCrossingTracker()
+        var minute = 0.0
+        func observeUnknown(_ remaining: Double) -> Int {
+            minute += 5
+            let date = now.addingTimeInterval(minute * 60)
+            return unknown.observe(["work": reading([window(remaining, 300, resetIn: nil)], checkedAt: date)], profiles: ["work"], at: date).count
+        }
+        _ = observeUnknown(30)
+        expect([25.0, 26, 25, 26, 25].map(observeUnknown).reduce(0, +) == 1,
+            "a quota hovering at the threshold without a reset time must notify once")
+        expect(observeUnknown(30) == 0 && observeUnknown(25) == 0, "climbing exactly five points must not re-arm")
+        expect(observeUnknown(31) == 0 && observeUnknown(25) == 1, "climbing more than five points above the threshold must re-arm")
+        expect(observeUnknown(9) == 1 && observeUnknown(12) == 0 && observeUnknown(9) == 0,
+            "critical must not repeat while it hovers near 10%")
+        expect(observeUnknown(16) == 0 && observeUnknown(9) == 1, "recovering above 15% must re-arm critical")
 
         var direct = QuotaCrossingTracker()
         func observeDirect(_ windows: [RateLimitWindow], at date: Date = now) -> [QuotaAlert] {
@@ -232,15 +284,66 @@ enum QuotaAlertTests {
         expect(notifier.posted.count == 1, "a newer reading at the same level must not notify again")
         expect(indicators.last?.level == .critical, "the icon must follow the newest reading")
 
+        expect(!alerts.isBlocked, "allowed notifications must not show as blocked")
+        notifier.current = .notDetermined
+        await alerts.refreshPermission()
+        expect(alerts.isEnabled && alerts.isBlocked, "alerts on without a permission answer must show as blocked, like a denial")
         notifier.current = .denied
         await alerts.refreshPermission()
-        expect(alerts.isEnabled && alerts.permission == .denied, "revoked permission must be noticed without turning alerts off")
+        expect(alerts.isEnabled && alerts.permission == .denied && alerts.isBlocked,
+            "revoked permission must be noticed without turning alerts off")
 
         expect(await alerts.setEnabled(false) == .disabled && !alerts.isEnabled && !store.isRefreshingUsageInBackground,
             "turning alerts off must stop background reads")
         preview(work: 30, personal: 9, at: start.addingTimeInterval(3))
         expect(notifier.posted.count == 1, "alerts turned off must not notify")
         expect(notifier.requests == 2, "turning alerts off must not ask for permission")
+    }
+
+    private static func enablingIgnoresUnsettledReadings() async {
+        let suite = "QuotaAlertSettled.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = WorkspaceStore(client: CLIClient(executableURL: nil), defaults: defaults)
+        let opened = Date()
+        func weekly(_ remaining: Double, checkedAt: Date) -> ProfileUsage {
+            reading([window(remaining, 10080, resetIn: 86400, from: opened)], checkedAt: checkedAt)
+        }
+        // The menu just opened: a two-hour-old 40% reading is on screen while its refresh runs.
+        store.loadPreview([], profiles: ["work"], usage: ["work": weekly(40, checkedAt: opened.addingTimeInterval(-7200))],
+            readingUsage: ["work"])
+        let notifier = FakeNotifier()
+        notifier.current = .allowed
+        let alerts = QuotaAlertController(store: store, notifier: notifier, defaults: defaults, refreshInterval: 3600)
+        expect(await alerts.setEnabled(true) == .enabled, "alerts could not be turned on")
+        store.loadPreview([], profiles: ["work"], usage: ["work": weekly(20, checkedAt: Date())])
+        expect(notifier.posted.isEmpty,
+            "a reading that was still refreshing when alerts were turned on must not make a crossing from stale data")
+        store.loadPreview([], profiles: ["work"], usage: ["work": weekly(8, checkedAt: Date().addingTimeInterval(1))])
+        expect(notifier.posted.count == 1 && notifier.posted[0].title == "work: Codex quota almost used",
+            "the first settled reading after turning alerts on must become the baseline")
+        _ = await alerts.setEnabled(false)
+    }
+
+    private static func unansweredPermissionStopsWaiting() async {
+        let suite = "QuotaAlertTimeout.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = WorkspaceStore(client: CLIClient(executableURL: nil), defaults: defaults)
+        store.loadPreview([], profiles: [])
+        let notifier = FakeNotifier()
+        notifier.answersRequest = false
+        let alerts = QuotaAlertController(store: store, notifier: notifier, defaults: defaults, refreshInterval: 3600, permissionTimeout: 0.05)
+        let toggle = Task { await alerts.setEnabled(true) }
+        for _ in 0..<100 where !alerts.isChanging { await Task.yield() }
+        let whileWaiting = await alerts.setEnabled(false)
+        expect(alerts.isChanging && whileWaiting == .busy, "a pending permission prompt must keep the toggle waiting")
+        expect(await toggle.value == .denied && !alerts.isChanging && !alerts.isEnabled && notifier.requests == 1,
+            "an unanswered permission prompt must stop blocking the toggle and leave alerts off")
+        notifier.current = .allowed
+        expect(await alerts.setEnabled(true) == .enabled && notifier.requests == 1,
+            "allowing notifications later must turn alerts on when chosen again, without another prompt")
+        _ = await alerts.setEnabled(false)
     }
 
     private static func backgroundRefreshFollowsAlerts() async throws {
@@ -291,6 +394,8 @@ enum QuotaAlertTests {
     private final class FakeNotifier: QuotaNotifying {
         var current = NotificationPermission.notDetermined
         var grant = true
+        /// False leaves the prompt unanswered, as when it is dismissed without a choice.
+        var answersRequest = true
         var permissionChecks = 0
         var requests = 0
         var posted: [QuotaNotification] = []
@@ -302,6 +407,10 @@ enum QuotaAlertTests {
 
         func requestPermission() async -> Bool {
             requests += 1
+            guard answersRequest else {
+                try? await Task.sleep(for: .seconds(3600))
+                return false
+            }
             current = grant ? .allowed : .denied
             return grant
         }

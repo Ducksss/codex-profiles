@@ -163,8 +163,8 @@ final class WorkspaceStore {
         let period = Duration.milliseconds(Int64(max(0.01, interval) * 1000))
         backgroundUsageTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                guard let store = self else { return }
-                await store.refreshUsageInBackground()
+                // The store is held only for the pass, never across the sleep.
+                guard await self?.refreshUsageInBackground() != nil else { return }
                 // Tolerance lets macOS coalesce the wake-up with other timers.
                 try? await Task.sleep(for: period, tolerance: period / 5, clock: .continuous)
             }
