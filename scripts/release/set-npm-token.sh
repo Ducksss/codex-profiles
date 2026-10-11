@@ -70,17 +70,26 @@ token="${token%"${token##*[![:space:]]}"}"
 [[ "$token" == npm_* ]] || printf 'Warning: npm tokens normally start with npm_.\n' >&2
 
 # An isolated npm configuration that resolves auth only from NODE_AUTH_TOKEN,
-# as setup-node does in CI. Without it, npm could use this machine's own login
-# and accept a bad token.
+# as setup-node does in CI. Without it, npm could use this machine's own login,
+# or an inherited npm_config_* variable, and accept a bad token.
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/set-npm-token.XXXXXX")"
 # shellcheck disable=SC2016 # npm expands the placeholder itself
 printf '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}\n' > "$work_dir/npmrc"
 : > "$work_dir/global-npmrc"
 
+npm_environment=("PATH=$PATH" "HOME=$work_dir")
+for name in TMPDIR HTTPS_PROXY HTTP_PROXY NO_PROXY https_proxy http_proxy no_proxy \
+  NODE_EXTRA_CA_CERTS; do
+  [[ -z "${!name:-}" ]] || npm_environment+=("$name=${!name}")
+done
+
 npm_with_token() {
   (
     cd "$work_dir"
-    NODE_AUTH_TOKEN="$token" NPM_CONFIG_USERCONFIG="$work_dir/npmrc" \
+    # A cleared environment keeps npm_config_* variables from overriding the
+    # isolated configuration; only the path, proxies and CA bundle carry over.
+    env -i "${npm_environment[@]}" NODE_AUTH_TOKEN="$token" \
+      NPM_CONFIG_USERCONFIG="$work_dir/npmrc" \
       NPM_CONFIG_GLOBALCONFIG="$work_dir/global-npmrc" \
       npm "$@" --registry "$registry" 2> /dev/null
   )
