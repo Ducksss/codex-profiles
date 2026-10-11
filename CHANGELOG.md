@@ -15,7 +15,7 @@ and this project follows semantic versioning for tagged releases.
 - Refined the app introduction with its native icon, a shorter first-run guide
   and expandable CLI details, keeping the menu-bar workflow in focus.
 
-## 1.3.0 - 2026-10-07
+## 1.3.0 - 2026-10-12
 
 ### Added
 
