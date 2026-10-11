@@ -55,7 +55,13 @@ export function isAutomationDenied(message: string): boolean {
 export const AUTOMATION_DENIED_MESSAGE =
   "Raycast isn’t allowed to control Terminal. Turn it on in System Settings › Privacy & Security › Automation, then try again.";
 
-export function terminalErrorMessage(message: string): string {
+/** osascript waits while macOS asks whether Raycast may control Terminal. */
+export const TERMINAL_TIMEOUT_MESSAGE =
+  "Terminal didn’t respond in time. If macOS asked whether Raycast may control Terminal, allow it there or in System Settings › Privacy & Security › Automation, then try again.";
+
+/** The message for a failed osascript run; a timeout gets its own explanation. */
+export function terminalErrorMessage(message: string, timedOut = false): string {
+  if (timedOut) return TERMINAL_TIMEOUT_MESSAGE;
   return isAutomationDenied(message) ? AUTOMATION_DENIED_MESSAGE : message.trim() || "Terminal could not be opened.";
 }
 

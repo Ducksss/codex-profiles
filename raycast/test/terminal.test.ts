@@ -10,6 +10,7 @@ import {
   isAutomationDenied,
   loginLaunchArguments,
   shellQuote,
+  TERMINAL_TIMEOUT_MESSAGE,
   terminalCommandScript,
   terminalErrorMessage,
   terminalScript,
@@ -37,6 +38,14 @@ describe("Terminal scripts", () => {
     assert.match(AUTOMATION_DENIED_MESSAGE, /Privacy & Security › Automation/);
     assert.equal(terminalErrorMessage("Terminal got an error."), "Terminal got an error.");
     assert.equal(terminalErrorMessage("  "), "Terminal could not be opened.");
+  });
+
+  test("explain a Terminal timeout as a possible Automation prompt", () => {
+    assert.equal(terminalErrorMessage("", true), TERMINAL_TIMEOUT_MESSAGE);
+    assert.equal(terminalErrorMessage("anything", true), TERMINAL_TIMEOUT_MESSAGE);
+    assert.match(TERMINAL_TIMEOUT_MESSAGE, /control Terminal/);
+    assert.match(TERMINAL_TIMEOUT_MESSAGE, /Privacy & Security › Automation/);
+    assert.doesNotMatch(TERMINAL_TIMEOUT_MESSAGE, /codex-profile/);
   });
 });
 

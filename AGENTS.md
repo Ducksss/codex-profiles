@@ -22,10 +22,15 @@ It is community-maintained and is **not** an official OpenAI project.
 - `macos/` — optional native menu-bar companion; delegates profile operations
   to the bundled CLI. Build and DMG programs live in `scripts/macos/`.
 - `raycast/` — optional Raycast extension (TypeScript, its own npm
-  dependencies); delegates every profile operation to the installed CLI and
-  never reads auth data. It is outside the npm package and `make check`;
-  verify it with `npm run lint`, `npm run typecheck` and `npm test` inside
-  `raycast/`. Its icon renderer is `scripts/raycast/render-extension-icon.swift`.
+  dependencies); delegates every profile operation to the `codex-profile` CLI
+  (a standalone install or the menu-bar app's bundled copy) and never reads
+  auth data. Background calls use argument lists; Terminal launches go through
+  the user's shell with AppleScript `quoted form of`. It is outside the npm
+  package and `make check`; verify it with `npm run typecheck`, `npm test` and
+  `npx prettier --check .` inside `raycast/`. `npm run lint` fails until
+  `author` in `raycast/package.json` is a real Raycast username, so use
+  `npx eslint src test` until then. Its icon renderer is
+  `scripts/raycast/render-extension-icon.swift`.
 - `agent.md` — user-facing install and profile-setup instructions for AI agents.
 - `.agents/skills/` — repo-local Codex outreach workflow skills.
 - `ops/outreach/` — project-internal distribution prompt, launch playbook, and

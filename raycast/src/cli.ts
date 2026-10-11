@@ -6,7 +6,7 @@ import { execFile } from "node:child_process";
 import { accessSync, constants, readdirSync, statSync } from "node:fs";
 import { homedir, userInfo } from "node:os";
 import { dirname } from "node:path";
-import { augmentedPath, cliEnvironment, executableCandidates, expandHome, lastAbsolutePath } from "./lib/discovery";
+import { augmentedPath, cliEnvironment, executableCandidates, lastAbsolutePath, preferencePath } from "./lib/discovery";
 import {
   failureMessage,
   isUsableWorkspacePath,
@@ -17,7 +17,13 @@ import {
   type WorkspaceList,
 } from "./lib/profile";
 import { cliLaunchArguments, loginLaunchArguments, terminalErrorMessage } from "./lib/terminal";
-import { interpretUsageOutput, isSnapshotFresh, type UsageSnapshot } from "./lib/usage";
+import {
+  USAGE_READ_TIMEOUT_SECONDS,
+  interpretUsageOutput,
+  isSnapshotFresh,
+  usageTimeoutMs,
+  type UsageSnapshot,
+} from "./lib/usage";
 
 export const INSTALL_URL = "https://github.com/Ducksss/codex-profiles#install";
 export const SITE_URL = "https://ducksss.github.io/codex-profiles/";
@@ -28,7 +34,9 @@ interface Preferences {
 }
 
 export type CliResolution =
-  { kind: "found"; path: string } | { kind: "invalid-preference"; path: string } | { kind: "missing" };
+  | { kind: "found"; path: string }
+  | { kind: "invalid-preference"; path: string; reason: "not-absolute" | "not-executable" }
+  | { kind: "missing" };
 
 interface RunResult extends CommandOutput {
   timedOut: boolean;
@@ -139,8 +147,11 @@ export function resolveCli(): Promise<CliResolution> {
   resolved ??= (async (): Promise<CliResolution> => {
     const preference = getPreferenceValues<Preferences>().codexProfilePath?.trim();
     if (preference) {
-      const path = expandHome(preference, HOME);
-      return isExecutableFile(path) ? { kind: "found", path } : { kind: "invalid-preference", path };
+      const { path, absolute } = preferencePath(preference, HOME);
+      if (!absolute) return { kind: "invalid-preference", path, reason: "not-absolute" };
+      return isExecutableFile(path)
+        ? { kind: "found", path }
+        : { kind: "invalid-preference", path, reason: "not-executable" };
     }
     for (const candidate of executableCandidates(HOME, nvmVersions(), isDirectory)) {
       if (isExecutableFile(candidate)) return { kind: "found", path: candidate };
@@ -171,8 +182,13 @@ function environmentFor(cli: string): NodeJS.ProcessEnv {
   return cliEnvironment(process.env, path, HOME) as NodeJS.ProcessEnv;
 }
 
-function runCli(cli: string, args: string[], options: { timeout?: number; signal?: AbortSignal } = {}) {
-  return run(cli, args, { ...options, env: environmentFor(cli) });
+function runCli(
+  cli: string,
+  args: string[],
+  options: { timeout?: number; signal?: AbortSignal; env?: Record<string, string> } = {},
+) {
+  const { env, ...rest } = options;
+  return run(cli, args, { ...rest, env: { ...environmentFor(cli), ...env } });
 }
 
 function assertProfile(profile: string): void {
@@ -193,11 +209,16 @@ export interface ProfileEntry {
   home?: string;
 }
 
-/** `codex-profile list`, then `codex-profile path <name>` for each initialized profile. */
-export async function loadProfiles(cli: string, signal?: AbortSignal): Promise<ProfileEntry[]> {
+/** Initialized profile names from `codex-profile list`. */
+async function listProfiles(cli: string, signal?: AbortSignal): Promise<string[]> {
   const result = await runCli(cli, ["list"], { signal });
   if (result.code !== 0) throw new Error(failureMessage(result));
-  const names = parseProfileList(result.stdout);
+  return parseProfileList(result.stdout);
+}
+
+/** `codex-profile list`, then `codex-profile path <name>` for each initialized profile. */
+export async function loadProfiles(cli: string, signal?: AbortSignal): Promise<ProfileEntry[]> {
+  const names = await listProfiles(cli, signal);
   return Promise.all(
     names.map(async (name): Promise<ProfileEntry> => {
       // The home is optional decoration: one failed lookup keeps the list.
@@ -233,6 +254,16 @@ function cachedUsage(): UsageSnapshot | undefined {
   }
 }
 
+/** How many profiles `usage --json` will read; one when `list` itself fails. */
+async function countProfiles(cli: string, signal?: AbortSignal): Promise<number> {
+  try {
+    return (await listProfiles(cli, signal)).length;
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    return 1;
+  }
+}
+
 /**
  * `codex-profile usage --json`. Readings are shared by both commands and
  * reused for a minute; `force` (the Refresh action) always reads again.
@@ -245,7 +276,14 @@ export async function loadUsage(
   if (!options.force && cached && cached.cliPath === cli && isSnapshotFresh(cached, Date.now())) {
     return cached;
   }
-  const result = await runCli(cli, ["usage", "--json"], { timeout: 90_000, signal: options.signal });
+  // The CLI reads four profiles at a time, each for up to the fixed per-read
+  // timeout, so the overall limit grows with the number of profiles.
+  const count = await countProfiles(cli, options.signal);
+  const result = await runCli(cli, ["usage", "--json"], {
+    timeout: usageTimeoutMs(count),
+    signal: options.signal,
+    env: { CODEX_PROFILE_USAGE_TIMEOUT: String(USAGE_READ_TIMEOUT_SECONDS) },
+  });
   const snapshot: UsageSnapshot = { checkedAt: Date.now(), cliPath: cli, outcome: interpretUsageOutput(result) };
   usageCache.set(USAGE_SNAPSHOT_KEY, JSON.stringify(snapshot));
   return snapshot;
@@ -261,6 +299,7 @@ export async function openInChatGPT(cli: string, profile: string, workspace?: st
 
 async function runTerminal(args: string[]): Promise<void> {
   const result = await run("/usr/bin/osascript", args, { timeout: 30_000 });
+  if (result.timedOut) throw new Error(terminalErrorMessage("", true));
   if (result.code !== 0) throw new Error(terminalErrorMessage(failureMessage(result)));
 }
 

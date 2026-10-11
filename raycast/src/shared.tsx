@@ -36,19 +36,25 @@ export function CliGate(props: { children: (cli: string) => ReactNode; searchBar
   return <>{props.children(data.path)}</>;
 }
 
+function unavailableDescription(resolution: Exclude<CliResolution, { kind: "found" }>): string {
+  if (resolution.kind === "missing") {
+    return "Install codex-profile (for example with npm install -g codex-profile) or the Codex Profiles menu bar app, or set its full path in the extension preferences.";
+  }
+  const problem =
+    resolution.reason === "not-absolute"
+      ? `“${resolution.path}” is not a full path. Enter one that starts with / or ~/, such as ~/.local/bin/codex-profile.`
+      : `${resolution.path} is not an executable file.`;
+  return `${problem} Fix the path in the extension preferences, or clear it to search the usual locations.`;
+}
+
 function CliUnavailableView(props: { resolution: Exclude<CliResolution, { kind: "found" }>; onRetry: () => void }) {
-  const invalidPath = props.resolution.kind === "invalid-preference" ? props.resolution.path : undefined;
-  const invalid = invalidPath !== undefined;
+  const invalid = props.resolution.kind === "invalid-preference";
   return (
     <List>
       <List.EmptyView
         icon={Icon.Terminal}
         title={invalid ? "The codex-profile path in preferences isn’t usable" : "codex-profile isn’t installed"}
-        description={
-          invalid
-            ? `${invalidPath} is not an executable file. Fix the path in the extension preferences, or clear it to search the usual locations.`
-            : "Install codex-profile (for example with npm install -g codex-profile), or set its full path in the extension preferences."
-        }
+        description={unavailableDescription(props.resolution)}
         actions={
           <ActionPanel>
             {invalid ? (
@@ -169,8 +175,8 @@ const EXTRA_SHORTCUTS: Record<LaunchKind, Keyboard.Shortcut> = {
 
 /**
  * Open in ChatGPT, Open Codex CLI in Terminal and Sign in to Codex CLI, in
- * the given order. The first two take Return and Command-Return; later ones
- * get their own shortcut.
+ * the given order (leave a kind out to hide it). The first two take Return
+ * and Command-Return; later ones get their own shortcut.
  */
 export function LaunchActions(props: {
   cli: string;

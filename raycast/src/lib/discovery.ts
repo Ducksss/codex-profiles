@@ -11,6 +11,15 @@ export function expandHome(path: string, home: string): string {
   return path;
 }
 
+/**
+ * The codex-profile Path preference, expanded. Only absolute paths are used:
+ * a bare name would be checked in one directory but run from PATH.
+ */
+export function preferencePath(value: string, home: string): { path: string; absolute: boolean } {
+  const path = expandHome(value.trim(), home);
+  return { path, absolute: path.startsWith("/") };
+}
+
 /** Fixed install locations, checked in order: source/standalone, Homebrew (Apple silicon, then Intel). */
 export function standardExecutableCandidates(home: string): string[] {
   return [
@@ -97,7 +106,16 @@ export function augmentedPath(options: PathOptions): string {
   return augmentedPathEntries(options).join(":");
 }
 
-/** Every place to look for codex-profile before asking a login shell. */
+/** The copy bundled inside the Codex Profiles menu bar app (scripts/macos/build-menu-app.sh). */
+export function bundledExecutableCandidates(home: string): string[] {
+  const inBundle = `Codex Profiles.app/Contents/Resources/bin/${EXECUTABLE_NAME}`;
+  return [`/Applications/${inBundle}`, `${home}/Applications/${inBundle}`];
+}
+
+/**
+ * Every place to look for codex-profile before asking a login shell. A
+ * standalone install wins over the menu bar app's bundled copy.
+ */
 export function executableCandidates(
   home: string,
   nvmVersions: string[] = [],
@@ -108,7 +126,13 @@ export function executableCandidates(
     const candidate = `${directory}/${EXECUTABLE_NAME}`;
     if (!candidates.includes(candidate)) candidates.push(candidate);
   }
+  candidates.push(...bundledExecutableCandidates(home));
   return candidates;
+}
+
+/** True for the menu bar app's bundled copy, which updates with the app. */
+export function isBundledExecutable(path: string): boolean {
+  return path.includes(".app/Contents/Resources/bin/");
 }
 
 /** The last absolute path printed by `command -v` in a login shell. */

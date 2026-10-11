@@ -2,11 +2,13 @@ import { Action, ActionPanel, Color, Icon, Keyboard, List } from "@raycast/api";
 import { getProgressIcon } from "@raycast/utils";
 import type { ReactNode } from "react";
 import { UPGRADE_URL } from "./cli";
+import { isBundledExecutable } from "./lib/discovery";
 import { shellQuote } from "./lib/terminal";
 import {
   describeWindow,
   formatResetClock,
-  levelLabel,
+  offersSignIn,
+  quotaTag,
   stateTitle,
   type ProfileUsage,
   type QuotaLevel,
@@ -19,6 +21,9 @@ const UPGRADE_COMMANDS = [
   "npm: npm install -g codex-profile@latest",
   "Homebrew: brew upgrade codex-profile",
 ].join("\n");
+
+const BUNDLED_UPGRADE =
+  "This is the copy inside the Codex Profiles menu bar app, so it updates with the app. Install the latest app release, then refresh.";
 
 export default function Command() {
   return <CliGate searchBarPlaceholder="Filter profiles">{(cli) => <UsageList cli={cli} />}</CliGate>;
@@ -46,7 +51,11 @@ function UsageList(props: { cli: string }) {
         <List.EmptyView
           icon={Icon.ArrowUpCircle}
           title="Codex usage needs a newer codex-profile"
-          description={`This codex-profile does not have the usage command yet. Update it, then refresh.\n\n${UPGRADE_COMMANDS}`}
+          description={
+            isBundledExecutable(cli)
+              ? `This codex-profile does not have the usage command yet. ${BUNDLED_UPGRADE}`
+              : `This codex-profile does not have the usage command yet. Update it, then refresh.\n\n${UPGRADE_COMMANDS}`
+          }
           actions={
             <ActionPanel>
               <Action.CopyToClipboard title="Copy Upgrade Command" content="codex-profile upgrade" />
@@ -153,12 +162,14 @@ function ProfileRows(props: { cli: string; profile: ProfileUsage; now: number; r
     );
   }
 
+  // not_logged_in, unavailable and error rows show the CLI's own detail, such
+  // as "Sign-in expired" or why an API-key profile has no quota reading.
   const notSignedIn = profile.state === "not_logged_in";
   return (
     <List.Item
       icon={notSignedIn ? Icon.Key : profile.state === "error" ? Icon.Warning : Icon.QuestionMarkCircle}
       title={stateTitle(profile.state)}
-      subtitle={profile.detail}
+      subtitle={profile.detail ? { value: profile.detail, tooltip: profile.detail } : undefined}
       keywords={keywords}
       accessories={notSignedIn ? [{ tag: { value: "Sign in", color: Color.Blue } }] : undefined}
       actions={
@@ -166,7 +177,13 @@ function ProfileRows(props: { cli: string; profile: ProfileUsage; now: number; r
           <LaunchActions
             cli={cli}
             profile={profile.name}
-            order={notSignedIn ? ["sign-in", "chatgpt", "terminal"] : ["chatgpt", "terminal", "sign-in"]}
+            order={
+              notSignedIn
+                ? ["sign-in", "chatgpt", "terminal"]
+                : offersSignIn(profile.state)
+                  ? ["chatgpt", "terminal", "sign-in"]
+                  : ["chatgpt", "terminal"]
+            }
           />
           <ActionPanel.Section>
             {refreshAction}
@@ -188,12 +205,12 @@ function WindowItem(props: {
 }) {
   const { cli, profile, window, index, now, refreshAction } = props;
   const description = describeWindow(window, index, now);
-  const label = levelLabel(description.level);
+  const tag = description.reset ? undefined : quotaTag(window.remainingPercent);
   const accessories: List.Item.Accessory[] = [];
-  if (label) {
+  if (tag) {
     accessories.push({
-      tag: { value: label, color: levelColor(description.level) },
-      tooltip: `${label}: ${window.remainingPercent}% of the ${description.label} limit left`,
+      tag: { value: tag, color: levelColor(description.level) },
+      tooltip: `${tag}: ${window.remainingPercent}% of the ${description.label} limit left`,
     });
   }
   if (window.resetsAt !== null && !description.reset) {

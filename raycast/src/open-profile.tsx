@@ -3,7 +3,7 @@ import { useCachedPromise, useFrecencySorting } from "@raycast/utils";
 import { useRef } from "react";
 import { HOME, loadProfiles, type ProfileEntry } from "./cli";
 import { displayPath } from "./lib/profile";
-import { usageHeadline, type ProfileUsage } from "./lib/usage";
+import { offersSignIn, usageHeadline, type ProfileUsage } from "./lib/usage";
 import { CliGate, LaunchActions, useNow, useUsage } from "./shared";
 
 export default function Command() {
@@ -39,7 +39,8 @@ function ProfileList(props: { cli: string }) {
   };
 
   return (
-    <List isLoading={profiles.isLoading || usage.isLoading} searchBarPlaceholder="Search profiles">
+    // Quota fills in when it arrives; it never holds back the profile list.
+    <List isLoading={profiles.isLoading} searchBarPlaceholder="Search profiles">
       {profiles.isLoading ? null : profiles.error && !hasProfiles ? (
         <List.EmptyView
           icon={Icon.Warning}
@@ -92,10 +93,9 @@ function ProfileItem(props: {
   const accessories: List.Item.Accessory[] = [];
   const headline = usage ? usageHeadline(usage, now) : undefined;
   if (headline) {
-    if (headline.level === "critical") {
-      accessories.push({ tag: { value: "Critical", color: Color.Red }, tooltip: headline.tooltip });
-    } else if (headline.level === "low") {
-      accessories.push({ tag: { value: "Low", color: Color.Orange }, tooltip: headline.tooltip });
+    if (headline.tag) {
+      const color = headline.level === "critical" ? Color.Red : Color.Orange;
+      accessories.push({ tag: { value: headline.tag, color }, tooltip: headline.tooltip });
     }
     accessories.push({ text: headline.text, tooltip: headline.tooltip });
   }
@@ -108,7 +108,12 @@ function ProfileItem(props: {
       accessories={accessories}
       actions={
         <ActionPanel title={profile.name}>
-          <LaunchActions cli={cli} profile={profile.name} onLaunch={props.onLaunch} />
+          <LaunchActions
+            cli={cli}
+            profile={profile.name}
+            onLaunch={props.onLaunch}
+            order={offersSignIn(usage?.state) ? undefined : ["chatgpt", "terminal"]}
+          />
           {profile.home ? (
             <ActionPanel.Section>
               <Action.CopyToClipboard

@@ -10,9 +10,13 @@ import {
   isSnapshotFresh,
   isUnsupportedUsageCommand,
   normalizeState,
+  offersSignIn,
   parseUsageJson,
   quotaLevel,
+  quotaTag,
+  shortDetail,
   usageHeadline,
+  usageTimeoutMs,
 } from "../src/lib/usage.ts";
 import type { ProfileUsage, UsageSnapshot, UsageWindow } from "../src/lib/usage.ts";
 
@@ -145,6 +149,23 @@ describe("levels and labels", () => {
     assert.equal(quotaLevel(100), "normal");
   });
 
+  test("tags an exhausted limit like the CLI", () => {
+    assert.equal(quotaTag(0), "Limit reached");
+    assert.equal(quotaTag(1), "Critical");
+    assert.equal(quotaTag(10), "Critical");
+    assert.equal(quotaTag(25), "Low");
+    assert.equal(quotaTag(26), undefined);
+  });
+
+  test("gives usage --json one 11s round per four profiles plus slack", () => {
+    assert.equal(usageTimeoutMs(0), 15_000);
+    assert.equal(usageTimeoutMs(1), 26_000);
+    assert.equal(usageTimeoutMs(4), 26_000);
+    assert.equal(usageTimeoutMs(5), 37_000);
+    assert.equal(usageTimeoutMs(40), 125_000);
+    assert.equal(usageTimeoutMs(-2), 15_000);
+  });
+
   test("names windows from their reported duration", () => {
     assert.equal(durationLabel(300), "5h");
     assert.equal(durationLabel(10080), "7d");
@@ -239,9 +260,69 @@ describe("constrainingWindow and usageHeadline", () => {
 
     const signIn = usageHeadline(profile({ state: "not_logged_in", detail: "Not signed in." }), NOW);
     assert.deepEqual(signIn, { text: "Not signed in", level: "normal", tooltip: "Not signed in." });
+    assert.equal(usageHeadline(profile({ state: "not_logged_in" }), NOW)?.text, "Not signed in");
     assert.equal(usageHeadline(profile({ state: "unavailable" }), NOW)?.text, "Usage unavailable");
     assert.equal(usageHeadline(profile({ state: "error", detail: "Boom" }), NOW)?.tooltip, "Boom");
     assert.equal(usageHeadline(profile({ state: "not_initialized" }), NOW), undefined);
+  });
+
+  test("tags low, critical and exhausted readings", () => {
+    assert.equal(usageHeadline(profile({ windows: [window({ remainingPercent: 40 })] }), NOW)?.tag, undefined);
+    assert.equal(usageHeadline(profile({ windows: [window({ remainingPercent: 20 })] }), NOW)?.tag, "Low");
+    assert.equal(usageHeadline(profile({ windows: [window({ remainingPercent: 8 })] }), NOW)?.tag, "Critical");
+    const reached = usageHeadline(profile({ windows: [window({ remainingPercent: 0 })] }), NOW);
+    assert.deepEqual(reached && [reached.text, reached.level, reached.tag], [
+      "5h 0% left",
+      "critical",
+      "Limit reached",
+    ]);
+  });
+
+  test("shows the CLI's own reason for unavailable, error and signed-out readings", () => {
+    const apiKey = "quota needs a ChatGPT sign-in; this profile uses an API key";
+    assert.deepEqual(usageHeadline(profile({ state: "unavailable", detail: apiKey }), NOW), {
+      text: apiKey,
+      level: "normal",
+      tooltip: apiKey,
+    });
+    const timeout = "Timed out after 10s waiting for Codex usage. Check your connection, then retry.";
+    const timedOut = usageHeadline(profile({ state: "unavailable", detail: timeout }), NOW);
+    assert.deepEqual(timedOut && [timedOut.text, timedOut.tooltip], [
+      "Timed out after 10s waiting for Codex usage",
+      timeout,
+    ]);
+    const missing = "No healthy Codex CLI found. Install Codex, repair PATH, or set CODEX_CLI=/path/to/codex.";
+    assert.equal(usageHeadline(profile({ state: "error", detail: missing }), NOW)?.text, "No healthy Codex CLI found");
+    const expired = usageHeadline(
+      profile({ state: "not_logged_in", detail: "Sign-in expired. Run 'codex-profile login work'." }),
+      NOW,
+    );
+    assert.equal(expired?.text, "Sign-in expired");
+  });
+
+  test("shortens a detail to its first sentence", () => {
+    assert.equal(shortDetail("Not signed in. Run 'codex-profile login work'."), "Not signed in");
+    assert.equal(
+      shortDetail("Codex reported no usage limits for this profile."),
+      "Codex reported no usage limits for this profile",
+    );
+    assert.equal(
+      shortDetail("See /Users/me/.codex-work/config.toml for details"),
+      "See /Users/me/.codex-work/config.toml for details",
+    );
+    assert.equal(shortDetail("   "), undefined);
+    assert.equal(shortDetail(undefined), undefined);
+    const long = shortDetail(`CODEX_CLI is set but not executable: /${"very-long-directory/".repeat(5)}codex`);
+    assert.equal(long?.length, 60);
+    assert.ok(long?.endsWith("…"));
+  });
+
+  test("never offers Codex CLI sign-in for an unavailable reading", () => {
+    assert.equal(offersSignIn("unavailable"), false);
+    assert.equal(offersSignIn("not_logged_in"), true);
+    assert.equal(offersSignIn("error"), true);
+    assert.equal(offersSignIn("ok"), true);
+    assert.equal(offersSignIn(undefined), true, "no reading yet keeps sign-in available");
   });
 });
 

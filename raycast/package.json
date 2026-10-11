@@ -49,7 +49,7 @@
     {
       "name": "codexProfilePath",
       "title": "codex-profile Path",
-      "description": "Full path to the codex-profile command. Leave empty to look in ~/.local/bin, /opt/homebrew/bin, /usr/local/bin and your login shell's PATH.",
+      "description": "Full path to the codex-profile command, starting with / or ~/. Leave empty to look in ~/.local/bin, /opt/homebrew/bin, /usr/local/bin, common Node locations, the Codex Profiles menu bar app and your login shell's PATH.",
       "type": "textfield",
       "required": false,
       "placeholder": "~/.local/bin/codex-profile"

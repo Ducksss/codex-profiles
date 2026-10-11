@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
+import { readFileSync } from "node:fs";
 import {
   augmentedPath,
   augmentedPathEntries,
+  bundledExecutableCandidates,
   cliEnvironment,
   executableCandidates,
   expandHome,
+  isBundledExecutable,
   lastAbsolutePath,
+  preferencePath,
   sortNodeVersionsDescending,
   standardExecutableCandidates,
 } from "../src/lib/discovery.ts";
@@ -19,6 +23,42 @@ describe("discovery", () => {
     assert.equal(expandHome("~", HOME), HOME);
     assert.equal(expandHome("/opt/homebrew/bin/codex-profile", HOME), "/opt/homebrew/bin/codex-profile");
     assert.equal(expandHome("~other/bin", HOME), "~other/bin");
+  });
+
+  test("accepts only absolute codex-profile path preferences", () => {
+    assert.deepEqual(preferencePath(" ~/.local/bin/codex-profile ", HOME), {
+      path: "/Users/me/.local/bin/codex-profile",
+      absolute: true,
+    });
+    assert.deepEqual(preferencePath("/opt/homebrew/bin/codex-profile", HOME), {
+      path: "/opt/homebrew/bin/codex-profile",
+      absolute: true,
+    });
+    for (const relative of ["codex-profile", "bin/codex-profile", "./codex-profile", "~other/bin/codex-profile"]) {
+      assert.equal(preferencePath(relative, HOME).absolute, false, relative);
+    }
+  });
+
+  test("falls back to the menu bar app's bundled codex-profile after every PATH location", () => {
+    const bundled = [
+      "/Applications/Codex Profiles.app/Contents/Resources/bin/codex-profile",
+      "/Users/me/Applications/Codex Profiles.app/Contents/Resources/bin/codex-profile",
+    ];
+    assert.deepEqual(bundledExecutableCandidates(HOME), bundled);
+    const candidates = executableCandidates(HOME, ["v22.22.0"]);
+    assert.deepEqual(candidates.slice(-2), bundled);
+    assert.ok(
+      candidates.indexOf("/Users/me/.nvm/versions/node/v22.22.0/bin/codex-profile") < candidates.indexOf(bundled[0]),
+    );
+    assert.ok(candidates.indexOf("/usr/bin/codex-profile") < candidates.indexOf(bundled[0]));
+    assert.equal(isBundledExecutable(bundled[0]), true);
+    assert.equal(isBundledExecutable("/opt/homebrew/bin/codex-profile"), false);
+  });
+
+  test("matches where the menu bar app build puts its CLI", () => {
+    const build = readFileSync(new URL("../../scripts/macos/build-menu-app.sh", import.meta.url), "utf8");
+    assert.match(build, /APP_DIR="\$OUTPUT_DIR\/Codex Profiles\.app"/);
+    assert.match(build, /"\$CONTENTS_DIR\/Resources\/bin\/codex-profile"/);
   });
 
   test("probes the documented install locations first", () => {

@@ -157,9 +157,10 @@ covers all controls and accessibility details.
 
 The [Raycast](https://www.raycast.com) extension opens profiles and bound
 projects in ChatGPT or Terminal and shows each profile's remaining Codex quota.
-Like the menu bar app, it runs every action through `codex-profile`. It isn't
-in the Raycast Store yet, so build it from a source checkout with Node.js. See
-the [extension guide](raycast/README.md).
+Like the menu bar app, it runs every action through `codex-profile`, using a
+standalone install or the copy inside the menu bar app. It isn't in the
+Raycast Store yet, so build it from a source checkout with Node.js. See the
+[extension guide](https://github.com/Ducksss/codex-profiles/blob/main/raycast/README.md).
 
 ```sh
 cd raycast && npm install && npm run dev

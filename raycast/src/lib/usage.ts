@@ -46,6 +46,22 @@ export function levelLabel(level: QuotaLevel): string | undefined {
   return undefined;
 }
 
+/** The tag beside a reading: "Limit reached" at 0%, like the CLI, then Critical or Low. */
+export function quotaTag(remainingPercent: number): string | undefined {
+  return remainingPercent <= 0 ? "Limit reached" : levelLabel(quotaLevel(remainingPercent));
+}
+
+/** Seconds the CLI waits for each profile's reading; passed as CODEX_PROFILE_USAGE_TIMEOUT. */
+export const USAGE_READ_TIMEOUT_SECONDS = 10;
+/** Profiles the CLI reads at once (USAGE_READ_PARALLELISM in bin/codex-profile). */
+const USAGE_READ_PARALLELISM = 4;
+
+/** How long to let `usage --json` run: 15s of slack plus one 11s round per four profiles. */
+export function usageTimeoutMs(profileCount: number): number {
+  const rounds = Math.ceil(Math.max(0, profileCount) / USAGE_READ_PARALLELISM);
+  return (15 + rounds * (USAGE_READ_TIMEOUT_SECONDS + 1)) * 1000;
+}
+
 /** Unknown future states are shown like `unavailable`, with their detail. */
 export function normalizeState(state: unknown): UsageState {
   return KNOWN_STATES.includes(state as UsageState) ? (state as UsageState) : "unavailable";
@@ -151,11 +167,29 @@ export function constrainingWindow(
 }
 
 export interface UsageHeadline {
-  /** Short accessory text such as "5h 8% left" or "Not signed in". */
+  /** Short accessory text such as "5h 8% left", "Sign-in expired" or the CLI's own reason. */
   text: string;
   level: QuotaLevel;
-  /** Every window, one per line, or the CLI's detail. */
+  /** "Low", "Critical" or "Limit reached", when the reading needs attention. */
+  tag?: string;
+  /** Every window, one per line, or the CLI's full detail. */
   tooltip: string;
+}
+
+const SHORT_DETAIL_LENGTH = 60;
+
+/**
+ * The first sentence of the CLI's detail, without its full stop, for a row
+ * accessory: "Not signed in. Run 'codex-profile login work'." -> "Not signed in".
+ */
+export function shortDetail(detail: string | undefined): string | undefined {
+  const first = detail
+    ?.trim()
+    .split(/(?<=[.!?])\s+/)[0]
+    ?.replace(/\.$/, "")
+    .trim();
+  if (!first) return undefined;
+  return first.length > SHORT_DETAIL_LENGTH ? `${first.slice(0, SHORT_DETAIL_LENGTH - 1).trimEnd()}…` : first;
 }
 
 /** A compact one-line reading for a profile row. */
@@ -174,16 +208,33 @@ export function usageHeadline(profile: ProfileUsage, nowMs: number): UsageHeadli
       return {
         text: `${windowLabel(window, index)} ${window.remainingPercent}% left`,
         level: quotaLevel(window.remainingPercent),
+        tag: quotaTag(window.remainingPercent),
         tooltip,
       };
     }
     case "not_logged_in":
-      return { text: "Not signed in", level: "normal", tooltip: profile.detail ?? "Not signed in to Codex CLI." };
+      return {
+        text: shortDetail(profile.detail) ?? "Not signed in",
+        level: "normal",
+        tooltip: profile.detail ?? "Not signed in to Codex CLI.",
+      };
     case "not_initialized":
       return undefined;
     default:
-      return { text: "Usage unavailable", level: "normal", tooltip: profile.detail ?? "Codex usage is unavailable." };
+      return {
+        text: shortDetail(profile.detail) ?? "Usage unavailable",
+        level: "normal",
+        tooltip: profile.detail ?? "Codex usage is unavailable.",
+      };
   }
+}
+
+/**
+ * Whether to offer Codex CLI sign-in for a reading. An `unavailable` reading
+ * (an API-key profile, a timeout, no reported limits) is not fixed by signing in.
+ */
+export function offersSignIn(state: UsageState | undefined): boolean {
+  return state !== "unavailable";
 }
 
 /** Plain-language title for a profile whose state is not `ok`. */
