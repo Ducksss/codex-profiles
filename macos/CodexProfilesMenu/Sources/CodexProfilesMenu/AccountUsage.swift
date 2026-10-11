@@ -33,9 +33,9 @@ struct RateLimitWindow: Decodable, Equatable, Sendable {
     }
 }
 
-/// Severity shared by meters, numbers and summaries. Numbers always carry
-/// the value; colour only adds emphasis.
-enum QuotaLevel: Equatable {
+/// Severity shared by meters, numbers, summaries and alerts, ordered from
+/// normal to critical. Numbers always carry the value; colour only adds emphasis.
+enum QuotaLevel: Comparable {
     case normal
     case low
     case critical

@@ -30,7 +30,7 @@ freshness and the Codex CLI sign-in scope. Countdowns stay in English to match
 the surrounding text, while clock times follow the user's locale and
 12/24-hour setting. Workspace rows do not repeat account quota.
 Only explicitly adding a workspace asks for a folder. App-level setup, sign-in,
-Open at Login, About and Quit live in the gear menu.
+Open at Login, Low-quota alerts, About and Quit live in the gear menu.
 
 Apple's [menu-bar guidance](https://developer.apple.com/design/human-interface-guidelines/the-menu-bar#Menu-bar-extras)
 prefers a menu unless the functionality calls for richer controls. Search,
@@ -77,7 +77,7 @@ removal and relocation update affected rows before reloading, so a failed
 refresh cannot restore an old launch identity. Superseded or removed rows
 cannot launch. The CLI remains the only writer of profile and binding state;
 the GUI persists only its pins,
-recents and destination preference in UserDefaults. Profile-only launches start
+recents, destination preference and Low-quota alerts choice in UserDefaults. Profile-only launches start
 in the home directory, avoiding accidental project-binding inheritance. Explicit
 workspace launches pass their folder to the CLI and preserve its guard rules.
 
@@ -106,6 +106,50 @@ bar, a launch by the user opens the menu, and reopening the running app shows
 it. The AppKit implementation builds directly with swiftc without runtime
 dependencies.
 
+The status item reflects low quota from readings the app already holds, so it
+needs no permission and starts no reads. When an initialized profile's
+constraining window is low or critical and not yet reset, the template icon
+gains a badge cut out from the symbol: a solid dot when low, an exclamation
+mark cut into it when critical. The 9-point badge and its one-point bar, gap
+and dot sit on whole points, so the mark stays legible on 1x displays as well
+as Retina. Shape carries the state and the icon stays
+monochrome; the tooltip and accessibility label name each profile, window,
+remaining percentage and reset clock time, such as
+`work: 5h limit at 8%, resets 14:20`. A one-shot timer re-evaluates the icon
+at the earliest reset, waiting at most a day so an implausible reset time
+cannot overflow it. Remaining quota only falls within a window, so a
+reading stays a true upper bound until then.
+
+Low-quota alerts is an opt-in gear-menu toggle, off by default so the app
+never shows an unrequested permission prompt. Authorization is requested only
+when the toggle is turned on; denial keeps it off and explains System
+Settings › Notifications. A prompt left unanswered for two minutes is treated
+as a denial, so the toggle never stays disabled; allowing notifications later
+and choosing the toggle again turns alerts on. Permission revoked later, or
+never granted to this copy of the app, shows a mixed state that turns alerts
+off when chosen. Notifications announce crossings, never
+states: the first settled reading after launch or after enabling is a
+baseline, and readings still refreshing or older than the 60-second cache are
+left out of it. A reset period is identified by its reset time: readings
+whose reset times lie within 60 seconds of each other share a period, so
+jitter neither repeats nor invents a crossing, and a different reset time,
+including an early reset, starts a new period. Each profile window notifies
+at most once per level and reset period, and a profile
+gets one notification per reading. A window without a reported reset time
+re-arms a level only after climbing more than five points above its
+threshold (over 30% for low, over 15% for critical), so a reading hovering at
+a threshold cannot repeat. A later critical notification replaces
+the low one for the same window. The body names the reset time and mentions
+another profile only when it has at least 50% of the same window left, no
+low window of its own and a reading under 15 minutes old. Clicking a
+notification opens the popover. While alerts are on, a five-minute loop with
+timer tolerance calls the same refreshUsage path, so the cache, two readers,
+deadlines and owned-process cleanup are unchanged; turning alerts off or
+Quit stops it, and no reader starts without initialized profiles. The app
+never switches profiles or accounts automatically: alerts show the numbers
+and the person chooses. The decision logic is plain Foundation behind a
+notifier protocol, so tests never touch UNUserNotificationCenter.
+
 Render previews from the actual view in Aqua and Dark Aqua on an opaque
 system window background. Offscreen rendering cannot sample the desktop; a
 behind-window effect there produces a grey fallback instead of live glass.
@@ -126,3 +170,9 @@ timeouts and cancellation. The interaction runner also checks in-place usage
 updates, refresh dimming, rows being changed, menu enablement after AppKit
 validation, one-off destinations and Open at Login through a fake login item. An isolated real CLI integration verifies profile
 selection and strict workspace-guard handling with a fake app-server.
+Alert checks cover indicator state and its bounded timer, crossing and
+de-duplication across jitter, early resets and missing reset times, the
+settled baseline after enabling, headroom choice, preference persistence,
+permission denial, undecided and unanswered prompts, background reads that
+follow the toggle and the badge shapes at 1x and 2x, using a fake notifier.
+Real banners and permission prompts require a manual macOS check.

@@ -330,7 +330,89 @@ struct MenuInteractionTests {
         settings.performActionForItem(at: settings.indexOfItem(withTitle: "Open at Login"))
         expect(login.openedSettings && item("Open at Login", in: terminalController.settingsMenu()).state == .mixed,
             "a login item awaiting approval must open Login Items settings and show a mixed state")
+
+        // Low-quota alerts start off and ask for permission only when chosen.
+        // Fresh readings keep the background pass from starting a reader.
+        store.loadPreview([], profiles: ["work"], usage: ["work": quota])
+        let notifier = FakeNotifier()
+        let alerts = QuotaAlertController(store: store, notifier: notifier, defaults: defaults, refreshInterval: 3600)
+        let alertsController = WorkspaceMenuViewController(store: store, defaults: defaults, loginItem: login, alerts: alerts)
+        _ = alertsController.view
+        alerts.start()
+        settings = alertsController.settingsMenu()
+        settings.update()
+        expect(item("Low-quota alerts", in: settings).state == .off && item("Low-quota alerts", in: settings).isEnabled
+            && notifier.requests == 0 && notifier.permissionChecks == 0,
+            "Low-quota alerts must start off without touching notification permission")
+        expect(!terminalController.settingsMenu().items.contains { $0.title == "Low-quota alerts" },
+            "the toggle needs an alerts controller")
+        settings.performActionForItem(at: settings.indexOfItem(withTitle: "Low-quota alerts"))
+        for _ in 0..<100 where !store.statusMessage.hasPrefix("Low-quota alerts") { try await Task.sleep(nanoseconds: 10_000_000) }
+        expect(alerts.isEnabled && notifier.requests == 1 && item("Low-quota alerts", in: alertsController.settingsMenu()).state == .on
+            && store.statusMessage == "Low-quota alerts on · usage checked every 5 minutes",
+            "choosing Low-quota alerts must ask once, turn alerts on and say how often usage is checked")
+        expect(defaults.bool(forKey: "lowQuotaAlerts"), "the choice must persist")
+        notifier.current = .notDetermined
+        await alerts.refreshPermission()
+        expect(item("Low-quota alerts", in: alertsController.settingsMenu()).state == .mixed,
+            "alerts on without a permission answer must show the same mixed state as a denial")
+        notifier.current = .denied
+        await alerts.refreshPermission()
+        let revoked = item("Low-quota alerts", in: alertsController.settingsMenu())
+        expect(revoked.state == .mixed && revoked.toolTip?.contains("System Settings › Notifications") == true,
+            "revoked notification permission must show a mixed state that explains where to allow it")
+        settings = alertsController.settingsMenu()
+        settings.performActionForItem(at: settings.indexOfItem(withTitle: "Low-quota alerts"))
+        for _ in 0..<100 where alerts.isEnabled { try await Task.sleep(nanoseconds: 10_000_000) }
+        expect(!alerts.isEnabled && !store.isRefreshingUsageInBackground && item("Low-quota alerts", in: alertsController.settingsMenu()).state == .off,
+            "choosing it again must turn alerts and background reads off")
+
+        // The status icon stays a labelled template image; low quota changes
+        // its shape, never only its colour.
+        let icons = [QuotaLevel.normal, .low, .critical].map { StatusItemIcon.image(for: $0, accessibilityDescription: "Codex Profiles. Low Codex quota: work") }
+        expect(icons.allSatisfy { $0.isTemplate && $0.accessibilityDescription == "Codex Profiles. Low Codex quota: work" },
+            "every icon state must be a template image carrying the accessibility label")
+        // The badge fills the bottom-right 9-point square. Points name pixel
+        // centres in its middle column: the bar, the gap, the dot, and a point
+        // of solid badge beside the column.
+        expect(icons[1].size.width > icons[0].size.width && StatusItemIcon.badgeDiameter == 9, "a badge must widen the icon")
+        let column = icons[1].size.width - 4.5
+        let bar = NSPoint(x: column, y: 5.5)
+        let gap = NSPoint(x: column, y: 2.5)
+        let dot = NSPoint(x: column, y: 1.5)
+        let beside = NSPoint(x: column - 2, y: 4.5)
+        for scale in [1, 2] {
+            expect([bar, gap, dot, beside].allSatisfy { alpha(icons[1], at: $0, scale: scale) > 0.9 },
+                "a low quota must add a solid badge at \(scale)x")
+            expect(alpha(icons[2], at: bar, scale: scale) < 0.1 && alpha(icons[2], at: dot, scale: scale) < 0.1
+                && alpha(icons[2], at: gap, scale: scale) > 0.9 && alpha(icons[2], at: beside, scale: scale) > 0.9,
+                "a critical quota must cut a bar and a separate dot into the badge at \(scale)x")
+        }
         print("Native menu interaction tests passed.")
+    }
+
+    @MainActor
+    private final class FakeNotifier: QuotaNotifying {
+        var current = NotificationPermission.notDetermined
+        var permissionChecks = 0
+        var requests = 0
+        func permission() async -> NotificationPermission { permissionChecks += 1; return current }
+        func requestPermission() async -> Bool { requests += 1; current = .allowed; return true }
+        func post(_ notification: QuotaNotification) {}
+    }
+
+    /// Alpha of an image at a point, rendered at 1x like a standard display or
+    /// 2x like a Retina menu bar.
+    private static func alpha(_ image: NSImage, at point: NSPoint, scale: Int) -> CGFloat {
+        let factor = CGFloat(scale)
+        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(image.size.width * factor), pixelsHigh: Int(image.size.height * factor),
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .calibratedRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        bitmap.size = image.size
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+        image.draw(in: NSRect(origin: .zero, size: image.size))
+        NSGraphicsContext.restoreGraphicsState()
+        return bitmap.colorAt(x: Int(point.x * factor), y: Int((image.size.height - point.y) * factor))?.alphaComponent ?? 0
     }
 
     @MainActor
