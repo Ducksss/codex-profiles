@@ -334,8 +334,10 @@ codex-profile usage --json work
 Codex app-server, the same request the menu-bar companion makes. It does not
 read `auth.json` or other credentials, and it sends no inference requests. Each
 reported window shows its duration, percentage left and reset time; 25% or
-less is marked low and 10% or less critical. Signed-out profiles name the
-`login` command to run. ChatGPT Desktop may use a different account.
+less is marked low and 10% or less critical. Signed-out profiles, and profiles
+whose sign-in has expired or is invalid, name the `login` command to run.
+Profiles signed in with an API key report `unavailable`, because Codex quota
+needs a ChatGPT sign-in. ChatGPT Desktop may use a different account.
 
 Reads run up to four at a time and wait up to `CODEX_PROFILE_USAGE_TIMEOUT`
 seconds (default 10) each. The overview exits 0 unless the Codex CLI is

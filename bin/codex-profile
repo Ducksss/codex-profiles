@@ -270,7 +270,8 @@ $PROGRAM status --json work"
     usage)
       syntax='usage [--json] [profile...]'
       description='Show remaining Codex CLI quota for the named profiles, or for every initialized profile. Reads use the official Codex app-server without reading credentials or sending inference requests, and wait up to CODEX_PROFILE_USAGE_TIMEOUT seconds (default 10) per profile. Returns nonzero when a named profile cannot be read. ChatGPT may use a different account.'
-      options='--json, -j | Emit machine-readable JSON.'
+      options='--json, -j | Emit machine-readable JSON.
+-- | Treat remaining arguments as profile names.'
       examples="$PROGRAM usage
 $PROGRAM usage work personal
 $PROGRAM usage --json work"
@@ -3003,8 +3004,10 @@ usage_timeout_seconds() {
 }
 
 # Classifies one app-server line for request id $1. Prints skip for other
-# messages, invalid, signed_out, error, ok (initialize), none, or one
-# "window<TAB>used<TAB>remaining<TAB>duration<TAB>resets" row per window.
+# messages, invalid, signed_out, expired, api_key, error, ok (initialize),
+# none, or one "window|used|remaining|duration|resets" row per window. The
+# fields are JSON numbers or empty, so the separator cannot occur in them and,
+# unlike a tab, empty fields survive read.
 usage_parse_reply() {
   awk -v want="$1" -v mode="$2" '
     function ws() { while (pos <= n && index(" \t\r\n", substr(s, pos, 1))) pos++ }
@@ -3085,7 +3088,12 @@ usage_parse_reply() {
         exit
       }
       if (("error" in obj) || (("error" in kind) && kind["error"] != "z")) {
-        print (index(tolower(data["error.message"]), "authentication") ? "signed_out" : "error")
+        message = tolower(data["error.message"])
+        if (index(message, "codex account authentication required")) print "signed_out"
+        else if (index(message, "chatgpt authentication required")) print "api_key"
+        else if (index(message, "401 unauthorized") || index(message, "authentication token") ||
+                 index(message, "token could not be refreshed") || index(message, "sign in again")) print "expired"
+        else print "error"
         exit
       }
       if (!("result" in obj)) { print "error"; exit }
@@ -3104,7 +3112,7 @@ usage_parse_reply() {
         used = data[name ".usedPercent"] + 0
         if (used < 0) used = 0
         if (used > 100) used = 100
-        printf "window\t%s\t%d\t%s\t%s\n", data[name ".usedPercent"], int(100 - used),
+        printf "window|%s|%d|%s|%s\n", data[name ".usedPercent"], int(100 - used),
           (kind[name ".windowDurationMins"] == "n") ? data[name ".windowDurationMins"] : "",
           (kind[name ".resetsAt"] == "n") ? data[name ".resetsAt"] : ""
         found = 1
@@ -3121,6 +3129,12 @@ usage_await_reply() {
   local want="$1" mode="${2:-}" line server_gone=no
 
   while :; do
+    # Checked on every line so a steady stream of other messages cannot
+    # outlast the timeout.
+    if [[ "$SECONDS" -ge "$USAGE_DEADLINE" ]]; then
+      USAGE_REPLY=timeout
+      return 0
+    fi
     if IFS= read -r line <&4; then
       line="$USAGE_PENDING$line"
       USAGE_PENDING=''
@@ -3129,7 +3143,9 @@ usage_await_reply() {
         USAGE_REPLY=invalid
         return 0
       fi
-      [[ "$line" == *'"id"'* ]] || continue
+      # Replies carry an id; notifications lead with their method and are
+      # never parsed.
+      [[ "$line" == *'"id"'* && "$line" != '{"method"'* ]] || continue
       USAGE_REPLY="$(printf '%s\n' "$line" | usage_parse_reply "$want" "$mode")"
       [[ "$USAGE_REPLY" == skip ]] || return 0
       continue
@@ -3138,10 +3154,6 @@ usage_await_reply() {
     USAGE_RECEIVED=$((USAGE_RECEIVED + ${#line}))
     if [[ "$USAGE_RECEIVED" -gt "$USAGE_REPLY_LIMIT" ]]; then
       USAGE_REPLY=invalid
-      return 0
-    fi
-    if [[ "$SECONDS" -ge "$USAGE_DEADLINE" ]]; then
-      USAGE_REPLY=timeout
       return 0
     fi
     if ! kill -0 "$USAGE_SERVER_PID" 2> /dev/null; then
@@ -3176,8 +3188,11 @@ usage_stop_server() {
 }
 
 # Reads one profile's quota and prints a usage_parse_reply result or timeout.
-# The subshell keeps its descriptors, server, and temporary files private.
-usage_read_profile() (
+# Callers run it as "(usage_read_profile ...) &": that single subshell keeps
+# its descriptors, server, and temporary files private, is the process whose
+# PID the caller signals, and runs the EXIT trap however it ends. A function
+# body in parentheses would fork a second, untracked process instead.
+usage_read_profile() {
   USAGE_HOME="$1"
   USAGE_CLI="$2"
   # SECONDS has whole-second resolution; the extra second guarantees the
@@ -3220,7 +3235,7 @@ usage_read_profile() (
     usage_await_reply 2
   fi
   printf '%s\n' "$USAGE_REPLY"
-)
+}
 
 usage_duration_label() {
   local minutes="$1" index="$2"
@@ -3292,13 +3307,21 @@ usage_classify() {
 
   [[ ! -s "$result_file" ]] || IFS= read -r first < "$result_file" || true
   case "$first" in
-    window$'\t'*)
+    'window|'*)
       USAGE_STATE=ok
       USAGE_DETAIL=''
       ;;
     signed_out)
       USAGE_STATE=not_logged_in
       USAGE_DETAIL="Not signed in. Run '$PROGRAM login $profile'."
+      ;;
+    expired)
+      USAGE_STATE=not_logged_in
+      USAGE_DETAIL="Sign-in expired or invalid. Run '$PROGRAM login $profile'."
+      ;;
+    api_key)
+      USAGE_STATE=unavailable
+      USAGE_DETAIL='Codex quota needs a ChatGPT sign-in; this profile uses an API key.'
       ;;
     timeout)
       USAGE_STATE=unavailable
@@ -3320,19 +3343,32 @@ usage_json_number_or_null() {
 }
 
 command_usage() {
-  local json=no explicit=no timeout codex_cli='' cli_error='' profile home
+  local json=no explicit=no positional_only=no timeout codex_cli='' cli_error='' profile home
   local status_code=0 index first=yes now kind used remaining duration resets window
   local profiles=() pids=()
 
   while [[ "$#" -gt 0 ]]; do
-    case "$1" in
-      --json | -j) json=yes ;;
-      -*) die "Unknown usage option '$1'." ;;
-      *)
-        validate_profile "$1"
-        profiles+=("$1")
-        explicit=yes
-        ;;
+    if [[ "$positional_only" == no ]]; then
+      case "$1" in
+        --json | -j)
+          json=yes
+          shift
+          continue
+          ;;
+        --)
+          positional_only=yes
+          shift
+          continue
+          ;;
+        -*) die "Unknown usage option '$1'." ;;
+      esac
+    fi
+    validate_profile "$1"
+    explicit=yes
+    # Each profile is read once, however often it is named.
+    case " ${profiles[*]:-} " in
+      *" $1 "*) ;;
+      *) profiles+=("$1") ;;
     esac
     shift
   done
@@ -3354,9 +3390,10 @@ command_usage() {
   USAGE_RESULTS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/codex-profile-usage.XXXXXX")" || \
     die 'Cannot create a temporary directory for usage reads.'
   trap 'rm -rf "$USAGE_RESULTS_DIR"' EXIT
-  # Readers ignore SIGINT in the background, so stop them explicitly.
-  trap 'kill -TERM $(jobs -p) 2> /dev/null; exit 130' INT
-  trap 'kill -TERM $(jobs -p) 2> /dev/null; exit 1' HUP TERM
+  # Readers ignore SIGINT in the background, so stop them explicitly, then
+  # wait while each one stops its server and removes its temporary files.
+  trap 'kill -TERM $(jobs -p) 2> /dev/null; wait; exit 130' INT
+  trap 'kill -TERM $(jobs -p) 2> /dev/null; wait; exit 1' HUP TERM
 
   for ((index = 0; index < ${#profiles[@]}; index++)); do
     profile="${profiles[index]}"
@@ -3367,7 +3404,7 @@ command_usage() {
       wait "${pids[0]}" 2> /dev/null || true
       pids=("${pids[@]:1}")
     fi
-    usage_read_profile "$(codex_home_for_profile "$profile")" "$codex_cli" "$timeout" \
+    (usage_read_profile "$(codex_home_for_profile "$profile")" "$codex_cli" "$timeout") \
       > "$USAGE_RESULTS_DIR/$index" 2> /dev/null &
     pids+=("$!")
   done
@@ -3405,7 +3442,7 @@ command_usage() {
       printf ',"windows":['
       window=0
       if [[ "$USAGE_STATE" == ok ]]; then
-        while IFS=$'\t' read -r kind used remaining duration resets; do
+        while IFS='|' read -r kind used remaining duration resets; do
           [[ "$kind" == window ]] || continue
           [[ "$window" -eq 0 ]] || printf ','
           window=$((window + 1))
@@ -3422,7 +3459,7 @@ command_usage() {
       printf '\n%s:\n' "$profile"
       if [[ "$USAGE_STATE" == ok ]]; then
         window=0
-        while IFS=$'\t' read -r kind used remaining duration resets; do
+        while IFS='|' read -r kind used remaining duration resets; do
           [[ "$kind" == window ]] || continue
           window=$((window + 1))
           printf '%s | %s\n' "$(usage_duration_label "$duration" "$window")" \
