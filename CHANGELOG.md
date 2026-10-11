@@ -7,18 +7,6 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
-### Added
-
-- `usage [--json] [profile...]` shows remaining Codex CLI quota for named or
-  all initialized profiles on macOS and Linux: each reported window's duration,
-  percentage left, low and critical marks, and reset time. Reads use the
-  official Codex app-server, like the menu-bar companion, without reading
-  credentials or sending inference requests; up to four run at once with a
-  per-profile `CODEX_PROFILE_USAGE_TIMEOUT` (default 10 seconds). Signed-out
-  profiles name the `login` command to run, JSON states mirror `status --json`,
-  and named profiles that cannot be read return nonzero. The command never
-  switches profiles.
-
 ### Changed
 
 - Made the macOS menu-bar app the README's main entry point, with native
@@ -61,6 +49,16 @@ and this project follows semantic versioning for tagged releases.
   bounded concurrency, deadlines and process cleanup; refreshes keep the
   previous reading visible and update rows in place; missing usage leaves
   launches available.
+- `usage [--json] [profile...]` shows remaining Codex CLI quota for named or
+  all initialized profiles on macOS and Linux: each reported window's duration,
+  percentage left, low and critical marks, and reset time. Reads use the
+  official Codex app-server, like the menu-bar companion, without reading
+  credentials or sending inference requests; up to four run at once with a
+  per-profile `CODEX_PROFILE_USAGE_TIMEOUT` (default 10 seconds). Signed-out
+  and expired profiles name the `login` command to run, API-key profiles are
+  reported as needing a ChatGPT sign-in, JSON states mirror `status --json`,
+  and named profiles that cannot be read return nonzero. The command never
+  switches profiles.
 - Low-quota alerts in the macOS menu-bar companion. The menu-bar icon adds a
   badge when an initialized profile's Codex quota window is at 25% or less,
   with an exclamation mark at 10% or less; it stays a monochrome template
