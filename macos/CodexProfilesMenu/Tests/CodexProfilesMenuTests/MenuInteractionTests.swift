@@ -38,11 +38,9 @@ struct MenuInteractionTests {
             "quota and reset times must be available to accessibility clients")
         expect(usageView.toolTip!.contains("ChatGPT may use a different account") && usageView.toolTip!.contains("Checked"),
             "quota tooltips must explain sign-in scope and freshness")
-        openButton(in: profileRow).performClick(nil)
-        for _ in 0..<100 where !profileClosed { try await Task.sleep(nanoseconds: 10_000_000) }
-        let profileArguments = try String(contentsOf: marker, encoding: .utf8)
-        expect(profileClosed && profileArguments == "app\nwork\n",
-            "a profile must open without supplying a workspace path")
+        let profileArguments = try await launchArguments(recordedIn: marker, until: { profileClosed },
+            "a profile launch must dismiss the menu and record its arguments") { openButton(in: profileRow).performClick(nil) }
+        expect(profileArguments == "app\nwork\n", "a profile must open without supplying a workspace path")
         expect(store.workspaces.isEmpty, "opening a profile must not create a workspace binding")
         store.loadPreview([], profiles: [])
         expect(descendants(firstRunController.view).compactMap { $0 as? NSButton }.contains { $0.title == "Create profile…" },
@@ -163,37 +161,32 @@ struct MenuInteractionTests {
         _ = controller.handleShortcut(key(125))
         _ = controller.handleShortcut(key(125))
         _ = controller.handleShortcut(key(125))
-        _ = controller.handleShortcut(key(36))
-        for _ in 0..<100 where !closed { try await Task.sleep(nanoseconds: 10_000_000) }
-        expect(closed, "successful Return launch must dismiss popover")
-        let args = try String(contentsOf: marker, encoding: .utf8)
+        let args = try await launchArguments(recordedIn: marker, until: { closed },
+            "successful Return launch must dismiss popover and record its arguments") { _ = controller.handleShortcut(key(36)) }
         expect(args.contains(last.path), "Return must launch selected available workspace")
         expect(!args.contains(missing.path), "keyboard launch must skip missing workspace")
         closed = false
         search.stringValue = "first"
         _ = search.sendAction(search.action, to: search.target)
         let firstRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first!
-        openButton(in: firstRow).performClick(nil)
-        for _ in 0..<100 where !closed { try await Task.sleep(nanoseconds: 10_000_000) }
-        expect(closed, "successful explicit Open action must dismiss popover")
-        let clickArgs = try String(contentsOf: marker, encoding: .utf8)
+        let clickArgs = try await launchArguments(recordedIn: marker, until: { closed },
+            "successful explicit Open action must dismiss popover and record its arguments") { openButton(in: firstRow).performClick(nil) }
         expect(clickArgs.contains(first.path), "Open must launch its own workspace")
         expect(!clickArgs.contains(last.path), "Open must replace the prior launch arguments")
         closed = false
         search.stringValue = "last"
         _ = search.sendAction(search.action, to: search.target)
-        _ = controller.handleShortcut(key(36))
-        for _ in 0..<100 where !closed { try await Task.sleep(nanoseconds: 10_000_000) }
-        let returnArgs = try String(contentsOf: marker, encoding: .utf8)
-        expect(closed && returnArgs.contains(last.path),
-            "Return without arrow navigation must open the first available search result")
+        let returnArgs = try await launchArguments(recordedIn: marker, until: { closed },
+            "Return without arrow navigation must dismiss popover and record its arguments") { _ = controller.handleShortcut(key(36)) }
+        expect(returnArgs.contains(last.path), "Return without arrow navigation must open the first available search result")
         store.query = ""
         controller.focusSearch()
         closed = false
-        _ = controller.handleShortcut(key(18, characters: "1", modifiers: .command))
-        for _ in 0..<100 where !closed { try await Task.sleep(nanoseconds: 10_000_000) }
-        let shortcutArguments = try String(contentsOf: marker, encoding: .utf8)
-        expect(closed && shortcutArguments == "app\nwork\n", "Command-1 must open the first visible profile without a folder")
+        let shortcutArguments = try await launchArguments(recordedIn: marker, until: { closed },
+            "Command-1 must dismiss popover and record its arguments") {
+            _ = controller.handleShortcut(key(18, characters: "1", modifiers: .command))
+        }
+        expect(shortcutArguments == "app\nwork\n", "Command-1 must open the first visible profile without a folder")
         let selectedRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first!
         expect(controller.view.appearance == nil && selectedRow.appearance == nil,
             "menu views must inherit the system appearance")
@@ -308,12 +301,12 @@ struct MenuInteractionTests {
         _ = terminalController.view
         var terminalClosed = false
         terminalController.onRequestClose = { terminalClosed = true }
-        try? FileManager.default.removeItem(at: marker)
         let alternate = terminalController.actionsMenu(for: .profile("work"))
-        alternate.performActionForItem(at: alternate.indexOfItem(withTitle: "Open in ChatGPT"))
-        for _ in 0..<100 where !terminalClosed { try await Task.sleep(nanoseconds: 10_000_000) }
-        expect(terminalClosed && (try? String(contentsOf: marker, encoding: .utf8)) == "app\nwork\n",
-            "Open in ChatGPT must launch ChatGPT while Terminal stays the default")
+        let alternateArguments = try await launchArguments(recordedIn: marker, until: { terminalClosed },
+            "Open in ChatGPT must dismiss the menu and record its arguments") {
+            alternate.performActionForItem(at: alternate.indexOfItem(withTitle: "Open in ChatGPT"))
+        }
+        expect(alternateArguments == "app\nwork\n", "Open in ChatGPT must launch ChatGPT while Terminal stays the default")
         expect(defaults.string(forKey: "openDestination") == OpenDestination.terminal.rawValue, "a row action must not change the default destination")
 
         // Open at Login reflects and changes the login item.
@@ -347,7 +340,7 @@ struct MenuInteractionTests {
         expect(!terminalController.settingsMenu().items.contains { $0.title == "Low-quota alerts" },
             "the toggle needs an alerts controller")
         settings.performActionForItem(at: settings.indexOfItem(withTitle: "Low-quota alerts"))
-        for _ in 0..<100 where !store.statusMessage.hasPrefix("Low-quota alerts") { try await Task.sleep(nanoseconds: 10_000_000) }
+        try await waitUntil { store.statusMessage.hasPrefix("Low-quota alerts") }
         expect(alerts.isEnabled && notifier.requests == 1 && item("Low-quota alerts", in: alertsController.settingsMenu()).state == .on
             && store.statusMessage == "Low-quota alerts on · usage checked every 5 minutes",
             "choosing Low-quota alerts must ask once, turn alerts on and say how often usage is checked")
@@ -363,7 +356,7 @@ struct MenuInteractionTests {
             "revoked notification permission must show a mixed state that explains where to allow it")
         settings = alertsController.settingsMenu()
         settings.performActionForItem(at: settings.indexOfItem(withTitle: "Low-quota alerts"))
-        for _ in 0..<100 where alerts.isEnabled { try await Task.sleep(nanoseconds: 10_000_000) }
+        try await waitUntil { !alerts.isEnabled }
         expect(!alerts.isEnabled && !store.isRefreshingUsageInBackground && item("Low-quota alerts", in: alertsController.settingsMenu()).state == .off,
             "choosing it again must turn alerts and background reads off")
 
@@ -441,6 +434,28 @@ struct MenuInteractionTests {
     }
     private static func openButton(in row: LaunchRowButton) -> NSButton {
         descendants(row).compactMap { $0 as? NSButton }.first { ["Open", "Opening…", "Updating…"].contains($0.title) }!
+    }
+    /// Polls until a condition holds or 10 seconds pass. Work usually settles
+    /// within milliseconds; the bound only absorbs a loaded machine, and the
+    /// caller's next expectation reports a condition that never held.
+    private static func waitUntil(_ condition: () -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(10)
+        while !condition(), Date() < deadline { try await Task.sleep(nanoseconds: 10_000_000) }
+    }
+    /// Clears the shim's marker, runs a launch and returns the arguments the
+    /// shim recorded. The menu closes only after the launch process exits, so
+    /// a closed menu and a non-empty marker mean the arguments are complete.
+    private static func launchArguments(recordedIn marker: URL, until closed: () -> Bool, _ message: String,
+                                        launch: () -> Void) async throws -> String {
+        try? FileManager.default.removeItem(at: marker)
+        launch()
+        var arguments = ""
+        try await waitUntil {
+            arguments = (try? String(contentsOf: marker, encoding: .utf8)) ?? ""
+            return closed() && !arguments.isEmpty
+        }
+        expect(closed() && !arguments.isEmpty, message + " within 10 seconds")
+        return arguments
     }
     private static func isMonochrome(_ color: NSColor?) -> Bool {
         color == .labelColor || color == .secondaryLabelColor
