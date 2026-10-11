@@ -200,9 +200,11 @@ maintainer steps:
    immutable, and the `Release` workflow publishes each release without
    assets, so a DMG cannot be added to a release after it is published. Either
    change the workflow to create a draft, upload the DMG and `.sha256`, then
-   publish; or add a macOS job that signs and notarises in CI. A CI job needs
-   the certificate exported as a password-protected `.p12` and an App Store
-   Connect API key for `notarytool`, stored as `release` environment secrets.
+   publish; or add a macOS job that signs and notarises in CI, passes both
+   files to the release job, and attaches them before the release is
+   published. A CI job needs the certificate exported as a password-protected
+   `.p12` and an App Store Connect API key for `notarytool`, stored as
+   `release` environment secrets.
    Either way, a version that already has a published release cannot gain a
    DMG, so the first download ships with a new version.
 3. After a release carries the notarised DMG, add a Homebrew cask beside the
