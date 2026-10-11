@@ -149,6 +149,15 @@ existing prompt when `CODEX_PROFILE_NAME` and managed `CODEX_HOME` agree. Add
 `--completions` to load tab completion at the same time. `shell-init` does not
 edit shell startup files.
 
+The optional macOS menu-bar app is built from a source checkout, so set it up
+only when the user asks for it. On macOS 13 or newer with the Xcode Command
+Line Tools, which include Swift, run `make menu-app` in the repository and open
+`build/macos/Codex Profiles.app`. It includes its own `codex-profile`, but
+Terminal launches, Codex CLI sign-in and quota readings still need the upstream
+Codex CLI. Ask before moving it to `/Applications`, and leave **Open at Login**
+for the user to enable, because it registers a macOS login item. See the
+[macOS guide](https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md).
+
 ## 5. Report the result
 
 Tell the user:
