@@ -42,8 +42,10 @@ swiftc \
   "$APP_SOURCE_DIR/CLIClient.swift" \
   "$APP_SOURCE_DIR/AccountUsage.swift" \
   "$APP_SOURCE_DIR/WorkspaceStore.swift" \
+  "$APP_SOURCE_DIR/QuotaAlerts.swift" \
   "$TEST_SOURCE" \
   "$APP_PROJECT_DIR/Tests/CodexProfilesMenuTests/UsageTests.swift" \
+  "$APP_PROJECT_DIR/Tests/CodexProfilesMenuTests/QuotaAlertTests.swift" \
   -o "$TMP_DIR/CodexProfilesMenuTests"
 mkdir "$TMP_DIR/home"
 HOME="$TMP_DIR/home" \

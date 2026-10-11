@@ -80,6 +80,7 @@
         "Stock ChatGPT desktop session through app default",
         "Named ChatGPT windows with separate local state",
         "Named color-coded macOS launchers that preserve the signed ChatGPT app",
+        "Native macOS menu-bar app with per-profile Codex quota",
         "Read-only profile status and doctor diagnostics",
         "Safe non-secret config cloning",
         "Bash, Zsh, and Fish completion generators",
@@ -198,6 +199,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "Yes. Different names use separate local Electron state and can run side by side, while app default keeps the ordinary stock ChatGPT session."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there a menu-bar app for macOS?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. On macOS 13 or newer, an optional native menu-bar app built from a source checkout with make menu-app opens profiles and bound projects in ChatGPT or Terminal and shows each profile's remaining Codex CLI quota. It includes codex-profile but still needs the official Codex CLI."
           }
         },
         {
@@ -1066,6 +1075,18 @@
     .feature-ledger .item strong { max-width: 12ch; color: #000; font-family: "Schibsted Grotesk", sans-serif; font-size: clamp(1.5rem, 2.2vw, 2.25rem); line-height: 1; }
     .feature-ledger .item p { max-width: 34ch; margin-top: 20px; color: #333; }
 
+    .menubar-section { border-top: 1px solid #000; }
+    .menubar-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: clamp(32px, 6vw, 96px); align-items: start; }
+    .menubar-grid .section-head { margin-bottom: 0; }
+    .menubar-section h2 { max-width: 11ch; font-size: clamp(3rem, 5.4vw, 6rem); }
+    .menubar-points { margin: 34px 0 0; padding: 0; list-style: none; border-top: 1px solid #000; }
+    .menubar-points li { padding: 18px 0; border-bottom: 1px solid #000; color: #333; }
+    .menubar-points strong { display: block; margin-bottom: 6px; color: #000; font-family: "JetBrains Mono", monospace; font-size: .74rem; text-transform: uppercase; }
+    .menubar-build { margin-top: 24px; color: #333; font-size: .95rem; }
+    .menubar-shot { justify-self: center; margin: 0; }
+    .menubar-shot img { display: block; width: min(400px, 100%); height: auto; border: 1px solid #000; border-radius: 14px; box-shadow: 0 24px 60px rgba(0, 0, 0, .18); }
+    .menubar-shot figcaption { margin-top: 12px; color: #555; font-family: "JetBrains Mono", monospace; font-size: .68rem; text-transform: uppercase; }
+
     .facts-section .section-head { margin-bottom: 38px; }
     .facts-section h2 { font-size: clamp(3.2rem, 6vw, 6.8rem); }
     .facts { grid-template-columns: minmax(220px, .55fr) minmax(0, 1.45fr); gap: clamp(32px, 7vw, 110px); }
@@ -1149,6 +1170,7 @@
       h1.wordmark { max-width: 10.5ch; }
       .term { width: min(820px, 100%); }
       .feature-ledger { grid-template-columns: repeat(2, 1fr); }
+      .menubar-grid { grid-template-columns: 1fr; }
       .trust-band .section-head { grid-template-columns: 1fr; }
       .facts { grid-template-columns: 1fr; }
       .faq-list article { grid-template-columns: 48px minmax(220px, .8fr) minmax(0, 1.2fr); }
@@ -1211,6 +1233,7 @@
       <div class="site-links">
         <a href="#how">How it works</a>
         <a href="#features">Features</a>
+        <a href="#menubar">Menu-bar app</a>
         <a href="#faq">FAQ</a>
         <a class="nav-cta" href="https://github.com/Ducksss/codex-profiles">View on GitHub ↗</a>
       </div>
@@ -1341,6 +1364,26 @@ codex-profile doctor</code></pre>
       </div>
     </section>
 
+    <section class="section wrap reveal menubar-section" aria-labelledby="menubar">
+      <div class="menubar-grid">
+        <div class="section-head">
+          <p class="eyebrow">macOS menu-bar app · new in 1.3.0</p>
+          <h2 id="menubar">Every profile, one click away.</h2>
+          <p class="lede">Codex Profiles.app lists your profiles and project bindings in the menu bar, opens any of them in ChatGPT or Terminal, and shows each profile's remaining Codex quota before you switch.</p>
+          <ul class="menubar-points">
+            <li><strong>Quota at a glance</strong>Meters turn orange or red when a window runs low, and the row says when it resets.</li>
+            <li><strong>Set up from the menu</strong>Create profiles, start Codex CLI sign-in in Terminal, and add, reassign or repair project bindings.</li>
+            <li><strong>Native on macOS</strong>Follows light and dark mode, contrast and Reduce Motion. Open at Login keeps it in the menu bar.</li>
+          </ul>
+          <p class="menubar-build">Build it from a source checkout on macOS 13 or newer with <span class="mono">make menu-app</span>. It includes codex-profile and uses the official Codex CLI for Terminal launches, sign-in and quota. There is no signed download yet.</p>
+        </div>
+        <figure class="menubar-shot">
+          <img src="https://github.com/Ducksss/codex-profiles/raw/refs/heads/main/macos/CodexProfilesMenu/Previews/menu-light.png" width="400" height="478" loading="lazy" decoding="async" alt="Codex Profiles menu-bar app: three profiles with remaining Codex quota meters, one low in orange and one critical in red with its reset time, followed by pinned and recent workspaces with Open buttons.">
+          <figcaption>The app's actual view, sample quota values</figcaption>
+        </figure>
+      </div>
+    </section>
+
     <section class="section wrap reveal facts-section" aria-labelledby="facts">
       <div class="section-head">
         <p class="eyebrow">For citation</p>
@@ -1368,6 +1411,10 @@ codex-profile doctor</code></pre>
               <tr>
                 <td>Platforms</td>
                 <td>macOS and Linux for CLI-oriented commands; macOS for Desktop app launch workflows</td>
+              </tr>
+              <tr>
+                <td>Menu-bar app</td>
+                <td>Optional native app for macOS 13 or newer, built from a source checkout; opens profiles in ChatGPT or Terminal and shows per-profile Codex CLI quota</td>
               </tr>
               <tr>
                 <td>License</td>
@@ -1424,6 +1471,10 @@ codex-profile doctor</code></pre>
         <article>
           <h3>Can multiple named ChatGPT windows run at once?</h3>
           <p>Yes. Different names use separate local Electron state and can run side by side, while app default keeps the ordinary stock ChatGPT session.</p>
+        </article>
+        <article>
+          <h3>Is there a menu-bar app for macOS?</h3>
+          <p>Yes. On macOS 13 or newer, an optional native menu-bar app built from a source checkout with make menu-app opens profiles and bound projects in ChatGPT or Terminal and shows each profile's remaining Codex CLI quota. It includes codex-profile but still needs the official Codex CLI.</p>
         </article>
         <article>
           <h3>Can an AI assistant tell me how to run codex-profiles?</h3>

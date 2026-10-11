@@ -80,7 +80,8 @@ It does not read credential files or send inference requests. Credential
 override variables are removed from this query so they cannot substitute an
 inherited account for the profile's sign-in.
 
-Reads happen in the background when the menu opens. They are cached in
+Reads happen in the background when the menu opens, and about every five
+minutes while **Low-quota alerts** is on. They are cached in
 memory for 60 seconds, refreshed after a reported reset or with ⌘R, and
 limited to two concurrent readers with a ten-second deadline per reader.
 During a refresh the previous reading stays visible, dimmed, and each row
@@ -88,6 +89,50 @@ updates in place as its reading arrives, keeping hover and keyboard focus.
 The query uses a private temporary directory to avoid unrelated workspace
 guard bindings. Timeouts, failures, cancellation and Quit stop owned readers;
 usage errors do not interrupt profile launches or open error dialogs.
+
+## Low-quota alerts
+
+The menu-bar icon marks low quota on its own. When an initialized profile's
+tightest Codex window is at 25% or less, the icon gains a badge dot; at 10%
+or less the badge carries an exclamation mark. The icon stays a monochrome
+template image, so its shape, not colour, carries the state. Its tooltip and
+VoiceOver label name each profile and window, for example
+`work: 5h limit at 8%, resets 14:20`. The badge clears when that window's
+reset time passes. Quota in a window only falls until it resets, so a reading
+stays an upper bound on what is left: the badge never overstates the remaining
+quota, but a profile can run lower than it shows until the next reading. The
+icon needs no permission and starts no reads of its own.
+
+**Low-quota alerts** in the gear menu adds macOS notifications. It is off by
+default, and macOS asks for notification permission only when you turn it on.
+If notifications are not allowed, alerts stay off and the app explains how to
+allow them in **System Settings › Notifications**. A permission prompt left
+unanswered for two minutes counts as not allowed; allow notifications and
+choose the toggle again. If permission is revoked later, or was never granted
+to this copy of the app, the menu item shows a mixed state; choose it to turn
+alerts off.
+
+A notification announces a crossing into low or critical, not a state that
+was already there: the first settled reading after launch, or after turning
+alerts on, is the baseline. Readings still refreshing at that moment do not
+count. Each profile and window notifies at most once per level per reset
+period. A reset period follows the reported reset time, so an early reset
+starts a new one, while reset times that differ by seconds do not. A window
+without a reported reset time notifies again only after climbing more than
+five points above the threshold. The notification names the reset time. When another
+profile has at least 50% of the same window left in a reading under 15
+minutes old, it also says so, for example `personal has 70% left.` Clicking
+the notification opens the menu.
+
+While alerts are on, the app checks usage about every five minutes through
+the same reader, cache, two-reader limit, deadlines and process cleanup.
+Checks stop when alerts are turned off or the app quits, and no reader starts
+when no profile is initialized. A login launch lists profiles once; profiles
+created outside the app join the checks the next time the menu opens.
+
+The app never switches profiles or accounts for you. It shows the numbers
+and you choose which profile to open. This is deliberate: Codex Profiles
+separates local state and is not a tool for evading rate limits.
 
 ## System appearance and accessibility
 
@@ -104,9 +149,13 @@ actions support keyboard navigation and VoiceOver.
 
 Automated checks cover light → dark → light changes in the same view,
 system-colour/accessibility notifications, opaque selection policies, and
-keyboard/accessibility state. Actual VoiceOver announcements, OS preference
-switching, popover translucency and permission prompts still require a manual
-check on macOS. Follow [Apple's Dark Mode guidance](https://developer.apple.com/documentation/appkit/supporting-dark-mode-in-your-interface).
+keyboard/accessibility state. Alert checks cover the badge shapes at 1x and
+2x, crossing and de-duplication rules across jitter, early resets and missing
+reset times, the baseline after turning alerts on, headroom choice, the
+default-off preference, denied, undecided and unanswered permission, and
+background checks following the toggle, using a fake notification center. Actual VoiceOver announcements, OS preference
+switching, popover translucency, notification banners and permission prompts
+still require a manual check on macOS. Follow [Apple's Dark Mode guidance](https://developer.apple.com/documentation/appkit/supporting-dark-mode-in-your-interface).
 
 These are renders of the actual AppKit view in light and dark appearance,
 with sample quota values for layout review.
@@ -186,3 +235,30 @@ Follow [Apple's distribution testing guidance](https://developer.apple.com/docum
 to test a downloaded release on a fresh Mac, including opening from the image
 and after moving to Applications. Publishing the resulting files is a separate
 maintainer step; the build does not upload them to GitHub.
+
+### Publish a signed download
+
+A public download is deferred until the project has a Developer ID. The
+signing and notarisation build above is ready; publishing still needs these
+maintainer steps:
+
+1. Enrol in the [Apple Developer Program](https://developer.apple.com/programs/)
+   and create a **Developer ID Application** certificate. Install it in
+   Keychain and store notarisation credentials as described above.
+2. Decide how the DMG reaches the release. GitHub Releases here are
+   immutable, and the `Release` workflow publishes each release without
+   assets, so a DMG cannot be added to a release after it is published. Either
+   change the workflow to create a draft, upload the DMG and `.sha256`, then
+   publish; or add a macOS job that signs and notarises in CI, passes both
+   files to the release job, and attaches them before the release is
+   published. A CI job needs the certificate exported as a password-protected
+   `.p12` and an App Store Connect API key for `notarytool`, stored as
+   `release` environment secrets.
+   Either way, a version that already has a published release cannot gain a
+   DMG, so the first download ships with a new version.
+3. After a release carries the notarised DMG, add a Homebrew cask beside the
+   `codex-profile` formula in
+   [Ducksss/homebrew-tap](https://github.com/Ducksss/homebrew-tap), pointing at
+   the release asset and its SHA-256.
+4. Test the downloaded DMG on a Mac that has never built the app, following
+   Apple's distribution testing guidance above, before announcing it.
