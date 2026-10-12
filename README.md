@@ -74,18 +74,23 @@ accent colours and accessibility preferences.
 
 ## Getting started
 
-**Build from source for now.** A signed app download is planned. npm and
-Homebrew install the [CLI](#command-line-usage) only.
+**Download the app** as a notarised DMG from the
+[latest release](https://github.com/Ducksss/codex-profiles/releases/latest), or build it from source below. npm and Homebrew
+install the [CLI](#command-line-usage) only.
 
 ### Prerequisites
 
 - **macOS 13+**, on Apple silicon or Intel.
-- **Xcode Command Line Tools** with Swift. Install with `xcode-select --install`.
+- To build from source only: **Xcode Command Line Tools** with Swift. Install
+  with `xcode-select --install`.
 - The official **ChatGPT desktop app** for ChatGPT windows. Terminal launches
   and quota readings need the official **Codex CLI**, installed separately or
   available inside ChatGPT.
 
 ### Installation
+
+Open the downloaded `Codex-Profiles-<version>-universal.dmg`, or build it
+yourself:
 
 ```sh
 git clone https://github.com/Ducksss/codex-profiles.git
@@ -97,8 +102,8 @@ open build/macos
 Drag **Codex Profiles.app** to **Applications**, then open it. The app includes
 this project's CLI, so no separate npm or Homebrew installation is needed.
 
-Local builds are unsigned development builds. For a DMG, signing and
-notarisation, see the [macOS build guide](https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md#build-locally).
+Local builds are unsigned development builds; the released DMG is signed with
+a Developer ID and notarised. For local DMG builds and signing, see the [macOS build guide](https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md#build-locally).
 
 <a id="menu-bar-app-macos"></a>
 
@@ -222,17 +227,17 @@ brew install Ducksss/tap/codex-profile
 
 From a source checkout, run `make install`.
 
-The pinned standalone and Nix commands below require the `v1.3.0` release
+The pinned standalone and Nix commands below require the `v1.3.1` release
 tag, which has not been published yet. Use npm, Homebrew or source until then.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.3.0/install.sh \
-  | CODEX_PROFILE_VERSION=v1.3.0 sh
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.3.1/install.sh \
+  | CODEX_PROFILE_VERSION=v1.3.1 sh
 ```
 
 ```sh
-nix run github:Ducksss/codex-profiles/v1.3.0
-nix profile install github:Ducksss/codex-profiles/v1.3.0
+nix run github:Ducksss/codex-profiles/v1.3.1
+nix profile install github:Ducksss/codex-profiles/v1.3.1
 ```
 
 Check your installation with `codex-profile doctor`.

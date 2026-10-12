@@ -7,8 +7,12 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 1.3.1 - 2026-10-13
+
 ### Added
 
+- A notarised universal DMG of the menu-bar app is attached to this and later
+  GitHub Releases, so the app no longer has to be built from source.
 - The `Release` workflow can build the menu-bar DMG on macOS, sign it with a
   Developer ID certificate held in a temporary keychain, notarise and staple
   it, and attach the DMG and its checksum to the GitHub Release. A new
