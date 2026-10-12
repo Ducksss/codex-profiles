@@ -114,6 +114,45 @@ assert_contains "$arguments" 'dmg-verify|--verify|--strict|' 'DMG signature veri
 assert_contains "$arguments" '|--keychain-profile|test profile|--wait|--output-format|plist' 'notarization profile and wait'
 assert_contains "$arguments" 'assess|--assess|--type|open|--context|context:primary-signature|--verbose|' 'Gatekeeper assessment'
 
+# CI notarises with an App Store Connect API key rather than a Keychain profile.
+NOTARY_KEY="$TMP_DIR/notary key.p8"
+printf 'fixture key\n' > "$NOTARY_KEY"
+OUTPUT_DIR="$TMP_DIR/api-key output"
+: > "$TMP_DIR/arguments"
+PATH="$FAKE_BIN:$PATH" MENU_APP_BUILD_DIR="$OUTPUT_DIR" \
+  MENU_APP_SIGNING_IDENTITY="$SIGNING_IDENTITY" MENU_APP_NOTARY_KEY="$NOTARY_KEY" \
+  MENU_APP_NOTARY_KEY_ID=KEYID12345 MENU_APP_NOTARY_ISSUER=issuer-uuid \
+  RELEASE_TEST_EVENTS="$TMP_DIR/events" RELEASE_TEST_ARGUMENTS="$TMP_DIR/arguments" \
+  "$BUILD_SCRIPT" > "$TMP_DIR/output" 2>&1
+[[ -s "$OUTPUT_DIR/$DMG_NAME" && -s "$OUTPUT_DIR/$DMG_NAME.sha256" ]]
+assert_contains "$(< "$TMP_DIR/arguments")" \
+  "|--key|$NOTARY_KEY|--key-id|KEYID12345|--issuer|issuer-uuid|--wait|--output-format|plist" \
+  'notarization API key'
+assert_not_contains "$(< "$TMP_DIR/arguments")" '--keychain-profile' 'API key replaces the profile'
+
+reject_notary_configuration() {
+  local label="$1"
+  shift
+  : > "$TMP_DIR/events"
+  if env PATH="$FAKE_BIN:$PATH" MENU_APP_BUILD_DIR="$TMP_DIR/rejected-config output" \
+    RELEASE_TEST_EVENTS="$TMP_DIR/events" RELEASE_TEST_ARGUMENTS="$TMP_DIR/arguments" \
+    "$@" "$BUILD_SCRIPT" > "$TMP_DIR/output" 2>&1; then
+    fail "$label unexpectedly built a DMG"
+  fi
+  [[ ! -s "$TMP_DIR/events" ]] || fail "$label reached signing before failing"
+}
+reject_notary_configuration 'profile and API key together' \
+  MENU_APP_SIGNING_IDENTITY="$SIGNING_IDENTITY" MENU_APP_NOTARY_PROFILE='test profile' \
+  MENU_APP_NOTARY_KEY="$NOTARY_KEY" MENU_APP_NOTARY_KEY_ID=KEYID12345 MENU_APP_NOTARY_ISSUER=issuer-uuid
+reject_notary_configuration 'API key without its issuer' \
+  MENU_APP_SIGNING_IDENTITY="$SIGNING_IDENTITY" MENU_APP_NOTARY_KEY="$NOTARY_KEY" \
+  MENU_APP_NOTARY_KEY_ID=KEYID12345
+reject_notary_configuration 'missing API key file' \
+  MENU_APP_SIGNING_IDENTITY="$SIGNING_IDENTITY" MENU_APP_NOTARY_KEY="$TMP_DIR/absent.p8" \
+  MENU_APP_NOTARY_KEY_ID=KEYID12345 MENU_APP_NOTARY_ISSUER=issuer-uuid
+reject_notary_configuration 'API key without a signing identity' \
+  MENU_APP_NOTARY_KEY="$NOTARY_KEY" MENU_APP_NOTARY_KEY_ID=KEYID12345 MENU_APP_NOTARY_ISSUER=issuer-uuid
+
 for preserve_existing in no yes; do
   OUTPUT_DIR="$TMP_DIR/rejected-$preserve_existing output"
   mkdir -p "$OUTPUT_DIR"

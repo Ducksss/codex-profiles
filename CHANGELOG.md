@@ -7,6 +7,14 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- The `Release` workflow can build the menu-bar DMG on macOS, sign it with a
+  Developer ID certificate held in a temporary keychain, notarise and staple
+  it, and attach the DMG and its checksum to the GitHub Release. A new
+  `menu_dmg` input, on by default, controls this, and dry runs notarise too.
+  `make menu-dmg` also accepts an App Store Connect API key for notarisation.
+
 ### Changed
 
 - Made the macOS menu-bar app the README's main entry point, with native

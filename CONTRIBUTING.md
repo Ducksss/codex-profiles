@@ -132,6 +132,12 @@ or publication checks. Separately, `skip_homebrew: true` skips the tap update
 and its formula validation, leaving the tap unchanged. Leave the Desktop input
 empty to keep failing closed.
 
+`menu_dmg` (default `true`) builds, signs and notarises the menu-bar DMG on
+macOS, dry runs included, and attaches it to the GitHub Release. It needs the
+Developer ID secrets described in
+[macos/README.md](macos/README.md#publish-a-signed-download). Setting it to
+`false` publishes a version that can never carry the DMG.
+
 The separate live-only job receives the write permissions. Before its first
 external mutation, it checks out the verified commit again, preflights the npm
 token's owner identity and the tap token's reported GitHub account access, then

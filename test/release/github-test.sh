@@ -137,6 +137,10 @@ case "$command" in
         printf '%s\n' \
           '{"tagName":"v0.7.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-13T00:00:00Z","body":"   ","isImmutable":true}'
         ;;
+      with_assets)
+        printf '%s\n' \
+          "{\"tagName\":\"v0.7.0\",\"isDraft\":false,\"isPrerelease\":false,\"publishedAt\":\"2026-07-13T00:00:00Z\",\"body\":\"Release notes\",\"isImmutable\":true,\"assets\":$FAKE_GH_RELEASE_ASSETS}"
+        ;;
       *) exit 64 ;;
     esac
     ;;
@@ -144,7 +148,7 @@ case "$command" in
     printf '%s\n' 'latest' >> "$RELEASE_WORKFLOW_TEST_LOG"
     latest_count="$(grep -Fxc 'latest' "$RELEASE_WORKFLOW_TEST_LOG")"
     case "$FAKE_GH_RELEASE_SCENARIO" in
-      present|view_eventual|waiver_disclosed)
+      present|view_eventual|waiver_disclosed|with_assets)
         printf '%s\n' '{"tag_name":"v0.7.0"}'
         ;;
       latest_eventual)
@@ -304,5 +308,88 @@ assert_contains "$(cat "$tmp_dir/release-final-present.out")" \
   'missing the Desktop smoke waiver disclosure' 'missing public waiver is rejected'
 DESKTOP_SMOKE_ATTESTATION=waived-by-maintainer \
   require_github_release_final_scenario waiver_disclosed success 1 0
+
+# A notarised menu-bar DMG must be attached at creation and verified afterwards,
+# because an immutable release cannot gain assets later.
+menu_dmg_dir="$tmp_dir/menu dmg"
+mkdir -p "$menu_dmg_dir"
+menu_dmg="Codex-Profiles-0.7.0-universal.dmg"
+printf 'notarised image\n' > "$menu_dmg_dir/$menu_dmg"
+(cd "$menu_dmg_dir" && shasum -a 256 "$menu_dmg" > "$menu_dmg.sha256")
+
+: > "$tmp_dir/dmg-release.log"
+PATH="$release_fake_bin:$PATH" \
+  RELEASE_WORKFLOW_TEST_LOG="$tmp_dir/dmg-release.log" \
+  RELEASE_NOTES_TEST_LOG="$tmp_dir/dmg-release-args" \
+  FAKE_GH_RELEASE_SCENARIO=absent \
+  GITHUB_REPOSITORY=Ducksss/codex-profiles \
+  TAG=v0.7.0 \
+  MENU_DMG_DIR="$menu_dmg_dir" \
+  "$ROOT_DIR/scripts/release/publish-github.sh" publish > /dev/null
+assert_contains "$(cat "$tmp_dir/dmg-release-args")" \
+  "$menu_dmg_dir/$menu_dmg"$'\n'"$menu_dmg_dir/$menu_dmg.sha256" 'release creation attaches the DMG and checksum'
+
+reject_menu_dmg_publish() {
+  local label="$1"
+  : > "$tmp_dir/dmg-reject.log"
+  if PATH="$release_fake_bin:$PATH" \
+    RELEASE_WORKFLOW_TEST_LOG="$tmp_dir/dmg-reject.log" \
+    FAKE_GH_RELEASE_SCENARIO=absent \
+    GITHUB_REPOSITORY=Ducksss/codex-profiles \
+    TAG=v0.7.0 \
+    MENU_DMG_DIR="$2" \
+    "$ROOT_DIR/scripts/release/publish-github.sh" publish > "$tmp_dir/dmg-reject.out" 2>&1; then
+    fail "$label was published"
+  fi
+  [[ ! -s "$tmp_dir/dmg-reject.log" ]] || fail "$label reached GitHub"
+  assert_contains "$(cat "$tmp_dir/dmg-reject.out")" "$3" "$label diagnostics"
+}
+reject_menu_dmg_publish 'an empty DMG directory' "$tmp_dir/absent dmg" 'Missing menu-bar release asset'
+tampered_dir="$tmp_dir/tampered dmg"
+cp -R "$menu_dmg_dir" "$tampered_dir"
+printf 'tampered image\n' > "$tampered_dir/$menu_dmg"
+reject_menu_dmg_publish 'a DMG that fails its checksum' "$tampered_dir" 'does not match its checksum'
+
+menu_dmg_asset_json() {
+  local name="$1"
+  local size digest
+  size="$(wc -c < "$menu_dmg_dir/$name" | tr -d '[:space:]')"
+  digest="sha256:$(shasum -a 256 < "$menu_dmg_dir/$name" | awk '{ print $1 }')"
+  printf '{"name":"%s","state":"uploaded","size":%s,"digest":"%s"}' "$name" "$((size + ${2:-0}))" "${3:-$digest}"
+}
+verify_menu_dmg_release() {
+  local expected_status="$1"
+  local assets="$2"
+  local status
+  : > "$tmp_dir/dmg-verify.log"
+  set +e
+  PATH="$release_fake_bin:$PATH" \
+    RELEASE_WORKFLOW_TEST_LOG="$tmp_dir/dmg-verify.log" \
+    FAKE_GH_RELEASE_SCENARIO=with_assets \
+    FAKE_GH_RELEASE_ASSETS="$assets" \
+    GITHUB_REPOSITORY=Ducksss/codex-profiles \
+    TAG=v0.7.0 \
+    MENU_DMG_DIR="$menu_dmg_dir" \
+    "$ROOT_DIR/scripts/release/publish-github.sh" verify > "$tmp_dir/dmg-verify.out" 2>&1
+  status=$?
+  set -e
+  if [[ "$expected_status" == success ]]; then
+    [[ "$status" -eq 0 ]] || { cat "$tmp_dir/dmg-verify.out" >&2; fail "release assets $assets were rejected"; }
+  else
+    [[ "$status" -ne 0 ]] || fail "release assets $assets were accepted"
+  fi
+}
+dmg_asset="$(menu_dmg_asset_json "$menu_dmg")"
+checksum_asset="$(menu_dmg_asset_json "$menu_dmg.sha256")"
+verify_menu_dmg_release success "[$dmg_asset,$checksum_asset]"
+verify_menu_dmg_release success \
+  "[{\"name\":\"$menu_dmg\",\"state\":\"uploaded\",\"size\":16},$checksum_asset]"
+verify_menu_dmg_release failure "[$checksum_asset]"
+assert_contains "$(cat "$tmp_dir/dmg-verify.out")" "missing the $menu_dmg asset" 'missing DMG asset diagnostics'
+verify_menu_dmg_release failure "[$(menu_dmg_asset_json "$menu_dmg" 1),$checksum_asset]"
+verify_menu_dmg_release failure "[$(menu_dmg_asset_json "$menu_dmg" 0 sha256:0000),$checksum_asset]"
+assert_contains "$(cat "$tmp_dir/dmg-verify.out")" 'does not match the notarised build' 'DMG digest diagnostics'
+verify_menu_dmg_release failure \
+  "[{\"name\":\"$menu_dmg\",\"state\":\"open\",\"size\":16},$checksum_asset]"
 
 printf '%s\n' 'GitHub Release tests passed.'
