@@ -74,8 +74,10 @@ accent colours and accessibility preferences.
 
 ## Getting started
 
-**Build from source for now.** A signed app download is planned. npm and
-Homebrew install the [CLI](#command-line-usage) only.
+**Build from source for now.** A signed app download is planned.
+**Prefer not to build?** Install the [CLI](#command-line-usage) with
+`brew install Ducksss/tap/codex-profile` or `npm install -g codex-profile`
+and follow its [quick start](#quick-start) on macOS or Linux.
 
 ### Prerequisites
 
@@ -222,8 +224,7 @@ brew install Ducksss/tap/codex-profile
 
 From a source checkout, run `make install`.
 
-The pinned standalone and Nix commands below require the `v1.3.0` release
-tag, which has not been published yet. Use npm, Homebrew or source until then.
+The standalone and Nix commands below are pinned to the `v1.3.0` release.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.3.0/install.sh \

@@ -14,6 +14,9 @@ and this project follows semantic versioning for tagged releases.
   Followed Best-README-Template's project, setup and contributor structure.
 - Refined the app introduction with its native icon, a shorter first-run guide
   and expandable CLI details, keeping the menu-bar workflow in focus.
+- Pointed readers who would rather not build the app to the one-command
+  Homebrew or npm CLI install from Getting started, and removed a stale note
+  that the `v1.3.0` release tag was unpublished.
 
 ## 1.3.0 - 2026-10-12
 
