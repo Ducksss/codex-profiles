@@ -6,13 +6,27 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUTPUT_DIR="${MENU_APP_BUILD_DIR:-$ROOT_DIR/build/macos}"
 SIGNING_IDENTITY="${MENU_APP_SIGNING_IDENTITY:-}"
 NOTARY_PROFILE="${MENU_APP_NOTARY_PROFILE:-}"
+# CI notarises with an App Store Connect API key instead of a Keychain profile.
+NOTARY_KEY="${MENU_APP_NOTARY_KEY:-}"
+NOTARY_KEY_ID="${MENU_APP_NOTARY_KEY_ID:-}"
+NOTARY_ISSUER="${MENU_APP_NOTARY_ISSUER:-}"
 
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 
-[[ $# -eq 0 ]] || die 'Usage: build-menu-dmg.sh (configure release signing with MENU_APP_SIGNING_IDENTITY and MENU_APP_NOTARY_PROFILE)'
+[[ $# -eq 0 ]] || die 'Usage: build-menu-dmg.sh (configure release signing with MENU_APP_SIGNING_IDENTITY and MENU_APP_NOTARY_PROFILE or MENU_APP_NOTARY_KEY)'
 [[ "$(uname -s)" == Darwin ]] || die 'DMG packaging requires macOS.'
-[[ -z "$NOTARY_PROFILE" || -n "$SIGNING_IDENTITY" ]] \
-  || die 'MENU_APP_NOTARY_PROFILE requires MENU_APP_SIGNING_IDENTITY.'
+[[ -z "$NOTARY_PROFILE" || -z "$NOTARY_KEY" ]] \
+  || die 'Set MENU_APP_NOTARY_PROFILE or MENU_APP_NOTARY_KEY, not both.'
+[[ -z "$NOTARY_PROFILE$NOTARY_KEY" || -n "$SIGNING_IDENTITY" ]] \
+  || die 'Notarization requires MENU_APP_SIGNING_IDENTITY.'
+NOTARY_CREDENTIALS=()
+if [[ -n "$NOTARY_PROFILE" ]]; then
+  NOTARY_CREDENTIALS=(--keychain-profile "$NOTARY_PROFILE")
+elif [[ -n "$NOTARY_KEY" ]]; then
+  [[ -f "$NOTARY_KEY" && -n "$NOTARY_KEY_ID" && -n "$NOTARY_ISSUER" ]] \
+    || die 'MENU_APP_NOTARY_KEY needs an existing key file, MENU_APP_NOTARY_KEY_ID and MENU_APP_NOTARY_ISSUER.'
+  NOTARY_CREDENTIALS=(--key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER")
+fi
 [[ -z "$SIGNING_IDENTITY" || "$SIGNING_IDENTITY" == 'Developer ID Application: '* ]] \
   || die 'Release signing requires a Developer ID Application identity; ad hoc signing is not supported.'
 
@@ -93,9 +107,9 @@ if [[ -n "$SIGNING_IDENTITY" ]]; then
   codesign --verify --strict "$TMP_DIR/$DMG_NAME"
 fi
 
-if [[ -n "$NOTARY_PROFILE" ]]; then
+if ((${#NOTARY_CREDENTIALS[@]})); then
   NOTARY_RESULT="$OUTPUT_DIR/$DMG_NAME.notarization.plist"
-  xcrun notarytool submit "$TMP_DIR/$DMG_NAME" --keychain-profile "$NOTARY_PROFILE" \
+  xcrun notarytool submit "$TMP_DIR/$DMG_NAME" "${NOTARY_CREDENTIALS[@]}" \
     --wait --output-format plist > "$NOTARY_RESULT"
   STATUS="$(/usr/libexec/PlistBuddy -c 'Print :status' "$NOTARY_RESULT")"
   [[ "$STATUS" == Accepted ]] || die "Notarization returned $STATUS. See $NOTARY_RESULT."
@@ -112,6 +126,6 @@ publish
 printf 'Built %s\n' "$OUTPUT_DIR/$DMG_NAME"
 if [[ -z "$SIGNING_IDENTITY" ]]; then
   printf 'Unsigned development build; public releases require Developer ID signing and notarization.\n'
-elif [[ -z "$NOTARY_PROFILE" ]]; then
+elif ((${#NOTARY_CREDENTIALS[@]} == 0)); then
   printf 'Signed build; public releases still require notarization.\n'
 fi

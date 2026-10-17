@@ -29,6 +29,11 @@ on:
         required: true
         default: false
         type: boolean
+      menu_dmg:
+        description: "Build, notarise and attach the menu-bar DMG. An immutable release cannot gain it later."
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -116,10 +121,63 @@ jobs:
             echo "Homebrew tap update is skipped; the tap keeps its current version." | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
+  menu-dmg:
+    name: Build notarised menu-bar DMG
+    needs: verify
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    environment:
+      name: release
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out verified menu-bar source
+        if: ${{ inputs.menu_dmg }}
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ needs.verify.outputs.commit }}
+          persist-credentials: false
+
+      # Dry runs sign and notarise too, so they prove the Apple credentials work.
+      - name: Build, sign and notarise menu-bar DMG
+        if: ${{ inputs.menu_dmg }}
+        env:
+          V: ${{ needs.verify.outputs.version }}
+          MENU_DMG_DIR: ${{ runner.temp }}/menu-dmg
+          MENU_APP_CERTIFICATE_P12: ${{ secrets.MENU_APP_CERTIFICATE_P12 }}
+          MENU_APP_CERTIFICATE_PASSWORD: ${{ secrets.MENU_APP_CERTIFICATE_PASSWORD }}
+          MENU_APP_NOTARY_API_KEY: ${{ secrets.MENU_APP_NOTARY_API_KEY }}
+          MENU_APP_NOTARY_KEY_ID: ${{ secrets.MENU_APP_NOTARY_KEY_ID }}
+          MENU_APP_NOTARY_ISSUER: ${{ secrets.MENU_APP_NOTARY_ISSUER }}
+        run: |
+          scripts/release/build-menu-dmg.sh
+
+      - name: Upload menu-bar DMG
+        if: ${{ inputs.menu_dmg }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: menu-dmg
+          path: ${{ runner.temp }}/menu-dmg/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Menu-bar DMG summary
+        env:
+          MENU_DMG: ${{ inputs.menu_dmg }}
+        run: |
+          if [[ "$MENU_DMG" == "true" ]]; then
+            echo "Built, notarised and stapled the menu-bar DMG." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Menu-bar DMG skipped; this release cannot gain one later." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
   publish:
     name: Publish and verify release
     if: ${{ ! inputs.dry_run }}
-    needs: verify
+    needs: [verify, menu-dmg]
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -167,6 +225,13 @@ jobs:
             echo "Verified tag $TAG does not match version $V." >&2
             exit 1
           }
+
+      - name: Download notarised menu-bar DMG
+        if: ${{ ! inputs.dry_run && inputs.menu_dmg }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: menu-dmg
+          path: ${{ runner.temp }}/menu-dmg
 
       - name: Preflight release credential identities
         if: ${{ ! inputs.dry_run }}
@@ -224,6 +289,7 @@ jobs:
         env:
           DESKTOP_SMOKE_ATTESTATION: ${{ inputs.desktop_smoke_attestation }}
           GH_TOKEN: ${{ github.token }}
+          MENU_DMG_DIR: ${{ inputs.menu_dmg && format('{0}/menu-dmg', runner.temp) || '' }}
           TAG: ${{ needs.verify.outputs.tag }}
         run: |
           scripts/release/publish-github.sh publish
@@ -233,6 +299,7 @@ jobs:
         env:
           DESKTOP_SMOKE_ATTESTATION: ${{ inputs.desktop_smoke_attestation }}
           GH_TOKEN: ${{ github.token }}
+          MENU_DMG_DIR: ${{ inputs.menu_dmg && format('{0}/menu-dmg', runner.temp) || '' }}
           TAG: ${{ needs.verify.outputs.tag }}
         run: |
           scripts/release/publish-github.sh verify
@@ -267,8 +334,14 @@ jobs:
           V: ${{ needs.verify.outputs.version }}
           TAG: ${{ needs.verify.outputs.tag }}
           SKIP_HOMEBREW: ${{ inputs.skip_homebrew }}
+          MENU_DMG: ${{ inputs.menu_dmg }}
         run: |
           echo "Released codex-profile $V and verified Pages from $TAG." | tee -a "$GITHUB_STEP_SUMMARY"
+          if [[ "$MENU_DMG" == "true" ]]; then
+            echo "The GitHub Release carries the notarised menu-bar DMG." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "The GitHub Release has no menu-bar DMG." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
           if [[ "$SKIP_HOMEBREW" == "true" ]]; then
             echo "The Homebrew tap was not updated; publish it separately for $V." \
               | tee -a "$GITHUB_STEP_SUMMARY"
