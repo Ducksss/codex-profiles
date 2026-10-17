@@ -68,9 +68,16 @@ function fail(code, message) {
 function dataApiUrl() {
   const value = process.env.NEON_DATA_API_URL?.replace(/\/$/, '');
   if (!value) fail(EXIT.USAGE, 'No Neon endpoint: set NEON_DATA_API_URL.');
-  if (!/^https:\/\//.test(value) && !/^http:\/\/127\.0\.0\.1(?::\d+)?/.test(value)) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
     fail(EXIT.USAGE, 'NEON_DATA_API_URL must use HTTPS.');
   }
+  // Plain HTTP is only for a local test server; a prefix match would also
+  // accept hosts such as 127.0.0.1.example.com and send the JWT in the clear.
+  const local = parsed.protocol === 'http:' && parsed.hostname === '127.0.0.1';
+  if (parsed.protocol !== 'https:' && !local) fail(EXIT.USAGE, 'NEON_DATA_API_URL must use HTTPS.');
   return value;
 }
 
@@ -343,7 +350,8 @@ async function cmdList(flags) {
     p_status: flags.status || null,
     p_priority: flags.priority || null,
     p_channel: flags.channel || null,
-    p_owned: flags.owned ? true : null,
+    // A bare --owned means true; --owned false must not select owned targets.
+    p_owned: flags.owned === undefined ? null : asBool(flags.owned),
   }, { paginate: true });
   const records = rows.map(targetFields);
   if (flags.json) process.stdout.write(`${JSON.stringify(records, null, 2)}\n`);

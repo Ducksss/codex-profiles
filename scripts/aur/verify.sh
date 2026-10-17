@@ -147,7 +147,11 @@ done
 [[ -n "$package_file" && -f "$package_file" ]]
 namcap PKGBUILD | tee namcap-pkgbuild.log
 namcap "$package_file" | tee namcap-package.log
-! grep -Eq '(^|[[:space:]])E:' namcap-pkgbuild.log namcap-package.log
+# errexit ignores a command negated with !, so an E: line must stop explicitly.
+if grep -Eq '(^|[[:space:]])E:' namcap-pkgbuild.log namcap-package.log; then
+  printf 'namcap reported errors.\n' >&2
+  exit 1
+fi
 
 package_root="$(mktemp -d)"
 trap 'rm -rf "$package_root"' EXIT

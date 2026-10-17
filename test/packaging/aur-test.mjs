@@ -479,9 +479,12 @@ for (const contract of [
   "--platform linux/amd64",
   "DisableSandbox",
   '[[ "$(readlink "$alias")" == codex-profile ]]',
+  "namcap reported errors",
 ]) {
   assert.ok(verifySource.includes(contract), `container verifier should contain ${contract}`);
 }
+// errexit ignores a command negated with !, so a bare `! check` never fails.
+assert.doesNotMatch(verifySource, /^\s*! /m, "verify.sh must gate checks with if/exit, not a bare `!`");
 
 const runbook = readFileSync(runbookPath, "utf8");
 assert.ok(runbook.includes("scripts/aur/prepare.sh"), "runbook should call prepare.sh");
