@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+# An exported CDPATH makes `cd` search elsewhere and print the directory,
+# which would corrupt every captured path.
+unset CDPATH
 
 PROGRAM="${0##*/}"
 VERSION="1.3.0"
@@ -151,14 +154,14 @@ $PROGRAM init work-2 --share-with work"
       ;;
     clone-config)
       syntax='clone-config <source-profile> <target-profile> [--force]'
-      description='Copy only config.toml and AGENTS.md between initialized profiles. Refuses sensitive-looking keys and symlinks; authentication data is never copied.'
+      description='Copy only config.toml and AGENTS.md between initialized profiles. Refuses files with sensitive-looking text and symlinks; authentication data is never copied.'
       options='--force, -f | Overwrite existing safe target configuration files.'
       examples="$PROGRAM clone-config personal work
 $PROGRAM clone-config personal work --force"
       ;;
     remove)
       syntax='remove <profile> [--yes]'
-      description='Permanently delete a profile home and its workspace bindings. Prompts for the profile name unless --yes is supplied. Shared configuration dependants must be detached first.'
+      description='Permanently delete a profile home and its workspace bindings. Prompts for the profile name unless --yes is supplied. Shared configuration dependants must be detached and a managed launcher removed first.'
       options='--yes, -y | Skip the confirmation prompt.'
       examples="$PROGRAM remove work"
       ;;
@@ -269,7 +272,7 @@ $PROGRAM status --json work"
       ;;
     usage)
       syntax='usage [--json] [profile...]'
-      description='Show remaining Codex CLI quota for the named profiles, or for every initialized profile. Reads use the official Codex app-server without reading credentials or sending inference requests, and wait up to CODEX_PROFILE_USAGE_TIMEOUT seconds (default 10) per profile. Returns nonzero when a named profile cannot be read. ChatGPT may use a different account.'
+      description='Show remaining Codex CLI quota for the named profiles, or for every initialized profile. Reads use the official Codex app-server without reading credentials or sending inference requests, and wait up to CODEX_PROFILE_USAGE_TIMEOUT seconds (default 10) per profile. Returns nonzero when the Codex CLI is missing or a named profile cannot be read. ChatGPT may use a different account.'
       options='--json, -j | Emit machine-readable JSON.
 -- | Treat remaining arguments as profile names.'
       examples="$PROGRAM usage
@@ -469,6 +472,9 @@ CODEX_PROFILE_UPGRADE_RELEASE_URL | Latest-release metadata URL
 CODEX_PROFILE_UPGRADE_CACHE | Upgrade cache checkout
 CODEX_PROFILE_UPGRADE_PREFIX | Upgrade install prefix
 CODEX_PROFILE_NO_UPDATE_CHECK | Disable daily checks (or DO_NOT_TRACK)
+CODEX_PROFILE_UPDATE_INTERVAL | Seconds between checks; default: 86400
+CODEX_PROFILE_UPDATE_CACHE | Update-check state file
+CODEX_PROFILE_UPDATE_URL | Update-check version source
 NO_COLOR | Disable help colors
 
 Deprecated compatibility:
@@ -891,6 +897,8 @@ canonical_directory() {
   workspace_path_has_control_characters "$path" && \
     die "Workspace paths cannot contain tab, carriage-return, or newline control characters."
   [[ -d "$path" ]] || die "Workspace directory does not exist: $path"
+  # A bare `-` would otherwise mean the previous directory.
+  [[ "$path" == /* ]] || path="./$path"
   canonical="$(cd -- "$path" 2> /dev/null && pwd -P)" || \
     die "Cannot resolve workspace directory: $path"
   workspace_path_has_control_characters "$canonical" && \
@@ -913,6 +921,15 @@ workspace_path_for_unbind() {
   while [[ "$path" != "/" && "$path" == */ ]]; do
     path="${path%/}"
   done
+
+  # Bindings record resolved paths, so resolve a parent that still exists
+  # (for example /tmp -> /private/tmp or a symlinked projects folder).
+  local parent="${path%/*}" name="${path##*/}" resolved
+  if [[ "$name" != "." && "$name" != ".." && -d "${parent:-/}" ]] && \
+     resolved="$(cd -- "${parent:-/}" 2> /dev/null && pwd -P)" && \
+     ! workspace_path_has_control_characters "$resolved"; then
+    path="${resolved%/}/$name"
+  fi
   printf '%s\n' "$path"
 }
 
@@ -1006,6 +1023,22 @@ state_lock_release() {
   STATE_LOCK_HELD=no
 }
 
+# Two waiters can both find the same dead owner. Renaming the owner file lets
+# only one of them claim it, and a file that turns out to name a newer, live
+# owner (who reclaimed the lock in between) is put back untouched.
+state_lock_reclaim_stale() {
+  local stale_owner="$1" claimed="$STATE_LOCK_DIR/pid.reclaim.$$" owner=""
+
+  mv -f -- "$STATE_LOCK_DIR/pid" "$claimed" 2> /dev/null || return 0
+  IFS= read -r owner < "$claimed" || owner=""
+  if [[ "$owner" == "$stale_owner" ]]; then
+    rm -f -- "$claimed" 2> /dev/null || true
+    rmdir "$STATE_LOCK_DIR" 2> /dev/null || true
+  else
+    mv -f -- "$claimed" "$STATE_LOCK_DIR/pid" 2> /dev/null || true
+  fi
+}
+
 state_lock_acquire() {
   local attempts=0 max_attempts owner=""
 
@@ -1023,13 +1056,15 @@ state_lock_acquire() {
     fi
     if [[ "$owner" =~ ^[1-9][0-9]*$ ]] && \
        ! kill -0 "$owner" 2> /dev/null && ! ps -p "$owner" > /dev/null 2>&1; then
-      rm -f -- "$STATE_LOCK_DIR/pid" 2> /dev/null || true
-      rmdir "$STATE_LOCK_DIR" 2> /dev/null || true
+      state_lock_reclaim_stale "$owner"
       continue
     fi
     attempts=$((attempts + 1))
     if ((attempts >= max_attempts)); then
-      die "Timed out waiting for state mutation lock${owner:+ held by process $owner}: $STATE_LOCK_DIR"
+      if [[ -n "$owner" ]]; then
+        die "Timed out waiting for state mutation lock held by process $owner: $STATE_LOCK_DIR"
+      fi
+      die "Timed out waiting for state mutation lock: $STATE_LOCK_DIR. If no $PROGRAM command is running, remove that directory and try again."
     fi
     sleep 1
   done
@@ -1095,7 +1130,8 @@ workspace_guard_mode() {
     return 0
   fi
 
-  mode="$(< "$WORKSPACE_GUARD_FILE")"
+  mode="$(cat -- "$WORKSPACE_GUARD_FILE" 2> /dev/null)" || \
+    die "Cannot read workspace guard state: $WORKSPACE_GUARD_FILE"
   case "$mode" in
     off | warn | strict)
       printf '%s\n' "$mode"
@@ -1278,7 +1314,8 @@ workspace_registry_stats() {
   fi
 
   if [[ -f "$WORKSPACE_GUARD_FILE" ]]; then
-    mode="$(< "$WORKSPACE_GUARD_FILE")"
+    # Diagnostics report unreadable state instead of exiting on it.
+    mode="$(cat -- "$WORKSPACE_GUARD_FILE" 2> /dev/null)" || mode=""
     case "$mode" in
       off | warn | strict) WORKSPACE_STATS_GUARD_MODE="$mode" ;;
       *)
@@ -1289,6 +1326,10 @@ workspace_registry_stats() {
   fi
 
   [[ -f "$WORKSPACE_REGISTRY" ]] || return 0
+  if [[ ! -r "$WORKSPACE_REGISTRY" ]]; then
+    WORKSPACE_STATS_REGISTRY_VALID=false
+    return 0
+  fi
   while IFS= read -r line || [[ -n "$line" ]]; do
     line_number=$((line_number + 1))
     [[ -n "$line" ]] || continue
@@ -1584,12 +1625,6 @@ command_app() {
   local instance=no rebuild=no
   local profile="" workspace="" profile_set=no workspace_set=no positional_only=no
 
-  if [[ "$#" -eq 0 ]]; then
-    pick_profile || return $?
-    profile="$PICKED_PROFILE"
-    profile_set=yes
-  fi
-
   while [[ "$#" -gt 0 ]]; do
     if [[ "$positional_only" == no ]]; then
       case "$1" in
@@ -1626,7 +1661,12 @@ command_app() {
     shift
   done
 
-  [[ "$profile_set" == yes ]] || die "$usage"
+  # Compatibility flags alone (as app-instance passes) still choose interactively.
+  if [[ "$profile_set" == no ]]; then
+    pick_profile || return $?
+    profile="$PICKED_PROFILE"
+    profile_set=yes
+  fi
   [[ "$workspace_set" == yes ]] || workspace="$PWD"
   require_initialized_profile "$profile"
   workspace_guard_profile "$profile" "$workspace"
@@ -1683,6 +1723,8 @@ run_desktop_app() {
     note "Electron user data: $user_data_dir"
   fi
   note "Log: $log_file"
+  # open(1) has no `--`; a relative workspace such as -h would be an option.
+  [[ "$workspace" == /* ]] || workspace="./$workspace"
 
   if [[ "$profile" == "default" ]]; then
     (umask 077 && open -n --env "CODEX_HOME=$codex_home" --env "CODEX_ELECTRON_USER_DATA_PATH=" --stdout "$log_file" --stderr "$log_file" -a "$app" "$workspace") \
@@ -1912,18 +1954,19 @@ launcher_build_bundle() {
   local bundle="$1" profile="$2" name="$3" color="$4"
   local app source_icon color_hex bundle_id program_path escaped_name escaped_bundle_id
 
-  app="$(find_desktop_app)"
+  # Callers run this in a condition, where errexit is off: check every step.
+  app="$(find_desktop_app)" || return 1
   source_icon="$(launcher_find_source_icon "$app")" ||
     die "ChatGPT app icon not found in: $app"
   color_hex="$(launcher_color_hex "$color")" ||
     die "Unsupported launcher color '$color'. Use blue, green, teal, purple, pink, red, orange, or graphite."
-  bundle_id="$(launcher_bundle_identifier "$profile")"
-  program_path="$(current_program_path)"
+  bundle_id="$(launcher_bundle_identifier "$profile")" || return 1
+  program_path="$(current_program_path)" || return 1
   escaped_name="$(xml_escape "$name")"
   escaped_bundle_id="$(xml_escape "$bundle_id")"
 
-  mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources/codex-profile"
-  cat > "$bundle/Contents/Info.plist" <<EOF
+  mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources/codex-profile" || return 1
+  cat > "$bundle/Contents/Info.plist" <<EOF || return 1
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -1944,11 +1987,11 @@ EOF
     printf '#!/bin/bash\n'
     # shellcheck disable=SC2016 # the generated launcher expands $HOME at click time
     printf 'exec %s app %s "$HOME"\n' "$(shell_squote "$program_path")" "$(shell_squote "$profile")"
-  } > "$bundle/Contents/MacOS/launch-profile"
-  chmod 755 "$bundle/Contents/MacOS/launch-profile"
-  printf '%s\n' "$profile" > "$bundle/Contents/Resources/codex-profile/profile"
-  printf '%s\n' "$name" > "$bundle/Contents/Resources/codex-profile/name"
-  printf '%s\n' "$color" > "$bundle/Contents/Resources/codex-profile/color"
+  } > "$bundle/Contents/MacOS/launch-profile" || return 1
+  chmod 755 "$bundle/Contents/MacOS/launch-profile" || return 1
+  printf '%s\n' "$profile" > "$bundle/Contents/Resources/codex-profile/profile" || return 1
+  printf '%s\n' "$name" > "$bundle/Contents/Resources/codex-profile/name" || return 1
+  printf '%s\n' "$color" > "$bundle/Contents/Resources/codex-profile/color" || return 1
   launcher_render_icon "$source_icon" "$color_hex" "$bundle/Contents/Resources/AppIcon.icns"
 }
 
@@ -1976,7 +2019,14 @@ command_launcher_create() {
     esac
     shift
   done
-  [[ -n "$name" ]] || name="ChatGPT $profile"
+  if [[ -z "$name" ]]; then
+    # Profile names may be long or end in punctuation; launcher names may not.
+    name="ChatGPT $profile"
+    name="${name:0:80}"
+    while [[ "$name" =~ [^A-Za-z0-9]$ ]]; do
+      name="${name%?}"
+    done
+  fi
   validate_launcher_name "$name"
   launcher_color_hex "$color" > /dev/null ||
     die "Unsupported launcher color '$color'. Use blue, green, teal, purple, pink, red, orange, or graphite."
@@ -2016,9 +2066,18 @@ command_launcher_create() {
 
   temp="$(mktemp -d "$CODEX_PROFILE_LAUNCHER_ROOT/.codex-profile-launcher.XXXXXX")" ||
     die "Cannot create temporary launcher bundle."
+  # An interrupt must not leave a half-built bundle in the launcher root.
+  trap 'rm -rf "$temp"; state_lock_release; exit 1' HUP INT TERM
   if ! (launcher_build_bundle "$temp/$name.app" "$profile" "$name" "$color"); then
     rm -rf "$temp"
     die "Cannot build launcher for profile '$profile'."
+  fi
+  trap 'state_lock_release; exit 1' HUP INT TERM
+
+  # A rename that only changes letter case names the same bundle on a
+  # case-insensitive volume; it is staged once, as the current path.
+  if [[ -n "$old_path" && "$old_path" != "$path" && "$old_path" -ef "$path" ]]; then
+    old_path="$path"
   fi
 
   if [[ -e "$path" || -L "$path" ]]; then
@@ -2717,8 +2776,18 @@ command_remove() {
     shift
   done
 
-  local codex_home confirmation
+  local codex_home confirmation stored
   codex_home="$(codex_home_for_profile "$profile")"
+  # On a case-insensitive volume Work opens work's home, but dependent links
+  # and bindings record the stored spelling, so checks need that exact name.
+  if [[ -d "$codex_home" ]]; then
+    for stored in $(discover_profiles yes); do
+      [[ "$stored" != "$profile" ]] || break
+      if [[ "$(codex_home_for_profile "$stored")" -ef "$codex_home" ]]; then
+        die "Profile '$profile' is stored as '$stored'; run '$PROGRAM remove $stored' instead."
+      fi
+    done
+  fi
   workspace_registry_validate
   profile_assert_removable "$profile"
 
@@ -2776,7 +2845,8 @@ command_status_one() {
     return 0
   fi
 
-  codex_cli="$(find_codex_cli)"
+  # find_codex_cli reports the failure; stop once instead of once per profile.
+  codex_cli="$(find_codex_cli)" || exit 1
 
   printf '%s (%s): ' "$profile" "$codex_home"
 
@@ -2904,10 +2974,8 @@ json_emit_status_profiles_array() {
   printf '['
 
   if [[ -n "$requested_profile" ]]; then
-    set +e
-    object="$(json_status_object "$requested_profile")"
-    object_status=$?
-    set -e
+    object_status=0
+    object="$(json_status_object "$requested_profile")" || object_status=$?
     printf '%s' "$object"
     printf ']'
     return "$object_status"
@@ -2920,10 +2988,8 @@ json_emit_status_profiles_array() {
       printf ','
     fi
 
-    set +e
-    object="$(json_status_object "$profile")"
-    object_status=$?
-    set -e
+    object_status=0
+    object="$(json_status_object "$profile")" || object_status=$?
     printf '%s' "$object"
 
     if [[ "$object_status" -ne 0 ]]; then
@@ -2940,10 +3006,8 @@ command_status_json() {
   local status_code=0
 
   printf '{"profiles":'
-  set +e
-  json_emit_status_profiles_array "$profile"
-  status_code=$?
-  set -e
+  # Called as a condition so a failing profile cannot stop the closing brace.
+  json_emit_status_profiles_array "$profile" || status_code=$?
   printf '}\n'
 
   return "$status_code"
@@ -2964,6 +3028,7 @@ command_status() {
         ;;
       *)
         [[ -z "$profile" ]] || die "Usage: $PROGRAM status [--json] [profile]"
+        validate_profile "$1"
         profile="$1"
         ;;
     esac
@@ -3843,6 +3908,8 @@ command_env() {
   codex_home="$(codex_home_for_profile "$profile")"
   workspace_guard_profile "$profile" "$PWD"
 
+  # Like every other command, never select a home that is another profile's.
+  [[ ! -L "$codex_home" ]] || die "Refusing symlinked profile home: $codex_home"
   if [[ ! -d "$codex_home" ]]; then
     printf "%s: profile '%s' is not initialized (%s); run '%s init %s'.\n" \
       "$PROGRAM" "$profile" "$codex_home" "$PROGRAM" "$profile" >&2
@@ -3944,7 +4011,11 @@ command_logs() {
 config_file_looks_sensitive() {
   local file="$1"
 
-  grep -Eiq '(auth|token|secret|password|passwd|credential|api[_-]?key|access[_-]?key|private[_-]?key|oauth|bearer)' "$file"
+  # Matches anywhere in the file, prose included: refusing is the safe miss.
+  grep -Eiq '(auth|token|secret|password|passwd|credential|api[_-]?key|access[_-]?key|private[_-]?key|oauth|bearer|cookie)' "$file" ||
+    grep -Eiq '([_-]key|[_-]pat|(^|[^a-z0-9])(key|dsn))([^a-z0-9]|$)' "$file" ||
+    grep -Eiq '[a-z][a-z0-9+.-]*://[^/[:space:]@]+:[^/[:space:]@]*@' "$file" ||
+    grep -Eiq '(^|[^a-z0-9])(sk|ghp|gho|ghs|ghu|github_pat|glpat|xox[abpors])[_-][a-z0-9]' "$file"
 }
 
 command_clone_config() {
@@ -4002,7 +4073,7 @@ command_clone_config() {
     fi
 
     if config_file_looks_sensitive "$source_file"; then
-      note "Refusing to copy $file because it contains sensitive-looking keys."
+      note "Refusing to copy $file because it contains sensitive-looking text."
       failed=1
       continue
     fi
@@ -4274,7 +4345,11 @@ upgrade_checkout_ref() {
   elif git -C "$cache" show-ref --verify --quiet "refs/remotes/origin/$ref"; then
     git -C "$cache" checkout --quiet -B "$ref" "origin/$ref"
   else
-    git -C "$cache" checkout --quiet "$ref"
+    # Without the check and `--`, a ref spelled like a path (bin, docs) would
+    # restore that path and install whatever was already checked out.
+    git -C "$cache" rev-parse --verify --quiet "$ref^{commit}" > /dev/null \
+      || die "Upgrade ref does not exist: $ref"
+    git -C "$cache" checkout --quiet "$ref" --
   fi
 }
 
@@ -4345,6 +4420,8 @@ command_upgrade() {
   [[ -n "$prefix" ]] || die "Upgrade prefix cannot be empty."
   [[ "$repo" != -* ]] || die "Upgrade repository must not start with '-'."
   [[ "$ref" != -* ]] || die "Upgrade ref must not start with '-'."
+  # make runs in the cache, so a relative prefix must be anchored here first.
+  [[ "$prefix" == /* ]] || prefix="$PWD/$prefix"
 
   requested_ref="$ref"
   if [[ "$ref" == "latest" ]]; then
@@ -4550,7 +4627,7 @@ _codex_profile_candidates() {
         esac
       fi
       ;;
-    doctor) candidate_words='--json --check' ;;
+    doctor) candidate_words='--json -j --check' ;;
     completions | shell-init)
       if [[ "$#" -eq 0 ]]; then candidate_words='bash zsh fish'
       elif [[ "$command" == shell-init ]]; then candidate_words='--prompt --completions'
@@ -4607,7 +4684,10 @@ _codex_profile() {
   return 0
 }
 
-if [[ "$ZSH_EVAL_CONTEXT" == *:loadautofunc ]]; then
+# Autoloaded under any file name (such as _codex-profile), this body runs on
+# every completion, not only the first: complete each time instead of
+# re-registering.
+if [[ "$ZSH_EVAL_CONTEXT" == *:loadautofunc || "$ZSH_EVAL_CONTEXT" == *:shfunc ]]; then
   _codex_profile "$@"
 elif (( $+functions[compdef] )); then
   compdef _codex_profile codex-profile codex-profiles
@@ -4782,7 +4862,7 @@ function __codex_profile_complete
                 end
             end
         case doctor
-            set candidates --json --check
+            set candidates --json -j --check
         case completions shell-init
             if test $count -eq 0
                 set candidates bash zsh fish
@@ -4832,10 +4912,20 @@ emit_shell_prompt() {
     bash | zsh)
       cat <<'EOF'
 __codex_profile_update_prompt() {
-  local __cp_status=$? __cp_home="${HOME:-}/.codex"
-  if [[ -n "${__codex_profile_prefix:-}" && "${PS1:-}" == "$__codex_profile_prefix"* ]]; then
-    PS1="${PS1#"$__codex_profile_prefix"}"
-  fi
+  local __cp_status=$? __cp_home="${HOME:-}/.codex" __cp_kept='' __cp_rest="${PS1:-}" __cp_name
+  # Tools such as Python venv save and restore PS1 with an earlier indicator
+  # inside it, so remove every [codex:<profile>] indicator, not just a leading one.
+  while [[ "$__cp_rest" == *'[codex:'* ]]; do
+    __cp_kept+="${__cp_rest%%\[codex:*}"
+    __cp_rest="${__cp_rest#*\[codex:}"
+    __cp_name="${__cp_rest%%\] *}"
+    if [[ "$__cp_rest" == *'] '* && "$__cp_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+      __cp_rest="${__cp_rest#*\] }"
+    else
+      __cp_kept+='[codex:'
+    fi
+  done
+  PS1="$__cp_kept$__cp_rest"
   __codex_profile_prefix=''
   if [[ -n "${HOME:-}" && "${CODEX_PROFILE_NAME:-}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
     [[ "$CODEX_PROFILE_NAME" == default ]] || __cp_home="$HOME/.codex-$CODEX_PROFILE_NAME"

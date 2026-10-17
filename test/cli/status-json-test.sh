@@ -115,6 +115,69 @@ FAKE_CODEX
   rm -rf "$tmp"
 }
 
+test_status_json_stays_valid_when_a_profile_fails() {
+  local tmp fake_codex
+  tmp="$(mktemp -d)"
+  fake_codex="$tmp/codex"
+  cat > "$fake_codex" <<'FAKE_CODEX'
+#!/usr/bin/env bash
+case "$CODEX_HOME" in
+  *.codex-broken) printf 'database exploded\n' >&2; exit 7 ;;
+esac
+printf 'Logged in\n'
+FAKE_CODEX
+  chmod 755 "$fake_codex"
+  mkdir -p "$tmp/home/.codex" "$tmp/home/.codex-broken" "$tmp/home/.codex-personal"
+
+  set +e
+  output="$(env HOME="$tmp/home" CODEX_CLI="$fake_codex" "$SCRIPT" status --json 2> /dev/null)"
+  status=$?
+  set -e
+  assert_status 7
+  # shellcheck disable=SC2016 # node reads the template literal, not the shell
+  JSON_PAYLOAD="$output" node -e '
+    const payload = JSON.parse(process.env.JSON_PAYLOAD);
+    const states = payload.profiles.map((profile) => `${profile.name}:${profile.state}`).join(",");
+    if (states !== "default:ok,broken:error,personal:ok") throw new Error(states);
+  '
+
+  set +e
+  output="$(env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" status --json 2> /dev/null)"
+  status=$?
+  set -e
+  assert_status 1
+  JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
+
+  rm -rf "$tmp"
+}
+
+test_status_rejects_invalid_profile_names() {
+  local tmp
+  tmp="$(mktemp -d)"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" status --json ../evil
+  assert_status 1
+  assert_contains "Invalid profile '../evil'"
+  assert_not_contains '"profiles"'
+
+  rm -rf "$tmp"
+}
+
+test_status_stops_once_when_cli_missing() {
+  local tmp
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/home/.codex" "$tmp/home/.codex-personal"
+
+  run_cmd env HOME="$tmp/home" CODEX_CLI=/no/such/codex "$SCRIPT" status
+
+  assert_status 1
+  assert_contains "CODEX_CLI is set but not executable"
+  assert_not_contains "No such file or directory"
+  [[ "$(grep -c 'Error:' <<< "$output")" == 1 ]] || fail "missing CLI was reported more than once: $output"
+
+  rm -rf "$tmp"
+}
+
 test_doctor_skips_status_when_cli_missing() {
   local tmp
   tmp="$(mktemp -d)"
@@ -331,6 +394,9 @@ test_status_all_reports_missing_default_without_creating_it
 test_status_reports_arbitrary_discovered_profiles_and_skips_invalid_dirs
 test_status_treats_not_logged_in_as_normal_status
 test_status_propagates_unexpected_cli_failure
+test_status_json_stays_valid_when_a_profile_fails
+test_status_rejects_invalid_profile_names
+test_status_stops_once_when_cli_missing
 test_doctor_skips_status_when_cli_missing
 test_doctor_check_reports_healthy_state
 test_status_json_reports_profiles_without_creating_missing_default

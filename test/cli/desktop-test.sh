@@ -153,6 +153,28 @@ test_app_rebuild_is_accepted_as_a_compatibility_noop() {
   rm -rf "$tmp"
 }
 
+test_app_never_passes_a_workspace_as_an_open_option() {
+  local tmp chatgpt_app fake_bin tool_log
+  tmp="$(mktemp -d)"
+  chatgpt_app="$tmp/ChatGPT.app"
+  fake_bin="$tmp/bin"
+  tool_log="$tmp/tool.log"
+  write_fake_chatgpt_app_bundle "$chatgpt_app" "dash workspace launch"
+  write_fake_chatgpt_open_tools "$fake_bin"
+  mkdir -p "$tmp/home/.codex-work" "$tmp/-h"
+
+  set +e
+  output="$(cd "$tmp" && env HOME="$tmp/home" PATH="$fake_bin:$PATH" FAKE_TOOL_LOG="$tool_log" \
+    CHATGPT_APP="$chatgpt_app" "$SCRIPT" app work -- -h 2>&1)"
+  status=$?
+  set -e
+
+  assert_status 0
+  grep -Fq "files=./-h " "$tool_log" || fail "a dash-leading workspace reached open as an option: $(cat "$tool_log")"
+
+  rm -rf "$tmp"
+}
+
 test_cli_falls_back_to_the_bundled_cli_when_path_codex_is_broken() {
   local tmp chatgpt_app fake_bin broken_codex
   tmp="$(mktemp -d)"
@@ -509,6 +531,7 @@ test_app_named_profile_uses_separate_local_state_for_the_whole_chatgpt_window
 test_app_default_reuses_the_stock_chatgpt_session
 test_app_legacy_instance_flags_use_the_same_signed_app_launcher
 test_app_rebuild_is_accepted_as_a_compatibility_noop
+test_app_never_passes_a_workspace_as_an_open_option
 test_cli_falls_back_to_the_bundled_cli_when_path_codex_is_broken
 test_healthy_path_cli_keeps_priority_over_the_bundled_cli
 test_legacy_codex_app_bin_locates_its_signed_app_bundle

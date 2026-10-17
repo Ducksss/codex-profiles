@@ -88,6 +88,37 @@ test_upgrade_installs_commit_sha_ref_on_fresh_cache() {
   rm -rf "$tmp"
 }
 
+test_upgrade_refuses_path_refs_and_anchors_relative_prefixes() {
+  local tmp repo
+  tmp="$(mktemp -d)"
+  tmp="$(cd "$tmp" && pwd -P)"
+  repo="$tmp/repo"
+  mkdir -p "$repo"
+  init_git_main_branch "$repo"
+  write_fake_upgrade_repo "$repo" "9.9.8"
+  git -C "$repo" add .
+  git -C "$repo" -c user.name=test -c user.email=test@example.com commit -m "v1" >/dev/null
+
+  # bin is a directory in the checkout, not a ref.
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" CODEX_PROFILE_UPGRADE_CACHE="$tmp/cache-path" \
+    "$SCRIPT" upgrade --prefix "$tmp/prefix" --ref bin
+  assert_status 1
+  assert_contains "Upgrade ref does not exist: bin"
+  [[ ! -e "$tmp/prefix/bin/codex-profile" ]] || fail "upgrade installed a path-shaped ref"
+
+  set +e
+  output="$(cd "$tmp" && env HOME="$tmp/home" CODEX_PROFILE_UPGRADE_REPO="$repo" \
+    CODEX_PROFILE_UPGRADE_CACHE="$tmp/cache-relative" "$SCRIPT" upgrade --prefix relative --ref main 2>&1)"
+  status=$?
+  set -e
+  assert_status 0
+  assert_contains "Installed codex-profile 9.9.8 to $tmp/relative/bin/codex-profile"
+  [[ -x "$tmp/relative/bin/codex-profile" ]] || fail "relative prefix was not resolved from the caller's directory"
+  [[ -z "$(git -C "$tmp/cache-relative" status --porcelain)" ]] || fail "relative prefix installed into the upgrade cache"
+
+  rm -rf "$tmp"
+}
+
 test_upgrade_refuses_dirty_cached_checkout() {
   local tmp repo cache prefix
   tmp="$(mktemp -d)"
@@ -437,6 +468,7 @@ test_update_check_refreshes_cache_from_source() {
 test_upgrade_dry_run_reports_plan_without_mutating_files
 test_upgrade_fetches_newest_ref_and_installs_to_prefix
 test_upgrade_installs_commit_sha_ref_on_fresh_cache
+test_upgrade_refuses_path_refs_and_anchors_relative_prefixes
 test_upgrade_refuses_dirty_cached_checkout
 test_upgrade_refuses_to_install_older_version
 test_upgrade_refuses_unversioned_candidate

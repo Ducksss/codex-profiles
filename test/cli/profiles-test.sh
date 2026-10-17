@@ -438,6 +438,15 @@ test_remove_refuses_profiles_with_shared_configuration_dependents() {
   [[ -d "$source_home" && -L "$target_home/config.toml" ]] || \
     fail "refused source removal changed linked profiles"
 
+  # A case-insensitive volume opens the same home under another spelling.
+  if [[ -d "$tmp/home/.codex-PERSONAL" ]]; then
+    run_cmd env HOME="$tmp/home" "$SCRIPT" remove PERSONAL --yes
+    assert_status 1
+    assert_contains "Profile 'PERSONAL' is stored as 'personal'"
+    [[ -d "$source_home" && -e "$target_home/config.toml" ]] || \
+      fail "a differently cased name removed a shared configuration source"
+  fi
+
   run_cmd env HOME="$tmp/home" "$SCRIPT" remove personal-2 --yes
   assert_status 0
   run_cmd env HOME="$tmp/home" "$SCRIPT" remove personal --yes
@@ -492,13 +501,29 @@ test_clone_config_refuses_sensitive_looking_config() {
   source_home="$tmp/home/.codex-work"
   target_home="$tmp/home/.codex-personal"
   mkdir -p "$source_home" "$target_home"
-  printf 'openai_api_key = "secret"\n' > "$source_home/config.toml"
 
+  local sample
+  for sample in \
+    'openai_api_key = "secret"' \
+    'BRAVE_KEY = "abc"' \
+    'GITHUB_PAT = "abc"' \
+    'args = ["--key", "abc"]' \
+    'url = "postgres://user:hunter2@db.example/app"' \
+    'args = ["sk-live-abcdef"]' \
+    'SENTRY_DSN = "https://abc@sentry.example/1"'; do
+    printf '%s\n' "$sample" > "$source_home/config.toml"
+
+    run_cmd env HOME="$tmp/home" "$SCRIPT" clone-config work personal
+
+    assert_status 1
+    assert_contains "Refusing to copy config.toml because it contains sensitive-looking text"
+    [[ ! -e "$target_home/config.toml" ]] || fail "clone-config copied sensitive-looking config: $sample"
+  done
+
+  printf 'model = "gpt-5"\nkeybindings = "vim"\n' > "$source_home/config.toml"
   run_cmd env HOME="$tmp/home" "$SCRIPT" clone-config work personal
-
-  assert_status 1
-  assert_contains "Refusing to copy config.toml because it contains sensitive-looking keys"
-  [[ ! -e "$target_home/config.toml" ]] || fail "clone-config copied sensitive-looking config"
+  assert_status 0
+  assert_contains "Copied config.toml"
 
   rm -rf "$tmp"
 }

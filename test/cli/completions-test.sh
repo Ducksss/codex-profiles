@@ -146,6 +146,10 @@ for shell in bash zsh fish; do
   assert_contains --ref
   complete_words upgrade --ref ''
   assert_not_contains --prefix
+  complete_words doctor -
+  assert_contains --json
+  assert_contains --check
+  grep -Fqx -- -j <<< "$output" || fail "$shell doctor completion lacks -j: $output"
   complete_words shell-init zsh --prompt --c
   assert_contains --completions
   complete_words shell-init bash --completions --p
@@ -180,6 +184,34 @@ if command -v zsh > /dev/null 2>&1; then
   '
   assert_status 0
   assert_equals client
+
+  # The documented file name differs from the function name; its body then
+  # runs on every completion and must complete each time.
+  mkdir -p "$TMP_ROOT/zfunc-dash"
+  cp "$TMP_ROOT/completions.zsh" "$TMP_ROOT/zfunc-dash/_codex-profile"
+  # shellcheck disable=SC2016 # the child zsh evaluates its completion context
+  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" ZFUNC="$TMP_ROOT/zfunc-dash" zsh -f -c '
+    fpath=("$ZFUNC" $fpath)
+    autoload -Uz _codex-profile
+    _describe() { printf "%s\n" "${(@P)2}"; }
+    words=(codex-profile app "")
+    CURRENT=3
+    _codex-profile
+    _codex-profile
+    _codex-profile
+  '
+  assert_status 0
+  assert_equals $'client\nclient\nclient'
+
+  # Sourcing the output at the top level still registers it with compsys.
+  # shellcheck disable=SC2016 # the child zsh evaluates its completion context
+  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" COMPLETIONS="$TMP_ROOT/completions.zsh" zsh -f -c '
+    autoload -Uz compinit && compinit -u -D
+    source "$COMPLETIONS"
+    printf "%s\n" "${_comps[codex-profile]}"
+  '
+  assert_status 0
+  assert_equals _codex_profile
 fi
 
 # Candidate arrays cannot prove Readline quoting or directory suffix behavior.
