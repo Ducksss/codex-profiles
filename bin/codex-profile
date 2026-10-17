@@ -2783,6 +2783,8 @@ command_remove() {
   if [[ -d "$codex_home" ]]; then
     for stored in $(discover_profiles yes); do
       [[ "$stored" != "$profile" ]] || break
+      # A symlinked home is an alias, not another spelling of this profile.
+      [[ ! -L "$(codex_home_for_profile "$stored")" ]] || continue
       if [[ "$(codex_home_for_profile "$stored")" -ef "$codex_home" ]]; then
         die "Profile '$profile' is stored as '$stored'; run '$PROGRAM remove $stored' instead."
       fi

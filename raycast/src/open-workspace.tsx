@@ -1,6 +1,6 @@
 import { Action, ActionPanel, Color, Icon, Keyboard, List } from "@raycast/api";
 import { useCachedPromise, useFrecencySorting } from "@raycast/utils";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HOME, loadWorkspaces } from "./cli";
 import { bindingProblem, displayPath, folderName, type WorkspaceBinding } from "./lib/profile";
 import { shellQuote } from "./lib/terminal";
@@ -29,6 +29,12 @@ function WorkspaceList(props: { cli: string }) {
   const profiles = [...new Set(bindings.map((binding) => binding.profile))].sort((a, b) => a.localeCompare(b));
   // A refresh can remove the filtered profile's last binding and hide the dropdown.
   const activeFilter = profiles.includes(profileFilter) ? profileFilter : ALL_PROFILES;
+  const filteredProfileGone = !isLoading && data !== undefined && activeFilter !== profileFilter;
+  // Forget that choice once a finished load confirms it is gone, so a later
+  // binding for the same profile does not silently filter the list again.
+  useEffect(() => {
+    if (filteredProfileGone) setProfileFilter(ALL_PROFILES);
+  }, [filteredProfileGone]);
   const visible = sorted.filter((binding) => activeFilter === ALL_PROFILES || binding.profile === activeFilter);
 
   return (

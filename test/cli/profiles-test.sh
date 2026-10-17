@@ -421,6 +421,22 @@ test_remove_yes_deletes_profiles_named_like_common_aliases() {
   rm -rf "$tmp"
 }
 
+test_remove_is_not_blocked_by_a_symlinked_alias_home() {
+  local tmp
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/home/.codex-work"
+  # The alias sorts first and resolves to the same directory.
+  ln -s "$tmp/home/.codex-work" "$tmp/home/.codex-alias"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" remove work --yes
+
+  assert_status 0
+  assert_not_contains "is stored as"
+  [[ ! -e "$tmp/home/.codex-work" ]] || fail "remove kept the profile home behind a symlinked alias"
+
+  rm -rf "$tmp"
+}
+
 test_remove_refuses_profiles_with_shared_configuration_dependents() {
   local tmp source_home target_home
   tmp="$(mktemp -d)"
@@ -608,6 +624,7 @@ test_remove_aborts_when_confirmation_does_not_match
 test_remove_yes_deletes_profile_home
 test_remove_yes_deletes_profiles_named_like_common_aliases
 test_remove_refuses_profiles_with_shared_configuration_dependents
+test_remove_is_not_blocked_by_a_symlinked_alias_home
 test_profile_home_symlinks_are_refused
 test_clone_config_copies_safe_files_and_never_auth_files
 test_clone_config_refuses_sensitive_looking_config
