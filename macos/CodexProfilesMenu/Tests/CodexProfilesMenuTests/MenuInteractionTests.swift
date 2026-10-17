@@ -81,8 +81,15 @@ struct MenuInteractionTests {
             "a short list must fit without clipping the last row or needing to scroll")
         expect(initialRows.allSatisfy { abs($0.frame.width - listWidth) < 1 }, "workspace rows must fill the list width")
         let separators = descendants(list).compactMap { $0 as? NSBox }.filter { $0.boxType == .separator }
-        expect(separators.count >= initialRows.count - 1, "workspace rows must have native separators")
-        expect(separators.allSatisfy { abs($0.frame.width - listWidth) < 1 }, "row separators must fill the list width")
+        // Profiles, pinned and other workspaces: only the two unpinned workspaces share a group.
+        expect(separators.count == 1, "rows within a group must have native separators; headings separate groups")
+        let titleColumn = descendants(initialRows[0]).compactMap { $0 as? NSTextField }.first { $0.stringValue == "work" }!
+        // Labels pad their frames; the alignment rect is where the text starts.
+        let titleX = list.documentView!.convert(titleColumn.alignmentRect(forFrame: titleColumn.frame), from: titleColumn.superview).minX
+        expect(separators.allSatisfy {
+            let frame = list.documentView!.convert($0.bounds, from: $0)
+            return abs(frame.minX - titleX) < 1 && abs(frame.maxX - (listWidth - LaunchRowButton.contentInset)) < 1
+        }, "row separators must start at the title column and keep the trailing inset")
         let profileUsage = descendants(initialRows[0]).compactMap { $0 as? ProfileUsageView }.first!
         let profileName = descendants(initialRows[0]).compactMap { $0 as? NSTextField }.first { $0.stringValue == "work" }!
         let profileOpen = openButton(in: initialRows[0])
@@ -104,7 +111,7 @@ struct MenuInteractionTests {
             let open = openButton(in: row)
             expect(open.controlSize == .small, "explicit Open action must use a compact native button")
             expect(open.isEnabled == workspace.isAvailable, "Open availability must match workspace availability")
-            expect(abs(row.frame.height - (workspace.isAvailable ? 56 : 72)) < 1,
+            expect(abs(row.frame.height - (workspace.isAvailable ? 48 : 64)) < 1,
                 "rows must remain compact while leaving space for missing-folder guidance")
         }
         expect(initialRows.allSatisfy { !$0.isSelectedRow }, "opening must not paint an unsolicited grey selection")
@@ -118,8 +125,11 @@ struct MenuInteractionTests {
             "next down arrow must select the first available workspace")
         expect(controller.handleShortcut(key(125)), "second down arrow must be handled")
         expect(initialRows.first(where: { $0.item.workspace == last })?.isSelectedRow == true, "arrow must skip unavailable workspace")
+        let ruleBesideSelection = descendants(initialRows.first { $0.item.workspace == last }!.ruleAbove!).compactMap { $0 as? NSBox }.first!
+        expect(ruleBesideSelection.isHidden, "a rule beside the selected row must step aside for its plate")
         expect(controller.handleShortcut(key(126)), "up arrow must be handled")
         expect(initialRows.first(where: { $0.item.workspace == first })?.isSelectedRow == true, "up arrow must restore prior selection")
+        expect(!ruleBesideSelection.isHidden, "a rule must return once neither neighbour is highlighted")
         let actions = descendants(initialRows.first { $0.item.workspace == first }!).compactMap { $0 as? NSButton }.first { $0.toolTip?.contains("remove binding") == true }!
         window.makeFirstResponder(actions)
         expect(!controller.handleShortcut(key(36)), "Return on an actions button must retain its native action")
@@ -193,14 +203,14 @@ struct MenuInteractionTests {
         selectedRow.isSelectedRow = true
         expect(selectedRow.isAccessibilitySelected(), "keyboard selection must be exposed to accessibility clients")
         selectedRow.displayIfNeeded()
-        let expectedBorder = selectedRow.layer!.borderColor!
-        selectedRow.layer!.borderColor = NSColor.clear.cgColor
+        let expectedBorder = selectedRow.highlight.layer!.borderColor!
+        selectedRow.highlight.layer!.borderColor = NSColor.clear.cgColor
         NotificationCenter.default.post(name: NSColor.systemColorsDidChangeNotification, object: nil)
-        expect(selectedRow.layer!.borderColor == expectedBorder,
+        expect(selectedRow.highlight.layer!.borderColor == expectedBorder,
             "changing the system accent colours must update custom row decoration")
-        selectedRow.layer!.borderColor = NSColor.clear.cgColor
+        selectedRow.highlight.layer!.borderColor = NSColor.clear.cgColor
         NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: NSWorkspace.shared)
-        expect(selectedRow.layer!.borderColor == expectedBorder,
+        expect(selectedRow.highlight.layer!.borderColor == expectedBorder,
             "changing accessibility display options must update custom row decoration")
         var borders: [CGFloat] = []
         for appearance in [NSAppearance.Name.aqua, .darkAqua, .aqua] {
@@ -209,12 +219,12 @@ struct MenuInteractionTests {
                 "an open menu must inherit light and dark appearance changes")
             selectedRow.displayIfNeeded()
             selectedRow.updateLayer()
-            let border = NSColor(cgColor: selectedRow.layer!.borderColor!)!.usingColorSpace(.sRGB)!
+            let border = NSColor(cgColor: selectedRow.highlight.layer!.borderColor!)!.usingColorSpace(.sRGB)!
             borders.append(border.redComponent)
-            expect(selectedRow.layer!.borderWidth > 0, "keyboard selection must include a shape cue rather than relying on colour")
+            expect(selectedRow.highlight.layer!.borderWidth > 0, "keyboard selection must include a shape cue rather than relying on colour")
             for preferences in [(true, false), (false, true), (true, true)] {
                 selectedRow.updateSystemColours(reduceTransparency: preferences.0, increaseContrast: preferences.1)
-                expect(selectedRow.layer!.backgroundColor!.alpha > 0.99,
+                expect(selectedRow.highlight.layer!.backgroundColor!.alpha > 0.99,
                     "reduced transparency and increased contrast must use opaque system selection colours")
             }
         }
