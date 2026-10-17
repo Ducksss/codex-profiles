@@ -10,10 +10,18 @@ ordered by last successful launch. Never call an unopened binding “recent”.
 
 The 400-point popover uses semantic macOS colours, system type, monochrome
 SF Symbols and the material supplied by NSPopover. The content view has no
-additional effect layer. Plain rows with thin separators show the profile name
-or project name and path, a small Open button, and related actions. Profile rows
-are 44 points high. Available workspace rows are 56 points high; an unavailable
-row adds 16 points for its explanation and retains repair actions. Rows
+additional effect layer. Header, search and filters form one block above a
+single rule. One type scale sets the title in 13-point semibold, row names in
+13-point medium, details in 11-point secondary text and section headings in
+11-point semibold; weight, not size, carries the hierarchy. Each row starts
+with a 22-point monochrome mark: a monogram disc for a profile, a rounded
+folder or pin tile for a workspace. The header mark and title share the rows'
+mark and title columns. Rows show the profile name or project name and path,
+a small Open button, and related actions. Every available row is 48 points
+high; an unavailable row adds 16 points for its explanation and retains repair
+actions. Thin rules divide rows within a group, start at the title column and
+hide beside a highlighted row; space above each heading separates groups.
+Hover and keyboard selection paint an inset, rounded plate. Rows
 remain unselected on opening and after search changes. Arrow-key selection
 uses a system accent fill, a semantic outline and an accessibility selected
 state. Height follows content up to 500 points; longer lists scroll. Optional
@@ -21,7 +29,8 @@ Add Workspace sits in the footer. The empty state offers Create Profile;
 creating a profile makes it immediately available without a folder picker.
 An inline **Codex left** column aligns beside profile names and before Open.
 Each reported window shows its duration, a 4-point capacity meter and a
-right-aligned monospaced percentage. Meters use the secondary label colour,
+right-aligned monospaced percentage whose smaller, quieter percent sign keeps
+the column reading as figures. Meters use the secondary label colour,
 orange at 25% or less and red at 10% or less, where the number also turns red;
 the number always carries the value. A low window replaces the row's
 destination description with its name and reset countdown. Tooltips and the
@@ -51,7 +60,8 @@ NSWorkspace accessibility-display notifications update the running app.
 [Reduce Motion](https://developer.apple.com/documentation/appkit/nsworkspace/accessibilitydisplayshouldreducemotion)
 disables popover animation. Increase Contrast or Reduce Transparency selects
 opaque semantic row fills, while NSPopover owns the system background material.
-Selection uses an outline as well as colour. Native controls retain focus,
+Selection uses an outline as well as colour; Increase Contrast draws it in the
+full label colour and outlines row marks. Native controls retain focus,
 keyboard behaviour and labelled actions for accessibility clients.
 
 Keyboard: search receives focus on opening; arrows select available profiles

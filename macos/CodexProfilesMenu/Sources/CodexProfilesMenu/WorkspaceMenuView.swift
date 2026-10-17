@@ -38,6 +38,7 @@ final class WorkspaceMenuViewController: NSViewController {
     private var scrollView: NSScrollView?
     private var selectedID: LaunchTarget.ID?
     private var heightConstraint: NSLayoutConstraint?
+    private var listTopConstraint: NSLayoutConstraint?
     private var destination: OpenDestination
     private var renderedList: ListModel?
     private var renderedProfiles: [String]?
@@ -120,20 +121,21 @@ final class WorkspaceMenuViewController: NSViewController {
     }
 
     private func buildInterface() {
+        // The mark and title share the rows' avatar and title columns.
         let mark = NSImageView(image: NSImage(systemSymbolName: "square.stack.3d.up.fill", accessibilityDescription: nil) ?? NSImage())
-        mark.symbolConfiguration = .init(pointSize: 18, weight: .medium)
+        mark.symbolConfiguration = .init(pointSize: 15, weight: .semibold)
         mark.contentTintColor = .labelColor
-        mark.widthAnchor.constraint(equalToConstant: 22).isActive = true
-        let title = label("Codex Profiles", size: 14, weight: .semibold)
+        mark.widthAnchor.constraint(equalToConstant: LaunchRowButton.avatarSize).isActive = true
+        let title = label("Codex Profiles", size: 13, weight: .semibold)
         let settings = symbolButton("gearshape", title: "Options", action: #selector(showSettingsMenu(_:)))
         let header = NSStackView(views: [mark, title, NSView(), settings])
         header.orientation = .horizontal
         header.alignment = .centerY
-        header.spacing = 8
+        header.spacing = LaunchRowButton.avatarSpacing
         header.translatesAutoresizingMaskIntoConstraints = false
-        let headerDivider = NSBox()
-        headerDivider.boxType = .separator
-        headerDivider.translatesAutoresizingMaskIntoConstraints = false
+        let listDivider = NSBox()
+        listDivider.boxType = .separator
+        listDivider.translatesAutoresizingMaskIntoConstraints = false
 
         searchField.placeholderString = "Search profiles and workspaces"
         searchField.font = .systemFont(ofSize: 12)
@@ -177,9 +179,11 @@ final class WorkspaceMenuViewController: NSViewController {
         add.target = self
         add.action = #selector(addWorkspace(_:))
         add.image = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)
+        add.symbolConfiguration = .init(pointSize: 11, weight: .medium)
         add.imagePosition = .imageLeading
         add.isBordered = false
         add.font = .systemFont(ofSize: 12)
+        add.contentTintColor = .secondaryLabelColor
         add.toolTip = "Optional: bind a project folder to a profile"
         add.setContentHuggingPriority(.required, for: .horizontal)
         footerLabel.font = .systemFont(ofSize: 11)
@@ -194,26 +198,29 @@ final class WorkspaceMenuViewController: NSViewController {
         footer.spacing = 8
         footer.translatesAutoresizingMaskIntoConstraints = false
         contentContainer.translatesAutoresizingMaskIntoConstraints = false
-        [header, headerDivider, controls, contentContainer, divider, footer].forEach { view.addSubview($0) }
+        // Header, search and filters form one block above a single rule, so
+        // scrolled rows pass under a clear edge.
+        [header, controls, listDivider, contentContainer, divider, footer].forEach { view.addSubview($0) }
+        listTopConstraint = listDivider.topAnchor.constraint(equalTo: controls.bottomAnchor, constant: 10)
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: view.topAnchor),
-            header.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14),
+            header.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: LaunchRowButton.contentInset),
             header.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
             header.heightAnchor.constraint(equalToConstant: 44),
-            headerDivider.topAnchor.constraint(equalTo: header.bottomAnchor),
-            headerDivider.leadingAnchor.constraint(equalTo: view.leadingAnchor), headerDivider.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            controls.topAnchor.constraint(equalTo: headerDivider.bottomAnchor, constant: 10),
-            controls.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14),
-            controls.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -14),
-            contentContainer.topAnchor.constraint(equalTo: controls.bottomAnchor, constant: 8),
+            controls.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 2),
+            controls.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: LaunchRowButton.contentInset),
+            controls.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -LaunchRowButton.contentInset),
+            listTopConstraint!,
+            listDivider.leadingAnchor.constraint(equalTo: view.leadingAnchor), listDivider.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            contentContainer.topAnchor.constraint(equalTo: listDivider.bottomAnchor),
             contentContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             contentContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             contentContainer.bottomAnchor.constraint(equalTo: divider.topAnchor),
             divider.leadingAnchor.constraint(equalTo: view.leadingAnchor), divider.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             divider.bottomAnchor.constraint(equalTo: footer.topAnchor),
-            footer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14),
+            footer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: LaunchRowButton.contentInset),
             footer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
-            footer.bottomAnchor.constraint(equalTo: view.bottomAnchor), footer.heightAnchor.constraint(equalToConstant: 38),
+            footer.bottomAnchor.constraint(equalTo: view.bottomAnchor), footer.heightAnchor.constraint(equalToConstant: 36),
         ])
     }
 
@@ -223,6 +230,8 @@ final class WorkspaceMenuViewController: NSViewController {
         let shouldFocusSearch = populated && searchField.isHidden
         searchField.isHidden = !populated
         toolbar.isHidden = !populated
+        // Without filters, the rule meets the header directly.
+        listTopConstraint?.constant = populated ? 10 : -2
         addButton.isHidden = !populated || store.profiles.isEmpty
         footerLabel.stringValue = ["Choose a profile or workspace", "Create a profile to get started"].contains(store.statusMessage) ? "" : store.statusMessage
         footerLabel.toolTip = footerLabel.stringValue
@@ -256,9 +265,9 @@ final class WorkspaceMenuViewController: NSViewController {
             if let list { showLaunchList(list) }
         }
         let contentHeight = scrollView?.documentView?.fittingSize.height
-            ?? contentContainer.subviews.first.map { $0.fittingSize.height + 24 } ?? 100
-        // Header, filters, separators and footer occupy 158 points.
-        let height: CGFloat = populated ? min(500, max(260, 158 + contentHeight)) : 260
+            ?? contentContainer.subviews.first.map { $0.fittingSize.height + 32 } ?? 100
+        // Header, filters, separators and footer occupy 150 points.
+        let height: CGFloat = populated ? min(500, max(260, 150 + contentHeight)) : 260
         heightConstraint?.constant = height
         preferredContentSize = NSSize(width: 400, height: height)
         onPreferredContentSizeChange?(preferredContentSize)
@@ -308,29 +317,36 @@ final class WorkspaceMenuViewController: NSViewController {
         stack.orientation = .vertical
         stack.alignment = .width
         stack.spacing = 0
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 6, right: 0)
         stack.translatesAutoresizingMaskIntoConstraints = false
         document.addSubview(stack)
+        func section(of row: ListModel.Row) -> String {
+            row.item.workspace == nil ? "Profiles" : row.pinned ? "Pinned workspaces" : "Workspaces"
+        }
         var previousGroup: String?
         for (index, model) in list.rows.enumerated() {
             let item = model.item
-            let groupTitle = item.workspace == nil ? "Profiles" : model.pinned ? "Pinned workspaces" : "Workspaces"
+            let groupTitle = section(of: model)
             if previousGroup != groupTitle {
-                let heading = label(groupTitle, size: 10, weight: .semibold)
+                let heading = label(groupTitle, size: 11, weight: .semibold)
                 heading.textColor = .secondaryLabelColor
                 let group = NSStackView(views: [heading, NSView()])
-                group.edgeInsets = NSEdgeInsets(top: 6, left: 14, bottom: 4, right: 10)
+                group.spacing = 0
+                // Space above a heading separates groups; rules only divide rows within one.
+                let first = previousGroup == nil
+                group.edgeInsets = NSEdgeInsets(top: first ? 8 : 12, left: LaunchRowButton.contentInset, bottom: 4, right: 0)
                 if item.workspace == nil {
-                    let usageHeading = label("Codex left", size: 10, weight: .semibold)
+                    let usageHeading = label("Codex left", size: 11, weight: .semibold)
                     usageHeading.textColor = .secondaryLabelColor
                     usageHeading.alignment = .right
                     usageHeading.toolTip = "Remaining Codex CLI quota. ChatGPT may use a different account."
                     usageHeading.widthAnchor.constraint(equalToConstant: ProfileUsageView.columnWidth).isActive = true
                     group.addArrangedSubview(usageHeading)
                     let actionsSpace = NSView()
-                    actionsSpace.widthAnchor.constraint(equalToConstant: 86).isActive = true
+                    actionsSpace.widthAnchor.constraint(equalToConstant: LaunchRowButton.actionsWidth).isActive = true
                     group.addArrangedSubview(actionsSpace)
                 }
-                group.heightAnchor.constraint(equalToConstant: 24).isActive = true
+                group.heightAnchor.constraint(equalToConstant: first ? 28 : 32).isActive = true
                 stack.addArrangedSubview(group)
                 group.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
                 previousGroup = groupTitle
@@ -346,11 +362,13 @@ final class WorkspaceMenuViewController: NSViewController {
             rows.append(row)
             stack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-            if index < list.rows.count - 1 {
-                let separator = NSBox()
-                separator.boxType = .separator
-                stack.addArrangedSubview(separator)
-                separator.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            if let rule = rows.dropLast().last?.ruleBelow { rule.below = row; row.ruleAbove = rule; rule.update() }
+            if index < list.rows.count - 1, section(of: list.rows[index + 1]) == groupTitle {
+                let rule = RowRule()
+                rule.above = row
+                row.ruleBelow = rule
+                stack.addArrangedSubview(rule)
+                rule.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             }
         }
         scroll.documentView = document
@@ -384,19 +402,21 @@ final class WorkspaceMenuViewController: NSViewController {
 
     private func showState(symbol: String, title: String, detail: String, progress: Bool = false, actionTitle: String? = nil, action: Selector? = nil) {
         let icon = NSImageView(image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSImage())
-        icon.symbolConfiguration = .init(pointSize: 32, weight: .light)
+        icon.symbolConfiguration = .init(pointSize: 28, weight: .light)
         icon.contentTintColor = .secondaryLabelColor
-        let heading = label(title, size: 16, weight: .semibold)
+        let heading = label(title, size: 15, weight: .semibold)
         let copy = NSTextField(wrappingLabelWithString: detail)
         copy.font = .systemFont(ofSize: 12)
         copy.textColor = .secondaryLabelColor
         copy.alignment = .center
         copy.maximumNumberOfLines = 4
-        copy.widthAnchor.constraint(lessThanOrEqualToConstant: 340).isActive = true
+        copy.widthAnchor.constraint(lessThanOrEqualToConstant: 300).isActive = true
         let stack = NSStackView(views: [icon, heading, copy])
         stack.orientation = .vertical
         stack.alignment = .centerX
-        stack.spacing = 10
+        stack.spacing = 6
+        stack.setCustomSpacing(12, after: icon)
+        stack.setCustomSpacing(16, after: copy)
         stack.translatesAutoresizingMaskIntoConstraints = false
         if progress {
             let spinner = NSProgressIndicator()
@@ -518,6 +538,7 @@ final class WorkspaceMenuViewController: NSViewController {
         for row in rows {
             row.updateSystemColours()
             row.redrawUsageMeters()
+            row.redrawAvatar()
         }
     }
 
@@ -530,6 +551,7 @@ final class WorkspaceMenuViewController: NSViewController {
     private func configureSymbolButton(_ button: NSButton, symbol: String, title: String, action: Selector) {
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
         button.isBordered = false
+        button.contentTintColor = .secondaryLabelColor
         button.target = self
         button.action = action
         button.toolTip = title
@@ -711,15 +733,34 @@ final class WorkspaceMenuViewController: NSViewController {
 final class FlippedView: NSView { override var isFlipped: Bool { true } }
 
 final class LaunchRowButton: NSButton {
+    /// Column metrics shared with the header, section headings and rules.
+    static let contentInset: CGFloat = 14
+    static let avatarSize: CGFloat = 22
+    static let avatarSpacing: CGFloat = 10
+    static let titleInset = contentInset + avatarSize + avatarSpacing
+    private static let openWidth: CGFloat = 54
+    private static let moreWidth: CGFloat = 20
+    private static let usageSpacing: CGFloat = 12
+    private static let moreSpacing: CGFloat = 4
+    /// From the quota column's trailing edge to the row's trailing edge.
+    static let actionsWidth = usageSpacing + openWidth + moreSpacing + moreWidth + contentInset
+
     let item: LaunchTarget
     var onShowActions: ((NSButton) -> Void)?
-    var isSelectedRow: Bool { didSet { setAccessibilitySelected(isSelectedRow); needsDisplay = true } }
-    private var isHovered = false
+    var isSelectedRow: Bool { didSet { setAccessibilitySelected(isSelectedRow); highlightChanged() } }
+    /// The inset, rounded plate behind hover and keyboard selection.
+    let highlight = RowHighlightView()
+    /// Rules beside this row, which step aside while its plate shows.
+    weak var ruleAbove: RowRule?
+    weak var ruleBelow: RowRule?
+    var showsPlate: Bool { isSelectedRow || isHovered && isEnabled }
+    private var isHovered = false { didSet { highlightChanged() } }
     private var tracking: NSTrackingArea?
     private let destination: OpenDestination
     private let metadata: NSTextField
     private let profileDetail: String
     private let usageView: ProfileUsageView?
+    private let avatar: RowAvatar
 
     init(item: LaunchTarget, shortcutIndex: Int, destination: OpenDestination, usage: UsageState?, pinned: Bool, selected: Bool,
          launching: Bool, changing: Bool, enabled: Bool, target: AnyObject?, action: Selector?) {
@@ -729,6 +770,10 @@ final class LaunchRowButton: NSButton {
         profileDetail = destination == .terminal ? "Codex CLI profile" : item.profile == "default" ? "Standard ChatGPT window" : "Separate ChatGPT window"
         metadata = NSTextField(labelWithString: item.workspace.map { "\($0.profile) · \($0.displayPath())" } ?? profileDetail)
         usageView = item.workspace == nil ? ProfileUsageView(usage: usage ?? UsageState()) : nil
+        // A monogram gives each profile its own mark; workspaces share a folder tile.
+        avatar = item.workspace.map { workspace in
+            RowAvatar(symbol: !workspace.isAvailable ? "questionmark.folder" : pinned ? "pin.fill" : "folder")
+        } ?? RowAvatar(monogram: item.profile)
         super.init(frame: .zero)
         self.target = target
         self.action = action
@@ -738,18 +783,14 @@ final class LaunchRowButton: NSButton {
         focusRingType = .none
         isEnabled = enabled
         translatesAutoresizingMaskIntoConstraints = false
-        heightAnchor.constraint(equalToConstant: item.workspace == nil ? 44 : item.isAvailable ? 56 : 72).isActive = true
+        heightAnchor.constraint(equalToConstant: item.isAvailable ? 48 : 64).isActive = true
         let state = changing ? "Updating" : "Open in \(destination.label)"
         setAccessibilityLabel(item.workspace.map { "\($0.name), profile \($0.profile), \($0.path). \($0.availabilityReason ?? state)" }
             ?? "Profile \(item.profile). \(state)")
         setAccessibilitySelected(selected)
         toolTip = item.workspace.map { "\($0.path)\nProfile: \($0.profile)" } ?? "Open profile \(item.profile) without a project folder"
-        let icon = NSImageView(image: NSImage(systemSymbolName: item.workspace == nil ? "person.crop.circle" : pinned ? "pin.fill" : "folder", accessibilityDescription: nil) ?? NSImage())
-        icon.symbolConfiguration = .init(pointSize: 18, weight: .regular)
-        icon.contentTintColor = .secondaryLabelColor
-        icon.widthAnchor.constraint(equalToConstant: 22).isActive = true
         let name = NSTextField(labelWithString: item.name)
-        name.font = .systemFont(ofSize: 13, weight: .semibold)
+        name.font = .systemFont(ofSize: 13, weight: .medium)
         name.lineBreakMode = .byTruncatingTail
         name.toolTip = item.name
         name.textColor = item.isAvailable ? .labelColor : .secondaryLabelColor
@@ -767,7 +808,7 @@ final class LaunchRowButton: NSButton {
         let labels = NSStackView(views: [name, metadata])
         labels.orientation = .vertical
         labels.alignment = .leading
-        labels.spacing = 3
+        labels.spacing = 2
         for value in [name, metadata] {
             value.widthAnchor.constraint(equalTo: labels.widthAnchor).isActive = true
             value.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -776,7 +817,7 @@ final class LaunchRowButton: NSButton {
         labels.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         if let reason = item.workspace?.availabilityReason {
             let warning = NSTextField(labelWithString: reason)
-            warning.font = .systemFont(ofSize: 10)
+            warning.font = .systemFont(ofSize: 11)
             warning.textColor = .secondaryLabelColor
             warning.lineBreakMode = .byTruncatingTail
             labels.addArrangedSubview(warning)
@@ -790,7 +831,7 @@ final class LaunchRowButton: NSButton {
         open.font = .systemFont(ofSize: 11)
         open.contentTintColor = .labelColor
         open.isEnabled = enabled
-        open.widthAnchor.constraint(equalToConstant: openTitle == "Open" ? 56 : 78).isActive = true
+        open.widthAnchor.constraint(equalToConstant: openTitle == "Open" ? Self.openWidth : 78).isActive = true
         open.toolTip = "Open in \(destination.label)" + (shortcutIndex < 9 ? " (⌘\(shortcutIndex + 1))" : "")
         open.setAccessibilityLabel("Open \(item.name) in \(destination.label)")
         let more = NSButton(image: NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Actions for \(item.name)") ?? NSImage(), target: self, action: #selector(showActions(_:)))
@@ -798,9 +839,9 @@ final class LaunchRowButton: NSButton {
         more.contentTintColor = .secondaryLabelColor
         more.toolTip = item.workspace == nil ? "Open elsewhere, add a workspace, or sign in to Codex CLI" : "Open elsewhere, pin, change profile, or remove binding"
         more.isEnabled = !changing
-        more.widthAnchor.constraint(equalToConstant: 22).isActive = true
+        more.widthAnchor.constraint(equalToConstant: Self.moreWidth).isActive = true
         more.heightAnchor.constraint(equalToConstant: 24).isActive = true
-        var rowViews: [NSView] = [icon, labels]
+        var rowViews: [NSView] = [avatar, labels]
         if let usageView { rowViews.append(usageView) }
         rowViews += [open, more]
         let row = NSStackView(views: rowViews)
@@ -808,10 +849,17 @@ final class LaunchRowButton: NSButton {
         row.alignment = .centerY
         row.distribution = .fill
         row.spacing = 8
+        row.setCustomSpacing(Self.avatarSpacing, after: avatar)
+        if let usageView { row.setCustomSpacing(Self.usageSpacing, after: usageView) }
+        row.setCustomSpacing(Self.moreSpacing, after: open)
         row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(highlight)
         addSubview(row)
         NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14), row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            highlight.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6), highlight.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            highlight.topAnchor.constraint(equalTo: topAnchor, constant: 2), highlight.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
+            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.contentInset),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.contentInset),
             row.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
         if item.workspace == nil { update(usage: usage ?? UsageState()) }
@@ -839,18 +887,20 @@ final class LaunchRowButton: NSButton {
         reduceTransparency: Bool = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency,
         increaseContrast: Bool = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
     ) {
+        guard let plate = highlight.layer else { return }
         effectiveAppearance.performAsCurrentDrawingAppearance {
             let solid = reduceTransparency || increaseContrast
-            let fill: NSColor = isSelectedRow ? (solid ? .unemphasizedSelectedContentBackgroundColor : .controlAccentColor.withAlphaComponent(0.14))
-                : isHovered && isEnabled ? (solid ? .unemphasizedSelectedContentBackgroundColor : .quaternaryLabelColor.withAlphaComponent(0.08)) : .clear
-            layer?.backgroundColor = fill.cgColor
+            let fill: NSColor = isSelectedRow ? (solid ? .unemphasizedSelectedContentBackgroundColor : .controlAccentColor.withAlphaComponent(0.16))
+                : isHovered && isEnabled ? (solid ? .unemphasizedSelectedContentBackgroundColor : .labelColor.withAlphaComponent(0.06)) : .clear
+            plate.backgroundColor = fill.cgColor
             // Shape identifies keyboard selection even without colour cues.
-            layer?.borderWidth = isSelectedRow ? 1 : 0
-            layer?.borderColor = NSColor.labelColor.cgColor
+            plate.borderWidth = isSelectedRow ? 1 : 0
+            plate.borderColor = NSColor.labelColor.withAlphaComponent(increaseContrast ? 1 : 0.28).cgColor
         }
     }
 
     func redrawUsageMeters() { usageView?.redrawMeters() }
+    func redrawAvatar() { avatar.needsDisplay = true }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -858,20 +908,25 @@ final class LaunchRowButton: NSButton {
         tracking = NSTrackingArea(rect: bounds, options: [.activeInKeyWindow, .mouseEnteredAndExited, .inVisibleRect], owner: self)
         addTrackingArea(tracking!)
     }
-    override func mouseEntered(with event: NSEvent) { isHovered = true; needsDisplay = true }
-    override func mouseExited(with event: NSEvent) { isHovered = false; needsDisplay = true }
+    override func mouseEntered(with event: NSEvent) { isHovered = true }
+    override func mouseExited(with event: NSEvent) { isHovered = false }
+    private func highlightChanged() {
+        needsDisplay = true
+        ruleAbove?.update()
+        ruleBelow?.update()
+    }
     @objc private func openTarget(_ sender: NSButton) { performClick(nil) }
     @objc private func showActions(_ sender: NSButton) { onShowActions?(sender) }
 }
 
 final class ProfileUsageView: NSStackView {
-    static let columnWidth: CGFloat = 100
+    static let columnWidth: CGFloat = 96
 
     init(usage: UsageState, now: Date = Date()) {
         super.init(frame: .zero)
         orientation = .vertical
         alignment = .width
-        spacing = 4
+        spacing = 3
         widthAnchor.constraint(equalToConstant: Self.columnWidth).isActive = true
         setContentCompressionResistancePriority(.required, for: .horizontal)
         setAccessibilityLabel("Codex quota remaining")
@@ -890,7 +945,7 @@ final class ProfileUsageView: NSStackView {
         guard let limits = usage.limits else {
             let checking = usage.reading == nil || usage.isRefreshing
             let message = NSTextField(labelWithString: checking ? "Checking…" : "Unavailable")
-            message.font = .systemFont(ofSize: 10)
+            message.font = .systemFont(ofSize: 11)
             message.textColor = .secondaryLabelColor
             message.alignment = .right
             addArrangedSubview(message)
@@ -900,7 +955,7 @@ final class ProfileUsageView: NSStackView {
         for (index, window) in limits.windows.enumerated() {
             let expired = window.hasReset(at: now)
             let duration = NSTextField(labelWithString: window.durationLabel ?? "Limit \(index + 1)")
-            duration.font = .systemFont(ofSize: 10)
+            duration.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
             duration.textColor = .secondaryLabelColor
             duration.alignment = .right
             duration.lineBreakMode = .byTruncatingTail
@@ -909,19 +964,33 @@ final class ProfileUsageView: NSStackView {
             let meter = QuotaMeter()
             meter.fraction = expired ? 0 : CGFloat(window.remainingPercent) / 100
             meter.level = expired ? .normal : window.level
-            let remaining = NSTextField(labelWithString: expired ? "—" : "\(window.remainingPercent)%")
-            remaining.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-            remaining.textColor = expired ? .secondaryLabelColor : window.level == .critical ? .systemRed : .labelColor
-            remaining.alignment = .right
-            remaining.widthAnchor.constraint(equalToConstant: 30).isActive = true
+            let remaining = NSTextField(labelWithString: "")
+            remaining.attributedStringValue = expired
+                ? Self.figure("—", unit: "", colour: .secondaryLabelColor)
+                : Self.figure("\(window.remainingPercent)", unit: "%", colour: window.level == .critical ? .systemRed : .labelColor)
+            remaining.widthAnchor.constraint(equalToConstant: 28).isActive = true
             let line = NSStackView(views: [duration, meter, remaining])
             line.distribution = .fill
             line.alignment = .centerY
-            line.spacing = 4
+            line.spacing = 5
             line.alphaValue = usage.isRefreshing ? 0.45 : 1
             addArrangedSubview(line)
             line.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
         }
+    }
+
+    /// Tabular figures with a smaller, quieter unit, so the column reads as numbers.
+    private static func figure(_ value: String, unit: String, colour: NSColor) -> NSAttributedString {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .right
+        let text = NSMutableAttributedString(string: value, attributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium), .foregroundColor: colour, .paragraphStyle: paragraph,
+        ])
+        text.append(NSAttributedString(string: unit, attributes: [
+            .font: NSFont.systemFont(ofSize: 9, weight: .medium), .paragraphStyle: paragraph,
+            .foregroundColor: colour == .labelColor ? NSColor.secondaryLabelColor : colour,
+        ]))
+        return text
     }
 
     func redrawMeters() {
@@ -973,4 +1042,107 @@ final class QuotaMeter: NSView {
         let width = fraction > 0 ? max(bounds.height, bounds.width * min(1, fraction)) : 0
         fill.frame = CGRect(x: 0, y: 0, width: width, height: bounds.height)
     }
+}
+
+/// The rounded plate a row paints for hover and keyboard selection. It sits
+/// behind the row's content and lets clicks reach the row.
+final class RowHighlightView: NSView {
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 7
+        layer?.cornerCurve = .continuous
+        layer?.actions = ["backgroundColor": NSNull(), "borderColor": NSNull(), "borderWidth": NSNull()]
+        translatesAutoresizingMaskIntoConstraints = false
+        setAccessibilityElement(false)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+/// A row's leading mark: a monogram disc for a profile, or a rounded tile
+/// holding a symbol for a workspace. Monochrome, like the rest of the menu.
+final class RowAvatar: NSView {
+    private let isDisc: Bool
+
+    convenience init(monogram name: String) {
+        let letter = NSTextField(labelWithString: name.first.map { String($0).uppercased() } ?? "")
+        let font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        letter.font = font.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: 11) } ?? font
+        letter.textColor = .secondaryLabelColor
+        letter.alignment = .center
+        letter.setAccessibilityElement(false)
+        self.init(glyph: letter, disc: true)
+    }
+
+    convenience init(symbol: String) {
+        let image = NSImageView(image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSImage())
+        image.symbolConfiguration = .init(pointSize: 11, weight: .medium)
+        image.contentTintColor = .secondaryLabelColor
+        self.init(glyph: image, disc: false)
+    }
+
+    private init(glyph: NSView, disc: Bool) {
+        isDisc = disc
+        super.init(frame: .zero)
+        wantsLayer = true
+        translatesAutoresizingMaskIntoConstraints = false
+        setAccessibilityElement(false)
+        glyph.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(glyph)
+        let size = LaunchRowButton.avatarSize
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: size), heightAnchor.constraint(equalToConstant: size),
+            glyph.centerXAnchor.constraint(equalTo: centerXAnchor), glyph.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override var wantsUpdateLayer: Bool { true }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
+
+    override func updateLayer() {
+        guard let layer else { return }
+        let contrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer.backgroundColor = NSColor.quaternaryLabelColor.cgColor
+            // Increased contrast adds an outline so the shape never depends on a faint fill.
+            layer.borderWidth = contrast ? 1 : 0
+            layer.borderColor = NSColor.secondaryLabelColor.cgColor
+        }
+        layer.cornerCurve = .continuous
+        layer.cornerRadius = isDisc ? LaunchRowButton.avatarSize / 2 : 6
+    }
+}
+
+/// A hairline between rows of one group. It starts at the title column, as in
+/// native inset lists, and hides beside a highlighted row so the plate stands alone.
+final class RowRule: NSView {
+    weak var above: LaunchRowButton?
+    weak var below: LaunchRowButton?
+    private let separator = NSBox()
+
+    init() {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        separator.boxType = .separator
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(separator)
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: 1),
+            separator.leadingAnchor.constraint(equalTo: leadingAnchor, constant: LaunchRowButton.titleInset),
+            separator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -LaunchRowButton.contentInset),
+            separator.centerYAnchor.constraint(equalTo: centerYAnchor), separator.heightAnchor.constraint(equalToConstant: 1),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func update() { separator.isHidden = above?.showsPlate == true || below?.showsPlate == true }
 }

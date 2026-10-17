@@ -17,6 +17,12 @@ and this project follows semantic versioning for tagged releases.
 - Pointed readers who would rather not build the app to the one-command
   Homebrew or npm CLI install from Getting started, and removed a stale note
   that the `v1.3.0` release tag was unpublished.
+- Refined the macOS menu's typography and rhythm. One type scale lets weight
+  carry the hierarchy, every row is 48 points high, profiles get monogram
+  marks and workspaces folder tiles, and the quota column sets a quieter
+  percent sign. Hover and keyboard selection use an inset rounded plate, rules
+  start at the title column and step aside beside it, and space rather than
+  rules separates groups.
 
 ## 1.3.0 - 2026-10-12
 
