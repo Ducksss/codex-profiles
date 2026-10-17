@@ -89,7 +89,8 @@ homes and, on macOS, named ChatGPT windows with separate local state.
   Codex home, bound workspace paths, and managed launcher availability and path.
   It identifies missing or stale launchers and reports launchers as unsupported
   on non-macOS systems. It reads local metadata without probing login status or
-  reading authentication data. Plain `list` keeps its existing tabular output.
+  reading authentication data. Plain `list` prints one initialized profile name
+  per line.
 - `workspace bind <path> <profile>` stores a private local canonical-path
   binding. The nearest bound ancestor wins; no file is added to the project.
 - `run` uses the current directory's binding for Codex CLI, while `run --app`
@@ -274,8 +275,10 @@ are blue, green, teal, purple, pink, red, orange, and graphite. The command
 derives a deterministic tint from the installed ChatGPT icon locally and does
 not redistribute OpenAI artwork.
 
-The generated app calls `codex-profile app <profile>` and never copies,
-modifies, or re-signs the installed ChatGPT bundle. Its custom identity is
+The generated app runs `app <profile>` through the absolute path of the
+`codex-profile` that created it, so recreate it with `--force` after moving or
+reinstalling `codex-profile` elsewhere. It never copies, modifies, or re-signs
+the installed ChatGPT bundle. Its custom identity is
 visible in Finder, Launchpad, and on a pinned Dock launcher. The active ChatGPT
 process retains its native name and icon. `launcher list [--json]`, `launcher
 path <profile>`, and `launcher remove <profile> [--yes]` inspect and remove only
@@ -284,6 +287,22 @@ managed launchers; profile authentication and Electron data are preserved.
 `CODEX_PROFILE_LAUNCHER_ROOT` overrides the default `~/Applications` location.
 Changing a managed launcher's name or color requires `--force`. Profile removal
 refuses while its managed launcher exists.
+
+## Profile maintenance
+
+- `codex-profile path <profile>` prints the profile's `CODEX_HOME` without
+  creating it.
+- `codex-profile remove <profile> [--yes]` permanently deletes that profile's
+  home after a typed confirmation (or `--yes`) and clears its workspace
+  bindings. It refuses while another profile links its configuration or while
+  its managed launcher exists.
+- `codex-profile logs <profile> [--path|--tail [lines]]` prints the named
+  ChatGPT window's desktop log, its path, or its last lines (default 50).
+- `codex-profile clone-config <source> <target> [--force]` copies only root
+  `config.toml` and `AGENTS.md`, never authentication or session data. It
+  refuses symlinks and any file containing sensitive-looking text, and needs
+  `--force` to overwrite an existing target file.
+- `codex-profile version` prints the installed version.
 
 ## In-shell activation
 

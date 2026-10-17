@@ -23,6 +23,78 @@ and this project follows semantic versioning for tagged releases.
   percent sign. Hover and keyboard selection use an inset rounded plate, rules
   start at the title column and step aside beside it, and space rather than
   rules separates groups.
+- The npm package no longer ships the unused `docs/welcome.svg`.
+
+### Fixed
+
+- `status --json` stays valid JSON when a profile's status fails or the Codex
+  CLI is missing, and rejects invalid profile names instead of reporting them.
+  Plain `status` reports a missing Codex CLI once instead of running an empty
+  command for every profile.
+- `launcher create` no longer reports success when a build step fails, for
+  example from a copy that is not executable. Its default name now fits profile
+  names that end in `.`, `-` or `_` or are very long; `--force` can change only
+  the letter case of a name on a case-insensitive volume; and an interrupt no
+  longer leaves a half-built bundle in `~/Applications`.
+- `remove` refuses a differently cased spelling of a profile on a
+  case-insensitive volume, which skipped its shared-configuration and
+  workspace-binding checks.
+- An exported `CDPATH` no longer breaks relative workspace paths. `workspace
+  unbind` resolves a deleted folder through its surviving parent, as `bind`
+  recorded it (for example `/tmp` or a symlinked projects folder). `app` never
+  passes a workspace starting with `-` to `open` as an option, and
+  `app-instance` or `app --instance` without a profile opens the picker as
+  documented.
+- `doctor --json` reports unreadable workspace state instead of exiting with
+  no output.
+- Two commands reclaiming the same stale state lock can no longer both
+  proceed, and a lock with no recorded owner explains how to recover.
+- `env` and `use` refuse a symlinked profile home, as every other command does.
+- The Bash and Zsh `--prompt` indicator removes stale `[codex:…]` prefixes
+  that tools such as Python venv restore with their saved prompt.
+- `upgrade --prefix` resolves a relative prefix from the current directory
+  instead of the upgrade cache, and `upgrade --ref` refuses a name that is not
+  a commit instead of restoring a path with that name.
+- Zsh completions saved as `_codex-profile` complete on every Tab instead of
+  every other one, and `doctor` completion offers `-j`. Help lists the
+  update-check environment variables.
+- Menu-bar low-quota alerts no longer take a reading that is still refreshing
+  as the baseline when another profile's reading arrives first, which could
+  notify as soon as alerts were turned on.
+- Raycast: a usage timeout is reported as a timeout, Open Workspace clears a
+  profile filter whose last binding was removed, and copied commands use the
+  `codex-profile` the extension found, including the menu-bar app's copy.
+- Release automation: the AUR clean build now fails on namcap errors, and the
+  Pages check reads the whole site before searching it. The outreach tracker
+  accepts plain HTTP only for exactly `127.0.0.1`, and `list --owned false`
+  lists unowned targets.
+
+### Security
+
+- Terminal launches from the menu-bar app and Raycast quote profile names and
+  folder paths so fish reads them literally. AppleScript's `quoted form of` is
+  POSIX-only, so under fish a folder name containing a backslash and a quote
+  could run the rest of the name as commands.
+- `clone-config` also refuses files with names such as `BRAVE_KEY` or
+  `GITHUB_PAT`, `key` or `dsn` entries, credentials in URLs and common token
+  prefixes, and its message and documentation now say it matches text anywhere
+  in the file.
+- `scripts/release/set-npm-token.sh` hands the token to npm on standard input
+  instead of `env`'s argument list, where `ps` and exec audit logs could see it.
+
+### Documented
+
+- The network model now includes the GitHub Releases request that `upgrade`
+  and `upgrade --dry-run` make, and the update check is described by whether
+  output is a terminal. Corrected the `setup` defaults, plain `doctor` exit
+  status, `list` output, launcher target and `usage` exit status, added
+  maintenance commands to `llms.txt`, named the `USAGE.md` command reference in
+  the sync rules, and noted that `main` must not move during a release.
+
+### Tests
+
+- Native tests tag their throwaway defaults suites and remove them afterwards,
+  instead of leaving an empty plist in `~/Library/Preferences` on every run.
 
 ## 1.3.0 - 2026-10-12
 

@@ -44,8 +44,9 @@ killing, token copying, or cookie migration.
 - Keep human and JSON output explicit about whether a fact concerns Codex-local
   state or a ChatGPT Desktop window.
 - Add regression tests for every observable behavior change.
-- Update CLI help, README, completions, `docs/llms.txt`, structured data, and
-  `CHANGELOG.md` together when the public surface changes.
+- Update CLI help, the `USAGE.md` command reference, README, completions,
+  `docs/llms.txt`, structured data, and `CHANGELOG.md` together when the
+  public surface changes.
 - Keep `bin/codex-profile`, npm/package-lock, docs, PKGBUILD, and `.SRCINFO`
   versions in sync. A release also requires a dated changelog section.
 
@@ -162,7 +163,10 @@ the release artifact. Installation verification uses a fresh prefix and checks
 `help` and `version` through both command aliases. On either timeout, investigate
 npm review notifications and registry status, then rerun the same immutable
 release once the exact artifact is publicly installable. Never bypass checks or
-move tags to recover.
+move tags to recover. Because every rerun also requires `origin/main` to still
+be the verified commit, do not merge to `main` until the release finishes; if
+`main` moves after the tag is pushed, the rerun stops at that check and the
+remaining channels need a new patch release.
 
 The workflow then verifies the exact GitHub Release tag, downloads `install.sh`
 from that immutable tag, and exercises its public `releases/latest` path in
