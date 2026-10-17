@@ -75,8 +75,10 @@ regulated, privileged, or adversarial separation.
 
 `clone-config` considers only an allowlist of root-level non-auth files. It
 never copies `auth.json`, sessions, plugins, logs, caches, Electron data, or
-directories, and it refuses sensitive-looking keys. The heuristic is a safety
-guard, not a proof that arbitrary text is non-secret. Review source files
+directories, and it refuses a file containing sensitive-looking text anywhere,
+prose included: words such as auth, token, secret, password or key, credentials
+in URLs, and common token prefixes. The heuristic is a safety guard, not a
+proof that arbitrary text is non-secret. Review source files
 before copying them between trust domains.
 
 ## Configuration linking
@@ -98,13 +100,16 @@ trust domains.
 The wrapper itself performs network access only for these project-maintenance
 features:
 
-- `upgrade` fetches the configured source repository. A non-default repository
-  can execute code during installation; use only sources you trust and inspect
-  `upgrade --dry-run` first.
-- Interactive terminal runs may make one anonymous HTTPS request to the npm
-  registry at most once per day to compare versions. Scripts, pipes, CI, and
-  JSON output do not perform this check. Disable it with
-  `CODEX_PROFILE_NO_UPDATE_CHECK=1` or `DO_NOT_TRACK=1`.
+- `upgrade` without `--ref`, including `upgrade --dry-run`, first asks the
+  GitHub Releases API for the latest release, then fetches the configured
+  source repository. A non-default repository can execute code during
+  installation; use only sources you trust and inspect `upgrade --dry-run`
+  first.
+- Runs whose standard output is a terminal may make one anonymous HTTPS
+  request to the npm registry at most once per day to compare versions. Pipes,
+  captured output, runs without a terminal such as most CI, and JSON output do
+  not perform this check. Disable it with `CODEX_PROFILE_NO_UPDATE_CHECK=1` or
+  `DO_NOT_TRACK=1`.
 
 Codex CLI and the ChatGPT app make their own network requests under OpenAI's
 behavior and policies. Those requests are outside this wrapper's network

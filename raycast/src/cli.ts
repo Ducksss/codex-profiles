@@ -118,7 +118,8 @@ function run(
           stdout,
           stderr,
           code: typeof error.code === "number" ? error.code : null,
-          timedOut: error.killed === true && error.signal === "SIGTERM" && !options.signal?.aborted,
+          // A timeout kills the child; the CLI may trap the signal and exit with a status.
+          timedOut: error.killed === true && !options.signal?.aborted,
         });
       },
     );

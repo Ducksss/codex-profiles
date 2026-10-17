@@ -421,6 +421,22 @@ test_remove_yes_deletes_profiles_named_like_common_aliases() {
   rm -rf "$tmp"
 }
 
+test_remove_is_not_blocked_by_a_symlinked_alias_home() {
+  local tmp
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/home/.codex-work"
+  # The alias sorts first and resolves to the same directory.
+  ln -s "$tmp/home/.codex-work" "$tmp/home/.codex-alias"
+
+  run_cmd env HOME="$tmp/home" "$SCRIPT" remove work --yes
+
+  assert_status 0
+  assert_not_contains "is stored as"
+  [[ ! -e "$tmp/home/.codex-work" ]] || fail "remove kept the profile home behind a symlinked alias"
+
+  rm -rf "$tmp"
+}
+
 test_remove_refuses_profiles_with_shared_configuration_dependents() {
   local tmp source_home target_home
   tmp="$(mktemp -d)"
@@ -437,6 +453,15 @@ test_remove_refuses_profiles_with_shared_configuration_dependents() {
   assert_contains "shared configuration is still used by: personal-2"
   [[ -d "$source_home" && -L "$target_home/config.toml" ]] || \
     fail "refused source removal changed linked profiles"
+
+  # A case-insensitive volume opens the same home under another spelling.
+  if [[ -d "$tmp/home/.codex-PERSONAL" ]]; then
+    run_cmd env HOME="$tmp/home" "$SCRIPT" remove PERSONAL --yes
+    assert_status 1
+    assert_contains "Profile 'PERSONAL' is stored as 'personal'"
+    [[ -d "$source_home" && -e "$target_home/config.toml" ]] || \
+      fail "a differently cased name removed a shared configuration source"
+  fi
 
   run_cmd env HOME="$tmp/home" "$SCRIPT" remove personal-2 --yes
   assert_status 0
@@ -492,13 +517,29 @@ test_clone_config_refuses_sensitive_looking_config() {
   source_home="$tmp/home/.codex-work"
   target_home="$tmp/home/.codex-personal"
   mkdir -p "$source_home" "$target_home"
-  printf 'openai_api_key = "secret"\n' > "$source_home/config.toml"
 
+  local sample
+  for sample in \
+    'openai_api_key = "secret"' \
+    'BRAVE_KEY = "abc"' \
+    'GITHUB_PAT = "abc"' \
+    'args = ["--key", "abc"]' \
+    'url = "postgres://user:hunter2@db.example/app"' \
+    'args = ["sk-live-abcdef"]' \
+    'SENTRY_DSN = "https://abc@sentry.example/1"'; do
+    printf '%s\n' "$sample" > "$source_home/config.toml"
+
+    run_cmd env HOME="$tmp/home" "$SCRIPT" clone-config work personal
+
+    assert_status 1
+    assert_contains "Refusing to copy config.toml because it contains sensitive-looking text"
+    [[ ! -e "$target_home/config.toml" ]] || fail "clone-config copied sensitive-looking config: $sample"
+  done
+
+  printf 'model = "gpt-5"\nkeybindings = "vim"\n' > "$source_home/config.toml"
   run_cmd env HOME="$tmp/home" "$SCRIPT" clone-config work personal
-
-  assert_status 1
-  assert_contains "Refusing to copy config.toml because it contains sensitive-looking keys"
-  [[ ! -e "$target_home/config.toml" ]] || fail "clone-config copied sensitive-looking config"
+  assert_status 0
+  assert_contains "Copied config.toml"
 
   rm -rf "$tmp"
 }
@@ -583,6 +624,7 @@ test_remove_aborts_when_confirmation_does_not_match
 test_remove_yes_deletes_profile_home
 test_remove_yes_deletes_profiles_named_like_common_aliases
 test_remove_refuses_profiles_with_shared_configuration_dependents
+test_remove_is_not_blocked_by_a_symlinked_alias_home
 test_profile_home_symlinks_are_refused
 test_clone_config_copies_safe_files_and_never_auth_files
 test_clone_config_refuses_sensitive_looking_config

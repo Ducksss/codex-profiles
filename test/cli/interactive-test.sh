@@ -125,7 +125,7 @@ test_picker_restores_terminal() {
 test_picker_cancellation_status_reaches_all_commands() {
   local command input expected INTERACTIVE_WAIT_FOR='Filter:'
   local -a args
-  for command in cli app run 'run --app'; do
+  for command in cli app app-instance 'app --instance' run 'run --app'; do
     read -r -a args <<< "$command"
     for input in '\003' '\033' '\004' 'q\n'; do
       prepare_interactive_test

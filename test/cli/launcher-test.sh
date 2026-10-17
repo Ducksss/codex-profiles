@@ -190,6 +190,66 @@ test_launcher_cleans_up_a_failed_icon_build() {
   rm -rf "$tmp"
 }
 
+test_launcher_reports_any_failed_build_step() {
+  local tmp copy
+  tmp="$(mktemp -d)"
+  prepare_launcher_test "$tmp" personal
+  # A copy that is not executable cannot be recorded as the launcher's target.
+  copy="$tmp/codex-profile"
+  cp "$SCRIPT" "$copy"
+  chmod 644 "$copy"
+
+  run_cmd launcher_env "$tmp" bash "$copy" launcher create personal
+
+  assert_status 1
+  assert_contains "is not runnable"
+  assert_contains "Cannot build launcher for profile 'personal'"
+  assert_not_contains "Created launcher"
+  [[ ! -e "$tmp/apps/ChatGPT personal.app" ]] || fail "failed build installed a launcher"
+  [[ ! -e "$tmp/config/launchers/personal.state" ]] || fail "failed build recorded launcher state"
+
+  rm -rf "$tmp"
+}
+
+test_launcher_default_name_fits_any_profile_name() {
+  local tmp
+  tmp="$(mktemp -d)"
+  prepare_launcher_test "$tmp" work-
+
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher create work-
+
+  assert_status 0
+  assert_contains "Created launcher for work-: $tmp/apps/ChatGPT work.app"
+  grep -Fq "app 'work-' \"\$HOME\"" "$tmp/apps/ChatGPT work.app/Contents/MacOS/launch-profile" ||
+    fail "default-named launcher does not route to the selected profile"
+
+  rm -rf "$tmp"
+}
+
+test_launcher_force_can_change_only_letter_case() {
+  local tmp
+  tmp="$(mktemp -d)"
+  prepare_launcher_test "$tmp" work
+  mkdir -p "$tmp/case-probe"
+  touch "$tmp/case-probe/A"
+  if [[ ! -e "$tmp/case-probe/a" ]]; then
+    rm -rf "$tmp"
+    return 0
+  fi
+
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher create work --name "ChatGPT Work"
+  assert_status 0
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher create work --name "ChatGPT work" --force
+  assert_status 0
+  assert_contains "Created launcher for work: $tmp/apps/ChatGPT work.app"
+  [[ "$(ls "$tmp/apps")" == "ChatGPT work.app" ]] || fail "case-only rename left: $(ls -a "$tmp/apps")"
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher path work
+  assert_status 0
+  assert_equals "$tmp/apps/ChatGPT work.app"
+
+  rm -rf "$tmp"
+}
+
 test_launcher_remove_preserves_profile_data() {
   local tmp profile_home
   tmp="$(mktemp -d)"
@@ -287,6 +347,9 @@ test_launcher_create_list_and_path_are_deterministic
 test_launcher_create_is_idempotent_and_force_replaces_managed_bundle
 test_launcher_refuses_invalid_inputs_and_unmanaged_collisions
 test_launcher_cleans_up_a_failed_icon_build
+test_launcher_reports_any_failed_build_step
+test_launcher_default_name_fits_any_profile_name
+test_launcher_force_can_change_only_letter_case
 test_launcher_remove_preserves_profile_data
 test_profile_remove_refuses_managed_launcher_orphans
 test_launcher_recovers_after_the_bundle_is_deleted_outside_the_cli

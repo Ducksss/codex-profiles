@@ -88,10 +88,14 @@ npm_with_token() {
     cd "$work_dir"
     # A cleared environment keeps npm_config_* variables from overriding the
     # isolated configuration; only the path, proxies and CA bundle carry over.
-    env -i "${npm_environment[@]}" NODE_AUTH_TOKEN="$token" \
+    # env is a separate program, so the token travels on stdin (printf is a
+    # builtin) and the child shell exports it; it is never an argument.
+    # shellcheck disable=SC2016 # the child shell expands its own variables
+    printf '%s\n' "$token" | env -i "${npm_environment[@]}" \
       NPM_CONFIG_USERCONFIG="$work_dir/npmrc" \
       NPM_CONFIG_GLOBALCONFIG="$work_dir/global-npmrc" \
-      npm "$@" --registry "$registry" 2> /dev/null
+      /bin/sh -c 'IFS= read -r NODE_AUTH_TOKEN || exit 1; export NODE_AUTH_TOKEN; exec npm "$@" < /dev/null' \
+      sh "$@" --registry "$registry" 2> /dev/null
   )
 }
 

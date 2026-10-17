@@ -27,7 +27,16 @@ if [[ "$(uname -s)" != "Darwin" ]] || ! command -v swiftc >/dev/null 2>&1; then
 fi
 
 TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
+# Tests and previews tag their defaults suites with this run. macOS keeps an
+# empty plist for each in the real ~/Library/Preferences even after the domain
+# is removed (HOME does not move it), so sweep exactly this run's files.
+PROFILE_TEST_DEFAULTS_RUN="run$(uuidgen | tr -d '-')"
+export PROFILE_TEST_DEFAULTS_RUN
+cleanup() {
+  rm -rf "$TMP_DIR"
+  rm -f "$HOME/Library/Preferences/"*".$PROFILE_TEST_DEFAULTS_RUN."*.plist
+}
+trap cleanup EXIT HUP INT TERM
 SWIFT_TARGET="$(uname -m)-apple-macosx13.0"
 # Run native tests in French via process-only user-default arguments. CI runs
 # in English, so this catches tests that depend on the machine's language.

@@ -35,8 +35,10 @@ gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status
 site_url="https://ducksss.github.io/codex-profiles/"
 deployed=false
 for _attempt in {1..30}; do
-  if curl --connect-timeout 10 --max-time 30 -fsSL "$site_url" \
-    | grep -F "<span>v$V</span>" >/dev/null; then
+  # Read the whole page first: grep can stop at the first match, and under
+  # pipefail curl's resulting write error would fail a deployed site.
+  page="$(curl --connect-timeout 10 --max-time 30 -fsSL "$site_url")" || page=""
+  if grep -Fq "<span>v$V</span>" <<< "$page"; then
     deployed=true
     break
   fi

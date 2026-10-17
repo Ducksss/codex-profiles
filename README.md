@@ -206,8 +206,8 @@ codex-profile cli work
 ```
 
 `setup` guides you through profile creation and offers sign-in, project
-binding and shell integration. Optional extras default to no, and shell
-startup changes are shown for approval first. For scripts, use `init`,
+binding, a macOS launcher and shell integration. Sign-in defaults to yes and
+the others to no; shell startup changes are shown for approval first. For scripts, use `init`,
 `login` and `cli` separately.
 
 Install **`codex-profile`** (singular). It provides both `codex-profile` and

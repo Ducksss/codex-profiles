@@ -89,10 +89,10 @@ struct CodexProfilesMenuTests {
 
     private static func testTerminalScriptQuotesRuntimeArgumentsInsteadOfInterpolatingThem() {
         let script = CLIClient.terminalAppleScript
+        let command = CLIClient.terminalLaunchCommand(toolPath: "/Users/test/bin/codex-profile", profile: "work", workspacePath: "/Users/test/My App")
 
-        expect(script.contains("quoted form of workspacePath"), "workspace path is not shell quoted")
-        expect(script.contains("quoted form of toolPath"), "tool path is not shell quoted")
-        expect(script.contains("quoted form of profileName"), "profile is not shell quoted")
+        expect(script.contains("do script (item 1 of argv)"), "Terminal does not run the argument command")
+        expect(command == "cd '/Users/test/My App' && exec '/Users/test/bin/codex-profile' cli 'work'", "launch command is not shell quoted")
         expect(!script.contains("/Users/test"), "runtime path was interpolated into AppleScript")
     }
 
@@ -142,7 +142,7 @@ struct CodexProfilesMenuTests {
             throw CLIClientError.commandFailed("Tests require an isolated HOME and PROFILE_TEST_CLI.")
         }
         let client = CLIClient(executableURL: URL(fileURLWithPath: cliPath))
-        let suite = "CodexProfilesMenuTests.realCLI." + UUID().uuidString
+        let suite = WorkspaceStore.testSuiteName("CodexProfilesMenuTests.realCLI")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = WorkspaceStore(client: client, defaults: defaults)
@@ -219,37 +219,54 @@ struct CodexProfilesMenuTests {
 
     private static func testTerminalCommandsPreserveArguments() async throws {
         let probe = try executable("tool ' \"$HOME\" `echo bad` ;", body: "printf '%s\\n' \"$PWD\" \"$@\"\n")
-        let folder = probe.deletingLastPathComponent().appendingPathComponent("folder ' \"$HOME\" $(echo bad) ;")
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        for (script, command, arguments) in [
-            (CLIClient.terminalAppleScript, "launchCommand", [probe.path, "work-main", folder.path]),
-            (CLIClient.terminalLoginAppleScript, "loginCommand", [probe.path, "default"]),
-        ] {
-            let commandScript = script.replacingOccurrences(
-                of: "tell application \"Terminal\"\n        activate\n        do script \(command)\n    end tell",
-                with: "return \(command)"
+        let parent = probe.deletingLastPathComponent()
+        // fish reads \' and \\ inside single quotes as escapes; neither may end
+        // the quoted path or run the rest of it as a command.
+        let folders = [
+            "folder ' \"$HOME\" $(echo bad) ;",
+            "fish \\'; touch INJECTED; #",
+            "double \\\\ slash",
+            "trailing \\",
+        ].map { parent.appendingPathComponent($0) }
+        for folder in folders {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        let shells = ["/bin/sh", "/bin/zsh", "/bin/bash", "/opt/homebrew/bin/fish", "/usr/local/bin/fish"]
+            .filter { FileManager.default.isExecutableFile(atPath: $0) }
+        var commands = folders.map {
+            (CLIClient.terminalLaunchCommand(toolPath: probe.path, profile: "work-main", workspacePath: $0.path), Optional($0))
+        }
+        commands.append((CLIClient.terminalLoginCommand(toolPath: probe.path, profile: "default"), nil))
+
+        for (shellCommand, folder) in commands {
+            let commandScript = CLIClient.terminalAppleScript.replacingOccurrences(
+                of: "tell application \"Terminal\"\n        activate\n        do script (item 1 of argv)\n    end tell",
+                with: "return item 1 of argv"
             )
             expect(!commandScript.contains("tell application"), "test would invoke Terminal")
-            let generated = try await ProcessRunner().run(
+            let passed = try await ProcessRunner().run(
                 executableURL: URL(fileURLWithPath: "/usr/bin/osascript"),
-                arguments: ["-e", commandScript] + arguments
+                arguments: ["-e", commandScript, shellCommand]
             )
-            expect(generated.terminationStatus == 0, "AppleScript did not parse")
-            guard let shellCommand = String(data: generated.standardOutput, encoding: .utf8) else {
-                throw CLIClientError.invalidResponse("AppleScript did not return a command")
-            }
-            let executed = try await ProcessRunner().run(
-                executableURL: URL(fileURLWithPath: "/bin/sh"),
-                arguments: ["-c", shellCommand]
-            )
-            expect(executed.terminationStatus == 0, "quoted command could not execute")
-            let output = String(data: executed.standardOutput, encoding: .utf8) ?? ""
-            if command == "launchCommand" {
-                expect(output == "\(folder.path)\ncli\nwork-main\n", "workspace or CLI arguments were shell interpreted")
-            } else {
-                expect(output.hasSuffix("\nlogin\ndefault\n"), "login command arguments changed")
+            expect(passed.terminationStatus == 0, "AppleScript did not parse")
+            expect(String(data: passed.standardOutput, encoding: .utf8) == shellCommand + "\n", "osascript changed the command")
+
+            for shell in shells {
+                let executed = try await ProcessRunner().run(
+                    executableURL: URL(fileURLWithPath: shell),
+                    arguments: ["-c", shellCommand]
+                )
+                expect(executed.terminationStatus == 0, "\(shell) could not execute the quoted command")
+                let output = String(data: executed.standardOutput, encoding: .utf8) ?? ""
+                if let folder {
+                    expect(output == "\(folder.path)\ncli\nwork-main\n", "\(shell) interpreted the workspace or CLI arguments")
+                } else {
+                    expect(output.hasSuffix("\nlogin\ndefault\n"), "\(shell) changed the login command arguments")
+                }
             }
         }
+        expect(!FileManager.default.fileExists(atPath: parent.appendingPathComponent("INJECTED").path), "a shell ran text from a workspace path")
+        expect(!FileManager.default.fileExists(atPath: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("INJECTED").path), "a shell ran text from a workspace path")
     }
 
     private static func executable(_ name: String, body: String) throws -> URL {
@@ -513,7 +530,7 @@ struct CodexProfilesMenuTests {
 
         init() throws {
             root = FileManager.default.temporaryDirectory.appendingPathComponent("CodexProfilesMenuTests-" + UUID().uuidString)
-            suite = "CodexProfilesMenuTests." + UUID().uuidString
+            suite = WorkspaceStore.testSuiteName("CodexProfilesMenuTests")
             defaults = UserDefaults(suiteName: suite)!
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             try write("default\npersonal\nwork\n", to: "profiles")

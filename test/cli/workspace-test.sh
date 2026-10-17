@@ -303,6 +303,32 @@ FAKE_MV
   assert_contains "Workspace guard mode: strict"
   [[ ! -e "$config/mutation.lock" ]] || fail "stale state mutation lock was not reclaimed"
 
+  # A waiter that saw the dead owner must not delete the lock another waiter
+  # reclaimed in the meantime. The ps stand-in plays that other waiter.
+  mkdir "$config/mutation.lock"
+  printf '99999999\n' > "$config/mutation.lock/pid"
+  cat > "$fake_bin/ps" <<'FAKE_PS'
+#!/usr/bin/env bash
+printf '%s\n' "${LIVE_OWNER:?}" > "${LOCK_DIR:?}/pid"
+exit 1
+FAKE_PS
+  chmod 755 "$fake_bin/ps"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" CODEX_PROFILE_LOCK_ATTEMPTS=1 \
+    PATH="$fake_bin:$PATH" REAL_MV="$real_mv" LIVE_OWNER="$$" LOCK_DIR="$config/mutation.lock" \
+    "$SCRIPT" workspace guard warn
+  assert_status 1
+  assert_contains "held by process $$"
+  [[ "$(cat "$config/mutation.lock/pid")" == "$$" ]] || fail "a stale-lock waiter removed a live owner's lock"
+  [[ "$(cat "$config/guard-mode")" == "strict" ]] || fail "a waiter changed state without the lock"
+
+  # A lock without an owner names its own recovery.
+  rm -f "$config/mutation.lock/pid"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" CODEX_PROFILE_LOCK_ATTEMPTS=1 \
+    "$SCRIPT" workspace guard warn
+  assert_status 1
+  assert_contains "remove that directory and try again"
+  rmdir "$config/mutation.lock"
+
   rm -rf "$tmp"
 }
 
@@ -703,6 +729,53 @@ test_doctor_reports_workspace_binding_health_in_human_and_json_output() {
   assert_contains '"binding_count":0'
   JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
 
+  # Unreadable state is reported rather than ending the diagnosis. Root
+  # reads through file modes, so the check only means something otherwise.
+  if [[ "$(id -u)" != 0 ]]; then
+    printf 'strict\n' > "$config/guard-mode"
+    printf '%s\t%s\n' "$existing_one" work > "$config/workspaces.tsv"
+    chmod 000 "$config/guard-mode" "$config/workspaces.tsv"
+    run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+      CODEX_CLI=/no/such/codex "$SCRIPT" doctor --json
+    chmod 600 "$config/guard-mode" "$config/workspaces.tsv"
+
+    assert_status 0
+    assert_contains '"registry_valid":false'
+    JSON_PAYLOAD="$output" node -e 'JSON.parse(process.env.JSON_PAYLOAD)'
+  fi
+
+  rm -rf "$tmp"
+}
+
+test_workspace_paths_resolve_the_way_bind_records_them() {
+  local tmp config
+  tmp="$(mktemp -d)"
+  tmp="$(cd "$tmp" && pwd -P)"
+  config="$tmp/config"
+  mkdir -p "$tmp/home/.codex-work" "$tmp/elsewhere/project" "$tmp/cwd/project" "$tmp/real/linked-project"
+  ln -s "$tmp/real" "$tmp/linked"
+
+  # An exported CDPATH must neither redirect nor decorate a relative path.
+  set +e
+  output="$(cd "$tmp/cwd" && env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    CDPATH="$tmp/elsewhere:." "$SCRIPT" workspace bind project work 2>&1)"
+  status=$?
+  set -e
+  assert_status 0
+  assert_contains "Bound $tmp/cwd/project to profile work"
+
+  # A folder bound through a symlinked parent can be unbound by the same
+  # spelling after the folder itself is gone.
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace bind "$tmp/linked/linked-project" work
+  assert_status 0
+  assert_contains "Bound $tmp/real/linked-project to profile work"
+  rmdir "$tmp/real/linked-project"
+  run_cmd env HOME="$tmp/home" CODEX_PROFILE_CONFIG_HOME="$config" \
+    "$SCRIPT" workspace unbind "$tmp/linked/linked-project/"
+  assert_status 0
+  assert_contains "Unbound $tmp/real/linked-project"
+
   rm -rf "$tmp"
 }
 
@@ -716,3 +789,4 @@ test_workspace_resolution_errors_are_not_treated_as_unbound
 test_workspace_guards_explicit_profile_commands
 test_remove_cleans_workspace_bindings_without_touching_projects
 test_doctor_reports_workspace_binding_health_in_human_and_json_output
+test_workspace_paths_resolve_the_way_bind_records_them

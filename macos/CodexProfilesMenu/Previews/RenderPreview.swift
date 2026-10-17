@@ -14,7 +14,7 @@ struct RenderPreview {
         application.setActivationPolicy(.prohibited)
         application.appearance = NSAppearance(named: CommandLine.arguments.contains("--dark") ? .darkAqua : .aqua)
 
-        let suite = "menu-preview-\(UUID().uuidString)"
+        let suite = WorkspaceStore.testSuiteName("menu-preview")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = WorkspaceStore(client: CLIClient(executableURL: nil), defaults: defaults)

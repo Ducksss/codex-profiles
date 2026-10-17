@@ -58,6 +58,39 @@ for shell in bash zsh; do
   [[ ! -e "$TMP_ROOT/home/injected" ]] || fail 'prompt executed invalid profile text'
 done
 
+# Python venv and similar tools save PS1 with the indicator inside, prefix it,
+# and later restore the saved copy; no stale indicator may survive.
+cat > "$TMP_ROOT/restore.sh" <<'CHECK'
+set -eu
+PS1='base> '
+if [ "$TEST_SHELL" = bash ]; then
+  render() { eval "$PROMPT_COMMAND"; printf '%s\n' "$PS1"; }
+else
+  render() { local hook; for hook in "${precmd_functions[@]}"; do "$hook"; done; printf '%s\n' "$PS1"; }
+fi
+eval "$(codex-profile shell-init "$TEST_SHELL" --prompt)"
+codex-profile use work
+render
+saved="$PS1"
+PS1="(venv) $PS1"
+render
+codex-profile use other
+render
+PS1="$saved"
+render
+unset CODEX_PROFILE_NAME CODEX_HOME
+render
+PS1='[codex:not a profile] base> '
+render
+CHECK
+
+for shell in bash zsh; do
+  command -v "$shell" > /dev/null 2>&1 || continue
+  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" TEST_SHELL="$shell" "$shell" -f "$TMP_ROOT/restore.sh"
+  assert_status 0
+  assert_equals $'[codex:work] base> \n[codex:work] (venv) base> \n[codex:other] (venv) base> \n[codex:other] base> \nbase> \n[codex:not a profile] base> '
+done
+
 # Bash users may already have multiple prompt hooks; preserve their array.
 # shellcheck disable=SC2016 # expanded by the child shell
 run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" bash -eu -c '

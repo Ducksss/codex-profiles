@@ -37,6 +37,13 @@ case "$1" in
 esac
 FAKE_NPM
 
+# env is a separate program: anything in its arguments is visible in ps and
+# exec audit logs, so it is logged like npm and gh.
+write_command_shim "$fake_bin/env" <<'FAKE_ENV'
+printf 'env %s\n' "$*" >> "$TEST_LOG"
+exec /usr/bin/env "$@"
+FAKE_ENV
+
 write_command_shim "$fake_bin/gh" <<'FAKE_GH'
 printf 'gh %s\n' "$*" >> "$TEST_LOG"
 case "$1 $2" in

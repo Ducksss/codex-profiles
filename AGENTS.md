@@ -24,8 +24,10 @@ It is community-maintained and is **not** an official OpenAI project.
 - `raycast/` — optional Raycast extension (TypeScript, its own npm
   dependencies); delegates every profile operation to the `codex-profile` CLI
   (a standalone install or the menu-bar app's bundled copy) and never reads
-  auth data. Background calls use argument lists; Terminal launches go through
-  the user's shell with AppleScript `quoted form of`. It is outside the npm
+  auth data. Background calls use argument lists; Terminal launches pass the
+  user's shell one command whose values are single-quoted so sh, bash, zsh
+  and fish all read them literally (AppleScript `quoted form of` is not
+  fish-safe). It is outside the npm
   package and `make check`; verify it with `npm run typecheck`, `npm test` and
   `npx prettier --check .` inside `raycast/`. `npm run lint` fails until
   `author` in `raycast/package.json` is a real Raycast username, so use
@@ -97,9 +99,10 @@ Profile-to-path mapping: `default -> ~/.codex`; any other name `<x> -> ~/.codex-
   Shared test helpers must provide infrastructure rather than product policy.
 - Match the existing Bash style in `bin/codex-profile`: `set -euo pipefail`,
   `command_*` functions for subcommands, and the `die`/`note` helpers.
-- If you change the command surface, update `usage()` in `bin/codex-profile`,
-  the README command reference, the shell completion generators, and
-  `docs/llms.txt` so all four stay in sync.
+- If you change the command surface, update `usage()` and the per-command help
+  in `bin/codex-profile`, the command reference in `USAGE.md` (the README only
+  links to it), the shell completion generators, and `docs/llms.txt` so they
+  stay in sync.
 - Bump the version together in `bin/codex-profile`, `package.json`, both
   `package-lock.json` version fields, `docs/index.html`,
   `packaging/aur/PKGBUILD`, and `packaging/aur/.SRCINFO`. CI and the GEO test
@@ -140,7 +143,8 @@ link.
   per-profile Electron user data. The tool never reads, copies, prints, parses,
   compares, or migrates `auth.json` tokens or ChatGPT cookies.
 - `clone-config` copies only an allowlist of non-secret root config files and
-  refuses sensitive-looking key names.
+  refuses any file containing sensitive-looking text (key, token, secret and
+  similar words, URL credentials, common token prefixes).
 - `init --share-with` links only the documented configuration allowlist. It
   keeps auth, sessions, logs, Electron data, caches, skills, and connector/app
   state separate and never reads or copies authentication data; linked config
