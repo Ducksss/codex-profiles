@@ -151,7 +151,7 @@ enum UsageTests {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
         try fixture.write("", to: "hold")
-        let suite = "UsageStoreTests.\(UUID().uuidString)"
+        let suite = WorkspaceStore.testSuiteName("UsageStoreTests")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = WorkspaceStore(client: CLIClient(executableURL: fixture.executable), defaults: defaults)

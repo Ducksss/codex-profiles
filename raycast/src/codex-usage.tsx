@@ -153,7 +153,7 @@ function ProfileRows(props: { cli: string; profile: ProfileUsage; now: number; r
           <ActionPanel>
             <Action.CopyToClipboard
               title="Copy Init Command"
-              content={`codex-profile init ${shellQuote(profile.name)}`}
+              content={`${shellQuote(cli)} init ${shellQuote(profile.name)}`}
             />
             {refreshAction}
           </ActionPanel>

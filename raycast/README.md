@@ -96,9 +96,9 @@ launches) run
 `codex-profile` directly with an argument list, never through a shell, and
 without `CODEX_ACCESS_TOKEN`, `CODEX_API_KEY` or `OPENAI_API_KEY`. Terminal
 launches ask Terminal to run `codex-profile cli` or `codex-profile login` in
-a new window, in your own shell and its environment; the command is built
-with AppleScript's `quoted form of`, so profile names and folder paths are
-never interpreted by the shell. When no install is found in the usual
+a new window, in your own shell and its environment; profile names and
+folder paths are single-quoted the way sh, bash, zsh and fish all read
+literally, so they are never interpreted by the shell. When no install is found in the usual
 locations, discovery runs your login shell with the fixed command
 `command -v codex-profile`.
 

@@ -27,7 +27,9 @@ function WorkspaceList(props: { cli: string }) {
     key: (binding) => binding.path,
   });
   const profiles = [...new Set(bindings.map((binding) => binding.profile))].sort((a, b) => a.localeCompare(b));
-  const visible = sorted.filter((binding) => profileFilter === ALL_PROFILES || binding.profile === profileFilter);
+  // A refresh can remove the filtered profile's last binding and hide the dropdown.
+  const activeFilter = profiles.includes(profileFilter) ? profileFilter : ALL_PROFILES;
+  const visible = sorted.filter((binding) => activeFilter === ALL_PROFILES || binding.profile === activeFilter);
 
   return (
     <List
@@ -35,7 +37,7 @@ function WorkspaceList(props: { cli: string }) {
       searchBarPlaceholder="Search workspaces"
       searchBarAccessory={
         profiles.length > 1 ? (
-          <List.Dropdown tooltip="Filter by profile" value={profileFilter} onChange={setProfileFilter}>
+          <List.Dropdown tooltip="Filter by profile" value={activeFilter} onChange={setProfileFilter}>
             <List.Dropdown.Item title="All Profiles" value={ALL_PROFILES} />
             <List.Dropdown.Section>
               {profiles.map((profile) => (
@@ -65,7 +67,7 @@ function WorkspaceList(props: { cli: string }) {
           description="Bind a project folder to a profile with codex-profile workspace bind <path> <profile>."
           actions={
             <ActionPanel>
-              <Action.CopyToClipboard title="Copy Bind Command" content="codex-profile workspace bind . work" />
+              <Action.CopyToClipboard title="Copy Bind Command" content={`${shellQuote(cli)} workspace bind . work`} />
               <Action title="Refresh" icon={Icon.ArrowClockwise} onAction={revalidate} />
             </ActionPanel>
           }
@@ -119,7 +121,7 @@ function WorkspaceItem(props: { cli: string; binding: WorkspaceBinding; onLaunch
             {problem ? (
               <Action.CopyToClipboard
                 title="Copy Unbind Command"
-                content={`codex-profile workspace unbind ${shellQuote(binding.path)}`}
+                content={`${shellQuote(cli)} workspace unbind ${shellQuote(binding.path)}`}
               />
             ) : null}
           </ActionPanel.Section>
