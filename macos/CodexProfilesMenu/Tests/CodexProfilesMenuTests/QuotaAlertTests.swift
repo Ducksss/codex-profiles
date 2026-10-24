@@ -11,6 +11,7 @@ enum QuotaAlertTests {
         print("Checking low-quota alert permission and notifications…")
         try await controllerAsksOnlyWhenTurnedOn()
         await enablingIgnoresUnsettledReadings()
+        await otherReadingsKeepUnsettledProfilesOutOfTheBaseline()
         await unansweredPermissionStopsWaiting()
         print("Checking background usage refresh only while alerts are on…")
         try await backgroundRefreshFollowsAlerts()
@@ -219,7 +220,7 @@ enum QuotaAlertTests {
     }
 
     private static func preferencePersistence() {
-        let suite = "QuotaAlertPreferences.\(UUID().uuidString)"
+        let suite = WorkspaceStore.testSuiteName("QuotaAlertPreferences")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         expect(!QuotaAlertPreferences(defaults: defaults).isEnabled, "low-quota alerts must default to off")
@@ -232,7 +233,7 @@ enum QuotaAlertTests {
     }
 
     private static func controllerAsksOnlyWhenTurnedOn() async throws {
-        let suite = "QuotaAlertController.\(UUID().uuidString)"
+        let suite = WorkspaceStore.testSuiteName("QuotaAlertController")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         // Fresh readings stay cached, so the background pass started by turning
@@ -301,7 +302,7 @@ enum QuotaAlertTests {
     }
 
     private static func enablingIgnoresUnsettledReadings() async {
-        let suite = "QuotaAlertSettled.\(UUID().uuidString)"
+        let suite = WorkspaceStore.testSuiteName("QuotaAlertSettled")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = WorkspaceStore(client: CLIClient(executableURL: nil), defaults: defaults)
@@ -325,8 +326,41 @@ enum QuotaAlertTests {
         _ = await alerts.setEnabled(false)
     }
 
+    private static func otherReadingsKeepUnsettledProfilesOutOfTheBaseline() async {
+        let suite = WorkspaceStore.testSuiteName("QuotaAlertOtherSettled")
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = WorkspaceStore(client: CLIClient(executableURL: nil), defaults: defaults)
+        let opened = Date()
+        let stale = opened.addingTimeInterval(-7200)
+        func weekly(_ remaining: Double, checkedAt: Date) -> ProfileUsage {
+            reading([window(remaining, 10080, resetIn: 86400, from: opened)], checkedAt: checkedAt)
+        }
+        // Both profiles show two-hour-old readings while their refreshes run.
+        store.loadPreview([], profiles: ["personal", "work"], usage: [
+            "personal": weekly(40, checkedAt: stale),
+            "work": weekly(30, checkedAt: stale),
+        ], readingUsage: ["personal", "work"])
+        let notifier = FakeNotifier()
+        notifier.current = .allowed
+        let alerts = QuotaAlertController(store: store, notifier: notifier, defaults: defaults, refreshInterval: 3600)
+        expect(await alerts.setEnabled(true) == .enabled, "alerts could not be turned on")
+        // personal settles first; work's stale reading is still on screen.
+        store.loadPreview([], profiles: ["personal", "work"], usage: [
+            "personal": weekly(40, checkedAt: Date()),
+            "work": weekly(30, checkedAt: stale),
+        ], readingUsage: ["work"])
+        store.loadPreview([], profiles: ["personal", "work"], usage: [
+            "personal": weekly(40, checkedAt: Date()),
+            "work": weekly(20, checkedAt: Date()),
+        ])
+        expect(notifier.posted.isEmpty,
+            "another profile's reading must not make a still-refreshing reading the baseline for a crossing")
+        _ = await alerts.setEnabled(false)
+    }
+
     private static func unansweredPermissionStopsWaiting() async {
-        let suite = "QuotaAlertTimeout.\(UUID().uuidString)"
+        let suite = WorkspaceStore.testSuiteName("QuotaAlertTimeout")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = WorkspaceStore(client: CLIClient(executableURL: nil), defaults: defaults)
@@ -347,7 +381,7 @@ enum QuotaAlertTests {
     }
 
     private static func backgroundRefreshFollowsAlerts() async throws {
-        let suite = "QuotaAlertRefresh.\(UUID().uuidString)"
+        let suite = WorkspaceStore.testSuiteName("QuotaAlertRefresh")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let fixture = try UsageTests.Fixture()

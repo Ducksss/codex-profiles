@@ -3,6 +3,7 @@ import { useCachedPromise, useFrecencySorting } from "@raycast/utils";
 import { useRef } from "react";
 import { HOME, loadProfiles, type ProfileEntry } from "./cli";
 import { displayPath } from "./lib/profile";
+import { shellQuote } from "./lib/terminal";
 import { offersSignIn, usageHeadline, type ProfileUsage } from "./lib/usage";
 import { CliGate, LaunchActions, useNow, useUsage } from "./shared";
 
@@ -60,7 +61,7 @@ function ProfileList(props: { cli: string }) {
           description="Create one in Terminal with codex-profile setup work, then come back."
           actions={
             <ActionPanel>
-              <Action.CopyToClipboard title="Copy Setup Command" content="codex-profile setup work" />
+              <Action.CopyToClipboard title="Copy Setup Command" content={`${shellQuote(cli)} setup work`} />
               <Action title="Refresh" icon={Icon.ArrowClockwise} onAction={refresh} />
             </ActionPanel>
           }

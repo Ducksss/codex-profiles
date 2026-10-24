@@ -7,7 +7,7 @@ struct MenuInteractionTests {
     static func main() async throws {
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)
-        let suite = "menu-interaction-\(UUID().uuidString)"
+        let suite = WorkspaceStore.testSuiteName("menu-interaction")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(suite)

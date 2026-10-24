@@ -236,6 +236,19 @@ try {
   const listed = await run(['list', '--json']);
   assert.equal(listed.status, 0, listed.stderr);
   assert.deepEqual(JSON.parse(listed.stdout).map(({ Key }) => Key), ['alpha', 'quote"slash\\key']);
+  const unowned = await run(['list', '--owned', 'false', '--json']);
+  assert.equal(unowned.status, 0, unowned.stderr);
+  assert.deepEqual(JSON.parse(unowned.stdout).map(({ Key }) => Key), ['alpha', 'quote"slash\\key']);
+  const owned = await run(['list', '--owned', '--json']);
+  assert.equal(owned.status, 0, owned.stderr);
+  assert.deepEqual(JSON.parse(owned.stdout), []);
+
+  // Plain HTTP is only for the exact loopback address, never a lookalike host.
+  for (const url of ['http://127.0.0.1.attacker.example/rest/v1', 'http://example.com/rest/v1', 'not a url']) {
+    const insecure = await run(['list', '--json'], { NEON_DATA_API_URL: url });
+    assert.equal(insecure.status, 2, `${url} was accepted`);
+    assert.match(insecure.stderr, /must use HTTPS/);
+  }
 
   const escaped = await run(['get', 'quote"slash\\key', '--json']);
   assert.equal(escaped.status, 0, escaped.stderr);

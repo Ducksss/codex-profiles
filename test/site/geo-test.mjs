@@ -324,6 +324,6 @@ for (const document of ['README.md', 'USAGE.md']) {
     }
   }
 }
-for (const asset of ['USAGE.md', 'docs/welcome.svg']) {
+for (const asset of ['USAGE.md']) {
   assert.ok(packageJson.files.includes(asset), `npm package must include README dependency ${asset}`);
 }

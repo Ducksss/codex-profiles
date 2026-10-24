@@ -449,12 +449,22 @@ final class WorkspaceStore {
     }
 
     #if TESTING
+    /// A unique defaults suite for a test or preview. Removing its domain
+    /// still leaves an empty plist in the real ~/Library/Preferences (HOME
+    /// does not move it), so the suite carries the run's
+    /// PROFILE_TEST_DEFAULTS_RUN tag for the test script to sweep afterwards.
+    nonisolated static func testSuiteName(_ name: String) -> String {
+        let run = ProcessInfo.processInfo.environment["PROFILE_TEST_DEFAULTS_RUN"].map { ".\($0)" } ?? ""
+        return "\(name)\(run).\(UUID().uuidString)"
+    }
+
     func loadPreview(_ bindings: [WorkspaceBinding], profiles previewProfiles: [String]? = nil, usage previewUsage: [String: ProfileUsage] = [:],
                      readingUsage previewReading: Set<String> = [], changingPaths previewChanging: Set<String> = []) {
         workspaces = bindings
         profiles = Array(Set(previewProfiles ?? bindings.filter(\.profileExists).map(\.profile))).sorted()
-        usage = previewUsage
+        // Like refreshUsage, settle readings before usage observers run.
         readingUsage = previewReading
+        usage = previewUsage
         changingPaths = previewChanging
         guardMode = "warn"
         hasLoaded = true

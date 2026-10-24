@@ -238,6 +238,17 @@ test_env_warns_to_stderr_without_polluting_stdout_when_uninitialized() {
   [[ "$out" != *"not initialized"* ]] || fail "env stdout must stay eval-safe (warning must not land on stdout)"
   [[ "$err" == *"profile 'ghost' is not initialized"* ]] || fail "env should warn on stderr for an uninitialized profile"
 
+  # A symlinked home would select another profile's auth and sessions.
+  mkdir -p "$tmp/home/.codex"
+  ln -s "$tmp/home/.codex" "$tmp/home/.codex-alias"
+  set +e
+  out="$(env HOME="$tmp/home" "$SCRIPT" env alias 2> "$tmp/err")"
+  status=$?
+  set -e
+  [[ "$status" -eq 1 ]] || fail "env selected a symlinked profile home"
+  [[ -z "$out" ]] || fail "env emitted exports for a symlinked profile home: $out"
+  grep -Fq "Refusing symlinked profile home" "$tmp/err" || fail "env did not explain the symlinked home"
+
   rm -rf "$tmp"
 }
 

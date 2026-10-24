@@ -166,7 +166,11 @@ struct CLIClient: Sendable {
         try await Task.detached(priority: .userInitiated) {
             let result = try await ProcessRunner().run(
                 executableURL: URL(fileURLWithPath: "/usr/bin/osascript"),
-                arguments: ["-e", Self.terminalLoginAppleScript, executableURL.path, profile]
+                arguments: [
+                    "-e",
+                    Self.terminalAppleScript,
+                    Self.terminalLoginCommand(toolPath: executableURL.path, profile: profile),
+                ]
             )
             guard result.terminationStatus == 0 else {
                 throw CLIClientError.commandFailed(Self.terminalErrorMessage(from: result))
@@ -193,9 +197,12 @@ struct CLIClient: Sendable {
                     arguments: [
                         "-e",
                         Self.terminalAppleScript,
-                        executableURL.path,
-                        target.profile,
-                        target.workspace?.path ?? FileManager.default.homeDirectoryForCurrentUser.path,
+                        Self.terminalLaunchCommand(
+                            toolPath: executableURL.path,
+                            profile: target.profile,
+                            workspacePath: target.workspace?.path
+                                ?? FileManager.default.homeDirectoryForCurrentUser.path
+                        ),
                     ]
                 )
                 guard result.terminationStatus == 0 else {
@@ -210,30 +217,39 @@ struct CLIClient: Sendable {
         return executableURL
     }
 
+    /// The finished shell command travels as an osascript argument, so no
+    /// runtime value is interpolated into AppleScript source.
     static let terminalAppleScript = """
     on run argv
-        set toolPath to item 1 of argv
-        set profileName to item 2 of argv
-        set workspacePath to item 3 of argv
-        set launchCommand to "cd " & quoted form of workspacePath & " && exec " & quoted form of toolPath & " cli " & quoted form of profileName
         tell application "Terminal"
             activate
-            do script launchCommand
+            do script (item 1 of argv)
         end tell
     end run
     """
 
-    static let terminalLoginAppleScript = """
-    on run argv
-        set toolPath to item 1 of argv
-        set profileName to item 2 of argv
-        set loginCommand to "exec " & quoted form of toolPath & " login " & quoted form of profileName
-        tell application "Terminal"
-            activate
-            do script loginCommand
-        end tell
-    end run
-    """
+    static func terminalLaunchCommand(toolPath: String, profile: String, workspacePath: String) -> String {
+        "cd \(shellQuote(workspacePath)) && exec \(shellQuote(toolPath)) cli \(shellQuote(profile))"
+    }
+
+    static func terminalLoginCommand(toolPath: String, profile: String) -> String {
+        "exec \(shellQuote(toolPath)) login \(shellQuote(profile))"
+    }
+
+    /// Terminal runs the command in the user's login shell. AppleScript's
+    /// `quoted form of` is POSIX-only: fish reads `\'` and `\\` inside single
+    /// quotes as escapes, so quotes and backslashes are written outside them.
+    static func shellQuote(_ value: String) -> String {
+        var quoted = "'"
+        for character in value {
+            switch character {
+            case "'": quoted += "'\\''"
+            case "\\": quoted += "'\\\\'"
+            default: quoted.append(character)
+            }
+        }
+        return quoted + "'"
+    }
 
     static func isValidProfileName(_ profile: String) -> Bool {
         profile.range(of: "^[A-Za-z0-9][A-Za-z0-9._-]*$", options: .regularExpression)

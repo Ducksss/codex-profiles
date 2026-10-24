@@ -348,7 +348,9 @@ when not `ok`, and `windows` with `duration_mins`, `used_percent`,
 `remaining_percent` and `resets_at` (Unix seconds); durations and reset times
 may be `null`. The command reports quota only: it never switches profiles.
 
-Ordinary `doctor` remains informational. `doctor --check` exits nonzero when
+Ordinary `doctor` does not fail on unhealthy local state; it exits nonzero only
+when a profile's `codex login status` fails unexpectedly, as `status` does.
+`doctor --check` exits nonzero when
 the CLI is missing, status collection fails, workspace state is invalid or
 stale, or private profile state is linked; JSON includes top-level `healthy`
 and workspace `schema_version` fields for automation.
@@ -392,9 +394,10 @@ set `CODEX_PROFILE_LAUNCHER_ROOT` to use another directory. Creation derives a
 deterministically tinted icon from the installed ChatGPT artwork on the local
 Mac. The project does not redistribute that artwork.
 
-Each generated app is a small unsigned shell launcher. It calls
-`codex-profile app <profile>` and leaves the installed, signed ChatGPT bundle
-untouched. Its custom name and icon appear on the launcher in Finder,
+Each generated app is a small unsigned shell launcher. It runs `app <profile>`
+through the absolute path of the `codex-profile` that created it (recreate it
+with `--force` after moving or reinstalling `codex-profile` elsewhere) and
+leaves the installed, signed ChatGPT bundle untouched. Its custom name and icon appear on the launcher in Finder,
 Launchpad, and when pinned to the Dock. After launch, the active ChatGPT process
 keeps ChatGPT's native name and icon because macOS is running the original
 signed app.
@@ -588,7 +591,9 @@ codex-profile clone-config personal work --force
 
 Only root-level `config.toml` and `AGENTS.md` are eligible. The command never
 copies `auth.json`, sessions, plugins, logs, caches, Electron data, or
-directories, and it refuses sensitive-looking configuration keys.
+directories, and it refuses a file containing sensitive-looking text anywhere,
+including prose: words such as auth, token, secret, password or key,
+credentials in URLs, and common token prefixes.
 
 ### Upgrade a source installation
 
@@ -767,8 +772,9 @@ codex-profile cli work --help
 
 ## Update checks
 
-Interactive terminal runs check the npm registry at most once per day and use
-a local cache. Scripts, pipes, CI, and JSON output remain quiet. The request
+Runs whose standard output is a terminal check the npm registry at most once
+per day and use a local cache. Pipes, captured output, runs without a terminal
+such as most CI, and JSON output remain quiet. The request
 contains no profile data; disable it with `CODEX_PROFILE_NO_UPDATE_CHECK=1` or
 `DO_NOT_TRACK=1`. See [SECURITY.md](SECURITY.md) for the complete network model.
 
@@ -777,7 +783,7 @@ contains no profile data; disable it with `CODEX_PROFILE_NO_UPDATE_CHECK=1` or
 CLI-oriented commands and launcher inspection are tested on macOS and Ubuntu/Linux:
 
 ```text
-cli login init setup detach remove workspace run status path env use logs clone-config list doctor completions shell-init upgrade version help
+cli login init setup detach remove workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help
 ```
 
 `app` and `launcher create` are macOS-only. They detect the installed integrated `ChatGPT.app` and

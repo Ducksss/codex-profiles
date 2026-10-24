@@ -364,7 +364,10 @@ final class QuotaAlertController {
     func usageDidChange(at now: Date = Date()) {
         updateIndicator(at: now)
         guard isEnabled else { return }
-        for alert in tracker.observe(store.usage, profiles: store.profiles, at: now) {
+        // Another profile's fresh reading must not turn a reading that is
+        // still refreshing into a baseline; it keeps its earlier one instead.
+        let settled = store.usage.filter { !store.readingUsage.contains($0.key) }
+        for alert in tracker.observe(settled, profiles: store.profiles, at: now) {
             let headroom = QuotaHeadroom.suggestion(for: alert, usage: store.usage, profiles: store.profiles, at: now)
             // Posting without permission fails quietly; the icon still shows it.
             notifier.post(QuotaNotification(alert: alert, headroom: headroom, at: now))

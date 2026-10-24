@@ -24,7 +24,7 @@ FORBIDDEN_CODEX
   chmod 755 "$TMP_ROOT/forbidden-codex"
 
   for topic in app app-instance cli login run setup init detach clone-config remove list path \
-    workspace launcher status doctor logs upgrade version env use completions shell-init help; do
+    workspace launcher status usage doctor logs upgrade version env use completions shell-init help; do
     help_cmd help "$topic"
     assert_status 0
     assert_contains "Usage: codex-profile $topic"
