@@ -316,6 +316,12 @@ struct MenuInteractionTests {
             && usageLines.contains { $0.title.hasPrefix("5h: 77% left · resets ") } && usageLines.contains { $0.title.hasPrefix("7d: 9% left · resets ") }
             && usageLines.contains { $0.title.hasPrefix("Checked ") },
             "profile actions must list each window's remaining quota, reset time and freshness as information")
+        let passed = ProfileUsage.available(CodexRateLimits(windows: [
+            RateLimitWindow(usedPercent: 60, windowDurationMins: 300, resetsAt: checkedAt.addingTimeInterval(-60).timeIntervalSince1970),
+        ]), checkedAt: checkedAt)
+        store.loadPreview([first, last], profiles: ["work"], usage: ["work": passed])
+        expect(controller.actionsMenu(for: .profile("work")).items.contains { $0.title.hasPrefix("5h: reset at ") && $0.title.hasSuffix(" · awaiting a fresh reading") },
+            "a window whose reset has passed must keep its reset time and say it awaits a fresh reading")
 
         // Disabled actions stay disabled through AppKit's menu validation.
         store.loadPreview([first, missing], profiles: ["work", "personal"])
