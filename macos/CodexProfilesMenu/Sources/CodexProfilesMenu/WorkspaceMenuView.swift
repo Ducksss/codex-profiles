@@ -541,9 +541,10 @@ final class WorkspaceMenuViewController: NSViewController {
         if case let .available(limits, checkedAt) = usage.reading {
             lines += limits.windows.enumerated().map { index, window in
                 let name = window.durationLabel ?? "Limit \(index + 1)"
-                guard !window.hasReset(at: now) else { return "\(name): awaiting a fresh reading" }
-                let reset = window.resetsAt.map { " · resets \(UsageFormat.clock(Date(timeIntervalSince1970: $0), relativeTo: now))" } ?? ""
-                return "\(name): \(window.remainingPercent)% left\(reset)"
+                let clock = window.resetsAt.map { UsageFormat.clock(Date(timeIntervalSince1970: $0), relativeTo: now) }
+                // A passed reset keeps its time, worded in the past like the tooltip.
+                guard !window.hasReset(at: now) else { return "\(name): reset at \(clock ?? "an unknown time") · awaiting a fresh reading" }
+                return "\(name): \(window.remainingPercent)% left" + (clock.map { " · resets \($0)" } ?? "")
             }
             lines.append((usage.isRefreshing ? "Refreshing… " : "") + "Checked \(UsageFormat.clock(checkedAt, relativeTo: now))")
         } else if usage.reading == nil || usage.isRefreshing {
