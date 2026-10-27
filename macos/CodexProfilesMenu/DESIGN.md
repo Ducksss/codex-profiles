@@ -195,10 +195,13 @@ a threshold cannot repeat. A later critical notification replaces
 the low one for the same window. The body names the reset time and mentions
 another profile only when it has at least 50% of the same window left, no
 low window of its own and a reading under 15 minutes old. Clicking a
-notification opens the popover. While alerts are on, a five-minute loop with
-timer tolerance calls the same refreshUsage path, so the cache, two readers,
-deadlines and owned-process cleanup are unchanged; turning alerts off or
-Quit stops it, and no reader starts without initialized profiles. The app
+notification opens the popover. While alerts or the menu-bar figure are on,
+a five-minute loop with timer tolerance calls the same refreshUsage path, so
+the cache, two readers, deadlines and owned-process cleanup are unchanged;
+turning both off or Quit stops it, and no reader starts without initialized
+profiles. Each pass first lists profiles quietly, so profiles created or
+removed outside the app join or leave the checks while the menu stays closed,
+and the status message the person may be reading is left alone. The app
 never switches profiles or accounts automatically: alerts show the numbers
 and the person chooses. The decision logic is plain Foundation behind a
 notifier protocol, so tests never touch UNUserNotificationCenter.

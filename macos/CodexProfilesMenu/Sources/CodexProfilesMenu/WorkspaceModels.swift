@@ -110,7 +110,8 @@ struct ProfileAppearance: Equatable {
 
         var label: String { rawValue.capitalized }
 
-        /// sRGB components. White symbols keep at least 4.5:1 contrast on each.
+        /// sRGB components. White symbols keep at least 4.5:1 contrast on each,
+        /// which a unit test checks.
         var components: (red: Double, green: Double, blue: Double) {
             switch self {
             case .blue: (0.039, 0.424, 0.859)
@@ -118,9 +119,9 @@ struct ProfileAppearance: Equatable {
             case .purple: (0.537, 0.267, 0.671)
             case .pink: (0.780, 0.145, 0.357)
             case .teal: (0.043, 0.478, 0.518)
-            case .green: (0.141, 0.541, 0.239)
+            case .green: (0.141, 0.522, 0.231)
             case .brown: (0.525, 0.400, 0.290)
-            case .graphite: (0.463, 0.463, 0.482)
+            case .graphite: (0.451, 0.451, 0.471)
             }
         }
     }

@@ -145,11 +145,12 @@ profile has at least 50% of the same window left in a reading under 15
 minutes old, it also says so, for example `personal has 70% left.` Clicking
 the notification opens the menu.
 
-While alerts are on, the app checks usage about every five minutes through
-the same reader, cache, two-reader limit, deadlines and process cleanup.
-Checks stop when alerts are turned off or the app quits, and no reader starts
-when no profile is initialized. A login launch lists profiles once; profiles
-created outside the app join the checks the next time the menu opens.
+While alerts or **Quota in menu bar** are on, the app checks usage about
+every five minutes through the same reader, cache, two-reader limit,
+deadlines and process cleanup. Checks stop when both are off or the app
+quits, and no reader starts when no profile is initialized. Each check lists
+profiles first, so profiles created or removed outside the app join or leave
+the checks without opening the menu; it leaves the menu's status line alone.
 
 The app never switches profiles or accounts for you. It shows the numbers
 and you choose which profile to open. This is deliberate: Codex Profiles

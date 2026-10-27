@@ -423,11 +423,21 @@ enum QuotaAlertTests {
         store.loadPreview([], profiles: ["work"], usage: ["work": reading([window(50, 300, resetIn: 3600, from: Date())], checkedAt: Date().addingTimeInterval(-120))])
         try await waitUntil { calls(fixture) == first + 1 && !store.isRefreshingUsage }
         expect(!(try fixture.isRunning("work")), "background reads must stop their app-servers")
+        // Each pass lists profiles quietly, so one created outside the app
+        // joins the checks without replacing the footer's message.
+        store.showMessage("Opened work in ChatGPT")
+        try fixture.write("work\npersonal\n", to: "profiles")
+        try fixture.write(#"{"guard_mode":"off","bindings":[]}"#, to: "workspaces.json")
+        try await waitUntil { store.usage["personal"] != nil && !store.isRefreshingUsage }
+        expect(store.profiles == ["work", "personal"] && store.usage["personal"] != nil,
+            "a profile created outside the app must join the background checks")
+        expect(store.statusMessage == "Opened work in ChatGPT", "background passes must not replace the footer's message")
         _ = await alerts.setEnabled(false)
         try await Task.sleep(nanoseconds: 150_000_000)
+        let stopped = calls(fixture)
         store.loadPreview([], profiles: ["work"], usage: ["work": reading([window(50, 300, resetIn: 3600, from: Date())], checkedAt: Date().addingTimeInterval(-120))])
         try await Task.sleep(nanoseconds: 250_000_000)
-        expect(calls(fixture) == first + 1, "turning alerts off must stop background reads")
+        expect(calls(fixture) == stopped, "turning alerts off must stop background reads")
 
         let empty = try UsageTests.Fixture()
         defer { empty.cleanup() }

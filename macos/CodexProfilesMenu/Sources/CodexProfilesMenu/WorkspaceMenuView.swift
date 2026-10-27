@@ -1494,9 +1494,10 @@ final class SymbolChoiceButton: NSButton {
         isBordered = false
         setButtonType(.pushOnPushOff)
         wantsLayer = true
-        if let name = symbol.systemName {
+        // A symbol this Mac lacks falls back to the initial, like the tile does.
+        if let name = symbol.systemName, let symbolImage = NSImage(systemSymbolName: name, accessibilityDescription: symbol.label) {
             title = ""
-            image = NSImage(systemSymbolName: name, accessibilityDescription: symbol.label)
+            image = symbolImage
             symbolConfiguration = .init(pointSize: 14, weight: .regular)
             imagePosition = .imageOnly
         } else {
