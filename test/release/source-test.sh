@@ -65,6 +65,37 @@ for expected in \
     || fail "verify-source output is missing $expected"
 done
 
+# Documentation may track main; executable installer references must stay pinned.
+fixture="$TMP_ROOT/source-fixture"
+mkdir -p "$fixture/scripts/release" "$fixture/bin" "$fixture/docs" "$fixture/packaging/aur"
+cp "$VERIFY_SOURCE" "$ROOT_DIR/scripts/release/lib.sh" "$fixture/scripts/release/"
+cp "$ROOT_DIR/package.json" "$ROOT_DIR/package-lock.json" "$ROOT_DIR/README.md" \
+  "$ROOT_DIR/CHANGELOG.md" "$ROOT_DIR/install.sh" "$ROOT_DIR/flake.nix" "$fixture/"
+cp "$ROOT_DIR/bin/codex-profile" "$fixture/bin/"
+cp "$ROOT_DIR/docs/index.html" "$ROOT_DIR/docs/llms.txt" "$fixture/docs/"
+cp "$ROOT_DIR/packaging/aur/PKGBUILD" "$ROOT_DIR/packaging/aur/.SRCINFO" "$fixture/packaging/aur/"
+for reference in \
+  'https://raw.githubusercontent.com/Ducksss/codex-profiles/main/README.md' \
+  'https://raw.githubusercontent.com/Ducksss/codex-profiles/main/install.sh' \
+  'https://raw.githubusercontent.com/Ducksss/codex-profiles/feature/nested/install.sh?download=1#fragment' \
+  "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$VERSION/install.sh?download=1"; do
+  cp "$ROOT_DIR/README.md" "$fixture/README.md"
+  printf '\n%s\n' "$reference" >> "$fixture/README.md"
+  reference_status=0
+  PATH="$fake_bin:$PATH" RELEASE_TEST_LOG="$log_file" \
+    INPUT_VERSION="$VERSION" DRY_RUN=true GITHUB_REF=refs/heads/main GITHUB_SHA="$FAKE_SHA" \
+    GITHUB_OUTPUT="$output_file" GITHUB_STEP_SUMMARY="$summary_file" \
+    "$fixture/scripts/release/verify-source.sh" > "$TMP_ROOT/reference.log" 2>&1 \
+    || reference_status=$?
+  if [[ "$reference" == */README.md ]]; then
+    [[ "$reference_status" -eq 0 ]] || fail "raw Markdown source rejected: $(cat "$TMP_ROOT/reference.log")"
+  else
+    [[ "$reference_status" -ne 0 ]] || fail "unpinned installer accepted: $reference"
+    assert_contains "$(cat "$TMP_ROOT/reference.log")" \
+      'non-release installer reference' 'installer pin validation'
+  fi
+done
+
 set +e
 invalid_output="$({
   INPUT_VERSION="v$VERSION" \

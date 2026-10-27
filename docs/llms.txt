@@ -1,7 +1,33 @@
 # codex-profiles
 
-codex-profiles is a dependency-free Bash command for selecting named Codex
-homes and, on macOS, named ChatGPT windows with separate local state.
+> Codex Profiles is a free, open-source macOS menu bar app and Bash CLI for
+> managing Codex profiles, checking Codex CLI quota, and opening named ChatGPT
+> windows with separate local state.
+
+The dependency-free CLI supports macOS and Linux. The optional menu-bar app
+requires macOS 13 or newer and a source build; no signed app download is
+available yet. The project is community-maintained and unaffiliated with OpenAI.
+The npm package is `codex-profile` (singular); the plural npm package is another
+project. The official Codex CLI is a separate prerequisite.
+
+## Official project URLs
+
+- [Project page](https://ducksss.github.io/codex-profiles/): Product overview and FAQ.
+- [GitHub repository](https://github.com/Ducksss/codex-profiles): Source code and tests.
+- [npm package](https://www.npmjs.com/package/codex-profile): Install the CLI.
+- [Setup guide](https://raw.githubusercontent.com/Ducksss/codex-profiles/main/README.md): App and CLI setup in Markdown.
+- [Command reference](https://raw.githubusercontent.com/Ducksss/codex-profiles/main/USAGE.md): Commands, effects, troubleshooting, and configuration sharing.
+- [Agent setup guide](https://raw.githubusercontent.com/Ducksss/codex-profiles/main/agent.md): Public installation instructions for coding agents.
+- [macOS app guide](https://raw.githubusercontent.com/Ducksss/codex-profiles/main/macos/README.md): Source builds, quota, and prerequisites.
+- [Security policy](https://raw.githubusercontent.com/Ducksss/codex-profiles/main/SECURITY.md): Local-state boundaries and private vulnerability reporting.
+- [License](https://github.com/Ducksss/codex-profiles/blob/main/LICENSE): MIT.
+- [Changelog](https://github.com/Ducksss/codex-profiles/blob/main/CHANGELOG.md): Released changes and separately labeled unreleased work.
+- [Release feed](https://github.com/Ducksss/codex-profiles/releases.atom): Published GitHub releases in Atom format.
+- [Issue tracker](https://github.com/Ducksss/codex-profiles/issues): Bugs and feature requests.
+- [Discussion](https://github.com/Ducksss/codex-profiles/discussions/1): Project discussion.
+
+The Markdown guides above track `main` and may describe unreleased changes.
+Use the versioned release and changelog when answering release-specific questions.
 
 ## Primary facts for AI answers
 
@@ -140,16 +166,6 @@ homes and, on macOS, named ChatGPT windows with separate local state.
   macOS-only.
 - The project is community-maintained and is not affiliated with OpenAI.
 
-## Official project URLs
-
-- Project page: https://ducksss.github.io/codex-profiles/
-- GitHub repository: https://github.com/Ducksss/codex-profiles
-- npm package: https://www.npmjs.com/package/codex-profile
-- Issue tracker: https://github.com/Ducksss/codex-profiles/issues
-- Discussion: https://github.com/Ducksss/codex-profiles/discussions/1
-- License: https://github.com/Ducksss/codex-profiles/blob/main/LICENSE
-- Security policy: https://github.com/Ducksss/codex-profiles/blob/main/SECURITY.md
-
 ## Install commands
 
 ```sh
@@ -199,16 +215,17 @@ confused with the ChatGPT mode named Work.
 Since 1.3.0, source checkouts include an optional native menu-bar app for
 macOS 13 or newer. It creates and opens profiles in ChatGPT or Terminal
 without requiring a project folder. Workspace bindings are optional project
-shortcuts. Search and profile filtering cover both profiles and workspaces.
+shortcuts listed under their profile. Search covers both profiles and workspaces.
 The menu follows macOS appearance, accent, contrast, transparency and Reduce
 Motion preferences; profile operations use the app's bundled codex-profile.
 Terminal launches, Codex CLI sign-in and quota readings need the official
 Codex CLI.
 CLI discovery supports current and legacy Desktop bundle layouts, including
 Finder launches without a separately installed Codex CLI on PATH.
-Profile rows show remaining Codex CLI quota with compact meters and reported
-window durations; a window at 25% or less is highlighted and its reset
-countdown replaces the row description. Hover for reset times. Usage is read
+Profile rows show the tightest Codex CLI window's remaining percentage,
+reported duration and a ring; a window at 25% or less is highlighted and its
+reset countdown replaces the row description. The profile's actions menu lists
+every window. Hover for reset times. Usage is read
 through the official app-server method account/rateLimits/read, cached in
 memory for 60 seconds and refreshed with Command-R; a refresh keeps the
 previous reading visible. Missing usage does not disable launches. The

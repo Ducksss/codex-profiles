@@ -3,40 +3,44 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>codex-profiles - Named Codex homes and ChatGPT desktop windows</title>
-  <meta name="description" content="codex-profiles selects named CODEX_HOME directories for Codex and named ChatGPT windows with separate local state on macOS, without copying authentication files.">
+  <title>Codex Profiles | macOS menu bar app and CLI</title>
+  <meta name="description" content="Manage Codex profiles from a macOS menu bar app or CLI. Check Codex quota and open named ChatGPT windows with separate local state. Free and open source.">
   <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
   <link rel="canonical" href="https://ducksss.github.io/codex-profiles/">
+  <link rel="alternate" type="text/plain" title="Codex Profiles reference" href="https://ducksss.github.io/codex-profiles/llms.txt">
+  <link rel="alternate" type="application/atom+xml" title="Codex Profiles releases" href="https://github.com/Ducksss/codex-profiles/releases.atom">
+  <link rel="sitemap" type="application/xml" href="https://ducksss.github.io/codex-profiles/sitemap.xml">
   <link rel="license" href="https://github.com/Ducksss/codex-profiles/blob/main/LICENSE">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f1ea">
-  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#11110f">
+  <meta name="theme-color" content="#080808">
+  <meta name="color-scheme" content="dark">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="codex-profiles - Named Codex homes and ChatGPT desktop windows">
-  <meta property="og:description" content="Select named Codex homes and named ChatGPT windows with separate local state without copying authentication files.">
+  <meta property="og:site_name" content="Codex Profiles">
+  <meta property="og:title" content="Codex Profiles | macOS menu bar app and CLI">
+  <meta property="og:description" content="Manage Codex profiles from a macOS menu bar app or CLI. Check Codex quota and open named ChatGPT windows with separate local state. Free and open source.">
   <meta property="og:url" content="https://ducksss.github.io/codex-profiles/">
   <meta property="og:image" content="https://ducksss.github.io/codex-profiles/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="codex-profiles - named Codex homes and ChatGPT desktop windows with separate local state">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Codex Profiles | macOS menu bar app and CLI">
+  <meta name="twitter:description" content="Manage Codex profiles from a macOS menu bar app or CLI. Check Codex quota and open named ChatGPT windows with separate local state. Free and open source.">
   <meta name="twitter:image" content="https://ducksss.github.io/codex-profiles/og-image.png">
+  <meta name="twitter:image:alt" content="codex-profiles - named Codex homes and ChatGPT desktop windows with separate local state">
+  <script>document.documentElement.classList.add('js');</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter+Tight:wght@200;300;400;500&display=swap">
   <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
     {
-      "@type": "Organization",
-      "@id": "https://github.com/Ducksss/codex-profiles#organization",
-      "name": "Ducksss open-source projects",
-      "url": "https://github.com/Ducksss",
-      "sameAs": [
-        "https://github.com/Ducksss/codex-profiles",
-        "https://www.npmjs.com/package/codex-profile"
-      ]
+      "@type": "Person",
+      "@id": "https://ducksss.github.io/codex-profiles/#maintainer",
+      "name": "Ducksss",
+      "url": "https://github.com/Ducksss"
     },
     {
       "@type": "WebSite",
@@ -44,19 +48,19 @@
       "name": "codex-profiles",
       "url": "https://ducksss.github.io/codex-profiles/",
       "publisher": {
-        "@id": "https://github.com/Ducksss/codex-profiles#organization"
+        "@id": "https://ducksss.github.io/codex-profiles/#maintainer"
       },
       "inLanguage": "en"
     },
     {
-      "@type": "SoftwareApplication",
+      "@type": ["SoftwareApplication", "SoftwareSourceCode"],
       "@id": "https://ducksss.github.io/codex-profiles/#software",
       "name": "codex-profiles",
       "alternateName": "codex-profile",
       "url": "https://ducksss.github.io/codex-profiles/",
-      "description": "codex-profiles is a dependency-free Bash CLI for named Codex homes and named ChatGPT windows with separate local state.",
+      "description": "codex-profiles is a free, open-source macOS menu bar app and dependency-free Bash CLI for managing Codex profiles. Check Codex CLI quota and open named ChatGPT windows with separate local state on macOS; CLI commands also support Linux.",
       "applicationCategory": "DeveloperApplication",
-      "applicationSubCategory": "Command-line tool",
+      "applicationSubCategory": "Developer profile manager",
       "operatingSystem": [
         "macOS",
         "Linux"
@@ -64,11 +68,15 @@
       "softwareVersion": "1.3.0",
       "license": "https://github.com/Ducksss/codex-profiles/blob/main/LICENSE",
       "codeRepository": "https://github.com/Ducksss/codex-profiles",
+      "sameAs": [
+        "https://github.com/Ducksss/codex-profiles",
+        "https://www.npmjs.com/package/codex-profile"
+      ],
       "downloadUrl": "https://www.npmjs.com/package/codex-profile",
       "installUrl": "https://www.npmjs.com/package/codex-profile",
       "discussionUrl": "https://github.com/Ducksss/codex-profiles/discussions/1",
       "maintainer": {
-        "@id": "https://github.com/Ducksss/codex-profiles#organization"
+        "@id": "https://ducksss.github.io/codex-profiles/#maintainer"
       },
       "featureList": [
         "Separate CODEX_HOME directories per profile",
@@ -98,9 +106,9 @@
       "@type": "WebPage",
       "@id": "https://ducksss.github.io/codex-profiles/#webpage",
       "url": "https://ducksss.github.io/codex-profiles/",
-      "name": "codex-profiles - Named Codex homes and ChatGPT desktop windows",
-      "description": "A machine-readable product page for codex-profiles and its separate Codex-local and ChatGPT Desktop scopes.",
-      "dateModified": "2026-10-12",
+      "name": "Codex Profiles | macOS menu bar app and CLI",
+      "description": "Manage Codex profiles from a macOS menu bar app or CLI. Check Codex quota and open named ChatGPT windows with separate local state. Free and open source.",
+      "dateModified": "2026-10-27",
       "image": "https://ducksss.github.io/codex-profiles/og-image.png",
       "isPartOf": {
         "@id": "https://ducksss.github.io/codex-profiles/#website"
@@ -108,22 +116,7 @@
       "mainEntity": {
         "@id": "https://ducksss.github.io/codex-profiles/#software"
       },
-      "breadcrumb": {
-        "@id": "https://ducksss.github.io/codex-profiles/#breadcrumb"
-      },
       "inLanguage": "en"
-    },
-    {
-      "@type": "BreadcrumbList",
-      "@id": "https://ducksss.github.io/codex-profiles/#breadcrumb",
-      "itemListElement": [
-        {
-          "@type": "ListItem",
-          "position": 1,
-          "name": "codex-profiles",
-          "item": "https://ducksss.github.io/codex-profiles/"
-        }
-      ]
     },
     {
       "@type": "FAQPage",
@@ -134,7 +127,7 @@
           "name": "What is codex-profiles?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "codex-profiles is a Bash command that selects named CODEX_HOME directories and, on macOS, named ChatGPT windows with separate local state."
+            "text": "codex-profiles is a free, open-source macOS menu bar app and Bash CLI for managing Codex profiles. It opens named ChatGPT windows with separate local state on macOS and supports Codex CLI profiles on macOS and Linux."
           }
         },
         {
@@ -142,7 +135,7 @@
           "name": "Why use separate CODEX_HOME directories?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Separate CODEX_HOME directories keep Codex auth, config, sessions, plugins, caches, logs, and local state separated by profile."
+            "text": "Separate CODEX_HOME directories keep Codex auth, sessions, caches, logs, and local state separated by profile. Configuration and plugins also stay separate unless you explicitly link the documented configuration allowlist with init --share-with."
           }
         },
         {
@@ -214,7 +207,7 @@
           "name": "Can an AI assistant tell me how to run codex-profiles?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. Point your AI assistant or coding agent at the GitHub repository and this llms.txt file, then ask it to install codex-profile, initialize work, and run codex-profile cli work to start Codex on that profile. Coding agents working inside a clone of the repository can read its AGENTS.md file for setup, test, and usage instructions."
+            "text": "Yes. The repository's agent.md is the public installation and setup guide, and llms.txt is the plain-text product reference. Ask your assistant to install codex-profile, initialize work, authenticate with codex-profile login work, and launch codex-profile cli work. AGENTS.md is for repository contributors."
           }
         },
         {
@@ -232,1605 +225,1640 @@
   </script>
   <style>
     :root {
-      color-scheme: light;
-      --paper: #ffffff;
-      --paper-2: #f4f4f5;
-      --surface: #ffffff;
-      --ink: #0a0a0b;
-      --ink-2: #27272a;
-      --muted: #71717a;
-      --line: #e8e8ea;
-      --line-2: #d4d4d8;
-      --brand: #0a0a0b;
-      --brand-ink: #0a0a0b;
-      --teal: #52525b;
-      --teal-ink: #3f3f46;
-      --amber: #52525b;
-      --danger: #3f3f46;
-      --danger-soft: #f4f4f5;
-      --grad: linear-gradient(102deg, #0a0a0b, #3f3f46);
-      --grad-soft: #f4f4f5;
-      --shadow-sm: 0 1px 2px rgba(9, 9, 11, 0.05), 0 2px 6px rgba(9, 9, 11, 0.05);
-      --shadow: 0 6px 16px rgba(9, 9, 11, 0.07), 0 18px 40px -18px rgba(9, 9, 11, 0.16);
-      --shadow-lg: 0 24px 60px -22px rgba(9, 9, 11, 0.24);
-      --radius: 16px;
-      --radius-sm: 11px;
-      --grid: rgba(9, 9, 11, 0.035);
-      --ease: cubic-bezier(0.22, 1, 0.36, 1);
-      --maxw: 1140px;
+      color-scheme: dark;
+      --bg: #080808;
+      --ink: #ECECE8;
+      --soft: #B4B4AF;
+      --mute: #8C8C87;
+      --line: #222220;
+      --line-2: #3A3A38;
+      --sans: 'Inter Tight', 'Helvetica Neue', Arial, sans-serif;
+      --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+      --gut: clamp(16px, 3vw, 40px);
     }
-
     * { box-sizing: border-box; }
+    html { background: var(--bg); scroll-behavior: smooth; }
+    body { margin: 0; overflow-x: hidden; background: var(--bg); color: var(--ink); font-family: var(--sans); font-feature-settings: 'calt' 0; -webkit-font-smoothing: antialiased; }
+    ::selection { background: var(--ink); color: var(--bg); }
+    a { color: var(--ink); }
+    a:focus-visible, button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+    code, pre { font-family: var(--mono); }
+    h2 { margin: 0; font-weight: 300; font-size: clamp(40px, 4.6vw, 68px); line-height: 0.98; letter-spacing: -0.045em; }
+    .cap { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mute); }
+    .cap-ink { color: var(--ink); }
+    .u { text-decoration: none; }
+    .nw { white-space: nowrap; }
+    .u:hover, .top a:hover { text-decoration: underline; text-underline-offset: 4px; }
+    .skip { position: absolute; top: -64px; left: var(--gut); z-index: 10; padding: 10px 14px; background: var(--ink); color: var(--bg); font: 500 13px var(--mono); text-decoration: none; }
+    .skip:focus { top: 8px; }
 
-    html { scroll-behavior: smooth; }
+    .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 32px; padding: 8px var(--gut); border-bottom: 1px solid var(--line); font: 12.5px var(--mono); }
+    .top a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+    .brand { gap: 10px; font-weight: 500; }
+    .brand-mark { width: 13px; height: 13px; border-radius: 50%; background: linear-gradient(90deg, var(--ink) 50%, var(--bg) 50%); box-shadow: 0 0 0 1px var(--ink); }
+    .top-nav { display: flex; flex-wrap: wrap; gap: 0 28px; }
+    .top-gh { gap: 8px; }
 
-    body {
-      margin: 0;
-      color: var(--ink);
-      font-family: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-      line-height: 1.6;
-      background-color: var(--paper);
-      background-image:
-        radial-gradient(1200px 700px at 84% -10%, rgba(9, 9, 11, 0.05), transparent 60%),
-        radial-gradient(900px 520px at 2% -6%, rgba(9, 9, 11, 0.035), transparent 55%);
-      background-repeat: no-repeat;
-      -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
-      overflow-x: hidden;
-    }
+    .field { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
+    .gl-art { margin: 0; font-size: 12px; line-height: 1.18; color: var(--mute); white-space: pre; }
+    .js .gl-art { display: none; }
+    .js.gl-off .gl-art { display: block; }
 
-    a { color: var(--brand-ink); text-underline-offset: 3px; }
-    a:hover { color: var(--brand); }
+    .hero { position: relative; height: 980px; overflow: hidden; border-bottom: 1px solid var(--line); }
+    .hero-stage { position: absolute; top: 24px; right: 0; left: 0; display: grid; place-items: center; height: 740px; pointer-events: none; }
+    .hero-art { font-size: 13px; line-height: 1.25; }
+    .hero-labels { position: absolute; inset: 0; pointer-events: none; }
+    .lab { position: absolute; top: 0; left: 0; opacity: 0; transition: opacity 0.5s; will-change: transform; }
+    .lab > div { position: absolute; top: -58px; left: 44px; display: flex; align-items: center; gap: 10px; padding: 5px 9px; background: var(--bg); border: 1px solid var(--line-2); font: 11.5px var(--mono); letter-spacing: 0.04em; white-space: nowrap; }
+    .lab > div span + span { color: var(--mute); }
+    .lab[data-side="l"] > div { right: 44px; left: auto; }
+    .lab i { position: absolute; top: 0; left: 0; width: 1px; height: 56px; background: var(--mute); transform: rotate(-145deg); transform-origin: 0 0; }
+    .lab[data-side="l"] i { transform: rotate(145deg); }
+    .hero-cap { position: absolute; top: 30px; left: var(--gut); display: flex; flex-direction: column; gap: 10px; max-width: 290px; pointer-events: none; }
+    .hero-cap p { margin: 0; font: 12.5px/1.55 var(--mono); color: var(--mute); }
+    .hero-tel { position: absolute; top: 30px; right: var(--gut); width: 250px; margin: 0; font: 12px var(--mono); letter-spacing: 0.04em; pointer-events: none; }
+    .hero-tel div { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+    .hero-tel dt { color: var(--mute); }
+    .hero-tel dd { margin: 0; }
+    .hero-foot { position: absolute; right: 0; bottom: 0; left: 0; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 28px 48px; padding: 0 var(--gut) 46px; }
+    .hero h1 { margin: 0; font-weight: 300; font-size: clamp(48px, 6.6vw, 100px); line-height: 0.94; letter-spacing: -0.05em; }
+    .hero-copy { display: flex; flex: 0 1 420px; flex-direction: column; gap: 22px; }
+    .hero-copy p { margin: 0; font-size: 17px; line-height: 1.55; color: var(--soft); }
+    .ctas { display: flex; flex-wrap: wrap; gap: 10px; }
+    .btn { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 22px; border-radius: 999px; font-size: 15px; font-weight: 500; text-decoration: none; }
+    .btn-ink { background: var(--ink); color: var(--bg); }
+    .btn-line { border: 1px solid var(--line-2); background: var(--bg); color: var(--ink); }
 
-    code, pre, .mono {
-      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    }
+    .sec { padding: clamp(72px, 9vw, 128px) var(--gut); border-bottom: 1px solid var(--line); }
+    .sec-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 24px 48px; margin-bottom: 56px; }
+    .sec-title { display: flex; flex-direction: column; gap: 18px; }
+    .sec-lede { max-width: 440px; margin: 0; font-size: 17px; line-height: 1.55; color: var(--soft); }
+    .note { margin: 44px 0 0; font: 12.5px/1.6 var(--mono); color: var(--mute); }
+    .note code { color: var(--ink); overflow-wrap: anywhere; }
 
-    .wrap { width: min(var(--maxw), calc(100% - 40px)); margin: 0 auto; }
+    .moons { position: relative; }
+    .three { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; }
+    .ret { position: relative; display: grid; place-items: center; height: 380px; background: linear-gradient(#4A4A47, #4A4A47) 0 0 / 16px 1px no-repeat, linear-gradient(#4A4A47, #4A4A47) 0 0 / 1px 16px no-repeat, linear-gradient(#4A4A47, #4A4A47) 100% 0 / 16px 1px no-repeat, linear-gradient(#4A4A47, #4A4A47) 100% 0 / 1px 16px no-repeat, linear-gradient(#4A4A47, #4A4A47) 0 100% / 16px 1px no-repeat, linear-gradient(#4A4A47, #4A4A47) 0 100% / 1px 16px no-repeat, linear-gradient(#4A4A47, #4A4A47) 100% 100% / 16px 1px no-repeat, linear-gradient(#4A4A47, #4A4A47) 100% 100% / 1px 16px no-repeat; }
+    .ret .cap { position: absolute; }
+    .ret-tl { top: 14px; left: 16px; }
+    .ret-tr { top: 14px; right: 16px; }
+    .ret-bl { bottom: 14px; left: 16px; }
+    .ret-br { right: 16px; bottom: 14px; text-transform: none; }
+    .ret .gl-art { color: var(--ink); }
+    .moon h3 { margin: 28px 0 14px; font-weight: 400; font-size: 30px; letter-spacing: -0.03em; }
+    .kvs { margin: 0; font: 13px/1.5 var(--mono); }
+    .kvs div { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #1D1D1C; }
+    .kvs dt { color: var(--mute); }
+    .kvs dd { margin: 0; text-align: right; }
 
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 9px;
-      margin: 0;
-      font-family: "JetBrains Mono", ui-monospace, monospace;
-      font-size: 0.72rem;
-      font-weight: 500;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .eyebrow::before {
-      content: "";
-      width: 22px;
-      height: 1px;
-      background: var(--line-2);
-      opacity: 1;
-    }
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 56px 72px; align-items: center; }
+    .shot { display: flex; flex-direction: column; gap: 14px; max-width: 460px; margin: 0; }
+    .shot-frame { position: relative; }
+    .shot img { display: block; width: 100%; height: auto; border: 1px solid #2A2A28; border-radius: 14px; }
+    .pin { position: absolute; padding: 4px 7px; background: var(--bg); border: 1px solid var(--ink); font: 11px/1 var(--mono); letter-spacing: 0.04em; transform: translate(-50%, -50%); transition: background 0.2s, color 0.2s; }
+    .menu:has(.feats li[data-k="1"]:hover) .pin[data-k="1"],
+    .menu:has(.feats li[data-k="2"]:hover) .pin[data-k="2"],
+    .menu:has(.feats li[data-k="3"]:hover) .pin[data-k="3"] { background: var(--ink); color: var(--bg); }
+    .menu-copy { display: flex; flex-direction: column; gap: 40px; }
+    .menu-copy .note { margin: 0; }
+    .feats { margin: 0; padding: 0; list-style: none; }
+    .feats li { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 0 20px; padding: 22px 0; border-top: 1px solid var(--line); }
+    .feats li:last-child { border-bottom: 1px solid var(--line); }
+    .feats h3 { margin: 0 0 8px; font-weight: 400; font-size: 24px; letter-spacing: -0.025em; }
+    .feats p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--soft); }
 
-    /* ---------- Hero ---------- */
-    .hero {
-      position: relative;
-      padding: clamp(54px, 9vw, 104px) 0 clamp(40px, 6vw, 72px);
-    }
-    .hero-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-      gap: clamp(28px, 4vw, 56px);
-      align-items: center;
-    }
-    h1.wordmark {
-      margin: 18px 0 0;
-      font-family: "Schibsted Grotesk", sans-serif;
-      font-weight: 800;
-      font-size: clamp(2.9rem, 7.4vw, 5.2rem);
-      line-height: 0.94;
-      letter-spacing: -0.03em;
-      color: var(--ink);
-    }
-    .wordmark .caret {
-      color: var(--brand);
-      margin-left: 0.01em;
-      animation: blink 1.1s steps(2, start) infinite;
-    }
-    @keyframes blink { 50% { opacity: 0; } }
+    .launch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 48px 64px; align-items: center; }
+    .traj { position: relative; height: 560px; overflow: hidden; border: 1px solid var(--line); }
+    .traj-stage, .traj-labels { position: absolute; inset: 0; pointer-events: none; }
+    .traj .cap { position: absolute; }
+    .traj-tl { top: 14px; left: 16px; }
+    .traj-br { right: 16px; bottom: 14px; }
+    .wp { position: absolute; top: 0; left: 0; opacity: 0; will-change: transform; }
+    .wp b { position: absolute; top: -40px; left: 22px; padding: 5px 9px; background: var(--bg); border: 1px solid var(--line-2); font: 400 11.5px var(--mono); letter-spacing: 0.04em; white-space: nowrap; transition: background 0.2s, color 0.2s, border-color 0.2s; }
+    .wp b span { color: var(--mute); }
+    .wp i { position: absolute; top: 0; left: 0; width: 27px; height: 1px; background: var(--mute); transform: rotate(-36deg); transform-origin: 0 0; }
+    .wp.dn b { top: 22px; }
+    .wp.dn i { width: 31px; transform: rotate(45deg); }
+    .wp.lf b { right: 22px; left: auto; }
+    .wp.lf i { transform: rotate(-144deg); }
+    .wp.dn.lf i { width: 31px; transform: rotate(135deg); }
+    .wp.ct b { top: -44px; left: 0; transform: translateX(-50%); }
+    .wp.ct i { width: 20px; transform: rotate(-90deg); }
+    .launch:has(.row[data-k="0"]:hover) .wp[data-k="0"] b,
+    .launch:has(.row[data-k="1"]:hover) .wp[data-k="1"] b,
+    .launch:has(.row[data-k="2"]:hover) .wp[data-k="2"] b,
+    .launch:has(.row[data-k="3"]:hover) .wp[data-k="3"] b { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+    .launch:has(.row[data-k]:hover) .wp b span { color: inherit; }
+    .rows { border-top: 1px solid var(--ink); font-family: var(--mono); }
+    .row { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px 24px; align-items: baseline; padding: 20px 0; border-bottom: 1px solid var(--line); transition: background 0.2s; }
+    .row:hover { background: #121211; }
+    .row code { font-size: clamp(16px, 1.45vw, 20px); overflow-wrap: anywhere; }
+    .row p { grid-column: 2; margin: 0; font-size: 13px; line-height: 1.5; color: var(--mute); }
+    .rows .note { margin-top: 24px; }
 
-    .hero-copy {
-      max-width: 33ch;
-      margin: 22px 0 0;
-      font-size: 1.16rem;
-      color: var(--muted);
-    }
-    .hero-copy strong { color: var(--ink-2); font-weight: 600; }
+    .zeros { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); }
+    .z { display: flex; flex-direction: column; gap: 18px; padding: 22px 24px 30px 0; }
+    .z + .z { padding-left: 24px; border-left: 1px solid var(--line); }
+    .zn { font-weight: 200; font-size: clamp(88px, 10vw, 152px); line-height: 0.86; letter-spacing: -0.06em; }
+    .does { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px 32px; margin-top: 44px; }
+    .does h3 { margin: 0; padding-top: 14px; }
+    .does ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 40px; margin: 0; padding: 0; list-style: none; font: 14px/1.5 var(--mono); }
+    .does li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); }
+    .warn { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px 24px; margin-top: 44px; padding: 20px 22px; border: 1px solid var(--line-2); font: 13px/1.6 var(--mono); color: var(--soft); }
+    .warn > span { color: var(--ink); }
+    .warn p { flex: 1 1 420px; margin: 0; }
+    .warn a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+    .notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px 40px; margin-top: 56px; }
+    .notes h3 { margin: 0 0 12px; }
+    .notes p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--soft); }
 
-    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
-    .button {
-      min-height: 46px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 11px 20px;
-      border-radius: 11px;
-      font-weight: 600;
-      font-size: 0.97rem;
-      text-decoration: none;
-      transition: transform 0.18s var(--ease), box-shadow 0.18s var(--ease), border-color 0.18s var(--ease);
-    }
-    .button.primary {
-      color: #fff;
-      background: var(--brand);
-      box-shadow: 0 8px 18px -6px rgba(9, 9, 11, 0.35);
-    }
-    .button.primary:hover { transform: translateY(-2px); box-shadow: 0 14px 26px -8px rgba(9, 9, 11, 0.42); }
-    .button.ghost {
-      color: var(--ink-2);
-      background: var(--surface);
-      border: 1px solid var(--line-2);
-      box-shadow: var(--shadow-sm);
-    }
-    .button.ghost:hover { transform: translateY(-2px); border-color: var(--brand); color: var(--brand-ink); }
+    .faq-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px 72px; align-items: start; }
+    .faq-side { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 40px; }
+    .facts h3 { margin: 0 0 14px; }
+    .facts dl { margin: 0; border-top: 1px solid var(--line); font: 13px/1.5 var(--mono); }
+    .facts dl div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .facts dt { color: var(--mute); }
+    .facts dd { margin: 0; }
+    .facts p { margin: 16px 0 0; font-size: 14px; line-height: 1.6; color: var(--soft); }
+    .faq-list { border-top: 1px solid var(--ink); counter-reset: question; }
+    .faq-list article { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px 20px; padding: 24px 0; border-bottom: 1px solid var(--line); counter-increment: question; }
+    .faq-list article::before { content: counter(question, decimal-leading-zero); grid-row: span 2; padding-top: 6px; font: 12px var(--mono); letter-spacing: 0.06em; }
+    .faq-list h3 { margin: 0; font-weight: 400; font-size: 22px; line-height: 1.25; letter-spacing: -0.02em; }
+    .faq-list p { margin: 0; font-size: 16px; line-height: 1.6; color: var(--soft); }
 
-    .meta-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 18px;
-      margin-top: 26px;
-      font-family: "JetBrains Mono", ui-monospace, monospace;
-      font-size: 0.74rem;
-      color: var(--muted);
-    }
-    .meta-row span { display: inline-flex; align-items: center; gap: 7px; }
-    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.10); }
+    .lift { position: relative; height: 900px; overflow: hidden; border-bottom: 1px solid var(--line); }
+    .lift-body { position: relative; display: flex; flex-direction: column; align-items: center; gap: 26px; padding: 110px 16px 0; text-align: center; }
+    .lift h2 { font-size: clamp(52px, 7.6vw, 116px); line-height: 0.93; letter-spacing: -0.05em; }
+    .lift .ctas { justify-content: center; margin-top: 4px; }
+    .lift-alt { font: 12.5px var(--mono); color: var(--mute); }
+    .lift-bl, .lift-br { position: absolute; bottom: 22px; }
+    .lift-bl { left: var(--gut); }
+    .lift-br { right: var(--gut); }
+    .cmd { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px 16px; margin-top: 10px; padding: 6px 6px 6px 22px; background: var(--bg); border: 1px solid var(--line-2); border-radius: 999px; font: 15px var(--mono); }
+    .cmd > span { color: var(--mute); }
+    .copy { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg); font: 500 13px var(--mono); cursor: pointer; }
+    .copy .c2 { display: none; }
+    .copy[data-copied] .c1 { display: none; }
+    .copy[data-copied] .c2 { display: inline; }
 
-    /* ---------- Terminal card ---------- */
-    .term {
-      position: relative;
-      border-radius: var(--radius);
-      background: #0c0c0d;
-      border: 1px solid #1f1f22;
-      box-shadow: var(--shadow-lg);
-      overflow: hidden;
-      font-family: "JetBrains Mono", ui-monospace, monospace;
-      font-size: 0.86rem;
-    }
-    .term::after {
-      content: "";
-      position: absolute; inset: 0;
-      background: radial-gradient(120% 80% at 90% -10%, rgba(255, 255, 255, 0.06), transparent 55%),
-                  radial-gradient(90% 70% at -10% 0%, rgba(255, 255, 255, 0.035), transparent 52%);
-      pointer-events: none;
-    }
-    .term-bar {
-      display: flex; align-items: center; gap: 8px;
-      padding: 12px 15px;
-      border-bottom: 1px solid #1f1f22;
-      color: #8a8a90;
-      font-size: 0.74rem;
-    }
-    .term-bar i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
-    .term-bar .b1 { background: #45454a; } .term-bar .b2 { background: #56565b; } .term-bar .b3 { background: #67676d; }
-    .term-bar .title { margin-left: 6px; letter-spacing: 0.02em; }
-    .term-body { padding: 18px 18px 22px; color: #d6d6d9; line-height: 1.85; position: relative; z-index: 1; }
-    .term-body .pl { color: #8a8a90; }
-    .term-body .cmd { color: #f4f4f5; }
-    .term-body .arg { color: #adadb3; }
-    .term-body .out { color: #76767c; }
-    .term-body .ok { color: #d4d4d8; }
-    .term-line { display: block; white-space: pre-wrap; word-break: break-word; }
+    .foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 32px; padding: 18px var(--gut); font: 12.5px/1.6 var(--mono); color: var(--mute); }
+    .foot p { max-width: 760px; margin: 0; }
+    .foot nav { display: flex; flex-wrap: wrap; gap: 0 22px; }
+    .foot nav a { display: inline-flex; align-items: center; min-height: 44px; }
 
-    /* ---------- Sections ---------- */
-    main { display: block; }
-    .section { padding: clamp(40px, 6vw, 72px) 0; }
-    .section-head { max-width: 64ch; margin-bottom: clamp(22px, 3vw, 34px); }
-    h2 {
-      margin: 12px 0 0;
-      font-family: "Schibsted Grotesk", sans-serif;
-      font-weight: 700;
-      font-size: clamp(1.8rem, 3.4vw, 2.6rem);
-      line-height: 1.06;
-      letter-spacing: -0.02em;
-    }
-    .lede { margin: 14px 0 0; font-size: 1.06rem; color: var(--muted); max-width: 70ch; }
-    p { margin: 0; }
-
-    .command {
-      margin-top: 22px;
-      display: grid;
-      gap: 4px;
-      padding: 20px 22px;
-      border-radius: var(--radius-sm);
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-left: 3px solid transparent;
-      border-image: var(--grad) 1;
-      border-image-slice: 0 0 0 1;
-      box-shadow: var(--shadow-sm);
-      position: relative;
-    }
-    .command pre { margin: 0; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .command code { font-size: 0.92rem; color: var(--ink-2); }
-
-    /* ---------- Graph ---------- */
-    .graph-shell {
-      display: grid;
-      gap: 16px;
-    }
-    .graph-toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-    }
-    .seg {
-      display: inline-flex;
-      padding: 4px;
-      gap: 4px;
-      background: var(--surface);
-      border: 1px solid var(--line-2);
-      border-radius: 13px;
-      box-shadow: var(--shadow-sm);
-    }
-    .seg button {
-      appearance: none;
-      border: 0;
-      background: transparent;
-      color: var(--muted);
-      font-family: inherit;
-      font-size: 0.86rem;
-      font-weight: 600;
-      padding: 9px 15px;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: color 0.18s var(--ease), background 0.18s var(--ease), box-shadow 0.18s var(--ease);
-    }
-    .seg button .k { font-family: "JetBrains Mono", monospace; font-size: 0.78em; opacity: 0.7; margin-right: 6px; }
-    .seg button[aria-pressed="true"] { color: #fff; background: var(--brand); box-shadow: 0 6px 14px -6px rgba(9, 9, 11, 0.4); }
-    .seg button.danger[aria-pressed="true"] { color: #fff; background: var(--danger); box-shadow: 0 6px 14px -6px rgba(9, 9, 11, 0.3); }
-    .seg button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-
-    .graph-hint {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.74rem;
-      color: var(--muted);
-    }
-
-    .graph-stage {
-      position: relative;
-      width: 100%;
-      height: clamp(420px, 56vw, 560px);
-      border-radius: var(--radius);
-      background:
-        radial-gradient(120% 120% at 50% 0%, rgba(9, 9, 11, 0.035), transparent 60%),
-        var(--surface);
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    .graph-stage::before {
-      content: "";
-      position: absolute; inset: 0;
-      background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-      background-size: 26px 26px;
-      opacity: 0.6;
-      pointer-events: none;
-    }
-    .graph-stage svg { width: 100%; height: 100%; display: block; touch-action: none; position: relative; z-index: 1; }
-    .badge-shared {
-      position: absolute;
-      top: 14px; left: 14px;
-      display: none;
-      align-items: center;
-      gap: 8px;
-      padding: 7px 12px;
-      border-radius: 10px;
-      background: var(--paper-2);
-      color: var(--ink-2);
-      border: 1px solid var(--line-2);
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.72rem;
-      z-index: 3;
-    }
-    .graph-stage[data-mode="shared"] .badge-shared { display: inline-flex; }
-
-    /* graph nodes/links styled via class */
-    .lnk { stroke: url(#linkGrad); stroke-width: 2.2; stroke-linecap: round; opacity: 0.55; transition: opacity 0.25s, stroke 0.25s; }
-    .lnk.is-shared { stroke: var(--danger); stroke-dasharray: 5 6; opacity: 0.7; }
-    .lnk.dim { opacity: 0.12; }
-    .lnk.hot { opacity: 0.95; stroke-width: 3; }
-
-    .node { cursor: grab; }
-    .node:active { cursor: grabbing; }
-    .node text { font-family: "JetBrains Mono", monospace; pointer-events: none; }
-    .chip { transition: opacity 0.25s, transform 0.25s; }
-    .node.dim .chip { opacity: 0.22; }
-    .node .ring { fill: none; stroke: var(--brand); stroke-width: 2; opacity: 0; transition: opacity 0.2s; }
-    .node.hot .ring { opacity: 0.85; }
-
-    .n-user .chip-bg { fill: url(#nodeGrad); }
-    .n-user text { fill: #fff; font-weight: 700; }
-    .n-profile .chip-bg { fill: var(--surface); stroke: var(--line-2); stroke-width: 1.4; }
-    .n-profile.hot .chip-bg { stroke: var(--brand); }
-    .n-profile text { fill: var(--ink); font-weight: 600; }
-    .n-home .chip-bg { fill: #f4f4f5; stroke: #e4e4e7; stroke-width: 1.2; }
-    .n-home text { fill: var(--ink-2); font-weight: 500; }
-    .graph-stage[data-mode="shared"] .n-home .chip-bg { fill: #e4e4e7; stroke: #b9b9c0; }
-    .graph-stage[data-mode="shared"] .n-home text { fill: var(--ink); }
-
-    .tip {
-      position: absolute;
-      z-index: 4;
-      pointer-events: none;
-      opacity: 0;
-      transform: translateY(4px);
-      transition: opacity 0.15s, transform 0.15s;
-      max-width: 230px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: #0c0c0d;
-      color: #e8e8ea;
-      box-shadow: var(--shadow-lg);
-      font-size: 0.78rem;
-      line-height: 1.5;
-    }
-    .tip.show { opacity: 1; transform: translateY(0); }
-    .tip b { color: #f4f4f5; font-family: "JetBrains Mono", monospace; font-size: 0.82em; }
-    .tip .files { margin-top: 5px; color: #a1a1aa; font-family: "JetBrains Mono", monospace; font-size: 0.74em; }
-
-    .graph-fallback { padding: 28px 24px; color: var(--muted); position: relative; z-index: 2; }
-    .graph-fallback h3 { margin: 0 0 10px; color: var(--ink); font-family: "Schibsted Grotesk", sans-serif; }
-    .graph-fallback ul { margin: 12px 0 0; padding-left: 20px; }
-    .graph-fallback li { margin-bottom: 6px; }
-    .graph-fallback code { background: var(--paper-2); padding: 1px 6px; border-radius: 5px; font-size: 0.85em; }
-
-    /* ---------- Feature grid ---------- */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
-    }
-    .item {
-      min-width: 0;
-      padding: 22px 20px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      background: var(--surface);
-      box-shadow: var(--shadow-sm);
-      transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), border-color 0.2s var(--ease);
-    }
-    .item:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--line-2); }
-    .item .ic {
-      width: 38px; height: 38px;
-      display: grid; place-items: center;
-      border-radius: 10px;
-      background: var(--grad-soft);
-      color: var(--brand-ink);
-      margin-bottom: 14px;
-    }
-    .item .ic svg { width: 20px; height: 20px; }
-    .item strong { display: block; margin-bottom: 6px; color: var(--ink); font-size: 1.02rem; }
-    .item p { color: var(--muted); font-size: 0.95rem; }
-
-    /* ---------- Facts table ---------- */
-    .facts { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 22px; align-items: start; }
-    .table { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow-sm); }
-    table { width: 100%; border-collapse: collapse; min-width: 480px; }
-    th, td { padding: 13px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 0.94rem; }
-    th { color: var(--ink); background: var(--paper-2); font-family: "JetBrains Mono", monospace; font-size: 0.76rem; letter-spacing: 0.04em; text-transform: uppercase; }
-    td:first-child { font-weight: 600; color: var(--ink-2); white-space: nowrap; }
-    td { color: var(--muted); }
-    tr:last-child td { border-bottom: 0; }
-
-    /* ---------- FAQ ---------- */
-    .faq-list { display: grid; gap: 12px; }
-    .faq-list article {
-      padding: 20px 22px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      background: var(--surface);
-      box-shadow: var(--shadow-sm);
-      transition: border-color 0.2s var(--ease);
-    }
-    .faq-list article:hover { border-color: var(--line-2); }
-    .faq-list h3 { margin: 0 0 8px; font-size: 1.04rem; color: var(--ink); display: flex; gap: 10px; align-items: baseline; }
-    .faq-list h3::before { content: "?"; font-family: "JetBrains Mono", monospace; color: var(--brand); font-weight: 700; }
-    .faq-list p { color: var(--muted); font-size: 0.95rem; }
-
-    /* ---------- Footer ---------- */
-    footer { border-top: 1px solid var(--line); margin-top: 30px; }
-    footer .wrap { padding: 30px 20px 56px; display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: center; justify-content: space-between; }
-    footer p { color: var(--muted); font-size: 0.9rem; }
-    footer nav { display: flex; gap: 18px; font-family: "JetBrains Mono", monospace; font-size: 0.8rem; }
-
-    /* ---------- Reveal animation ---------- */
-    .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s var(--ease), transform 0.7s var(--ease); }
-    .reveal.in { opacity: 1; transform: none; }
-
-    /* ---------- Responsive ---------- */
     @media (max-width: 900px) {
-      .hero-grid { grid-template-columns: 1fr; }
-      .term { order: 2; }
-      .facts { grid-template-columns: 1fr; }
-      .grid { grid-template-columns: 1fr 1fr; }
-    }
-    @media (max-width: 560px) {
-      .grid { grid-template-columns: 1fr; }
-      .graph-toolbar { flex-direction: column; align-items: flex-start; }
-      .seg { width: 100%; }
-      .seg button { flex: 1; text-align: center; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      html { scroll-behavior: auto; }
-      .wordmark .cursor { animation: none; }
-      .reveal { transition: none; opacity: 1; transform: none; }
-      * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
-    }
-  </style>
-  <style id="editorial-redesign">
-    :root {
-      --paper: #ffffff;
-      --paper-2: #f1f1f1;
-      --surface: #ffffff;
-      --ink: #000000;
-      --ink-2: #161616;
-      --muted: #666666;
-      --line: #000000;
-      --line-2: #bdbdbd;
-      --brand: #000000;
-      --brand-ink: #000000;
-      --personal: #ff7373;
-      --work: #9cd5fe;
-      --school: #9bf396;
-      --client: #ffd0b8;
-      --focus: #2f6bff;
-      --danger: #ff7373;
-      --danger-soft: #fff0f0;
-      --shadow-sm: none;
-      --shadow: none;
-      --shadow-lg: 0 28px 54px -26px rgba(0, 0, 0, 0.65);
-      --radius: 2px;
-      --radius-sm: 0;
-      --grid: rgba(0, 0, 0, 0.08);
-      --ease: cubic-bezier(0.22, 1, 0.36, 1);
-      --maxw: 95rem;
-      --gutter: clamp(20px, 4.25vw, 68px);
-    }
-
-    * {
-      scrollbar-color: #6b6b6b #ededed;
-      scrollbar-width: thin;
-    }
-    *::-webkit-scrollbar { width: 12px; height: 12px; }
-    *::-webkit-scrollbar-track { background: #ededed; }
-    *::-webkit-scrollbar-thumb { background: #6b6b6b; border: 3px solid #ededed; }
-    *::-webkit-scrollbar-thumb:hover { background: #000; }
-    html { scroll-padding-top: 110px; }
-    h2[id] { scroll-margin-top: 110px; }
-    body {
-      background: var(--paper);
-      color: var(--ink);
-      font-size: 17px;
-      line-height: 1.55;
-    }
-    a { color: inherit; }
-    a:hover { color: inherit; }
-    a:focus-visible,
-    button:focus-visible,
-    [tabindex]:focus-visible {
-      outline: 3px solid var(--focus) !important;
-      outline-offset: 4px;
-    }
-    .wrap { width: min(var(--maxw), calc(100% - (var(--gutter) * 2))); }
-    .skip-link {
-      position: fixed;
-      z-index: 100;
-      top: 8px;
-      left: 8px;
-      padding: 10px 14px;
-      color: #fff;
-      background: #000;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.75rem;
-      transform: translateY(-160%);
-    }
-    .skip-link:focus { transform: none; }
-
-    .site-nav {
-      position: sticky;
-      z-index: 20;
-      top: 0;
-      background: rgba(255, 255, 255, 0.96);
-      border-bottom: 1px solid #000;
-      backdrop-filter: blur(12px);
-    }
-    .site-nav-inner {
-      min-height: 70px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 32px;
-    }
-    .site-mark {
-      flex: 0 0 auto;
-      font-family: "Schibsted Grotesk", sans-serif;
-      font-size: 1.18rem;
-      font-weight: 800;
-      letter-spacing: -0.04em;
-      text-decoration: none;
-    }
-    .site-links {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: clamp(18px, 2.5vw, 40px);
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.76rem;
-    }
-    .site-links a { text-decoration: none; }
-    .site-links a:not(.nav-cta) { border-bottom: 1px solid transparent; }
-    .site-links a:not(.nav-cta):hover { border-bottom-color: #000; }
-    .nav-cta {
-      min-height: 42px;
-      display: inline-flex;
-      align-items: center;
-      padding: 8px 16px;
-      color: #fff;
-      background: #000;
-      border: 1px solid #000;
-    }
-    .nav-cta:hover { color: #000; background: var(--school); }
-
-    .hero {
-      padding: 0;
-      border-bottom: 1px solid #000;
-      overflow: hidden;
-    }
-    .hero-grid {
-      min-height: 0;
-      grid-template-columns: minmax(0, 1fr) minmax(500px, 1fr);
-      gap: clamp(34px, 4vw, 64px);
-      align-items: center;
-      padding-top: clamp(44px, 5vw, 72px);
-      padding-bottom: clamp(46px, 5vw, 76px);
-    }
-    h1.wordmark {
-      max-width: none;
-      margin: 0;
-      color: #000;
-      font-size: clamp(4.1rem, 6.25vw, 7.5rem);
-      font-weight: 800;
-      line-height: 0.88;
-      letter-spacing: -0.065em;
-    }
-    .wordmark > span { display: block; }
-    .hero-copy {
-      max-width: 34ch;
-      margin-top: 30px;
-      color: #222;
-      font-size: clamp(1.12rem, 1.55vw, 1.42rem);
-      line-height: 1.38;
-    }
-    .hero-copy strong { color: #000; font-weight: 500; }
-    .actions { gap: 14px; margin-top: 34px; }
-    .button {
-      min-height: 50px;
-      padding: 12px 19px;
-      border: 1px solid #000;
-      border-radius: 0;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.78rem;
-      font-weight: 500;
-      transition: color 160ms var(--ease), background 160ms var(--ease), transform 160ms var(--ease);
-    }
-    .button::after { content: "↗"; margin-left: 10px; }
-    .button.primary { color: #fff; background: #000; box-shadow: none; }
-    .button.primary:hover { color: #000; background: var(--school); box-shadow: none; transform: translateY(-2px); }
-    .button.ghost { color: #000; background: #fff; border-color: #000; box-shadow: none; }
-    .button.ghost:hover { color: #000; background: var(--paper-2); border-color: #000; transform: translateY(-2px); }
-    .meta-row {
-      gap: 0;
-      margin-top: 34px;
-      border-top: 1px solid #000;
-      border-bottom: 1px solid #000;
-      color: #000;
-      font-size: 0.67rem;
-    }
-    .meta-row span { min-height: 36px; padding: 7px 14px; border-right: 1px solid #000; }
-    .meta-row span:first-child { padding-left: 0; }
-    .meta-row span:last-child { border-right: 0; }
-    .dot { background: var(--school); box-shadow: 0 0 0 1px #000; }
-
-    .term {
-      overflow: visible;
-      padding: clamp(22px, 2.5vw, 34px);
-      color: #fff;
-      background: #111;
-      border: 1px solid #000;
-      border-radius: 2px;
-      box-shadow: var(--shadow-lg);
-    }
-    .term::before,
-    .term::after {
-      content: "";
-      position: absolute;
-      z-index: 3;
-      width: 13px;
-      height: 13px;
-      border: 2px solid #555;
-      border-radius: 50%;
-      background: #070707;
-      box-shadow: none;
-      pointer-events: none;
-    }
-    .term::before { top: 13px; left: 13px; }
-    .term::after { right: 13px; bottom: 13px; inset: auto 13px 13px auto; }
-    .term-bar {
-      min-height: 40px;
-      padding: 0 4px 14px 26px;
-      border-bottom: 0;
-      color: #d7d7d7;
-      font-size: 0.74rem;
-    }
-    .term-bar i { display: none; }
-    .term-bar .title::before { content: ">_  "; color: var(--school); }
-    .term-body {
-      min-height: 210px;
-      padding: 24px;
-      color: #fff;
-      background: #000;
-      border: 1px solid #383838;
-      line-height: 1.75;
-    }
-    .term-body .pl { color: var(--school); }
-    .term-body .arg { color: var(--work); }
-    .term-body .out { color: #bdbdbd; }
-    .term-body .ok { color: var(--school); }
-    .profile-keys {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: clamp(10px, 1.4vw, 18px);
-      margin-top: 28px;
-    }
-    .profile-key {
-      position: relative;
-      min-width: 0;
-      padding-top: 8px;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.68rem;
-      text-align: center;
-    }
-    .profile-key b {
-      min-height: 64px;
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-      border: 1px solid #555;
-      background: linear-gradient(#252525, #0c0c0c);
-      box-shadow: inset 0 1px rgba(255,255,255,.12), 0 7px 0 #050505;
-      font-weight: 500;
-      text-overflow: ellipsis;
-    }
-    .profile-key::before {
-      content: "";
-      position: absolute;
-      z-index: 2;
-      top: 0;
-      left: 12%;
-      width: 76%;
-      height: 4px;
-      background: var(--signal);
-      box-shadow: 0 0 13px var(--signal);
-    }
-    .profile-key::after {
-      content: "";
-      width: 10px;
-      height: 10px;
-      display: block;
-      margin: 16px auto 0;
-      border: 1px solid #fff;
-      border-radius: 50%;
-      background: var(--signal);
-      box-shadow: 0 0 12px var(--signal);
-    }
-    .personal { --signal: var(--personal); }
-    .work { --signal: var(--work); }
-    .school { --signal: var(--school); }
-    .client { --signal: var(--client); }
-
-    main { overflow: clip; }
-    section.section { padding-top: clamp(72px, 9vw, 138px); padding-bottom: clamp(72px, 9vw, 138px); }
-    .section-head { max-width: 75ch; margin-bottom: clamp(34px, 5vw, 70px); }
-    .eyebrow {
-      gap: 12px;
-      color: #000;
-      font-size: 0.68rem;
-      letter-spacing: 0.09em;
-    }
-    .eyebrow::before { width: 42px; background: currentColor; }
-    h2 {
-      margin-top: 15px;
-      font-size: clamp(3.4rem, 7.2vw, 7.7rem);
-      font-weight: 800;
-      line-height: 0.91;
-      letter-spacing: -0.06em;
-    }
-    .lede { margin-top: 24px; color: #222; font-size: clamp(1.05rem, 1.5vw, 1.32rem); line-height: 1.45; }
-
-    .answer-band {
-      color: #fff;
-      background: #000;
-      box-shadow: 0 0 0 100vmax #000;
-      clip-path: inset(0 -100vmax);
-    }
-    .answer-band .section-head {
-      display: grid;
-      grid-template-columns: minmax(240px, .75fr) minmax(0, 1.25fr);
-      gap: 50px;
-      align-items: start;
-      max-width: none;
-      margin-bottom: 40px;
-    }
-    .answer-band .eyebrow,
-    .answer-band h2,
-    .answer-band .lede { color: #fff; }
-    .answer-band h2 { margin: 0; font-size: clamp(2.5rem, 4vw, 4.8rem); letter-spacing: -0.045em; }
-    .answer-band .lede { max-width: 62ch; margin: 0; color: #cfcfcf; }
-    .command {
-      margin: 0;
-      padding: 24px 0;
-      border: 0;
-      border-top: 1px solid #666;
-      border-bottom: 1px solid #666;
-      border-radius: 0;
-      background: transparent;
-      box-shadow: none;
-    }
-    .command code { color: #fff; font-size: clamp(.75rem, 1.2vw, .94rem); }
-
-    #how { max-width: 8.5ch; }
-    .graph-shell { gap: 20px; }
-    .graph-toolbar { padding-bottom: 16px; border-bottom: 1px solid #000; }
-    .seg { padding: 0; gap: 0; border-color: #000; border-radius: 0; box-shadow: none; }
-    .seg button {
-      min-height: 46px;
-      padding: 10px 18px;
-      border-right: 1px solid #000;
-      border-radius: 0;
-      font-family: "JetBrains Mono", monospace;
-      font-size: .72rem;
-      font-weight: 500;
-    }
-    .seg button:last-child { border-right: 0; }
-    .seg button[aria-pressed="true"] { color: #fff; background: #000; box-shadow: none; }
-    .seg button.danger[aria-pressed="true"] { color: #000; background: var(--personal); box-shadow: none; }
-    .graph-hint { color: #000; font-size: .7rem; }
-    .graph-stage {
-      height: clamp(430px, 52vw, 630px);
-      border-color: #000;
-      border-radius: 0;
-      background: #fff;
-      box-shadow: none;
-    }
-    .graph-stage::before { background-size: 36px 36px; opacity: .55; }
-    .n-user .chip-bg { fill: #000; }
-    .n-profile .chip-bg,
-    .n-home .chip-bg { fill: #fff; stroke: #000; }
-    .n-profile[data-profile="personal"] .chip-bg,
-    .n-home[data-profile="personal"] .chip-bg { stroke: var(--personal); stroke-width: 3; }
-    .n-profile[data-profile="work"] .chip-bg,
-    .n-home[data-profile="work"] .chip-bg { stroke: var(--work); stroke-width: 3; }
-    .n-profile[data-profile="school"] .chip-bg,
-    .n-home[data-profile="school"] .chip-bg { stroke: var(--school); stroke-width: 3; }
-    .n-profile[data-profile="client"] .chip-bg,
-    .n-home[data-profile="client"] .chip-bg { stroke: var(--client); stroke-width: 3; }
-    .lnk.p-personal { stroke: var(--personal); }
-    .lnk.p-work { stroke: var(--work); }
-    .lnk.p-school { stroke: var(--school); }
-    .lnk.p-client { stroke: var(--client); }
-    .lnk.is-shared { stroke: #000; }
-    .tip { border: 1px solid #fff; border-radius: 0; box-shadow: 8px 8px 0 rgba(0,0,0,.18); }
-
-    .features-section { padding-top: 0 !important; }
-    .features-section .section-head { max-width: none; margin-bottom: 34px; border-top: 1px solid #000; padding-top: 28px; }
-    .features-section h2 { font-size: clamp(2.8rem, 5vw, 5.8rem); }
-    .feature-ledger {
-      counter-reset: feature;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0;
-      border-top: 1px solid #000;
-      border-left: 1px solid #000;
-    }
-    .feature-ledger .item {
-      counter-increment: feature;
-      min-height: 260px;
-      padding: 26px;
-      border: 0;
-      border-right: 1px solid #000;
-      border-bottom: 1px solid #000;
-      border-radius: 0;
-      background: #fff;
-      box-shadow: none;
-      transition: color 160ms var(--ease), background 160ms var(--ease);
-    }
-    .feature-ledger .item:nth-child(4) { color: #fff; background: #000; }
-    .feature-ledger .item:nth-child(4) p,
-    .feature-ledger .item:nth-child(4) strong { color: #fff; }
-    .feature-ledger .item:hover { transform: none; box-shadow: none; background: var(--paper-2); }
-    .feature-ledger .item:nth-child(4):hover { background: #151515; }
-    .feature-ledger .item::before {
-      content: counter(feature, decimal-leading-zero);
-      display: block;
-      margin-bottom: 48px;
-      color: var(--signal, #000);
-      font-family: "JetBrains Mono", monospace;
-      font-size: .72rem;
-    }
-    .feature-ledger .item:nth-child(1) { --signal: var(--personal); }
-    .feature-ledger .item:nth-child(2) { --signal: var(--work); }
-    .feature-ledger .item:nth-child(3) { --signal: var(--school); }
-    .feature-ledger .item:nth-child(4) { --signal: var(--school); }
-    .feature-ledger .item:nth-child(5) { --signal: var(--client); }
-    .feature-ledger .item .ic { display: none; }
-    .feature-ledger .item strong { max-width: 12ch; color: #000; font-family: "Schibsted Grotesk", sans-serif; font-size: clamp(1.5rem, 2.2vw, 2.25rem); line-height: 1; }
-    .feature-ledger .item p { max-width: 34ch; margin-top: 20px; color: #333; }
-
-    .menubar-section { border-top: 1px solid #000; }
-    .menubar-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: clamp(32px, 6vw, 96px); align-items: start; }
-    .menubar-grid .section-head { margin-bottom: 0; }
-    .menubar-section h2 { max-width: 11ch; font-size: clamp(3rem, 5.4vw, 6rem); }
-    .menubar-points { margin: 34px 0 0; padding: 0; list-style: none; border-top: 1px solid #000; }
-    .menubar-points li { padding: 18px 0; border-bottom: 1px solid #000; color: #333; }
-    .menubar-points strong { display: block; margin-bottom: 6px; color: #000; font-family: "JetBrains Mono", monospace; font-size: .74rem; text-transform: uppercase; }
-    .menubar-build { margin-top: 24px; color: #333; font-size: .95rem; }
-    .menubar-shot { justify-self: center; margin: 0; }
-    .menubar-shot img { display: block; width: min(400px, 100%); height: auto; border: 1px solid #000; border-radius: 14px; box-shadow: 0 24px 60px rgba(0, 0, 0, .18); }
-    .menubar-shot figcaption { margin-top: 12px; color: #555; font-family: "JetBrains Mono", monospace; font-size: .68rem; text-transform: uppercase; }
-
-    .facts-section .section-head { margin-bottom: 38px; }
-    .facts-section h2 { font-size: clamp(3.2rem, 6vw, 6.8rem); }
-    .facts { grid-template-columns: minmax(220px, .55fr) minmax(0, 1.45fr); gap: clamp(32px, 7vw, 110px); }
-    .table { border: 0; border-radius: 0; box-shadow: none; }
-    table { min-width: 620px; border-top: 1px solid #000; }
-    th, td { padding: 19px 14px; border-bottom-color: #000; }
-    th { color: #000; background: #fff; }
-    td:first-child { font-family: "JetBrains Mono", monospace; font-size: .72rem; font-weight: 500; text-transform: uppercase; }
-    td { color: #111; }
-
-    .faq-section { border-top: 1px solid #000; }
-    .faq-section h2 { max-width: 9ch; }
-    .faq-list { counter-reset: faq; gap: 0; border-top: 1px solid #000; }
-    .faq-list article {
-      counter-increment: faq;
-      position: relative;
-      display: grid;
-      grid-template-columns: 62px minmax(250px, .65fr) minmax(0, 1.35fr);
-      gap: 20px;
-      align-items: start;
-      padding: 24px 0;
-      border: 0;
-      border-bottom: 1px solid #000;
-      border-radius: 0;
-      box-shadow: none;
-    }
-    .faq-list article::before { content: counter(faq, decimal-leading-zero); font-family: "JetBrains Mono", monospace; font-size: .72rem; }
-    .faq-list h3 { margin: 0; color: #000; font-size: 1.02rem; line-height: 1.35; }
-    .faq-list h3::before { display: none; }
-    .faq-list p { color: #333; font-size: .95rem; }
-
-    .trust-band {
-      background: var(--client);
-      box-shadow: 0 0 0 100vmax var(--client);
-      clip-path: inset(0 -100vmax);
-    }
-    .trust-band .section-head {
-      display: grid;
-      grid-template-columns: minmax(300px, .85fr) minmax(0, 1.15fr);
-      gap: 50px;
-      align-items: end;
-      max-width: none;
-    }
-    .trust-band h2 { max-width: 8ch; font-size: clamp(3.6rem, 6.6vw, 7rem); }
-    .trust-band .grid { grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid #000; border-left: 1px solid #000; }
-    .trust-band .item { min-height: 210px; padding: 26px; border: 0; border-right: 1px solid #000; border-bottom: 1px solid #000; border-radius: 0; background: transparent; box-shadow: none; }
-    .trust-band .item:hover { transform: none; background: rgba(255,255,255,.22); box-shadow: none; }
-    .trust-band .item strong { color: #000; font-family: "JetBrains Mono", monospace; font-size: .74rem; text-transform: uppercase; }
-    .trust-band .item p { margin-top: 28px; color: #111; }
-
-    footer { margin-top: 0; color: #fff; background: #000; border-top: 0; }
-    footer .wrap {
-      display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
-      gap: 70px;
-      align-items: end;
-      padding: clamp(72px, 9vw, 138px) 0 48px;
-    }
-    .footer-cta {
-      max-width: 9ch;
-      margin: 0;
-      font-family: "Schibsted Grotesk", sans-serif;
-      font-size: clamp(3.9rem, 7vw, 7.6rem);
-      font-weight: 800;
-      line-height: .9;
-      letter-spacing: -.06em;
-    }
-    .profile-strip { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 38px; border: 1px solid #777; }
-    .profile-strip span { min-width: 0; padding: 11px 12px; border-right: 1px solid #777; font-family: "JetBrains Mono", monospace; font-size: .66rem; text-transform: uppercase; }
-    .profile-strip span:last-child { border-right: 0; }
-    .profile-strip i { width: 9px; height: 9px; display: inline-block; margin-right: 8px; border-radius: 50%; background: var(--signal); }
-    .footer-command { padding: 24px 0; border-top: 1px solid #777; border-bottom: 1px solid #777; color: #e2e2e2; font-family: "JetBrains Mono", monospace; font-size: .78rem; line-height: 1.9; }
-    footer nav { justify-content: space-between; margin-top: 30px; font-size: .72rem; }
-    footer a:hover { color: var(--school); }
-    .footer-note { grid-column: 1 / -1; padding-top: 34px; border-top: 1px solid #444; color: #aaa; font-size: .75rem; }
-
-    .reveal { transform: translateY(22px); transition-duration: .55s; }
-
-    @media (max-width: 1050px) {
-      .hero-grid { grid-template-columns: 1fr; min-height: 0; }
-      h1.wordmark { max-width: 10.5ch; }
-      .term { width: min(820px, 100%); }
-      .feature-ledger { grid-template-columns: repeat(2, 1fr); }
-      .menubar-grid { grid-template-columns: 1fr; }
-      .trust-band .section-head { grid-template-columns: 1fr; }
-      .facts { grid-template-columns: 1fr; }
-      .faq-list article { grid-template-columns: 48px minmax(220px, .8fr) minmax(0, 1.2fr); }
+      .three, .does, .does ul, .notes, .faq-grid { grid-template-columns: 1fr; }
+      .zeros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .z:nth-child(3) { padding-left: 0; border-left: 0; }
+      .z:nth-child(n + 3) { border-top: 1px solid var(--line); }
+      .faq-side { position: static; }
     }
     @media (max-width: 760px) {
-      .site-links a:not(.nav-cta) { display: none; }
-      .hero-grid { padding-top: 62px; padding-bottom: 70px; }
-      h1.wordmark { font-size: clamp(3.65rem, 17vw, 6.8rem); }
-      .profile-keys { grid-template-columns: repeat(2, 1fr); row-gap: 28px; }
-      .answer-band .section-head,
-      footer .wrap { grid-template-columns: 1fr; }
-      .answer-band .eyebrow { grid-column: 1 / -1; }
-      h2 { font-size: clamp(3.15rem, 15vw, 5.8rem); }
-      .feature-ledger,
-      .trust-band .grid { grid-template-columns: 1fr; }
-      .feature-ledger .item { min-height: 220px; }
-      .faq-list article { grid-template-columns: 42px 1fr; }
-      .faq-list p { grid-column: 2; }
-      footer nav { flex-wrap: wrap; justify-content: flex-start; gap: 18px 28px; }
+      .top-nav, .hero-tel, .lift-br { display: none; }
+      .hero { height: auto; padding: 28px 0 40px; }
+      .hero-cap { position: relative; top: auto; left: auto; max-width: none; padding: 0 var(--gut); }
+      .hero-stage { position: relative; top: auto; height: 440px; margin-top: 8px; }
+      .hero-foot { position: relative; padding: 0 var(--gut); }
+      .traj { height: 440px; }
+      .lift { height: 780px; }
+      .cmd { padding: 12px 14px; border-radius: 18px; }
+      .facts dl div { grid-template-columns: 96px minmax(0, 1fr); }
+      .faq-list article { grid-template-columns: 36px minmax(0, 1fr); gap: 8px 12px; }
+      .row { grid-template-columns: 44px minmax(0, 1fr); gap: 8px 14px; }
+      .row code { font-size: 16px; }
     }
-    @media (max-width: 480px) {
-      :root { --gutter: 18px; }
-      .site-nav-inner { min-height: 62px; }
-      .nav-cta { padding-inline: 12px; font-size: .68rem; }
-      .hero-copy { font-size: 1.05rem; }
-      .actions { display: grid; }
-      .button { justify-content: space-between; }
-      .meta-row span { width: 50%; border-bottom: 1px solid #000; }
-      .meta-row span:nth-child(2) { border-right: 0; }
-      .meta-row span:nth-child(n+3) { border-bottom: 0; }
-      .term { padding: 18px; }
-      .term-body { padding: 16px; font-size: .72rem; }
-      .profile-key b { min-height: 56px; }
-      .graph-toolbar { align-items: stretch; }
-      .seg { width: 100%; }
-      .seg button { flex: 1; }
-      .graph-hint { display: block; }
-      .graph-stage { height: 460px; }
-      .profile-strip { grid-template-columns: repeat(2, 1fr); }
-      .profile-strip span:nth-child(2) { border-right: 0; }
-      .profile-strip span:nth-child(-n+2) { border-bottom: 1px solid #777; }
+    @media (max-width: 520px) {
+      .wp.ct, .traj-br { display: none; }
     }
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
-      .reveal { opacity: 1; transform: none; }
-    }
-    @media (forced-colors: active) {
-      * { scrollbar-color: auto; }
-      .profile-key::before,
-      .profile-key::after,
-      .profile-strip i { forced-color-adjust: none; }
+      .lab, .pin, .wp b, .row { transition: none; }
     }
   </style>
 </head>
 <body>
-  <a class="skip-link" href="#main-content">Skip to main content</a>
-  <nav class="site-nav" aria-label="Site navigation">
-    <div class="wrap site-nav-inner">
-      <a class="site-mark" href="#top" aria-label="codex-profiles home">codex-profiles</a>
-      <div class="site-links">
-        <a href="#how">How it works</a>
-        <a href="#features">Features</a>
-        <a href="#menubar">Menu-bar app</a>
-        <a href="#faq">FAQ</a>
-        <a class="nav-cta" href="https://github.com/Ducksss/codex-profiles">View on GitHub ↗</a>
-      </div>
-    </div>
-  </nav>
-  <header class="hero" id="top">
-    <div class="wrap hero-grid">
-      <div class="hero-lede">
-        <h1 class="wordmark"><span>Two profiles.</span><span>One Mac.</span><span>No token swapping.</span></h1>
-        <p class="hero-copy">Give each Codex workflow a <strong>named home</strong> — and, on macOS, each ChatGPT window separate local state.</p>
-        <nav class="actions" aria-label="Primary links">
-          <a class="button primary" href="https://www.npmjs.com/package/codex-profile">Install codex-profile</a>
-          <a class="button ghost" href="https://github.com/Ducksss/codex-profiles">View on GitHub</a>
-        </nav>
-        <div class="meta-row">
-          <span><i class="dot"></i> MIT licensed</span>
-          <span>macOS + Linux</span>
-          <span>zero runtime deps</span>
-          <span>v1.3.0</span>
-        </div>
-      </div>
-
-      <div class="term" role="img" aria-label="Terminal example: install codex-profile, then run Codex on separate work and personal profiles">
-        <div class="term-bar"><i class="b1"></i><i class="b2"></i><i class="b3"></i><span class="title">~/dev — codex-profile</span></div>
-        <div class="term-body">
-          <span class="term-line"><span class="pl">$</span> <span class="cmd">codex-profile status</span></span>
-          <span class="term-line"><span class="out">active</span>      <span class="arg">work</span></span>
-          <span class="term-line"><span class="out">CODEX_HOME</span>  <span class="cmd">~/.codex-work</span></span>
-          <span class="term-line"><span class="out">state</span>       <span class="ok">separate</span></span>
-          <span class="term-line">&nbsp;</span>
-          <span class="term-line"><span class="pl">$</span> <span class="cmd">codex-profile cli work</span></span>
-          <span class="term-line"><span class="ok">✓</span> <span class="out">Codex launched on work</span></span>
-        </div>
-        <div class="profile-keys" role="list" aria-label="Example separate profiles">
-          <span class="profile-key personal" role="listitem"><b>personal</b></span>
-          <span class="profile-key work" role="listitem"><b>work</b></span>
-          <span class="profile-key school" role="listitem"><b>school</b></span>
-          <span class="profile-key client" role="listitem"><b>client</b></span>
-        </div>
-      </div>
-    </div>
+  <a class="skip" href="#main-content">Skip to main content</a>
+  <header class="top">
+    <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"></span>codex-profiles</a>
+    <nav class="top-nav" aria-label="Sections">
+      <a href="#how">Separation</a>
+      <a href="#menubar">Menu bar</a>
+      <a href="#install">Install</a>
+      <a href="#safety">Safety</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="top-gh" href="https://github.com/Ducksss/codex-profiles"><span>v1.3.0</span> · GitHub <span aria-hidden="true">↗</span></a>
   </header>
 
   <main id="main-content">
-    <section class="section wrap reveal answer-band" aria-labelledby="answer">
-      <div class="section-head">
-        <p class="eyebrow">What it is</p>
-        <h2 id="answer">Direct answer</h2>
-        <p class="lede">codex-profiles is a dependency-free Bash CLI for named Codex homes and, on macOS, named ChatGPT windows with separate local state. Codex-only commands stay separate from whole-window Desktop launches, and authentication files are never copied.</p>
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <canvas class="field" data-ascii-gl="orbit" data-tone="dark" data-stage="hero-stage" aria-hidden="true"></canvas>
+      <div class="hero-cap">
+        <span class="cap cap-ink">Fig. 01 — One orbit, three homes</span>
+        <p>Each moon is a profile with its own CODEX_HOME. Move the cursor to turn the light.</p>
       </div>
-      <div class="command" aria-label="Install commands">
-        <pre><code>npm install -g codex-profile
-brew install Ducksss/tap/codex-profile
-codex-profile doctor</code></pre>
+      <dl class="hero-tel">
+        <div><dt>PROFILES</dt><dd>03</dd></div>
+        <div><dt>CODEX_HOME</dt><dd>03</dd></div>
+        <div><dt>CHATGPT WINDOWS</dt><dd>03</dd></div>
+        <div><dt>SHARED AUTH.JSON</dt><dd>00</dd></div>
+      </dl>
+      <div class="hero-stage" data-ascii-stage="hero-stage">
+        <pre class="gl-art hero-art" aria-hidden="true">
+
+
+
+                                        ++***===----::..
+                                     ##+++*++=====-=--::...
+                                   ####*++**++=======--::.  .
+                                 %%%***%##******====--:::.   ..                  ___\\\\\
+                                @@@@##**********==-----::.     .                       \\\\\
+                               *@@@@##**********==-----::.      .                       |||/
+                           ___@@@@%%@@%%####*+++=====--::.       .                      ///
+                    ____      #%%%%%%%%##*%##+===--==-::..       .                   ////
+               ___           ###%%%%%%##**###====--=--::.        ..               ___
+           ___               *####**%%%##***++==+==---::.        ..           ___
+       ////                   *#****%##****++======--::.         .      ____
+     ///                      ######+++****+++++==-::::          .___
+    /|||                       *++++***++=+++====--::..   ____  .
+    \\\\\                       +++++++===++===-_____          .
+       \\\\\___                  ________+===--:-::.         ..
+                                   ++++=--==---:::.         .
+                                     ==------:::.        ..
+                                        :::::.      ....
+
+
+
+</pre>
       </div>
-    </section>
-
-    <section class="section wrap reveal" aria-labelledby="how">
-      <div class="section-head">
-        <p class="eyebrow">Interactive local-state model · drag the nodes</p>
-        <h2 id="how">One home for every profile.</h2>
-        <p class="lede">Every CLI profile selects its own <span class="mono">CODEX_HOME</span>. On macOS, a named <span class="mono">app</span> launch also selects separate local state for the whole ChatGPT window. Flip the switch to see why this beats swapping one <span class="mono">auth.json</span> around.</p>
+      <div class="hero-labels" aria-hidden="true">
+        <div class="lab" data-orbit-label="0"><i></i><div><span>default</span><span>~/.codex</span></div></div>
+        <div class="lab" data-orbit-label="1"><i></i><div><span>personal</span><span>~/.codex-personal</span></div></div>
+        <div class="lab" data-orbit-label="2"><i></i><div><span>work</span><span>~/.codex-work</span></div></div>
       </div>
-
-      <div class="graph-shell">
-        <div class="graph-toolbar">
-          <form class="seg" id="isolation-controls" role="group" aria-label="Local-state model" novalidate>
-            <button id="mode-isolated" type="submit" name="mode" value="isolated" aria-pressed="true"><span class="k">$</span>codex-profile</button>
-            <button id="mode-shared" class="danger" type="submit" name="mode" value="shared" aria-pressed="false"><span class="k">~</span>swap auth.json</button>
-          </form>
-          <span class="graph-hint" id="graph-hint">one CODEX_HOME per profile</span>
-        </div>
-
-        <div class="graph-stage" id="graph" data-mode="isolated">
-          <div class="badge-shared">⚠ one shared ~/.codex — state is shared across profiles</div>
-          <div class="tip" id="graph-tip"></div>
-          <div class="graph-fallback" id="graph-fallback">
-            <h3>Profile separation at a glance</h3>
-            <p>One macOS user fans out into named Codex profiles, each mapped to its own separate home directory:</p>
-            <ul>
-              <li><code>default</code> &rarr; <code>~/.codex</code></li>
-              <li><code>work</code> &rarr; <code>~/.codex-work</code></li>
-              <li><code>personal</code> &rarr; <code>~/.codex-personal</code></li>
-              <li><code>edu</code> &rarr; <code>~/.codex-edu</code></li>
-            </ul>
-            <p>Each home keeps its own auth, config, sessions, plugins, caches, and logs. Unlike swapping a single <code>auth.json</code>, codex-profiles never copies or migrates tokens.</p>
+      <div class="hero-foot">
+        <h1 id="hero-title">Your Codex profiles,<br>one click away.</h1>
+        <div class="hero-copy">
+          <p>codex-profiles is a free, open-source macOS menu bar app and dependency-free Bash CLI for managing Codex profiles. Check Codex CLI quota and open named ChatGPT windows with separate local state on macOS; CLI commands also support Linux.</p>
+          <div class="ctas">
+            <a class="btn btn-ink" href="#install">Install the CLI</a>
+            <a class="btn btn-line" href="https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md#build-locally">Build the macOS app <span aria-hidden="true">↗</span></a>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section wrap reveal features-section" aria-labelledby="features">
-      <div class="section-head">
-        <p class="eyebrow">Capabilities</p>
-        <h2 id="features">What it does</h2>
+    <section class="sec" id="how" aria-labelledby="how-title">
+      <div class="sec-head">
+        <div class="sec-title">
+          <span class="cap">(01) Separation</span>
+          <h2 id="how-title">Orbits, not overlaps.</h2>
+        </div>
+        <p class="sec-lede">Every profile selects its own CODEX_HOME. Named profiles on macOS also open a ChatGPT window with its own Electron data across Chat, Work and Codex. Nothing is copied between them.</p>
       </div>
-      <div class="grid feature-ledger">
-        <article class="item">
-          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h18"/></svg></span>
-          <strong>Separate Codex homes</strong>
-          <p>Each profile maps to its own Codex home, such as default to ~/.codex and work to ~/.codex-work.</p>
-        </article>
-        <article class="item">
-          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg></span>
-          <strong>CLI and ChatGPT launch</strong>
-          <p>Run Codex-only commands with a named home, or open a whole ChatGPT window with matching Codex state.</p>
-        </article>
-        <article class="item">
-          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="9" height="9" rx="1.5"/><rect x="12" y="12" width="9" height="9" rx="1.5"/></svg></span>
-          <strong>Named ChatGPT windows</strong>
-          <p>On macOS, named app launches use separate Electron state while preserving the original signed ChatGPT app.</p>
-        </article>
-        <article class="item">
-          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
-          <strong>Read-only diagnostics</strong>
-          <p>list, status, and doctor inspect profiles without creating missing directories for typos.</p>
-        </article>
-        <article class="item">
-          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="12" rx="2"/><path d="M8 20h10a2 2 0 0 0 2-2V8"/></svg></span>
-          <strong>Safe config cloning</strong>
-          <p>clone-config copies only known non-secret root config files and refuses any file with sensitive-looking text.</p>
-        </article>
-        <article class="item">
-          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6M12 19h8"/></svg></span>
-          <strong>No runtime dependencies</strong>
-          <p>The distributed command is Bash and is tested on macOS and Ubuntu/Linux.</p>
-        </article>
+      <div class="moons">
+        <canvas class="field" data-ascii-gl="moons" data-tone="dark" data-stages="m0,m1,m2" aria-hidden="true"></canvas>
+        <div class="three">
+          <div class="moon">
+            <div class="ret" data-ascii-stage="m0">
+              <span class="cap ret-tl">Orbit 01</span>
+              <span class="cap cap-ink ret-tr">D</span>
+              <span class="cap ret-bl">CODEX_HOME</span>
+              <span class="cap cap-ink ret-br">~/.codex</span>
+              <pre class="gl-art" aria-hidden="true">
+       -=+++**###+=
+     -+**++++*####*+-
+    =*#%##***####*++=-
+   -+*%%%%%%%%@%%#++==-
+   -=*#####%%@@@@%*++=-
+   -+*******#%@@@%#**+=
+   -+*##*+++*####**+++=
+   :=**#*****##**+===-:
+    :=++****####*+=--:
+     .--===++***+=-:.
+       .:::---=--:.
+</pre>
+            </div>
+            <h3>default</h3>
+            <dl class="kvs">
+              <div><dt>Window</dt><dd>Stock ChatGPT session</dd></div>
+              <div><dt>auth.json</dt><dd>Its own</dd></div>
+              <div><dt>Sessions and logs</dt><dd>Its own</dd></div>
+            </dl>
+          </div>
+          <div class="moon">
+            <div class="ret" data-ascii-stage="m1">
+              <span class="cap ret-tl">Orbit 02</span>
+              <span class="cap cap-ink ret-tr">P</span>
+              <span class="cap ret-bl">CODEX_HOME</span>
+              <span class="cap cap-ink ret-br">~/.codex-personal</span>
+              <pre class="gl-art" aria-hidden="true">
+       **++++++=-:.
+     ####*++++++=-:..
+    %@@@%#*+++++=-:: .
+   *%@@@@%#****+=-::  .
+   *#%%%%##*##**+=-:  .
+   *#%%#**++***++=-:  .
+   #%%%#*++++++==-:.  .
+   *%%@%#*++++==-::   .
+    *###**++++=-::   .
+     =++======-::  ..
+       ---::::: ...
+</pre>
+            </div>
+            <h3>personal</h3>
+            <dl class="kvs">
+              <div><dt>Window</dt><dd>Named, own Electron data</dd></div>
+              <div><dt>auth.json</dt><dd>Its own</dd></div>
+              <div><dt>Sessions and logs</dt><dd>Its own</dd></div>
+            </dl>
+          </div>
+          <div class="moon">
+            <div class="ret" data-ascii-stage="m2">
+              <span class="cap ret-tl">Orbit 03</span>
+              <span class="cap cap-ink ret-tr">W</span>
+              <span class="cap ret-bl">CODEX_HOME</span>
+              <span class="cap cap-ink ret-br">~/.codex-work</span>
+              <pre class="gl-art" aria-hidden="true">
+       *++==--::...
+     ###+==---::   ..
+    @@%#*+=--::.     .
+   #%%%#*+==--:       .
+   *###*++=---:       .
+   ###*+==---:.       .
+   %%##*=--:::        .
+   #%%#*+=-::.        .
+    ***+=--::        .
+     ++=--::       ..
+       -:::     ...
+</pre>
+            </div>
+            <h3>work</h3>
+            <dl class="kvs">
+              <div><dt>Window</dt><dd>Named, own Electron data</dd></div>
+              <div><dt>auth.json</dt><dd>Its own</dd></div>
+              <div><dt>Sessions and logs</dt><dd>Its own</dd></div>
+            </dl>
+          </div>
+        </div>
       </div>
+      <p class="note">Any other name maps to ~/.codex-&lt;name&gt;. Want shared settings? init --share-with links only the documented configuration allowlist.</p>
     </section>
 
-    <section class="section wrap reveal menubar-section" aria-labelledby="menubar">
-      <div class="menubar-grid">
-        <div class="section-head">
-          <p class="eyebrow">macOS menu-bar app · new in 1.3.0</p>
-          <h2 id="menubar">Every profile, one click away.</h2>
-          <p class="lede">Codex Profiles.app lists your profiles and project bindings in the menu bar, opens any of them in ChatGPT or Terminal, and shows each profile's remaining Codex quota before you switch.</p>
-          <ul class="menubar-points">
-            <li><strong>Quota at a glance</strong>Meters turn orange or red when a window runs low, and the row says when it resets.</li>
-            <li><strong>Set up from the menu</strong>Create profiles, start Codex CLI sign-in in Terminal, and add, reassign or repair project bindings.</li>
-            <li><strong>Native on macOS</strong>Follows light and dark mode, contrast and Reduce Motion. Open at Login keeps it in the menu bar.</li>
-          </ul>
-          <p class="menubar-build">Build it from a source checkout on macOS 13 or newer with <span class="mono">make menu-app</span>. It includes codex-profile and uses the official Codex CLI for Terminal launches, sign-in and quota. There is no signed download yet.</p>
-        </div>
-        <figure class="menubar-shot">
-          <img src="https://github.com/Ducksss/codex-profiles/raw/refs/heads/main/macos/CodexProfilesMenu/Previews/menu-light.png" width="400" height="490" loading="lazy" decoding="async" alt="Codex Profiles menu-bar app: three profiles with remaining Codex quota meters, one low in orange and one critical in red with its reset time, followed by pinned and recent workspaces with Open buttons.">
-          <figcaption>The app's actual view, sample quota values</figcaption>
+    <section class="sec menu" id="menubar" aria-labelledby="menubar-title">
+      <div class="menu-grid">
+        <figure class="shot">
+          <div class="shot-frame">
+            <img src="menu-dark.png" width="720" height="680" loading="lazy" decoding="async" alt="Codex Profiles menu bar app in dark appearance: default, personal and work profiles, each with its remaining Codex quota as a figure and a ring, personal low in orange and work critical in red with their reset times, and project workspaces nested under their profiles.">
+            <span class="pin" data-k="1" aria-hidden="true" style="left: 41.7%; top: 19.1%">01</span>
+            <span class="pin" data-k="2" aria-hidden="true" style="left: 87.5%; top: 38.5%">02</span>
+            <span class="pin" data-k="3" aria-hidden="true" style="left: 88.9%; top: 74.4%">03</span>
+          </div>
+          <figcaption class="cap">Fig. 02 — The menu bar app, dark appearance, sample quota values</figcaption>
         </figure>
-      </div>
-    </section>
-
-    <section class="section wrap reveal facts-section" aria-labelledby="facts">
-      <div class="section-head">
-        <p class="eyebrow">For citation</p>
-        <h2 id="facts">Citation-ready facts</h2>
-      </div>
-      <div class="facts">
-        <p class="lede">Use these facts when citing or summarizing the project. They match the README, package metadata, and structured data on this page.</p>
-        <div class="table">
-          <table>
-            <thead>
-              <tr>
-                <th>Fact</th>
-                <th>Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Project</td>
-                <td>codex-profiles, installed as codex-profile on npm</td>
-              </tr>
-              <tr>
-                <td>Purpose</td>
-                <td>Select named Codex homes and named ChatGPT windows with separate local state without copying auth tokens</td>
-              </tr>
-              <tr>
-                <td>Platforms</td>
-                <td>macOS and Linux for CLI-oriented commands; macOS for Desktop app launch workflows</td>
-              </tr>
-              <tr>
-                <td>Menu-bar app</td>
-                <td>Optional native app for macOS 13 or newer, built from a source checkout; opens profiles in ChatGPT or Terminal and shows per-profile Codex CLI quota</td>
-              </tr>
-              <tr>
-                <td>License</td>
-                <td>MIT</td>
-              </tr>
-              <tr>
-                <td>Official URLs</td>
-                <td>GitHub: https://github.com/Ducksss/codex-profiles; npm: https://www.npmjs.com/package/codex-profile</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="menu-copy">
+          <div class="sec-title">
+            <span class="cap">(02) Menu bar</span>
+            <h2 id="menubar-title">Mission control<br>in the menu bar.</h2>
+          </div>
+          <ol class="feats">
+            <li data-k="1"><span class="cap cap-ink">01</span><div><h3>Profiles</h3><p>Each profile leads its own group, with its workspaces beneath it. Click a row to open it in ChatGPT, or <span class="nw">⌘-click</span> to open it in Terminal. Different names stay open side by side.</p></div></li>
+            <li data-k="2"><span class="cap cap-ink">02</span><div><h3>Codex quota</h3><p>Each profile shows its tightest Codex window as a figure and a ring that turns orange or red when it runs low, with the reset time. The app never switches profiles or accounts for you.</p></div></li>
+            <li data-k="3"><span class="cap cap-ink">03</span><div><h3>Workspaces</h3><p>Bind project folders to a profile and pin the ones you use most. Search from the keyboard, or press ⌘1–9 to open a visible row.</p></div></li>
+          </ol>
+          <p class="note">Build it from a source checkout on macOS 13 or newer with make menu-app. It includes codex-profile and uses the official Codex CLI for Terminal launches, sign-in and quota. There is no signed download yet. Follow the <a href="https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md">build and quota guide</a>.</p>
         </div>
       </div>
     </section>
 
-    <section class="section wrap reveal faq-section" aria-labelledby="faq">
-      <div class="section-head">
-        <p class="eyebrow">Questions</p>
-        <h2 id="faq">Questions, answered.</h2>
+    <section class="sec launch" id="install" aria-labelledby="install-title">
+      <div class="sec-head">
+        <div class="sec-title">
+          <span class="cap">(03) Install</span>
+          <h2 id="install-title">Launch sequence.</h2>
+        </div>
+        <p class="sec-lede">Install codex-profile, singular. It provides both the codex-profile and codex-profiles commands. The plural npm package is a different project.</p>
       </div>
-      <div class="faq-list">
-        <article>
-          <h3>What is codex-profiles?</h3>
-          <p>codex-profiles is a Bash command that selects named CODEX_HOME directories and, on macOS, named ChatGPT windows with separate local state.</p>
-        </article>
-        <article>
-          <h3>Why use separate CODEX_HOME directories?</h3>
-          <p>Separate CODEX_HOME directories keep Codex auth, config, sessions, plugins, caches, logs, and local state separated by profile.</p>
-        </article>
-        <article>
-          <h3>How does Desktop separation work?</h3>
-          <p>A named app launch selects separate Electron state for the whole ChatGPT window and a matching CODEX_HOME for Codex. The boundary applies across Chat, Work, and Codex, but account identity remains unverified.</p>
-        </article>
-        <article>
-          <h3>What does app default do?</h3>
-          <p>After the default profile is initialized, app default uses ~/.codex and preserves the stock ChatGPT Desktop session without a custom Electron user-data directory.</p>
-        </article>
-        <article>
-          <h3>Does codex-profiles verify that CLI and Desktop use the same account?</h3>
-          <p>No. CLI and Desktop sessions can be authenticated independently, and codex-profiles does not inspect account identifiers or credentials to compare them.</p>
-        </article>
-        <article>
-          <h3>Does codex-profiles copy auth tokens?</h3>
-          <p>No. codex-profiles does not read, copy, print, parse, upload, compare, or migrate authentication tokens or ChatGPT cookies.</p>
-        </article>
-        <article>
-          <h3>Which platforms does codex-profiles support?</h3>
-          <p>CLI-oriented commands are tested on macOS and Linux, while ChatGPT Desktop launching is available on macOS.</p>
-        </article>
-        <article>
-          <h3>How do I install codex-profiles?</h3>
-          <p>Install from npm with npm install -g codex-profile or from Homebrew with brew install Ducksss/tap/codex-profile.</p>
-        </article>
-        <article>
-          <h3>Can multiple named ChatGPT windows run at once?</h3>
-          <p>Yes. Different names use separate local Electron state and can run side by side, while app default keeps the ordinary stock ChatGPT session.</p>
-        </article>
-        <article>
-          <h3>Is there a menu-bar app for macOS?</h3>
-          <p>Yes. On macOS 13 or newer, an optional native menu-bar app built from a source checkout with make menu-app opens profiles and bound projects in ChatGPT or Terminal and shows each profile's remaining Codex CLI quota. It includes codex-profile but still needs the official Codex CLI.</p>
-        </article>
-        <article>
-          <h3>Can an AI assistant tell me how to run codex-profiles?</h3>
-          <p>Yes. Point your AI assistant or coding agent at the GitHub repository and this llms.txt file, then ask it to install codex-profile, initialize work, and run codex-profile cli work to start Codex on that profile. Coding agents working inside a clone of the repository can read its AGENTS.md file for setup, test, and usage instructions.</p>
-        </article>
-        <article>
-          <h3>Why does fork fail with rollout path must be in Codex home directory?</h3>
-          <p>Current Codex Desktop resolves the rollout path before checking that it stays under CODEX_HOME. A sessions/ or state_5.sqlite symlink from a named home into another home makes that check fail, so fork and side chats break. A shared state_5.sqlite also breaks archive and delete, which restrict rollout paths to sessions/ and mention that directory in the error. init --share-with never creates those links. Do not symlink the session store. Sharing chats across people means one real Desktop CODEX_HOME. Separate ChatGPT logins then require selecting that account's auth.json; the account chip follows CODEX_HOME auth.json, not Electron user-data alone. This tool does not copy auth.json.</p>
-        </article>
+      <div class="launch-grid">
+        <div class="traj">
+          <canvas class="field" data-ascii-gl="transfer" data-tone="dark" data-stage="traj" data-fit-w="0.94" aria-hidden="true"></canvas>
+          <div class="traj-stage" data-ascii-stage="traj"></div>
+          <div class="traj-labels" aria-hidden="true">
+            <div class="wp dn" data-path-label="0" data-k="0"><i></i><b>T−3 <span>install</span></b></div>
+            <div class="wp lf" data-path-label="1" data-k="1"><i></i><b>T−2 <span>setup</span></b></div>
+            <div class="wp lf" data-path-label="2" data-k="2"><i></i><b>T−1 <span>bind</span></b></div>
+            <div class="wp dn lf" data-path-label="3" data-k="3"><i></i><b>T−0 <span>run</span></b></div>
+            <div class="wp ct" data-path-label="target"><i></i><b>work <span>~/.codex-work</span></b></div>
+          </div>
+          <span class="cap cap-ink traj-tl" aria-hidden="true">Fig. 03 — Transfer to a profile</span>
+          <span class="cap traj-br" aria-hidden="true">Four commands, one orbit</span>
+        </div>
+        <div class="rows">
+          <div class="row" data-k="0"><span class="cap cap-ink">T−3</span><code>npm install -g codex-profile</code><p>or brew install Ducksss/tap/codex-profile, then codex-profile doctor to check prerequisites</p></div>
+          <div class="row" data-k="1"><span class="cap cap-ink">T−2</span><code>codex-profile setup work</code><p>Creates the profile, offers sign-in and binds a project</p></div>
+          <div class="row" data-k="2"><span class="cap cap-ink">T−1</span><code>codex-profile workspace bind ~/Dev/client work</code><p>Bind any other folder once</p></div>
+          <div class="row" data-k="3"><span class="cap cap-ink">T−0</span><code>codex-profile run</code><p>Starts Codex on the profile bound to this folder</p></div>
+          <p class="note">Menu bar app: <code>git clone https://github.com/Ducksss/codex-profiles.git &amp;&amp; cd codex-profiles &amp;&amp; make menu-app</code></p>
+        </div>
       </div>
     </section>
 
-    <section class="section wrap reveal trust-band" aria-labelledby="trust">
-      <div class="section-head">
-        <p class="eyebrow">Trust</p>
-        <h2 id="trust">The boundary is explicit local state.</h2>
-        <p class="lede">Codex-only commands select a CODEX_HOME. Named app launches also select separate Electron state for the whole ChatGPT window. The project never copies authentication files and documents what remains shared.</p>
+    <section class="sec" id="safety" aria-labelledby="safety-title">
+      <div class="sec-head">
+        <div class="sec-title">
+          <span class="cap">(04) Safety</span>
+          <h2 id="safety-title">Zero contact with<br>your credentials.</h2>
+        </div>
+        <p class="sec-lede">It keeps local state apart and stays out of your credentials. It is open source, so you can read every line it runs.</p>
       </div>
-      <div class="grid">
-        <article class="item">
-          <strong>Security boundary</strong>
-          <p>codex-profiles sets environment variables and creates private Codex and Electron-state directories. It does not claim VM, container, separate macOS account, or verified account-identity isolation.</p>
-        </article>
-        <article class="item">
-          <strong>Validation</strong>
+      <div class="zeros">
+        <div class="z"><span class="zn">00</span><span class="cap">auth.json tokens read or copied</span></div>
+        <div class="z"><span class="zn">00</span><span class="cap">ChatGPT cookies read</span></div>
+        <div class="z"><span class="zn">00</span><span class="cap">App bundles cloned or re-signed</span></div>
+        <div class="z"><span class="zn">00</span><span class="cap">Profile switches made for you</span></div>
+      </div>
+      <div class="does">
+        <h3 class="cap cap-ink">+ It does</h3>
+        <ul>
+          <li><span aria-hidden="true">+</span><span>Select a separate CODEX_HOME for each profile</span></li>
+          <li><span aria-hidden="true">+</span><span>Give each named ChatGPT window its own Electron data</span></li>
+          <li><span aria-hidden="true">+</span><span>Open the original, signed ChatGPT app</span></li>
+        </ul>
+      </div>
+      <div class="warn">
+        <span aria-hidden="true">/!\</span>
+        <p>Local-state separation is not an account, OS or server-side security boundary. SSH keys, keychains and other credentials stay shared by your macOS user. For strict separation, use separate OS users.</p>
+        <a class="u" href="https://github.com/Ducksss/codex-profiles/blob/main/SECURITY.md">Security model <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="notes" id="trust">
+        <div>
+          <h3 class="cap cap-ink">Security boundary</h3>
+          <p>codex-profiles sets environment variables and creates private Codex and Electron-state directories. It does not claim VM, container, separate macOS account, or verified account-identity isolation. Read the <a href="https://github.com/Ducksss/codex-profiles/blob/main/SECURITY.md">security model and privacy boundaries</a>.</p>
+        </div>
+        <div>
+          <h3 class="cap cap-ink">Validation</h3>
           <p>The repository uses make check as one deterministic syntax, behavior, packaging, release, documentation, and shell-lint gate.</p>
-        </article>
-        <article class="item">
-          <strong>Machine-readable docs</strong>
-          <p>This page is supported by robots.txt, sitemap.xml, llms.txt, visible FAQ answers, and JSON-LD structured data.</p>
-        </article>
+        </div>
+        <div>
+          <h3 class="cap cap-ink">Machine-readable docs</h3>
+          <p>Use the <a href="https://ducksss.github.io/codex-profiles/llms.txt">plain-text reference</a> and <a href="https://github.com/Ducksss/codex-profiles/blob/main/agent.md">agent setup guide</a> for supported commands and limitations. <a href="https://github.com/Ducksss/codex-profiles/releases.atom">Subscribe to releases</a> for published updates.</p>
+        </div>
       </div>
+    </section>
+
+    <section class="sec" id="faq" aria-labelledby="faq-title">
+      <div class="faq-grid">
+        <div class="faq-side">
+          <div class="sec-title">
+            <span class="cap">(05) Questions</span>
+            <h2 id="faq-title">Questions, answered.</h2>
+          </div>
+          <div class="facts" id="facts">
+            <h3 class="cap cap-ink">Project facts</h3>
+            <dl>
+              <div><dt>Project</dt><dd>codex-profiles, installed as codex-profile on npm</dd></div>
+              <div><dt>Purpose</dt><dd>Select named Codex homes and named ChatGPT windows with separate local state without copying auth tokens</dd></div>
+              <div><dt>Platforms</dt><dd>macOS and Linux for CLI-oriented commands; macOS for Desktop app launch workflows</dd></div>
+              <div><dt>Menu bar app</dt><dd>Optional native app for macOS 13 or newer, built from a source checkout; opens profiles in ChatGPT or Terminal and shows per-profile Codex CLI quota</dd></div>
+              <div><dt>License</dt><dd><a href="https://github.com/Ducksss/codex-profiles/blob/main/LICENSE">MIT</a></dd></div>
+              <div><dt>Official URLs</dt><dd><a href="https://github.com/Ducksss/codex-profiles">GitHub repository</a>; <a href="https://www.npmjs.com/package/codex-profile">npm package: codex-profile</a> (singular; the plural npm package is another project)</dd></div>
+            </dl>
+            <p>See the <a href="https://github.com/Ducksss/codex-profiles/blob/main/README.md">setup guide</a>, <a href="https://github.com/Ducksss/codex-profiles/blob/main/USAGE.md">command reference</a>, and <a href="https://github.com/Ducksss/codex-profiles/blob/main/CHANGELOG.md">changelog</a> for the commands and release history behind these facts.</p>
+          </div>
+        </div>
+        <div class="faq-list">
+          <article>
+            <h3>What is codex-profiles?</h3>
+            <p>codex-profiles is a free, open-source macOS menu bar app and Bash CLI for managing Codex profiles. It opens named ChatGPT windows with separate local state on macOS and supports Codex CLI profiles on macOS and Linux.</p>
+          </article>
+          <article>
+            <h3>Why use separate CODEX_HOME directories?</h3>
+            <p>Separate CODEX_HOME directories keep Codex auth, sessions, caches, logs, and local state separated by profile. Configuration and plugins also stay separate unless you explicitly link the documented configuration allowlist with init --share-with.</p>
+          </article>
+          <article>
+            <h3>How does Desktop separation work?</h3>
+            <p>A named app launch selects separate Electron state for the whole ChatGPT window and a matching CODEX_HOME for Codex. The boundary applies across Chat, Work, and Codex, but account identity remains unverified.</p>
+          </article>
+          <article>
+            <h3>What does app default do?</h3>
+            <p>After the default profile is initialized, app default uses ~/.codex and preserves the stock ChatGPT Desktop session without a custom Electron user-data directory.</p>
+          </article>
+          <article>
+            <h3>Does codex-profiles verify that CLI and Desktop use the same account?</h3>
+            <p>No. CLI and Desktop sessions can be authenticated independently, and codex-profiles does not inspect account identifiers or credentials to compare them.</p>
+          </article>
+          <article>
+            <h3>Does codex-profiles copy auth tokens?</h3>
+            <p>No. codex-profiles does not read, copy, print, parse, upload, compare, or migrate authentication tokens or ChatGPT cookies.</p>
+          </article>
+          <article>
+            <h3>Which platforms does codex-profiles support?</h3>
+            <p>CLI-oriented commands are tested on macOS and Linux, while ChatGPT Desktop launching is available on macOS.</p>
+          </article>
+          <article>
+            <h3>How do I install codex-profiles?</h3>
+            <p>Install from npm with npm install -g codex-profile or from Homebrew with brew install Ducksss/tap/codex-profile.</p>
+          </article>
+          <article>
+            <h3>Can multiple named ChatGPT windows run at once?</h3>
+            <p>Yes. Different names use separate local Electron state and can run side by side, while app default keeps the ordinary stock ChatGPT session.</p>
+          </article>
+          <article>
+            <h3>Is there a menu-bar app for macOS?</h3>
+            <p>Yes. On macOS 13 or newer, an optional native menu-bar app built from a source checkout with make menu-app opens profiles and bound projects in ChatGPT or Terminal and shows each profile's remaining Codex CLI quota. It includes codex-profile but still needs the official Codex CLI.</p>
+          </article>
+          <article>
+            <h3>Can an AI assistant tell me how to run codex-profiles?</h3>
+            <p>Yes. The repository's agent.md is the public installation and setup guide, and llms.txt is the plain-text product reference. Ask your assistant to install codex-profile, initialize work, authenticate with codex-profile login work, and launch codex-profile cli work. AGENTS.md is for repository contributors.</p>
+          </article>
+          <article>
+            <h3>Why does fork fail with rollout path must be in Codex home directory?</h3>
+            <p>Current Codex Desktop resolves the rollout path before checking that it stays under CODEX_HOME. A sessions/ or state_5.sqlite symlink from a named home into another home makes that check fail, so fork and side chats break. A shared state_5.sqlite also breaks archive and delete, which restrict rollout paths to sessions/ and mention that directory in the error. init --share-with never creates those links. Do not symlink the session store. Sharing chats across people means one real Desktop CODEX_HOME. Separate ChatGPT logins then require selecting that account's auth.json; the account chip follows CODEX_HOME auth.json, not Electron user-data alone. This tool does not copy auth.json.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="lift" id="lift-off" aria-labelledby="lift-title">
+      <canvas class="field" data-ascii-gl="horizon" data-tone="dark" aria-hidden="true"></canvas>
+      <div class="lift-body">
+        <span class="cap">(06) Lift-off</span>
+        <h2 id="lift-title">Put every profile<br>in orbit.</h2>
+        <div class="cmd">
+          <span aria-hidden="true">$</span><code>npm install -g codex-profile</code>
+          <button type="button" class="copy" data-copy="npm install -g codex-profile" aria-label="Copy the install command"><span class="c1">Copy</span><span class="c2" aria-live="polite">Copied</span></button>
+        </div>
+        <span class="lift-alt">or brew install Ducksss/tap/codex-profile</span>
+        <div class="ctas">
+          <a class="btn btn-ink" href="https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md#build-locally">Build the macOS app <span aria-hidden="true">↗</span></a>
+          <a class="btn btn-line" href="https://github.com/Ducksss/codex-profiles/blob/main/USAGE.md">Read the manual <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <span class="cap lift-bl" aria-hidden="true">Fig. 04 — Dawn over the home planet</span>
+      <span class="cap lift-br" aria-hidden="true">Move the cursor to move the sun</span>
     </section>
   </main>
 
-  <footer>
-    <div class="wrap">
-      <div>
-        <p class="footer-cta">Pick a profile. Keep your context.</p>
-        <div class="profile-strip" aria-label="Example profile signal colors">
-          <span class="personal"><i></i>personal</span>
-          <span class="work"><i></i>work</span>
-          <span class="school"><i></i>school</span>
-          <span class="client"><i></i>client</span>
-        </div>
-      </div>
-      <div>
-        <div class="footer-command" aria-label="Quick start command">
-          <div>$ npm install -g codex-profile</div>
-          <div>$ codex-profile init work</div>
-          <div>$ codex-profile cli work</div>
-          <div># launches Codex with the “work” profile</div>
-        </div>
-        <nav aria-label="Footer links">
-          <a href="https://github.com/Ducksss/codex-profiles">GitHub ↗</a>
-          <a href="https://www.npmjs.com/package/codex-profile">npm ↗</a>
-          <a href="https://ducksss.github.io/codex-profiles/llms.txt">llms.txt ↗</a>
-          <a href="https://github.com/Ducksss/codex-profiles/blob/main/LICENSE">License ↗</a>
-        </nav>
-      </div>
-      <p class="footer-note">codex-profiles is community-maintained and is not affiliated with OpenAI. Last updated 2026-10-12.</p>
-    </div>
+  <footer class="foot">
+    <p>Maintained by <a href="https://github.com/Ducksss">Ducksss</a>. codex-profiles is community-maintained and is not affiliated with OpenAI. Release <a href="https://github.com/Ducksss/codex-profiles/releases/tag/v1.3.0">1.3.0</a>, dated 2026-10-12. Page updated <time datetime="2026-10-27">2026-10-27</time>.</p>
+    <nav aria-label="Footer links">
+      <a class="u" href="https://github.com/Ducksss/codex-profiles">GitHub</a>
+      <a class="u" href="https://www.npmjs.com/package/codex-profile">npm</a>
+      <a class="u" href="https://github.com/Ducksss/codex-profiles/blob/main/README.md">Setup guide</a>
+      <a class="u" href="https://github.com/Ducksss/codex-profiles/blob/main/USAGE.md">Manual</a>
+      <a class="u" href="https://github.com/Ducksss/codex-profiles/blob/main/agent.md">Agent guide</a>
+      <a class="u" href="https://github.com/Ducksss/codex-profiles/blob/main/SECURITY.md">Security</a>
+      <a class="u" href="https://ducksss.github.io/codex-profiles/llms.txt">llms.txt</a>
+      <a class="u" href="https://github.com/Ducksss/codex-profiles/releases.atom">Releases feed</a>
+      <a class="u" href="https://github.com/Ducksss/codex-profiles/blob/main/LICENSE">License</a>
+    </nav>
   </footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
   <script>
-  (function () {
-    "use strict";
+  (() => {
+    'use strict';
 
-    // ---- Scroll reveal (gated by reduced motion) ----
-    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var reveals = document.querySelectorAll(".reveal");
-    if (reduce || !("IntersectionObserver" in window)) {
-      reveals.forEach(function (n) { n.classList.add("in"); });
-    } else {
-      var io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (e) {
-          if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
-        });
-      }, { threshold: 0.12 });
-      reveals.forEach(function (n) { io.observe(n); });
-    }
+    class AsciiFields {
+      constructor() {
+        this.state = {};
+      }
 
-    // ---- Graph ----
-    var stage = document.getElementById("graph");
-    var fallback = document.getElementById("graph-fallback");
-    var tipEl = document.getElementById("graph-tip");
-    var hintEl = document.getElementById("graph-hint");
-    if (!window.d3 || !stage) { return; } // CDN failed -> keep readable fallback
-    fallback.style.display = "none";
-
-    var d3 = window.d3;
-    var PROFILES = [
-      { id: "personal", label: "personal", home: "~/.codex-personal" },
-      { id: "work", label: "work", home: "~/.codex-work" },
-      { id: "school", label: "school", home: "~/.codex-school" },
-      { id: "client", label: "client", home: "~/.codex-client" }
-    ];
-    var FILES = "auth.json · config.toml · sessions · plugins · logs";
-
-    // persistent node registry so positions survive a mode switch
-    var reg = {};
-    function getNode(id, type, label) {
-      if (!reg[id]) { reg[id] = { id: id, type: type, label: label }; }
-      else { reg[id].type = type; reg[id].label = label; }
-      return reg[id];
-    }
-
-    function buildGraph(mode) {
-      var you = getNode("you", "user", "you"); you.row = 1.5;
-      var nodes = [you];
-      var links = [];
-      PROFILES.forEach(function (p, i) {
-        var pn = getNode(p.id, "profile", p.label); pn.row = i;
-        nodes.push(pn);
-        links.push({ source: "you", target: p.id });
-        if (mode === "shared") {
-          links.push({ source: p.id, target: "shared", shared: true });
-        } else {
-          var hn = getNode("home-" + p.id, "home", p.home); hn.row = i;
-          nodes.push(hn);
-          links.push({ source: p.id, target: "home-" + p.id });
+      setState(patch) {
+        Object.assign(this.state, patch);
+        if (patch.glFailed) {
+          document.documentElement.classList.remove('gl-on');
+          document.documentElement.classList.add('gl-off');
         }
-      });
-      if (mode === "shared") {
-        var sh = getNode("shared", "home", "~/.codex"); sh.row = 1.5;
-        nodes.push(sh);
       }
-      nodes.forEach(function (n) {
-        if (n.x === undefined || n.x === null) { n.x = colX(n); n.y = rowY(n.row); }
-      });
-      return { nodes: nodes, links: links };
-    }
+      readConfig() {
+        this.glInk = [236, 236, 232].map((v) => v / 255);
+        this.glCell = 9;
+        this.glAnimate = true;
+        this.glGrid = 0;
+        this.propsDirty = true;
+      }
 
-    var W = stage.clientWidth || 800;
-    var H = stage.clientHeight || 520;
-
-    // layered left -> right columns: you -> profiles -> homes
-    function colX(d) {
-      if (d.type === "user") return W * 0.13;
-      if (d.type === "profile") return W * 0.45;
-      return W * 0.78;
-    }
-    // deterministic vertical slot per row (0..3), 1.5 = centered
-    function rowY(row) { return H * ((row + 0.5) / 4); }
-
-    var svg = d3.select(stage).append("svg")
-      .attr("viewBox", "0 0 " + W + " " + H)
-      .attr("preserveAspectRatio", "xMidYMid meet");
-
-    // defs: gradients + glow
-    var defs = svg.append("defs");
-    var ng = defs.append("linearGradient").attr("id", "nodeGrad").attr("x1", "0").attr("y1", "0").attr("x2", "1").attr("y2", "1");
-    ng.append("stop").attr("offset", "0%").attr("stop-color", "#3f3f46");
-    ng.append("stop").attr("offset", "100%").attr("stop-color", "#0a0a0b");
-    var lg = defs.append("linearGradient").attr("id", "linkGrad").attr("x1", "0").attr("y1", "0").attr("x2", "1").attr("y2", "1");
-    lg.append("stop").attr("offset", "0%").attr("stop-color", "#d4d4d8");
-    lg.append("stop").attr("offset", "100%").attr("stop-color", "#b4b4ba");
-    var f = defs.append("filter").attr("id", "glow").attr("x", "-60%").attr("y", "-60%").attr("width", "220%").attr("height", "220%");
-    f.append("feGaussianBlur").attr("stdDeviation", "5").attr("result", "b");
-    var fm = f.append("feMerge");
-    fm.append("feMergeNode").attr("in", "b");
-    fm.append("feMergeNode").attr("in", "SourceGraphic");
-
-    var linkLayer = svg.append("g");
-    var nodeLayer = svg.append("g");
-
-    var sim = d3.forceSimulation()
-      .force("link", d3.forceLink().id(function (d) { return d.id; }).distance(140).strength(0.08))
-      .force("charge", d3.forceManyBody().strength(-140))
-      .force("collide", d3.forceCollide(30).strength(1))
-      .force("x", d3.forceX(colX).strength(0.5))
-      .force("y", d3.forceY(function (d) { return rowY(d.row); }).strength(0.22));
-
-    // adjacency for hover highlighting
-    var adj = {};
-    function computeAdj(links) {
-      adj = {};
-      links.forEach(function (l) {
-        var s = l.source.id || l.source, t = l.target.id || l.target;
-        (adj[s] = adj[s] || {})[t] = true;
-        (adj[t] = adj[t] || {})[s] = true;
-      });
-    }
-
-    var linkSel = linkLayer.selectAll("line");
-    var nodeSel = nodeLayer.selectAll("g.node");
-    var current = { nodes: [], links: [] };
-
-    function dims(type) {
-      var small = W < 560;
-      if (type === "user") return { w: 0, h: 0, r: small ? 27 : 33 };
-      if (type === "profile") return { w: small ? 84 : 104, h: 36, r: 0 };
-      return { w: small ? 124 : 158, h: 36, r: 0 };
-    }
-
-    function render(mode) {
-      var g = buildGraph(mode);
-      current = g;
-      computeAdj(g.links);
-      stage.setAttribute("data-mode", mode);
-
-      // LINKS
-      linkSel = linkLayer.selectAll("line").data(g.links, function (d) {
-        return (d.source.id || d.source) + ">" + (d.target.id || d.target);
-      });
-      linkSel.exit().remove();
-      linkSel = linkSel.enter().append("line").attr("class", "lnk").merge(linkSel)
-        .attr("class", function (d) {
-          var s = d.source.id || d.source;
-          var t = d.target.id || d.target;
-          var profile = PROFILES.map(function (p) { return p.id; }).filter(function (id) {
-            return s === id || t === id || s === "home-" + id || t === "home-" + id;
-          })[0];
-          return "lnk" + (profile ? " p-" + profile : "") + (mode === "shared" ? " is-shared" : "");
-        });
-
-      // NODES
-      nodeSel = nodeLayer.selectAll("g.node").data(g.nodes, function (d) { return d.id; });
-      nodeSel.exit().remove();
-      var enter = nodeSel.enter().append("g")
-        .attr("class", function (d) { return "node n-" + d.type; })
-        .attr("data-profile", function (d) { return d.id.replace(/^home-/, ""); })
-        .call(d3.drag().on("start", dragStart).on("drag", dragged).on("end", dragEnd))
-        .on("mouseenter", hoverOn).on("mouseleave", hoverOff)
-        .on("focus", hoverOn).on("blur", hoverOff)
-        .attr("tabindex", 0);
-
-      enter.each(function (d) {
-        var el = d3.select(this);
-        var dm = dims(d.type);
-        if (d.type === "user") {
-          el.append("circle").attr("class", "ring").attr("r", dm.r + 7);
-          el.append("circle").attr("class", "chip chip-bg").attr("r", dm.r).attr("filter", "url(#glow)");
-          el.append("text").attr("text-anchor", "middle").attr("dy", "0.34em").attr("font-size", "13").text(d.label);
-        } else {
-          el.append("rect").attr("class", "ring").attr("x", -dm.w / 2 - 5).attr("y", -dm.h / 2 - 5)
-            .attr("width", dm.w + 10).attr("height", dm.h + 10).attr("rx", 12);
-          el.append("rect").attr("class", "chip chip-bg").attr("x", -dm.w / 2).attr("y", -dm.h / 2)
-            .attr("width", dm.w).attr("height", dm.h).attr("rx", 10);
-          el.append("text").attr("text-anchor", "middle").attr("dy", "0.34em")
-            .attr("font-size", d.type === "home" ? (W < 560 ? "10" : "11.5") : (W < 560 ? "11.5" : "13")).text(d.label);
+      start() {
+        this.fields = [];
+        this.mountTries = 0;
+        this.monoFamily = '"IBM Plex Mono", ui-monospace, Menlo, monospace';
+        this.orbitParams = [[1.02, 0.16, 0.6], [1.27, 0.11, 2.69], [1.52, 0.08, 4.79]];
+        this.transfer = {
+          planet: [-1.25, -0.95, 0.95],
+          target: [0.72, 0.42, 0.15],
+          path: [[-0.471, -0.268], [-0.15, 1.05], [0.523, 0.283]],
+          stops: [0, 0.34, 0.68, 1]
+        };
+        this.reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        this.tickBound = (now) => this.tick(now);
+        this.mountFields();
+        this.mountCopy();
+        if (document.fonts && document.fonts.load) {
+          document.fonts.load('500 52px "IBM Plex Mono"').then(() => {
+            this.fontReady = true;
+            (this.fields || []).forEach((f) => {
+              if (!f.lost) this.buildAtlas(f);
+            });
+          }).catch(() => {});
         }
-        var a11y = d.type === "home" ? ("Codex home " + d.label + " containing " + FILES) : (d.type === "profile" ? ("profile " + d.label) : "your macOS user");
-        el.attr("aria-label", a11y).attr("role", "img");
-      });
-      nodeSel = enter.merge(nodeSel);
-
-      sim.nodes(g.nodes);
-      sim.force("link").links(g.links);
-      sim.alpha(0.9).restart();
-      if (reduce) { for (var i = 0; i < 260; i++) sim.tick(); ticked(); sim.alpha(0); }
-
-      hintEl.textContent = mode === "shared"
-        ? "every profile shares one ~/.codex — tokens collide"
-        : "one CODEX_HOME per profile";
-    }
-
-    sim.on("tick", ticked);
-    function ticked() {
-      var pad = 26;
-      current.nodes.forEach(function (d) {
-        d.x = Math.max(pad, Math.min(W - pad, d.x));
-        d.y = Math.max(pad, Math.min(H - pad, d.y));
-      });
-      linkSel
-        .attr("x1", function (d) { return d.source.x; })
-        .attr("y1", function (d) { return d.source.y; })
-        .attr("x2", function (d) { return d.target.x; })
-        .attr("y2", function (d) { return d.target.y; });
-      nodeSel.attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; });
-    }
-
-    function dragStart(e, d) { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
-    function dragged(e, d) { d.fx = e.x; d.fy = e.y; }
-    function dragEnd(e, d) { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }
-
-    function hoverOn(e, d) {
-      var near = adj[d.id] || {};
-      nodeSel.classed("dim", function (n) { return n.id !== d.id && !near[n.id]; });
-      nodeSel.classed("hot", function (n) { return n.id === d.id; });
-      linkSel.classed("dim", function (l) {
-        var s = l.source.id, t = l.target.id; return !((s === d.id || t === d.id)); });
-      linkSel.classed("hot", function (l) {
-        var s = l.source.id, t = l.target.id; return (s === d.id || t === d.id); });
-      showTip(e, d);
-    }
-    function hoverOff() {
-      nodeSel.classed("dim", false).classed("hot", false);
-      linkSel.classed("dim", false).classed("hot", false);
-      tipEl.classList.remove("show");
-    }
-    function showTip(e, d) {
-      tipEl.replaceChildren();
-      function addStrong(value) {
-        var strong = document.createElement("b");
-        strong.textContent = value;
-        tipEl.appendChild(strong);
       }
-      function addFiles() {
-        var files = document.createElement("div");
-        files.className = "files";
-        files.textContent = FILES;
-        tipEl.appendChild(files);
+
+      mountCopy() {
+        this.copyEls = Array.prototype.slice.call(document.querySelectorAll('[data-copy]'));
+        this.onCopy = (e) => {
+          const btn = e.currentTarget;
+          const text = btn.getAttribute('data-copy');
+          const done = () => {
+            btn.setAttribute('data-copied', '');
+            clearTimeout(btn.copyTimer);
+            btn.copyTimer = setTimeout(() => btn.removeAttribute('data-copied'), 1600);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(() => {});
+        };
+        this.copyEls.forEach((btn) => btn.addEventListener('click', this.onCopy));
       }
-      if (d.type === "user") {
-        addStrong("you");
-        tipEl.appendChild(document.createElement("br"));
-        tipEl.appendChild(document.createTextNode("your macOS user — one set of SSH keys, browser, and GitHub auth"));
-      } else if (d.type === "profile") {
-        var home = (stage.getAttribute("data-mode") === "shared") ? "~/.codex (shared)" : ("~/.codex-" + d.id);
-        addStrong(d.label);
-        tipEl.appendChild(document.createTextNode(" → "));
-        addStrong(home);
-        addFiles();
+
+      mountFields() {
+        if (this.unmounted || (this.state && this.state.glFailed)) return;
+        const els = Array.prototype.slice.call(document.querySelectorAll('canvas[data-ascii-gl]'));
+        if (!els.length) {
+          if (this.mountTries++ < 40) this.mountTimer = setTimeout(() => this.mountFields(), 100);
+          return;
+        }
+        els.forEach((el) => {
+          if (this.fields.some((f) => f.el === el)) return;
+          try {
+            this.fields.push(this.createField(el));
+          } catch (err) {
+            console.warn('ascii field', el.getAttribute('data-ascii-gl'), err);
+            this.setState({ glFailed: true });
+          }
+        });
+        if (this.fields.length && !this.state.glFailed) document.documentElement.classList.add('gl-on');
+        if (this.fields.length && !this.raf) this.raf = requestAnimationFrame(this.tickBound);
+      }
+
+      createField(el) {
+        const kind = el.getAttribute('data-ascii-gl') || 'stack';
+        const gl = el.getContext('webgl2', { alpha: true, antialias: false, premultipliedAlpha: true, preserveDrawingBuffer: true });
+        if (!gl) throw new Error('WebGL2 unavailable');
+        const vs = '#version 300 es\nin vec2 aPos;\nvoid main() { gl_Position = vec4(aPos, 0.0, 1.0); }';
+        const f = {
+          el,
+          kind,
+          gl,
+          tone: el.getAttribute('data-tone') || 'light',
+          stageId: el.getAttribute('data-stage'),
+          fitW: Number(el.getAttribute('data-fit-w')) || 1.15,
+          grid: [0, 0],
+          tilt: [0, 0],
+          mouse: [-5, -5],
+          pointer: null,
+          visible: true,
+          dirty: true,
+          lost: false,
+          start: null
+        };
+        const sources = {
+          orbit: () => this.orbitSource(),
+          moons: () => this.moonsSource(),
+          transfer: () => this.transferSource(),
+          horizon: () => this.horizonSource()
+        };
+        const fs = (sources[kind] || sources.orbit)();
+        f.scene = this.makeProgram(gl, vs, fs);
+        f.ascii = this.makeProgram(gl, vs, this.asciiSource());
+        f.sceneU = this.locate(gl, f.scene, ['uCanvasPx', 'uCellPx', 'uStage', 'uStageH', 'uStageWH', 'uMouse', 'uTilt', 'uTime', 'uOrbit', 'uMoons', 'uPlanet', 'uTarget', 'uPath', 'uStops']);
+        f.moonStages = (el.getAttribute('data-stages') || '').split(',').map((id) => id.trim()).filter(Boolean).slice(0, 3);
+        f.moons = new Float32Array(9).fill(-5);
+        f.asciiU = this.locate(gl, f.ascii, ['uScene', 'uAtlas', 'uCellPx', 'uRamp', 'uGlyphs', 'uTime', 'uLod', 'uInk', 'uFaint', 'uGrid', 'uGridPx']);
+        f.vao = gl.createVertexArray();
+        gl.bindVertexArray(f.vao);
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        f.sceneTex = gl.createTexture();
+        f.fbo = gl.createFramebuffer();
+        f.atlasTex = gl.createTexture();
+        this.buildAtlas(f);
+        f.host = el.parentElement || el;
+        f.onMove = (e) => {
+          f.pointer = { x: e.clientX, y: e.clientY };
+          f.dirty = true;
+        };
+        f.onLeave = () => {
+          f.pointer = null;
+          f.dirty = true;
+        };
+        f.host.addEventListener('pointermove', f.onMove);
+        f.host.addEventListener('pointerleave', f.onLeave);
+        f.onLost = (e) => {
+          e.preventDefault();
+          f.lost = true;
+          this.setState({ glFailed: true });
+        };
+        el.addEventListener('webglcontextlost', f.onLost);
+        if (window.IntersectionObserver) {
+          f.io = new IntersectionObserver((entries) => {
+            f.visible = entries[entries.length - 1].isIntersecting;
+            f.dirty = true;
+          });
+          f.io.observe(el);
+        }
+        if (window.ResizeObserver) {
+          f.ro = new ResizeObserver(() => {
+            f.dirty = true;
+          });
+          f.ro.observe(el);
+        }
+        return f;
+      }
+
+      releaseField(f) {
+        if (f.host) {
+          f.host.removeEventListener('pointermove', f.onMove);
+          f.host.removeEventListener('pointerleave', f.onLeave);
+        }
+        if (f.el) f.el.removeEventListener('webglcontextlost', f.onLost);
+        if (f.io) f.io.disconnect();
+        if (f.ro) f.ro.disconnect();
+        f.lost = true;
+      }
+
+      makeProgram(gl, vsSrc, fsSrc) {
+        const compile = (type, src) => {
+          const sh = gl.createShader(type);
+          gl.shaderSource(sh, src);
+          gl.compileShader(sh);
+          if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh) || 'shader compile failed');
+          return sh;
+        };
+        const prog = gl.createProgram();
+        gl.attachShader(prog, compile(gl.VERTEX_SHADER, vsSrc));
+        gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fsSrc));
+        gl.bindAttribLocation(prog, 0, 'aPos');
+        gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) || 'program link failed');
+        return prog;
+      }
+
+      locate(gl, prog, names) {
+        const out = {};
+        names.forEach((n) => {
+          out[n] = gl.getUniformLocation(prog, n);
+        });
+        return out;
+      }
+
+      buildAtlas(f) {
+        const gl = f.gl;
+        const glyphs = ' .:-=+*?%S#&$@BDPW|/\\_';
+        const sw = 40;
+        const sh = 68;
+        const c = document.createElement('canvas');
+        c.width = sw * glyphs.length;
+        c.height = sh;
+        const x = c.getContext('2d');
+        x.fillStyle = '#000';
+        x.fillRect(0, 0, c.width, c.height);
+        x.fillStyle = '#fff';
+        x.textAlign = 'center';
+        x.textBaseline = 'middle';
+        x.font = '500 ' + Math.round(sw * 1.3) + 'px ' + (this.fontReady ? this.monoFamily : 'ui-monospace, Menlo, monospace');
+        for (let i = 0; i < glyphs.length; i++) x.fillText(glyphs[i], i * sw + sw / 2, sh / 2 + 2);
+        gl.bindTexture(gl.TEXTURE_2D, f.atlasTex);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        f.glyphCount = glyphs.length;
+        f.atlasCellW = sw;
+        f.dirty = true;
+      }
+
+      placeOrbitLabels(f, t, aspect, cx, cy, size, cssW, cssH) {
+        const labels = f.host.querySelectorAll('[data-orbit-label]');
+        const ca = Math.cos(0.18);
+        const sa = Math.sin(0.18);
+        for (let k = 0; k < labels.length; k++) {
+          const lab = labels[k];
+          const o = this.orbitParams[Number(lab.getAttribute('data-orbit-label')) || 0];
+          if (!o) continue;
+          const th = t * o[1] + o[2];
+          const ox = o[0] * Math.cos(th);
+          const oy = o[0] * 0.22 * Math.sin(th);
+          const ux = ca * ox - sa * oy;
+          const uy = sa * ox + ca * oy;
+          const px = cx + (ux * size) / (2 * aspect);
+          const py = cy + (uy * size) / 2;
+          const behind = Math.sin(th) > 0;
+          const covered = behind && ux * ux + uy * uy < 0.52 * 0.52;
+          lab.style.transform = 'translate(' + (px * cssW).toFixed(1) + 'px, ' + ((1 - py) * cssH).toFixed(1) + 'px)';
+          lab.style.opacity = covered ? '0' : (behind ? '0.5' : '1');
+          const side = px > 0.72 ? 'l' : 'r';
+          if (lab.getAttribute('data-side') !== side) lab.setAttribute('data-side', side);
+        }
+      }
+
+      tick(now) {
+        this.raf = 0;
+        if (this.unmounted || !this.fields || !this.fields.length) return;
+        this.raf = requestAnimationFrame(this.tickBound);
+        const live = this.glAnimate !== false && !this.reduceMotion;
+        const force = this.propsDirty;
+        this.propsDirty = false;
+        for (let i = 0; i < this.fields.length; i++) {
+          const f = this.fields[i];
+          if (f.lost || !f.visible || document.hidden) continue;
+          if (!live && !f.dirty && !force) continue;
+          f.dirty = false;
+          if (f.start === null) f.start = now;
+          const t = live ? (now - f.start) / 1000 : 6;
+          try {
+            this.drawField(f, t, live);
+          } catch (err) {
+            console.warn('ascii field', f.kind, err);
+            this.releaseField(f);
+            this.setState({ glFailed: true });
+          }
+        }
+      }
+
+      drawField(f, t, live) {
+        const gl = f.gl;
+        const el = f.el;
+        const cssW = el.clientWidth;
+        const cssH = el.clientHeight;
+        if (!cssW || !cssH) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const W = Math.round(cssW * dpr);
+        const H = Math.round(cssH * dpr);
+        if (el.width !== W || el.height !== H) {
+          el.width = W;
+          el.height = H;
+        }
+        const cellX = this.glCell * dpr;
+        const cellY = Math.round(this.glCell * 1.7) * dpr;
+        const gw = Math.ceil(W / cellX);
+        const gh = Math.ceil(H / cellY);
+        if (gw !== f.grid[0] || gh !== f.grid[1]) {
+          f.grid = [gw, gh];
+          gl.bindTexture(gl.TEXTURE_2D, f.sceneTex);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gw, gh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, f.fbo);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, f.sceneTex, 0);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        }
+
+        const box = el.getBoundingClientRect();
+        let s = box;
+        let cx = 0.5;
+        let cy = 0.5;
+        let sw = 1;
+        let sh = 1;
+        let size = 0.9;
+        const stage = f.stageId ? document.querySelector('[data-ascii-stage="' + f.stageId + '"]') : null;
+        if (stage) {
+          s = stage.getBoundingClientRect();
+          cx = (s.left + s.width / 2 - box.left) / box.width;
+          cy = 1 - (s.top + s.height / 2 - box.top) / box.height;
+          sw = s.width / box.width;
+          sh = s.height / box.height;
+          size = Math.max(0.05, Math.min(s.height, s.width * f.fitW) / box.height);
+        }
+        if (f.kind === 'moons') {
+          f.moonStages.forEach((id, i) => {
+            const st = document.querySelector('[data-ascii-stage="' + id + '"]');
+            if (!st) return;
+            const r = st.getBoundingClientRect();
+            f.moons[i * 3] = (r.left + r.width / 2 - box.left) / box.width;
+            f.moons[i * 3 + 1] = 1 - (r.top + r.height / 2 - box.top) / box.height;
+            f.moons[i * 3 + 2] = Math.min(r.height, r.width) / box.height;
+          });
+        }
+        let mx = -5;
+        let my = -5;
+        let tx = 0;
+        let ty = 0;
+        if (live && f.pointer) {
+          mx = (f.pointer.x - box.left) / box.width;
+          my = 1 - (f.pointer.y - box.top) / box.height;
+          tx = Math.max(-1, Math.min(1, (mx - cx) * 2.2));
+          ty = Math.max(-1, Math.min(1, (my - cy) * 2.2));
+        }
+        if (mx < -1 || f.mouse[0] < -1) {
+          f.mouse[0] = mx;
+          f.mouse[1] = my;
+        } else {
+          f.mouse[0] += (mx - f.mouse[0]) * 0.22;
+          f.mouse[1] += (my - f.mouse[1]) * 0.22;
+        }
+        f.tilt[0] += (tx - f.tilt[0]) * 0.06;
+        f.tilt[1] += (ty - f.tilt[1]) * 0.06;
+
+        gl.bindVertexArray(f.vao);
+        gl.disable(gl.BLEND);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, f.fbo);
+        gl.viewport(0, 0, gw, gh);
+        gl.useProgram(f.scene);
+        const su = f.sceneU;
+        gl.uniform2f(su.uCanvasPx, W, H);
+        gl.uniform2f(su.uCellPx, cellX, cellY);
+        gl.uniform2f(su.uStage, cx, cy);
+        gl.uniform1f(su.uStageH, size);
+        gl.uniform2f(su.uStageWH, sw, sh);
+        gl.uniform2f(su.uMouse, f.mouse[0], f.mouse[1]);
+        gl.uniform2f(su.uTilt, f.tilt[0], f.tilt[1]);
+        gl.uniform1f(su.uTime, t);
+        if (f.kind === 'orbit') gl.uniform3fv(su.uOrbit, new Float32Array([].concat.apply([], this.orbitParams)));
+        if (f.kind === 'moons') gl.uniform3fv(su.uMoons, f.moons);
+        if (f.kind === 'transfer') {
+          const tr = this.transfer;
+          gl.uniform3f(su.uPlanet, tr.planet[0], tr.planet[1], tr.planet[2]);
+          gl.uniform3f(su.uTarget, tr.target[0], tr.target[1], tr.target[2]);
+          gl.uniform2fv(su.uPath, new Float32Array([].concat.apply([], tr.path)));
+          gl.uniform4f(su.uStops, tr.stops[0], tr.stops[1], tr.stops[2], tr.stops[3]);
+        }
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, W, H);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.useProgram(f.ascii);
+        const au = f.asciiU;
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, f.sceneTex);
+        gl.uniform1i(au.uScene, 0);
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, f.atlasTex);
+        gl.uniform1i(au.uAtlas, 1);
+        gl.uniform2f(au.uCellPx, cellX, cellY);
+        gl.uniform1f(au.uRamp, 15);
+        gl.uniform1f(au.uGlyphs, f.glyphCount);
+        gl.uniform1f(au.uTime, t);
+        gl.uniform1f(au.uLod, Math.log2(Math.max(f.atlasCellW / cellX, 1)));
+        const dark = f.tone === 'dark';
+        const ink = this.glInk;
+        const faint = dark ? [0.4, 0.4, 0.39] : [0.56, 0.56, 0.54];
+        gl.uniform3f(au.uInk, ink[0], ink[1], ink[2]);
+        gl.uniform3f(au.uFaint, faint[0], faint[1], faint[2]);
+        gl.uniform1f(au.uGrid, this.glGrid ? (dark ? 0.07 : 0.035) : 0);
+        gl.uniform1f(au.uGridPx, dpr);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+        if (f.kind === 'orbit') this.placeOrbitLabels(f, t, W / H, cx, cy, size, cssW, cssH);
+        if (f.kind === 'transfer') this.placePathLabels(f, W / H, cx, cy, size, cssW, cssH);
+      }
+
+      placePathLabels(f, aspect, cx, cy, size, cssW, cssH) {
+        const labels = f.host.querySelectorAll('[data-path-label]');
+        const P = this.transfer.path;
+        for (let k = 0; k < labels.length; k++) {
+          const lab = labels[k];
+          const id = lab.getAttribute('data-path-label');
+          const t = this.transfer.stops[Number(id) || 0];
+          const u = 1 - t;
+          let x = u * u * P[0][0] + 2 * u * t * P[1][0] + t * t * P[2][0];
+          let y = u * u * P[0][1] + 2 * u * t * P[1][1] + t * t * P[2][1];
+          if (id === 'target') {
+            x = this.transfer.target[0];
+            y = this.transfer.target[1] + this.transfer.target[2];
+          }
+          const px = cx + (x * size) / (2 * aspect);
+          const py = cy + (y * size) / 2;
+          lab.style.transform = 'translate(' + (px * cssW).toFixed(1) + 'px, ' + ((1 - py) * cssH).toFixed(1) + 'px)';
+          lab.style.opacity = '1';
+        }
+      }
+
+      noiseLib() {
+        return `
+    mat2 rot(float a) {
+      float c = cos(a);
+      float s = sin(a);
+      return mat2(c, -s, s, c);
+    }
+
+    float hash(vec2 p) {
+      p = fract(p * vec2(123.34, 456.21));
+      p += dot(p, p + 45.32);
+      return fract(p.x * p.y);
+    }
+
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      float a = hash(i);
+      float b = hash(i + vec2(1.0, 0.0));
+      float c = hash(i + vec2(0.0, 1.0));
+      float d = hash(i + vec2(1.0, 1.0));
+      return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+    }
+
+    float fbm(vec2 p) {
+      float v = 0.0;
+      float amp = 0.5;
+      for (int i = 0; i < 4; i++) {
+        v += amp * noise(p);
+        p = p * 2.03 + vec2(17.1, 9.2);
+        amp *= 0.5;
+      }
+      return v;
+    }
+
+    float twinkle(vec2 cid, float t) {
+      float h = hash(cid);
+      float on = step(0.987, hash(cid + floor(t * 0.4 + h * 9.0)));
+      return on * (0.14 + 0.2 * hash(cid * 1.7 + 3.1));
+    }
+    `;
+      }
+
+      sceneHead() {
+        return `#version 300 es
+    precision highp float;
+    uniform vec2 uCanvasPx;
+    uniform vec2 uCellPx;
+    uniform vec2 uStage;
+    uniform float uStageH;
+    uniform vec2 uStageWH;
+    uniform vec2 uMouse;
+    uniform vec2 uTilt;
+    uniform float uTime;
+    out vec4 outColor;
+    ${this.noiseLib()}`;
+      }
+
+      bodyLib() {
+        return `
+    float hash3(vec3 p) {
+      p = fract(p * 0.3183099 + 0.1);
+      p *= 17.0;
+      return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+    }
+
+    float noise3(vec3 x) {
+      vec3 i = floor(x);
+      vec3 f = fract(x);
+      f = f * f * (3.0 - 2.0 * f);
+      return mix(
+        mix(mix(hash3(i), hash3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 0.0)), hash3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+        mix(mix(hash3(i + vec3(0.0, 0.0, 1.0)), hash3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 1.0)), hash3(i + vec3(1.0, 1.0, 1.0)), f.x), f.y),
+        f.z
+      );
+    }
+
+    float fbm3(vec3 p) {
+      float v = 0.0;
+      float a = 0.5;
+      for (int i = 0; i < 4; i++) {
+        v += a * noise3(p);
+        p = p * 2.07 + vec3(11.3, 5.1, 7.7);
+        a *= 0.5;
+      }
+      return v;
+    }
+
+    vec2 shadeBody(vec2 d, vec3 L, float spin, float seed) {
+      vec3 n = vec3(d, sqrt(max(1.0 - dot(d, d), 0.0)));
+      float c = cos(spin);
+      float s = sin(spin);
+      vec3 ns = vec3(c * n.x - s * n.z, n.y, s * n.x + c * n.z);
+      float maria = fbm3(ns * 2.3 + seed);
+      float speck = noise3(ns * 9.0 + seed * 3.0);
+      float albedo = 0.5 + 0.4 * smoothstep(0.36, 0.64, maria) + 0.18 * (speck - 0.5);
+      float dif = clamp(dot(n, L), 0.0, 1.0);
+      return vec2(dif * albedo, dif);
+    }
+    `;
+      }
+
+      orbitSource() {
+        return `${this.sceneHead()}
+    uniform vec3 uOrbit[3];
+
+    ${this.bodyLib()}
+
+    void main() {
+      vec2 cid = floor(gl_FragCoord.xy);
+      vec2 p01 = (cid + 0.5) * uCellPx / uCanvasPx;
+      float aspect = uCanvasPx.x / uCanvasPx.y;
+      vec2 md = (p01 - uMouse) * vec2(aspect, 1.0);
+      float lens = exp(-dot(md, md) * 24.0);
+      vec2 pw = p01 - (p01 - uMouse) * lens * 0.24;
+      vec2 uv = (pw - uStage) * vec2(aspect, 1.0) * 2.0 / uStageH;
+
+      float lt = 2.6 + 0.45 * sin(uTime * 0.1) + uTilt.x * 0.9;
+      vec3 L = normalize(vec3(cos(lt), 0.32 + 0.45 * uTilt.y, sin(lt)));
+
+      const float R = 0.52;
+      vec2 dP = uv / R;
+      float rP = length(dP);
+      float fwP = fwidth(rP);
+      bool inPlanet = rP < 1.0;
+      float oa = 0.18;
+      vec2 ou = rot(oa) * uv;
+
+      float ringHit = 0.0;
+      float ringTag = 0.0;
+      float ringFront = 0.0;
+      float moonId = -1.0;
+      float moonLum = 0.0;
+      float moonDif = 0.0;
+      float moonBehind = 0.0;
+      for (int i = 0; i < 3; i++) {
+        float fi = float(i);
+        vec3 o = uOrbit[i];
+        float a = o.x;
+        float b = o.x * 0.22;
+        vec2 eq = ou / vec2(a, b);
+        float e = length(eq);
+        float fe = fwidth(e);
+        float th = atan(eq.y, eq.x);
+        float dash = fi < 0.5 ? 1.0 : step(0.5, fract(th * (60.0 + 30.0 * fi) / 6.2831853 + uTime * 0.05));
+        if (ringHit < 0.5 && abs(e - 1.0) < fe * 0.5 && dash > 0.5) {
+          ringHit = 1.0;
+          vec2 g = rot(-oa) * (ou / vec2(a * a, b * b));
+          ringTag = fract(atan(g.y, g.x) / 3.14159265 + 1.0);
+          ringFront = eq.y < 0.0 ? 1.0 : 0.0;
+        }
+        float ang = uTime * o.y + o.z;
+        vec2 c = vec2(a * cos(ang), b * sin(ang));
+        float mr = (0.09 - 0.012 * fi) * (1.0 - 0.18 * sin(ang));
+        vec2 dm = (ou - c) / mr;
+        if (moonId < 0.0 && dot(dm, dm) < 1.0) {
+          vec2 sb = shadeBody(rot(-oa) * dm, L, uTime * 0.2 + fi, 3.0 + fi * 5.0);
+          moonId = fi;
+          moonLum = sb.x;
+          moonDif = sb.y;
+          moonBehind = sin(ang) > 0.0 ? 1.0 : 0.0;
+        }
+      }
+
+      float lum = twinkle(cid, uTime) + 0.38 * lens;
+      float kind = 0.0;
+      float g = 0.0;
+      float flag = 1.0;
+
+      if (ringHit > 0.5 && ringFront < 0.5 && !inPlanet) {
+        lum = 0.6;
+        kind = 0.75;
+        g = ringTag;
+        flag = 0.5;
+      }
+      bool moonFront = moonId >= 0.0 && moonBehind < 0.5;
+      bool moonBack = moonId >= 0.0 && moonBehind > 0.5 && !inPlanet;
+      if (moonBack || moonFront) {
+        if (moonDif > 0.03) {
+          lum = clamp(0.16 + moonLum * 1.1, 0.0, 1.0) * (moonBack ? 0.75 : 1.0);
+          kind = 1.0;
+          g = (moonId + 1.0) / 4.0;
+        } else {
+          lum = 0.1;
+          kind = 0.5;
+          g = 0.0;
+        }
+        flag = 1.0;
+      }
+      if (inPlanet && !moonFront) {
+        vec2 sb = shadeBody(dP, L, uTime * 0.05, 0.0);
+        if (sb.y > 0.03) {
+          lum = clamp(0.08 + sb.x * 1.05 + 0.12 * lens, 0.0, 1.0);
+          kind = 1.0;
+          g = 0.0;
+          flag = 1.0;
+        } else if (rP > 1.0 - fwP * 1.2) {
+          lum = 0.55;
+          kind = 0.75;
+          g = fract(atan(dP.y, dP.x) / 3.14159265 + 1.0);
+          flag = 0.5;
+        } else {
+          lum = 0.0;
+          kind = 0.0;
+          flag = 1.0;
+        }
+      }
+      if (ringHit > 0.5 && ringFront > 0.5 && !moonFront) {
+        lum = 0.6;
+        kind = 0.75;
+        g = ringTag;
+        flag = 0.5;
+      }
+      outColor = vec4(lum, g, kind, flag);
+    }
+    `;
+      }
+
+      moonsSource() {
+        return `${this.sceneHead()}
+    uniform vec3 uMoons[3];
+    ${this.bodyLib()}
+
+    void main() {
+      vec2 cid = floor(gl_FragCoord.xy);
+      vec2 p01 = (cid + 0.5) * uCellPx / uCanvasPx;
+      float aspect = uCanvasPx.x / uCanvasPx.y;
+      vec2 md = (p01 - uMouse) * vec2(aspect, 1.0);
+      float lens = exp(-dot(md, md) * 40.0);
+      vec2 pw = p01 - (p01 - uMouse) * lens * 0.2;
+      float lum = twinkle(cid, uTime) * 0.8 + 0.3 * lens;
+      float kind = 0.0;
+      float g = 0.0;
+      float flag = 1.0;
+      for (int i = 0; i < 3; i++) {
+        float fi = float(i);
+        vec3 m = uMoons[i];
+        if (m.z <= 0.0) continue;
+        vec2 uv = (pw - m.xy) * vec2(aspect, 1.0) * 2.0 / m.z;
+        float cellUv = uCellPx.y / uCanvasPx.y * 2.0 / m.z;
+        vec2 d = uv / 0.66;
+        float r = length(d);
+        float fw = fwidth(r);
+        float tilt = -0.34 + 0.3 * fi;
+        vec2 ou = rot(tilt) * uv;
+        vec2 ab = vec2(0.96, 0.19);
+        vec2 eq = ou / ab;
+        float e = length(eq);
+        float fe = fwidth(e);
+        float th = atan(eq.y, eq.x);
+        float dash = fi < 0.5 ? 1.0 : step(0.5, fract(th * (34.0 + 16.0 * fi) / 6.2831853 + uTime * 0.04));
+        bool ring = abs(e - 1.0) < fe * 0.5 && dash > 0.5;
+        bool front = eq.y < 0.0;
+        vec2 gr = rot(-tilt) * (ou / (ab * ab));
+        float rtag = fract(atan(gr.y, gr.x) / 3.14159265 + 1.0);
+        float sa = uTime * (0.34 - 0.06 * fi) + fi * 2.1;
+        vec2 sp = vec2(ab.x * cos(sa), ab.y * sin(sa));
+        bool sat = length(ou - sp) < cellUv * 0.75;
+        bool satFront = sin(sa) < 0.0;
+        if (ring && !front && r >= 1.0) {
+          lum = 0.6;
+          kind = 0.75;
+          g = rtag;
+          flag = 0.5;
+        }
+        if (sat && !satFront && r >= 1.0) {
+          lum = 0.7;
+          kind = 1.0;
+          g = 0.0;
+          flag = 1.0;
+        }
+        if (r < 1.0) {
+          float lt = 2.15 + 0.62 * fi + uTilt.x * 0.8 + 0.06 * sin(uTime * 0.15 + fi);
+          vec3 L = normalize(vec3(cos(lt), 0.22 + 0.4 * uTilt.y, sin(lt)));
+          vec2 sb = shadeBody(d, L, uTime * 0.1 + fi * 2.0, 3.0 + fi * 5.0);
+          if (sb.y > 0.03) {
+            lum = clamp(0.1 + sb.x * 1.05 + 0.1 * lens, 0.0, 1.0);
+            kind = 1.0;
+            g = (fi + 1.0) / 4.0;
+            flag = 1.0;
+          } else if (r > 1.0 - fw * 1.2) {
+            lum = 0.5;
+            kind = 0.75;
+            g = fract(atan(d.y, d.x) / 3.14159265 + 1.0);
+            flag = 0.5;
+          } else {
+            lum = 0.0;
+            kind = 0.0;
+            flag = 1.0;
+          }
+        }
+        if (ring && front) {
+          lum = 0.6;
+          kind = 0.75;
+          g = rtag;
+          flag = 0.5;
+        }
+        if (sat && satFront) {
+          lum = 1.0;
+          kind = 1.0;
+          g = 0.0;
+          flag = 1.0;
+        }
+      }
+      outColor = vec4(lum, g, kind, flag);
+    }
+    `;
+      }
+
+      transferSource() {
+        return `${this.sceneHead()}
+    uniform vec3 uPlanet;
+    uniform vec3 uTarget;
+    uniform vec2 uPath[3];
+    uniform vec4 uStops;
+    ${this.bodyLib()}
+
+    vec2 bez(float t) {
+      float u = 1.0 - t;
+      return u * u * uPath[0] + 2.0 * u * t * uPath[1] + t * t * uPath[2];
+    }
+
+    vec2 sdBez(vec2 pos, vec2 A, vec2 B, vec2 C) {
+      vec2 a = B - A;
+      vec2 b = A - 2.0 * B + C;
+      vec2 c = a * 2.0;
+      vec2 d = A - pos;
+      float kk = 1.0 / dot(b, b);
+      float kx = kk * dot(a, b);
+      float ky = kk * (2.0 * dot(a, a) + dot(d, b)) / 3.0;
+      float kz = kk * dot(d, a);
+      float p = ky - kx * kx;
+      float q = kx * (2.0 * kx * kx - 3.0 * ky) + kz;
+      float h = q * q + 4.0 * p * p * p;
+      float res;
+      float tt;
+      if (h >= 0.0) {
+        h = sqrt(h);
+        vec2 x = (vec2(h, -h) - q) / 2.0;
+        vec2 uv = sign(x) * pow(abs(x), vec2(1.0 / 3.0));
+        tt = clamp(uv.x + uv.y - kx, 0.0, 1.0);
+        vec2 qv = d + (c + b * tt) * tt;
+        res = dot(qv, qv);
       } else {
-        addStrong(d.label);
-        addFiles();
+        float z = sqrt(-p);
+        float v = acos(q / (p * z * 2.0)) / 3.0;
+        float m = cos(v);
+        float n = sin(v) * 1.732050808;
+        vec3 t = clamp(vec3(m + m, -n - m, n - m) * z - kx, 0.0, 1.0);
+        vec2 qx = d + (c + b * t.x) * t.x;
+        vec2 qy = d + (c + b * t.y) * t.y;
+        float dx = dot(qx, qx);
+        float dy = dot(qy, qy);
+        res = dx < dy ? dx : dy;
+        tt = dx < dy ? t.x : t.y;
       }
-      var sx = W ? (stage.clientWidth / W) : 1, sy = H ? (stage.clientHeight / H) : 1;
-      var px = d.x * sx + 16, py = d.y * sy + 16;
-      if (px > stage.clientWidth - 240) px = d.x * sx - 230;
-      tipEl.style.left = Math.max(8, px) + "px";
-      tipEl.style.top = Math.max(8, py) + "px";
-      tipEl.classList.add("show");
+      return vec2(sqrt(res), tt);
     }
 
-    // mode toggle
-    var controls = document.getElementById("isolation-controls");
-    var btnIso = document.getElementById("mode-isolated");
-    var btnShared = document.getElementById("mode-shared");
-    function setMode(mode) {
-      btnIso.setAttribute("aria-pressed", String(mode === "isolated"));
-      btnShared.setAttribute("aria-pressed", String(mode === "shared"));
-      render(mode);
+    void main() {
+      vec2 cid = floor(gl_FragCoord.xy);
+      vec2 p01 = (cid + 0.5) * uCellPx / uCanvasPx;
+      float aspect = uCanvasPx.x / uCanvasPx.y;
+      vec2 md = (p01 - uMouse) * vec2(aspect, 1.0);
+      float lens = exp(-dot(md, md) * 28.0);
+      vec2 pw = p01 - (p01 - uMouse) * lens * 0.2;
+      vec2 uv = (pw - uStage) * vec2(aspect, 1.0) * 2.0 / uStageH;
+      float cellUv = uCellPx.y / uCanvasPx.y * 2.0 / uStageH;
+      float lum = twinkle(cid, uTime) + 0.3 * lens;
+      float kind = 0.0;
+      float g = 0.0;
+      float flag = 1.0;
+      float lt = 0.8 + 0.3 * sin(uTime * 0.08) + uTilt.x * 0.9;
+      vec3 L = normalize(vec3(cos(lt), 0.35 + 0.4 * uTilt.y, sin(lt)));
+
+      vec2 dP = (uv - uPlanet.xy) / uPlanet.z;
+      float rP = length(dP);
+      float fwP = fwidth(rP);
+      vec2 dT = (uv - uTarget.xy) / uTarget.z;
+      float rT = length(dT);
+      float fwT = fwidth(rT);
+      float aP = atan(dP.y, dP.x);
+      float aT = atan(dT.y, dT.x);
+      if (abs(rP - 1.09) < fwP * 0.5 && fract(aP * 9.0 + uTime * 0.05) < 0.5) {
+        lum = 0.5;
+        kind = 0.75;
+        g = fract(aP / 3.14159265 + 1.0);
+        flag = 0.5;
+      }
+      if (abs(rT - 1.6) < fwT * 0.5 && fract(aT * 3.5 - uTime * 0.12) < 0.5) {
+        lum = 0.5;
+        kind = 0.75;
+        g = fract(aT / 3.14159265 + 1.0);
+        flag = 0.5;
+      }
+      if (rP < 1.0) {
+        vec2 sb = shadeBody(dP, L, uTime * 0.04, 0.0);
+        lum = sb.y > 0.03 ? clamp(0.04 + sb.x * 0.8 + 0.1 * lens, 0.0, 1.0) : 0.0;
+        kind = sb.y > 0.03 ? 0.5 : 0.0;
+        g = 0.0;
+        flag = 1.0;
+        if (rP > 1.0 - fwP * 1.2) {
+          lum = 0.6;
+          kind = 0.75;
+          g = fract(aP / 3.14159265 + 1.0);
+          flag = sb.y > 0.03 ? 1.0 : 0.5;
+        }
+      }
+      if (rT < 1.0) {
+        vec2 sb = shadeBody(dT, L, uTime * 0.15, 13.0);
+        if (sb.y > 0.03) {
+          lum = clamp(0.14 + sb.x * 1.1, 0.0, 1.0);
+          kind = 1.0;
+          g = 0.75;
+          flag = 1.0;
+        } else if (rT > 1.0 - fwT * 1.2) {
+          lum = 0.5;
+          kind = 0.75;
+          g = fract(aT / 3.14159265 + 1.0);
+          flag = 0.5;
+        } else {
+          lum = 0.0;
+          kind = 0.0;
+          flag = 1.0;
+        }
+      }
+
+      vec2 bt = sdBez(uv, uPath[0], uPath[1], uPath[2]);
+      float tc = fract(uTime * 0.055);
+      float te = tc * tc * (3.0 - 2.0 * tc);
+      vec2 tg = 2.0 * (1.0 - bt.y) * (uPath[1] - uPath[0]) + 2.0 * bt.y * (uPath[2] - uPath[1]);
+      float ptag = fract(atan(tg.x, -tg.y) / 3.14159265 + 1.0);
+      float trail = bt.y <= te ? exp(-(te - bt.y) * 7.0) : 0.0;
+      float dash = step(0.62, fract(bt.y * 30.0 - uTime * 0.45));
+      if (bt.x < cellUv * 0.5) {
+        lum = 0.6;
+        kind = 0.75;
+        g = ptag;
+        flag = (dash > 0.5 || trail > 0.3) ? 1.0 : 0.5;
+      }
+      for (int k = 0; k < 4; k++) {
+        vec2 sp = bez(uStops[k]);
+        float dd = length(uv - sp) / cellUv;
+        if (dd < 0.75) {
+          lum = 1.0;
+          kind = 1.0;
+          g = 0.0;
+          flag = 1.0;
+        }
+      }
+      vec2 cp = bez(te);
+      float dc = length(uv - cp) / cellUv;
+      if (dc < 0.9) {
+        lum = 1.0;
+        kind = 1.0;
+        g = 0.0;
+        flag = 1.0;
+      }
+      outColor = vec4(lum, g, kind, flag);
     }
-    controls.addEventListener("submit", function (event) {
-      event.preventDefault();
-      var mode = event.submitter && event.submitter.value;
-      if (mode === "isolated" || mode === "shared") { setMode(mode); }
-    });
+    `;
+      }
 
-    // responsive: keep viewBox synced to container size
-    var rt;
-    window.addEventListener("resize", function () {
-      clearTimeout(rt);
-      rt = setTimeout(function () {
-        W = stage.clientWidth || W; H = stage.clientHeight || H;
-        svg.attr("viewBox", "0 0 " + W + " " + H);
-        sim.force("x", d3.forceX(colX).strength(0.5));
-        sim.force("y", d3.forceY(function (d) { return rowY(d.row); }).strength(0.22));
-        sim.alpha(0.5).restart();
-      }, 200);
-    });
+      horizonSource() {
+        return `${this.sceneHead()}
+    ${this.bodyLib()}
 
-    render("isolated");
+    void main() {
+      vec2 cid = floor(gl_FragCoord.xy);
+      vec2 p01 = (cid + 0.5) * uCellPx / uCanvasPx;
+      float aspect = uCanvasPx.x / uCanvasPx.y;
+      vec2 md = (p01 - uMouse) * vec2(aspect, 1.0);
+      float lens = exp(-dot(md, md) * 18.0);
+      vec2 pw = p01 - (p01 - uMouse) * lens * 0.18;
+      vec2 uv = (pw - vec2(0.5, 0.0)) * vec2(aspect, 1.0);
+      float cellUv = uCellPx.y / uCanvasPx.y;
+      const vec2 C = vec2(0.0, -1.78);
+      const float R = 2.0;
+      vec2 d = (uv - C) / R;
+      float r = length(d);
+      float fw = fwidth(r);
+      float lx = 0.02 * sin(uTime * 0.06) + uTilt.x * 0.07;
+      vec3 L = normalize(vec3(lx, 0.3, -0.95));
+      float lum = twinkle(cid, uTime) + 0.28 * lens;
+      float kind = 0.0;
+      float g = 0.0;
+      float flag = 1.0;
+      vec2 sdir = normalize(L.xy);
+      vec2 sunP = C + sdir * R;
+      vec2 ds = (uv - sunP) / cellUv;
+      if (r < 1.0) {
+        vec3 n = vec3(d, sqrt(max(1.0 - r * r, 0.0)));
+        float dif = dot(n, L);
+        float c = cos(uTime * 0.012);
+        float s = sin(uTime * 0.012);
+        vec3 ns = vec3(c * n.x - s * n.z, n.y, s * n.x + c * n.z);
+        float cloud = fbm3(ns * 5.0 + 7.0);
+        float albedo = 0.72 + 0.28 * smoothstep(0.35, 0.7, cloud);
+        float rim = clamp(dif / max(length(L.xy), 0.05), 0.0, 1.0);
+        float lit = clamp(pow(rim, 1.6) * albedo * 1.1 + 0.1 * lens, 0.0, 1.0);
+        if (dif > 0.012 && lit > 0.13) {
+          lum = lit;
+          kind = 1.0;
+        } else {
+          lum = 0.0;
+          kind = 0.0;
+          if (dif < -0.05 && hash(cid * 0.71 + 3.0) > 0.994 && cloud > 0.5) {
+            lum = 0.3;
+            kind = 0.5;
+          }
+        }
+        if (r > 1.0 - fw * 1.3) {
+          lum = 0.75;
+          kind = 0.75;
+          g = fract(atan(d.y, d.x) / 3.14159265 + 1.0);
+          flag = dif > 0.012 ? 1.0 : 0.5;
+        }
+      } else {
+        float hz = (r - 1.0) * R / cellUv;
+        float facing = clamp(dot(normalize(d), sdir) * 2.2 - 1.2, 0.0, 1.0);
+        float glow = exp(-hz * 1.1) * facing;
+        if (glow > 0.18) {
+          lum = max(lum, glow * 0.45);
+          kind = 0.5;
+        }
+        float sun = exp(-dot(ds * vec2(0.55, 1.0), ds * vec2(0.55, 1.0)) * 0.12);
+        if (sun > 0.22) {
+          lum = max(lum, sun);
+          kind = 1.0;
+        }
+        if (abs(ds.y) < 0.5 && abs(ds.x) < 38.0 && abs(ds.x) > 4.0 && hash(vec2(cid.x, 1.0)) > 0.3 + 0.7 * abs(ds.x) / 38.0) {
+          lum = 0.214;
+          kind = 1.0;
+        }
+      }
+      outColor = vec4(lum, g, kind, flag);
+    }
+    `;
+      }
+
+      asciiSource() {
+        return `#version 300 es
+    precision highp float;
+    uniform sampler2D uScene;
+    uniform sampler2D uAtlas;
+    uniform vec2 uCellPx;
+    uniform float uRamp;
+    uniform float uGlyphs;
+    uniform float uTime;
+    uniform float uLod;
+    uniform vec3 uInk;
+    uniform vec3 uFaint;
+    uniform float uGrid;
+    uniform float uGridPx;
+    out vec4 outColor;
+
+    float hash1(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
+    void main() {
+      vec2 cell = floor(gl_FragCoord.xy / uCellPx);
+      vec4 s = texelFetch(uScene, ivec2(cell), 0);
+      float lum = clamp(s.r, 0.0, 1.0);
+      float kind = s.b;
+      bool direct = s.a < 0.25;
+      bool soft = s.a > 0.25 && s.a < 0.75;
+      bool face = kind > 0.875;
+      bool edge = kind > 0.625 && kind <= 0.875;
+      bool side = kind > 0.25 && kind <= 0.625;
+      float idx = floor(lum * (uRamp - 1.0) + 0.5);
+      if (face || side) idx = max(idx, 2.0);
+      if (edge) {
+        float bin = mod(floor(fract(s.g + 0.5) * 4.0 + 0.5), 4.0);
+        idx = bin < 0.5 ? uRamp + 6.0 : (bin < 1.5 ? uRamp + 4.0 : (bin < 2.5 ? uRamp + 3.0 : uRamp + 5.0));
+      }
+      float code = floor(s.g * 255.0 + 0.5);
+      if (direct) idx = code > 32.5 ? uRamp + 7.0 + code - 32.0 : 0.0;
+      float tick = mod(floor(uTime * 8.0), 997.0);
+      float chance = direct ? 0.9995 - 0.7 * exp(-uTime * 1.1) : 0.993 - 0.6 * exp(-uTime * 1.3);
+      bool glitch = lum > 0.03 && hash1(cell + vec2(tick * 0.618, tick * 0.317)) > chance;
+      if (direct && code < 32.5) glitch = false;
+      if (glitch) {
+        float layer = floor(s.g * 4.0 + 0.5) - 1.0;
+        if (direct) {
+          idx = uRamp + 8.0 + floor(hash1(cell * 1.37 + vec2(tick)) * min(94.0, uGlyphs - uRamp - 8.0));
+        } else if (face && layer >= 0.0 && hash1(cell * 0.73 + vec2(tick)) > 0.4) {
+          idx = uRamp + layer;
+        } else {
+          idx = 2.0 + floor(hash1(cell * 1.37 + vec2(tick)) * (uRamp - 2.0));
+        }
+      }
+      vec2 f = fract(gl_FragCoord.xy / uCellPx);
+      vec2 auv = vec2((idx + f.x) / uGlyphs, 1.0 - f.y);
+      float a = textureLod(uAtlas, auv, uLod).r;
+      vec3 col;
+      if (direct) {
+        col = mix(uFaint, uInk, smoothstep(0.3, 0.85, lum));
+        a *= side ? 0.38 : 1.0;
+      } else if (edge) {
+        col = soft ? uFaint : uInk;
+      } else {
+        col = face ? uInk : (side ? mix(uFaint, uInk, 0.55) : uFaint);
+      }
+      vec2 px = f * uCellPx;
+      float line = (px.x < uGridPx || px.y < uGridPx) ? uGrid : 0.0;
+      vec3 rgb = col * a + uInk * line * (1.0 - a);
+      float alpha = a + line * (1.0 - a);
+      outColor = vec4(rgb, alpha);
+    }
+    `;
+      }
+    }
+
+    const fields = new AsciiFields();
+    fields.readConfig();
+    fields.start();
   })();
   </script>
 </body>

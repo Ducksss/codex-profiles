@@ -9,6 +9,16 @@ and this project follows semantic versioning for tagged releases.
 
 ### Changed
 
+- Redesigned the project website as a dark ASCII page drawn live with WebGL:
+  an orbiting planet with one moon per profile, live phase moons for each
+  Codex home, an install trajectory and a dawn horizon, all reacting to the
+  cursor. Static ASCII art replaces them without WebGL or JavaScript, and the
+  FAQ, project facts and safety boundaries stay in the HTML.
+- Improved search and AI discovery with consistent app/CLI metadata, a real
+  maintainer identity, linked setup and security sources, release-feed
+  discovery, and editorial dates distinct from software release dates.
+- Allowed raw Markdown source links through release validation while retaining
+  exact release-tag requirements for executable installer references.
 - Made the macOS menu-bar app the README's main entry point, with native
   previews, source installation and menu workflows before the CLI reference.
   Followed Best-README-Template's project, setup and contributor structure.
