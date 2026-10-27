@@ -1,53 +1,65 @@
 # Native companion
 
-A compact profile and workspace switcher, built with AppKit and the existing
+A compact profile and workspace launcher, built with AppKit and the existing
 Bash CLI.
-The single-line header identifies Codex Profiles and offers a gear menu.
-Native search matches profile names, project names and paths; a profile filter
-and ChatGPT/Terminal segmented control sit immediately below it. Profiles appear
-first and open without a folder. Pinned workspaces follow, then other workspaces
-ordered by last successful launch. Never call an unopened binding “recent”.
+The header is one line: native search and a gear menu. Search matches profile
+names, project names and paths. Each profile leads its own group and opens
+without a folder; its workspaces sit beneath it, pinned first and then ordered
+by last successful launch. Never call an unopened binding “recent”.
+Workspaces whose profile is missing follow the groups. A hairline divides
+groups; rows within a group have no rules, because the nesting already shows
+what belongs together. Nesting and search replace a profile filter.
 
-The 400-point popover uses semantic macOS colours, system type, monochrome
+The 360-point popover uses semantic macOS colours, system type, monochrome
 SF Symbols and the material supplied by NSPopover. The content view has no
-additional effect layer. Header, search and filters form one block above a
-single rule. One type scale sets the title in 13-point semibold, row names in
-13-point medium, details in 11-point secondary text and section headings in
-11-point semibold; weight, not size, carries the hierarchy. Each row starts
-with a 22-point monochrome mark: a monogram disc for a profile, a rounded
-folder or pin tile for a workspace. The header mark and title share the rows'
-mark and title columns. Rows show the profile name or project name and path,
-a small Open button, and related actions. Every available row is 48 points
-high; an unavailable row adds 16 points for its explanation and retains repair
-actions. Thin rules divide rows within a group, start at the title column and
-hide beside a highlighted row; space above each heading separates groups.
-Hover and keyboard selection paint an inset, rounded plate. Rows
-remain unselected on opening and after search changes. Arrow-key selection
-uses a system accent fill, a semantic outline and an accessibility selected
-state. Height follows content up to 500 points; longer lists scroll. Optional
-Add Workspace sits in the footer. The empty state offers Create Profile;
-creating a profile makes it immediately available without a folder picker.
-An inline **Codex left** column aligns beside profile names and before Open.
-Each reported window shows its duration, a 4-point capacity meter and a
-right-aligned monospaced percentage whose smaller, quieter percent sign keeps
-the column reading as figures. Meters use the secondary label colour,
-orange at 25% or less and red at 10% or less, where the number also turns red;
-the number always carries the value. A low window replaces the row's
-destination description with its name and reset countdown. Tooltips and the
-row's accessibility label include relative and absolute reset times,
-freshness and the Codex CLI sign-in scope. Countdowns stay in English to match
-the surrounding text, while clock times follow the user's locale and
-12/24-hour setting. Workspace rows do not repeat account quota.
-Only explicitly adding a workspace asks for a folder. App-level setup, sign-in,
-Open at Login, Low-quota alerts, About and Quit live in the gear menu.
+additional effect layer. One type scale sets profile names in 13-point
+semibold, workspace names in 13-point regular and details in 11-point
+secondary text; weight, not size, carries the hierarchy. A profile row is 46
+points high: a 26-point monochrome monogram tile, the name above a detail
+line, and its quota. A workspace row is a single 30-point line starting at
+its profile's title column: a pin or folder symbol, the project name and its
+path on one baseline. A search result listed without its profile's row starts
+under the profile tiles and names its profile instead. A workspace that
+cannot open grows to 44 points to explain why on a second line, always shows
+its actions and offers Locate… when its folder is missing.
+Rows have no Open buttons: clicking a row opens it. The ⋯ actions button
+appears with the hover or selection plate, so resting rows stay quiet, and
+it stays in the accessibility tree. Right-click and Control-click show the
+same actions. Hover and keyboard selection paint an inset, rounded plate.
+Rows remain unselected on opening; while searching, the first available match
+is selected so Return's target is visible before it is pressed. Arrow-key
+selection uses a system accent fill, a semantic outline and an accessibility
+selected state. Height follows content up to 500 points; longer lists scroll.
+The footer says what Return and Command-Return open, naming the selection, or
+reports the latest outcome, beside Add and Refresh buttons. The empty state
+replaces search with the app's name and offers Create Profile; creating a
+profile makes it immediately available without a folder picker.
+Each profile row shows its tightest Codex window: the remaining percentage in
+13-point tabular figures with a smaller percent sign, the window's duration
+below it, such as “5h left”, and a 20-point ring filled clockwise from the top
+with the remaining share. Normal rings use the secondary label colour. At 25%
+or less the ring and number turn orange, and at 10% or less red. In light
+mode these are darker than systemOrange and systemRed, so a coloured figure
+keeps 4.5:1 contrast on the popover and on the hover plate; dark mode uses
+lighter tints. The number always carries the value. A low window replaces
+the row's destination description with its name and reset countdown. The
+profile's actions menu lists every window with its remaining share and reset
+clock time, and when it was checked, as disabled information lines.
+Tooltips and the row's accessibility label include relative and absolute
+reset times, freshness and the Codex CLI sign-in scope. Countdowns stay in
+English to match the surrounding text, while clock times follow the user's
+locale and 12/24-hour setting. Workspace rows do not repeat account quota.
+Only explicitly adding a workspace asks for a folder. App-level setup,
+sign-in, the Return destination, Open at Login, Low-quota alerts, About and
+Quit live in the gear menu.
 
 Apple's [menu-bar guidance](https://developer.apple.com/design/human-interface-guidelines/the-menu-bar#Menu-bar-extras)
 prefers a menu unless the functionality calls for richer controls. Search,
-profile selection and destination switching justify a popover here. Follow the
+nested rows and inline quota justify a popover here. Follow the
 [popover guidance](https://developer.apple.com/design/human-interface-guidelines/popovers)
-for related tasks, anchoring, minimal size and dismissal. The monochrome header,
-gear, separators and inline Open actions interpret the user's visual reference;
-they are not dimensions or a layout mandated by Apple.
+for related tasks, anchoring, minimal size and dismissal. The search-first
+header, nested rows, quota rings and hover-revealed actions interpret the
+user's visual reference; they are not dimensions or a layout mandated by Apple.
 
 The app never overrides production appearance. The status icon is a template
 image; controls, SF Symbols, menus, alerts and NSPopover inherit macOS light,
@@ -65,15 +77,17 @@ full label colour and outlines row marks. Native controls retain focus,
 keyboard behaviour and labelled actions for accessibility clients.
 
 Keyboard: search receives focus on opening; arrows select available profiles
-or projects. Return launches the selection or the first available match,
-Command-1 through Command-9 launch visible rows, Command-K
-focuses search, Command-R refreshes, and Escape clears search before closing.
+or projects. Return launches the selection or the first available match in
+the default destination, and Command-Return launches it in the other one, as
+Command-click does for a click. Command-1 through Command-9 launch visible
+rows, Command-K focuses search, Command-R refreshes, and Escape clears search
+before closing.
 Successful launches dismiss the popover. Failed launches leave the error
 visible. Folder pickers and About dismiss the menu before opening; alerts can
 remain above it. Dialogs and native menus retain their own keyboard handling.
 
 Every row's actions open it once in ChatGPT or Terminal without changing the
-default destination. Profile actions add a workspace for that profile and offer
+default destination, which the gear menu's Return opens in sets. Profile actions add a workspace for that profile and offer
 optional Codex CLI sign-in. Workspace actions: pin/unpin,
 reveal in Finder, copy path, change profile, locate a moved folder, and remove
 only the binding. Menus disable inapplicable items explicitly, because NSMenu's
@@ -100,8 +114,7 @@ unavailable and passed resets never imply a restored quota. The UI retains
 launch actions during reads and failures. A refresh dims the previous reading
 instead of replacing it with a placeholder. Readings update their rows in
 place, so hover, keyboard focus and the VoiceOver cursor survive while they
-stream in; only structural changes rebuild the list, and the profile filter is
-rebuilt only when profiles change. A 60-second memory cache and two
+stream in; only structural changes rebuild the list. A 60-second memory cache and two
 concurrent readers bound the cost; an explicit refresh bypasses the cache.
 Replies are framed by newline without rescanning buffered bytes, so the 1 MiB
 output bound is reached in linear time.
@@ -167,9 +180,10 @@ The renderer verifies that the exported backdrop matches the system colour,
 and both appearances run in the native test suite. Quota numbers are sample
 values. These are layout previews;
 they do not demonstrate live translucency, system permission prompts or
-upstream app behaviour. The AppKit interaction runner checks profile-first
-setup, selection, search, dismissal and launch arguments against an isolated
-executable. It switches the same open view light → dark → light, checks
+upstream app behaviour. Previews render at 2x whatever display draws them. The
+AppKit interaction runner checks profile-first setup, nesting and alignment,
+selection, search, dismissal, Command-Return, the Return destination and
+launch arguments against an isolated executable. It switches the same open view light → dark → light, checks
 system-colour and accessibility notifications, and verifies opaque selection
 policies and accessibility state. These checks do not change global OS
 preferences. Actual preference toggles, VoiceOver announcements and live
@@ -177,7 +191,8 @@ popover glass require a manual macOS check.
 Quota checks cover the official wire contract, multiple buckets, nullable
 windows, exhaustion, expired resets, caching, concurrency, malformed replies,
 timeouts and cancellation. The interaction runner also checks in-place usage
-updates, refresh dimming, rows being changed, menu enablement after AppKit
+updates, refresh dimming, quota colours in both appearances, the usage lines
+in profile actions, rows being changed, right-click actions, menu enablement after AppKit
 validation, one-off destinations and Open at Login through a fake login item. An isolated real CLI integration verifies profile
 selection and strict workspace-guard handling with a fake app-server.
 Alert checks cover indicator state and its bounded timer, crossing and

@@ -18,10 +18,6 @@ final class WorkspaceStore {
         didSet { notify() }
     }
 
-    var selectedProfile: String? {
-        didSet { notify() }
-    }
-
     private(set) var phase: Phase = .idle
     private(set) var workspaces: [WorkspaceBinding] = []
     private(set) var profiles: [String] = []
@@ -60,15 +56,19 @@ final class WorkspaceStore {
     }
 
     var filteredWorkspaces: [WorkspaceBinding] {
-        sortByRecency(workspaces.filter {
-            $0.matches(query) && (selectedProfile == nil || $0.profile == selectedProfile)
-        })
+        sortByRecency(workspaces.filter { $0.matches(query) })
     }
 
+    /// Each profile followed by its own workspaces, pinned first and then most
+    /// recently opened. Workspaces whose profile is missing come last. A
+    /// search keeps this order and lists only matches.
     var filteredTargets: [LaunchTarget] {
-        profiles.map(LaunchTarget.profile).filter {
-            $0.matches(query) && (selectedProfile == nil || $0.profile == selectedProfile)
-        } + filteredWorkspaces.map(LaunchTarget.workspace)
+        let matching = filteredWorkspaces
+        let grouped = profiles.flatMap { profile in
+            [LaunchTarget.profile(profile)].filter { $0.matches(query) }
+                + matching.filter { $0.profile == profile }.map(LaunchTarget.workspace)
+        }
+        return grouped + matching.filter { !profiles.contains($0.profile) }.map(LaunchTarget.workspace)
     }
 
     func isPinned(_ workspace: WorkspaceBinding) -> Bool {
@@ -235,9 +235,6 @@ final class WorkspaceStore {
             profiles = loadedProfiles
             usage = usage.filter { profiles.contains($0.key) }
             guardMode = response.guardMode
-            if let selectedProfile, !profiles.contains(selectedProfile) {
-                self.selectedProfile = nil
-            }
             hasLoaded = true
             phase = .ready
             statusMessage = profiles.isEmpty && workspaces.isEmpty

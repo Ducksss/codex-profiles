@@ -4,8 +4,8 @@ The native menu-bar companion bundles the existing `codex-profile` engine.
 It runs on macOS 13 or newer, on Apple silicon and Intel. It requires neither
 Swift nor a separate `codex-profile` installation on the user's Mac.
 
-Drag **Codex Profiles.app** to **Applications**, open it, and choose
-**Open** beside an existing profile. If none exists, choose **Create profile…**
+Drag **Codex Profiles.app** to **Applications**, open it, and click an
+existing profile. If none exists, choose **Create profile…**
 and enter a name such as `work` or `personal`. A project folder is not required.
 The app opens its menu when you launch it. **New profile…** is also in its gear
 menu. **Add workspace…** optionally binds a project folder to a profile for a
@@ -30,25 +30,31 @@ a server-side account boundary.
 
 ## Menu and keyboard
 
-The menu uses system search, a profile filter and a ChatGPT/Terminal
-destination control. Profiles appear first and can open without a folder.
-Pinned projects follow; other projects follow their last successful launch.
-Workspace rows show the project name, profile and folder,
-with an explicit **Open** button and an actions menu. Missing folders and
-profiles show the reason and retain actions for repair or removal. Refresh
+The menu is a single search field above a list. Each profile leads its own
+group and opens without a folder. Its projects sit beneath it on one line
+each, with the folder path: pinned projects first, then the rest by their
+last successful launch. Projects whose profile is missing follow the groups.
+Click a row to open it; its ⋯ actions button appears on hover or selection,
+and right-click shows the same actions. Missing folders and profiles show the
+reason, keep their actions visible and offer **Locate…** for a moved folder. Refresh
 failures preserve loaded content while retaining committed binding changes.
 While a binding change is in progress, its row shows **Updating…** and cannot
 open, so it never launches the previous profile.
 
 Every row's actions menu offers **Open in ChatGPT** and **Open in Terminal**,
-which use that destination once without changing the default. Profile rows
-also offer **Add workspace…** for that profile and **Sign in to Codex CLI…**.
+which use that destination once without changing the default. **Return opens
+in** in the gear menu sets the default; ChatGPT is the default until you
+change it. Profile rows also list each Codex window with its reset time, and
+offer **Add workspace…** for that profile and **Sign in to Codex CLI…**.
 Actions that cannot apply, such as revealing a missing folder, are disabled.
 
-Search receives focus when the menu opens. ↑/↓ selects available profiles or
-projects; Return opens the selection, or the first available search result.
-⌘1–9 opens the corresponding visible row, ⌘K focuses search, and ⌘R refreshes.
-Escape clears search before closing. Successful launches close the popover.
+Search receives focus when the menu opens. Typing selects the first
+available match. ↑/↓ selects available profiles or projects; Return opens the
+selection, or the first available row, and ⌘Return opens it in the other
+destination, as ⌘-click does. The footer says which destination each key
+uses. ⌘1–9 opens the corresponding visible row, ⌘K focuses search, and ⌘R
+refreshes. Escape clears search before closing. Successful launches close the
+popover.
 
 Profile-only launches start in the home directory. Adding a project shortcut
 is a separate action; creating a profile never opens a folder picker unless
@@ -56,15 +62,17 @@ you explicitly started **Add workspace…**.
 
 ## Codex usage beside each profile
 
-The **Codex left** column shows the percentage remaining in each reported
-quota window, with a small meter beside it. Window labels come from the
-response: for example, `5h` and `7d`, or `15m` when that is the actual
-duration. At 25% or less a meter turns orange, and at 10% or less it and its
-number turn red; the number always carries the value. A low window also
-replaces the row's description with its reset time, such as
-`5h limit low · resets in 1h 12m`. Hover a reading for each reset time and
-when it was checked. Missing limits show **Unavailable**; expired readings
-show a dash until refreshed. Neither state disables **Open**.
+Each profile row shows its tightest reported quota window: the percentage
+remaining, the window's duration, such as `5h left`, and a ring filled with
+the remaining share. Window labels come from the response: for example, `5h`
+and `7d`, or `15m` when that is the actual duration. At 25% or less the ring
+and number turn orange, and at 10% or less they turn red; the number always
+carries the value. A low window also replaces the row's description with its
+reset time, such as `5h limit low · resets in 1h 12m`. The profile's ⋯ menu
+lists every window with its remaining share and reset time, and when it was
+checked; hover a reading for the same detail. Missing limits show
+**Unavailable**; expired readings show a dash until refreshed. Neither state
+prevents opening the profile.
 
 Usage belongs to each profile's **Codex CLI** sign-in. Desktop sign-in can
 use a different account; the companion does not compare accounts. Sign in
@@ -162,8 +170,8 @@ with sample quota values for layout review.
 They use an opaque system backdrop for layout review; live translucency is
 provided by NSPopover and depends on macOS appearance and accessibility settings.
 
-<img src="CodexProfilesMenu/Previews/menu-light.png" width="400" alt="Native profile and workspace menu in light appearance">
-<img src="CodexProfilesMenu/Previews/menu-dark.png" width="400" alt="Native profile and workspace menu in dark appearance">
+<img src="CodexProfilesMenu/Previews/menu-light.png" width="360" alt="Native profile and workspace menu in light appearance">
+<img src="CodexProfilesMenu/Previews/menu-dark.png" width="360" alt="Native profile and workspace menu in dark appearance">
 
 See the [design notes](CodexProfilesMenu/DESIGN.md) for Apple guidance and
 interaction behaviour. Re-render the previews after changing the view:
