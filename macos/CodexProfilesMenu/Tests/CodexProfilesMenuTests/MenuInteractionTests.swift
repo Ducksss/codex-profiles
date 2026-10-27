@@ -339,6 +339,48 @@ struct MenuInteractionTests {
             context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)?.items.contains { $0.title == "Copy path" } == true,
             "right-clicking a row must offer the same actions as its actions button")
 
+        // Each profile has a colour and symbol, chosen in an editor that replaces the list.
+        let automatic = ProfileAppearance.automatic(for: "work")
+        let personalTile = descendants(controller.view).compactMap { $0 as? RowAvatar }.first!
+        expect(automatic == ProfileAppearance.automatic(for: "work") && automatic.symbol == .monogram && automatic.colour != .graphite
+            && ProfileAppearance.automatic(for: "default").colour == .graphite && personalTile.profileAppearance == store.appearance(for: "personal"),
+            "profiles must start with a stable automatic colour and their initial, graphite for default")
+        let appearanceMenu = controller.actionsMenu(for: .profile("work"))
+        appearanceMenu.performActionForItem(at: appearanceMenu.indexOfItem(withTitle: "Appearance…"))
+        let editor = descendants(controller.view).compactMap { $0 as? AppearanceEditorView }.first!
+        expect(descendants(controller.view).compactMap { $0 as? LaunchRowButton }.isEmpty && search.isHidden,
+            "the appearance editor must replace the list and search")
+        let swatches = descendants(editor).compactMap { $0 as? SwatchButton }
+        let symbolChoices = descendants(editor).compactMap { $0 as? SymbolChoiceButton }
+        expect(swatches.count == 8 && symbolChoices.count == 12
+            && !swatches.contains { ["red", "orange", "yellow"].contains($0.colour.rawValue) },
+            "the editor must offer eight colours, leaving out the quota colours, and twelve symbols")
+        expect(swatches.filter { $0.state == .on }.map(\.colour) == [automatic.colour]
+            && symbolChoices.filter { $0.state == .on }.map(\.symbol) == [.monogram],
+            "the current colour and symbol must be marked as chosen")
+        swatches.first { $0.colour == .teal }!.performClick(nil)
+        symbolChoices.first { $0.symbol == .flask }!.performClick(nil)
+        let chosen = ProfileAppearance(colour: .teal, symbol: .flask)
+        expect(store.appearance(for: "work") == chosen && WorkspaceStore(client: CLIClient(executableURL: nil), defaults: defaults).appearance(for: "work") == chosen,
+            "choices must apply at once and persist")
+        expect(descendants(controller.view).compactMap { $0 as? AppearanceEditorView }.first === editor
+            && swatches.filter { $0.state == .on }.map(\.colour) == [.teal],
+            "a choice must update the editor in place, so focus stays put")
+        expect(controller.handleShortcut(key(53)) && !search.isHidden, "Escape must return from the editor to the list")
+        let chosenTile = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first { $0.item == .profile("work") }
+            .flatMap { descendants($0).compactMap { $0 as? RowAvatar }.first }!
+        expect(chosenTile.profileAppearance == chosen, "the list must show the chosen colour and symbol")
+        controller.editAppearance(of: "work")
+        descendants(controller.view).compactMap { $0 as? NSButton }.first { $0.title == "Reset" }!.performClick(nil)
+        expect(store.appearance(for: "work") == automatic, "Reset must restore the automatic appearance")
+        descendants(controller.view).compactMap { $0 as? NSButton }.first { $0.title == "Done" }!.performClick(nil)
+        expect(descendants(controller.view).contains { $0 is LaunchRowButton } && !descendants(controller.view).contains { $0 is AppearanceEditorView },
+            "Done must return to the list")
+        store.query = "first"
+        let taggedRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first!
+        expect(descendants(taggedRow).contains { $0 is ColourDot }, "a search result without its profile row must mark the profile's colour")
+        store.query = ""
+
         // A row action opens the other destination without changing the default.
         defaults.set(OpenDestination.terminal.rawValue, forKey: "openDestination")
         let login = FakeLoginItem()
@@ -423,6 +465,15 @@ struct MenuInteractionTests {
         try await waitUntil { !alerts.isEnabled }
         expect(!alerts.isEnabled && !store.isRefreshingUsageInBackground && item("Low-quota alerts", in: alertsController.settingsMenu()).state == .off,
             "choosing it again must turn alerts and background reads off")
+        settings = alertsController.settingsMenu()
+        expect(item("Quota in menu bar", in: settings).state == .off, "the menu-bar figure must start off")
+        settings.performActionForItem(at: settings.indexOfItem(withTitle: "Quota in menu bar"))
+        expect(alerts.showsFigure && item("Quota in menu bar", in: alertsController.settingsMenu()).state == .on
+            && store.isRefreshingUsageInBackground && notifier.requests == 1,
+            "choosing Quota in menu bar must show the figure and keep readings fresh without asking for permission again")
+        settings = alertsController.settingsMenu()
+        settings.performActionForItem(at: settings.indexOfItem(withTitle: "Quota in menu bar"))
+        expect(!alerts.showsFigure && !store.isRefreshingUsageInBackground, "choosing it again must hide the figure and stop background reads")
 
         // The status icon stays a labelled template image; low quota changes
         // its shape, never only its colour.

@@ -6,7 +6,7 @@ import Foundation
 struct RenderPreview {
     static func main() {
         guard CommandLine.arguments.count >= 2 else {
-            FileHandle.standardError.write(Data("Usage: RenderPreview <output.png> [--empty] [--dark]\n".utf8))
+            FileHandle.standardError.write(Data("Usage: RenderPreview <output.png> [--empty] [--dark] [--no-results] [--appearance]\n".utf8))
             exit(2)
         }
 
@@ -40,10 +40,15 @@ struct RenderPreview {
             "default": sample(18, 36), "personal": sample(43, 78), "work": sample(93, 59),
         ])
         if let first = bindings.first { store.togglePin(first) }
+        // Chosen colours and symbols, as in the design; new profiles get automatic ones.
+        store.setAppearance(ProfileAppearance(colour: .graphite, symbol: .person), for: "default")
+        store.setAppearance(ProfileAppearance(colour: .green, symbol: .house), for: "personal")
+        store.setAppearance(ProfileAppearance(colour: .blue, symbol: .briefcase), for: "work")
         if CommandLine.arguments.contains("--no-results") { store.query = "does-not-exist" }
 
         let controller = WorkspaceMenuViewController(store: store, defaults: defaults)
         let previewView = controller.view
+        if CommandLine.arguments.contains("--appearance") { controller.editAppearance(of: "work") }
         let size = controller.preferredContentSize
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: .borderless, backing: .buffered, defer: false)
         window.appearance = NSAppearance(named: CommandLine.arguments.contains("--dark") ? .darkAqua : .aqua)

@@ -45,7 +45,14 @@ Every row's actions menu offers **Open in ChatGPT** and **Open in Terminal**,
 which use that destination once without changing the default. **Return opens
 in** in the gear menu sets the default; ChatGPT is the default until you
 change it. Profile rows also list each Codex window with its reset time, and
-offer **Add workspace…** for that profile and **Sign in to Codex CLI…**.
+offer **Add workspace…** for that profile, **Appearance…** and **Sign in to
+Codex CLI…**.
+
+Each profile has a coloured tile. New profiles get a colour from their name,
+with `default` in graphite, and show their initial. **Appearance…** lets you
+choose one of eight colours and twelve symbols; changes apply at once and
+**Done** or Escape returns to the list. Red, orange and yellow are left out
+because they mean low quota.
 Actions that cannot apply, such as revealing a missing folder, are disabled.
 
 Search receives focus when the menu opens. Typing selects the first
@@ -111,6 +118,12 @@ stays an upper bound on what is left: the badge never overstates the remaining
 quota, but a profile can run lower than it shows until the next reading. The
 icon needs no permission and starts no reads of its own.
 
+**Quota in menu bar** in the gear menu shows the lowest remaining percentage
+across your profiles beside the icon, such as `7%`, even when nothing is low.
+It is off by default. While it is on, the app checks usage about every five
+minutes, like alerts, so the figure stays current; it needs no notification
+permission and never switches profiles.
+
 **Low-quota alerts** in the gear menu adds macOS notifications. It is off by
 default, and macOS asks for notification permission only when you turn it on.
 If notifications are not allowed, alerts stay off and the app explains how to
@@ -172,6 +185,7 @@ provided by NSPopover and depends on macOS appearance and accessibility settings
 
 <img src="CodexProfilesMenu/Previews/menu-light.png" width="360" alt="Native profile and workspace menu in light appearance">
 <img src="CodexProfilesMenu/Previews/menu-dark.png" width="360" alt="Native profile and workspace menu in dark appearance">
+<img src="CodexProfilesMenu/Previews/menu-appearance.png" width="360" alt="Choosing a profile's colour and symbol in light appearance">
 
 See the [design notes](CodexProfilesMenu/DESIGN.md) for Apple guidance and
 interaction behaviour. Re-render the previews after changing the view:
@@ -179,6 +193,7 @@ interaction behaviour. Re-render the previews after changing the view:
 ```sh
 scripts/macos/render-menu-preview.sh macos/CodexProfilesMenu/Previews/menu-light.png
 scripts/macos/render-menu-preview.sh macos/CodexProfilesMenu/Previews/menu-dark.png --dark
+scripts/macos/render-menu-preview.sh macos/CodexProfilesMenu/Previews/menu-appearance.png --appearance
 ```
 
 ## Build locally

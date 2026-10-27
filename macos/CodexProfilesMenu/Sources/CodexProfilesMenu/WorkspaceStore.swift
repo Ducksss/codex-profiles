@@ -41,6 +41,7 @@ final class WorkspaceStore {
     private let defaults: UserDefaults
     private let recentsKey = "workspaceRecents"
     private let pinsKey = "workspacePins"
+    private let appearanceKey = "profileAppearance"
     private var refreshTask: Task<Bool, Never>?
     private var refreshRequested = false
     private var hasLoaded = false
@@ -76,6 +77,24 @@ final class WorkspaceStore {
 
     func isPinned(_ workspace: WorkspaceBinding) -> Bool {
         (defaults.stringArray(forKey: pinsKey) ?? []).contains(workspace.id)
+    }
+
+    /// The profile's chosen colour and symbol, or its automatic appearance.
+    func appearance(for profile: String) -> ProfileAppearance {
+        let automatic = ProfileAppearance.automatic(for: profile)
+        guard let saved = defaults.dictionary(forKey: appearanceKey)?[profile] as? [String: String] else { return automatic }
+        return ProfileAppearance(
+            colour: saved["colour"].flatMap(ProfileAppearance.Colour.init) ?? automatic.colour,
+            symbol: saved["symbol"].flatMap(ProfileAppearance.Symbol.init) ?? automatic.symbol
+        )
+    }
+
+    /// Saves a profile's appearance; nil restores the automatic one.
+    func setAppearance(_ appearance: ProfileAppearance?, for profile: String) {
+        var saved = defaults.dictionary(forKey: appearanceKey) ?? [:]
+        saved[profile] = appearance.map { ["colour": $0.colour.rawValue, "symbol": $0.symbol.rawValue] }
+        defaults.set(saved, forKey: appearanceKey)
+        notify()
     }
 
     func usageState(for profile: String) -> UsageState {

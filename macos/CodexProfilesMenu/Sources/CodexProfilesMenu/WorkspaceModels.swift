@@ -101,3 +101,64 @@ struct WorkspaceBinding: Decodable, Equatable, Identifiable {
             || path.localizedCaseInsensitiveContains(trimmed)
     }
 }
+
+/// A profile's colour and symbol in the menu, so profiles are told apart at a
+/// glance. The palette leaves out red, orange and yellow, which mean low quota.
+struct ProfileAppearance: Equatable {
+    enum Colour: String, CaseIterable {
+        case blue, indigo, purple, pink, teal, green, brown, graphite
+
+        var label: String { rawValue.capitalized }
+
+        /// sRGB components. White symbols keep at least 4.5:1 contrast on each.
+        var components: (red: Double, green: Double, blue: Double) {
+            switch self {
+            case .blue: (0.039, 0.424, 0.859)
+            case .indigo: (0.306, 0.298, 0.769)
+            case .purple: (0.537, 0.267, 0.671)
+            case .pink: (0.780, 0.145, 0.357)
+            case .teal: (0.043, 0.478, 0.518)
+            case .green: (0.141, 0.541, 0.239)
+            case .brown: (0.525, 0.400, 0.290)
+            case .graphite: (0.463, 0.463, 0.482)
+            }
+        }
+    }
+
+    enum Symbol: String, CaseIterable {
+        case monogram, person, house, briefcase, building, book, flask, code, terminal, globe, leaf, bolt
+
+        var label: String {
+            switch self {
+            case .monogram: "Initial"
+            case .code: "Code brackets"
+            default: rawValue.capitalized
+            }
+        }
+
+        /// The SF Symbol, or nil for the profile's initial.
+        var systemName: String? {
+            switch self {
+            case .monogram: nil
+            case .building: "building.2"
+            case .code: "chevron.left.forwardslash.chevron.right"
+            default: rawValue
+            }
+        }
+    }
+
+    var colour: Colour
+    var symbol: Symbol
+
+    /// Before a choice: graphite for `default`, the stock ChatGPT session, and
+    /// otherwise a colour derived from the name, so it stays the same on every
+    /// launch and does not shift when other profiles are added.
+    static func automatic(for profile: String) -> Self {
+        guard profile != "default" else { return Self(colour: .graphite, symbol: .monogram) }
+        let choices = Colour.allCases.filter { $0 != .graphite }
+        // FNV-1a, because Swift's hashValue changes between launches.
+        var hash: UInt32 = 2_166_136_261
+        for byte in profile.utf8 { hash = (hash ^ UInt32(byte)) &* 16_777_619 }
+        return Self(colour: choices[Int(hash % UInt32(choices.count))], symbol: .monogram)
+    }
+}
