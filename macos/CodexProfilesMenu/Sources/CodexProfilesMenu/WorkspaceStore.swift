@@ -32,7 +32,10 @@ final class WorkspaceStore {
     private(set) var guardMode = "off"
     private(set) var isRefreshing = false
     private(set) var launchingID: LaunchTarget.ID?
-    private(set) var statusMessage = "Choose a profile or workspace"
+    private(set) var statusMessage = WorkspaceStore.readyMessage
+    /// Whether the status reports news, such as a launch or a failure,
+    /// rather than the resting prompt that leaves room for key hints.
+    var hasStatusNews: Bool { statusMessage != Self.readyMessage && statusMessage != Self.emptyMessage }
 
     private let client: CLIClient
     private let defaults: UserDefaults
@@ -237,9 +240,7 @@ final class WorkspaceStore {
             guardMode = response.guardMode
             hasLoaded = true
             phase = .ready
-            statusMessage = profiles.isEmpty && workspaces.isEmpty
-                ? "Create a profile to get started"
-                : "Choose a profile or workspace"
+            statusMessage = restingMessage
             return true
         } catch {
             if !hasLoaded { phase = .failed(error.localizedDescription) }
@@ -466,10 +467,14 @@ final class WorkspaceStore {
         guardMode = "warn"
         hasLoaded = true
         phase = .ready
-        statusMessage = profiles.isEmpty && bindings.isEmpty ? "Create a profile to get started" : "Choose a profile or workspace"
+        statusMessage = restingMessage
         notify()
     }
     #endif
+
+    private static let readyMessage = "Choose a profile or workspace"
+    private static let emptyMessage = "Create a profile to get started"
+    private var restingMessage: String { profiles.isEmpty && workspaces.isEmpty ? Self.emptyMessage : Self.readyMessage }
 
     private func notify() {
         onChange?()

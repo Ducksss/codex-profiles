@@ -287,9 +287,8 @@ final class WorkspaceMenuViewController: NSViewController {
     /// The footer says what Return and Command-Return do until the store has
     /// news to report, such as a launch or a refresh failure.
     private func updateFooter() {
-        let idle = ["Choose a profile or workspace", "Create a profile to get started"].contains(store.statusMessage)
         let other = "⌘↩ \(destination.alternate.label)"
-        if !idle {
+        if store.hasStatusNews {
             footerLabel.stringValue = store.statusMessage
         } else if let item = rows.first(where: { $0.item.id == selectedID })?.item {
             footerLabel.stringValue = "↩ Open \(item.name) in \(destination.label)  ·  \(other)"
