@@ -16,6 +16,16 @@ and this project follows semantic versioning for tagged releases.
   `codex-profile usage` and `workspace list` output. Static ASCII art replaces
   the scenes without WebGL or JavaScript, and the FAQ, project facts and safety
   boundaries stay in the HTML.
+- Redesigned the macOS menu around profiles. Each profile now leads a group
+  with its workspaces nested beneath it, replacing the profile filter, and a
+  search selects its first match so Return's target is visible. Clicking a
+  row opens it; ⌘Return and ⌘-click open the other destination, and the gear
+  menu's **Return opens in** replaces the ChatGPT/Terminal control. Rows drop
+  their Open buttons and reveal actions on hover, selection or right-click.
+  Each profile shows its tightest Codex window as a figure and ring, in a
+  darker orange or red when low so the number keeps its contrast, and the
+  profile's actions list every window with its reset time. The popover is
+  360 points wide, and previews render at 2x.
 - Improved search and AI discovery with consistent app/CLI metadata, a real
   maintainer identity, linked setup and security sources, release-feed
   discovery, and editorial dates distinct from software release dates.

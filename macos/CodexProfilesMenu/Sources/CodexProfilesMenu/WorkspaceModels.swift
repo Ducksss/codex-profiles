@@ -17,6 +17,9 @@ enum OpenDestination: String {
         case .terminal: "terminal"
         }
     }
+
+    /// Where Command-Return and Command-click open instead.
+    var alternate: OpenDestination { self == .chatGPT ? .terminal : .chatGPT }
 }
 
 enum LaunchTarget: Equatable, Identifiable {

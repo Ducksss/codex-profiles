@@ -23,6 +23,7 @@ struct RenderPreview {
             ? []
             : [
                 workspace("\(home)/Dev/codex-profiles", profile: "work"),
+                workspace("\(home)/Dev/billing-api", profile: "work"),
                 workspace("\(home)/Dev/personal-site", profile: "personal"),
             ]
         let profiles = CommandLine.arguments.contains("--empty") ? [] : ["default", "personal", "work"]
@@ -66,7 +67,8 @@ struct RenderPreview {
         previewView.needsLayout = true
         previewView.layoutSubtreeIfNeeded()
 
-        let scale = window.backingScaleFactor
+        // Retina previews, whatever display renders them.
+        let scale = max(2, window.backingScaleFactor)
         guard let bitmap = NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(size.width * scale), pixelsHigh: Int(size.height * scale),
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
