@@ -46,6 +46,8 @@ final class WorkspaceMenuViewController: NSViewController {
     private var destination: OpenDestination
     private var renderedList: ListModel?
     var onPreferredContentSizeChange: ((NSSize) -> Void)?
+    /// Turns the global shortcut on or off; returns false when macOS refuses it.
+    var onGlobalShortcutChange: ((Bool) -> Bool)?
     var onRequestClose: (() -> Void)?
 
     init(store: WorkspaceStore, defaults: UserDefaults = .standard, loginItem: LoginItemControlling? = nil,
@@ -214,7 +216,7 @@ final class WorkspaceMenuViewController: NSViewController {
         if let list, list == renderedList, scrollView != nil {
             for row in rows {
                 row.isSelectedRow = row.item.id == selectedID
-                if row.item.workspace == nil { row.update(usage: store.usageState(for: row.item.profile)) }
+                if row.item.workspace == nil { updateUsage(of: row) }
             }
             updateFooter()
             return
@@ -268,6 +270,12 @@ final class WorkspaceMenuViewController: NSViewController {
                 enabled: store.canLaunch(item) && store.launchingID == nil
             )
         })
+    }
+
+    private func updateUsage(of row: LaunchRowButton, now: Date = Date()) {
+        let profile = row.item.profile
+        row.update(usage: store.usageState(for: profile),
+                   headroom: QuotaHeadroom.suggestion(forProfile: profile, usage: store.usage, profiles: store.profiles, at: now), now: now)
     }
 
     private var isSearching: Bool { !store.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -339,6 +347,7 @@ final class WorkspaceMenuViewController: NSViewController {
             row.onLocate = { [weak self] in
                 if let workspace = item.workspace { self?.chooseFolder(for: workspace.profile, replacing: workspace) }
             }
+            if item.workspace == nil { updateUsage(of: row) }
             rows.append(row)
             stack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
@@ -521,6 +530,10 @@ final class WorkspaceMenuViewController: NSViewController {
         case .disabled: openAtLogin.state = .off
         }
         menu.addItem(openAtLogin)
+        let shortcut = menuItem("Keyboard shortcut \(GlobalShortcut.label)", #selector(toggleGlobalShortcut), symbol: nil, nil)
+        shortcut.state = defaults.bool(forKey: GlobalShortcut.preferenceKey) ? .on : .off
+        shortcut.toolTip = "Open this menu from any app. Off by default, because a global shortcut overrides the same keys in every app."
+        menu.addItem(shortcut)
         if let alerts {
             let lowQuota = menuItem("Low-quota alerts", #selector(toggleLowQuotaAlerts), symbol: nil, nil)
             if alerts.isBlocked {
@@ -691,6 +704,16 @@ final class WorkspaceMenuViewController: NSViewController {
         } catch {
             presentError("Couldn’t change Open at Login: \(error.localizedDescription)")
         }
+    }
+
+    @objc private func toggleGlobalShortcut() {
+        let enabled = !defaults.bool(forKey: GlobalShortcut.preferenceKey)
+        guard onGlobalShortcutChange?(enabled) ?? true else {
+            store.showMessage("\(GlobalShortcut.label) is already used by another app")
+            return
+        }
+        defaults.set(enabled, forKey: GlobalShortcut.preferenceKey)
+        store.showMessage(enabled ? "\(GlobalShortcut.label) opens this menu from any app" : "Keyboard shortcut off")
     }
 
     @objc private func toggleLowQuotaAlerts() {
@@ -916,15 +939,17 @@ final class LaunchRowButton: NSButton {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    /// Shows a newer usage reading without rebuilding the row.
-    func update(usage: UsageState, now: Date = Date()) {
+    /// Shows a newer usage reading without rebuilding the row. A low row can
+    /// name a healthier profile; it only suggests, and never switches.
+    func update(usage: UsageState, headroom: QuotaHeadroom? = nil, now: Date = Date()) {
         guard let usageView else { return }
         usageView.update(usage, now: now)
-        let explanation = usage.detail(at: now)
+        let suggestion = headroom.map { "\($0.profile) has \($0.remainingPercent)% of the same window left." }
+        let explanation = [usage.detail(at: now), suggestion].compactMap { $0 }.joined(separator: "\n")
         toolTip = "Open profile \(item.profile) without a project folder\n\(explanation)"
         detail.toolTip = toolTip
         // A low quota matters more than the destination description.
-        if !launching { detail.stringValue = usage.summary(at: now) ?? profileDetail }
+        if !launching { detail.stringValue = usage.summary(at: now, headroom: headroom) ?? profileDetail }
         setAccessibilityLabel("Profile \(item.profile). Open in \(destination.label). \(explanation)")
     }
 

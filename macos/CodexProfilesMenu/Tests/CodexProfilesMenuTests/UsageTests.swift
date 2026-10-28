@@ -80,6 +80,9 @@ enum UsageTests {
             "healthy quota must keep the destination description")
         expect(state(window(20, 300, resetIn: 4320), window(60, 10080, resetIn: 86400)).summary(at: now) == "5h limit low · resets in 1h 12m",
             "a low window must summarise its countdown")
+        expect(state(window(20, 300, resetIn: 4320)).summary(at: now, headroom: QuotaHeadroom(profile: "personal", remainingPercent: 70))
+            == "5h limit low · personal has 70%",
+            "a healthier profile must take the countdown's place on the row")
         expect(state(window(0, 300, resetIn: 600), window(0, 10080, resetIn: 90000)).summary(at: now) == "7d limit reached · resets in 1d 1h",
             "with every window exhausted, the later reset decides when Codex is usable")
         expect(state(window(5, 300, resetIn: -1), window(70, 10080, resetIn: 9000)).summary(at: now) == nil,

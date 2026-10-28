@@ -148,11 +148,14 @@ struct UsageState: Equatable {
         tightestWindow(at: date).flatMap { $0.level == .normal ? nil : $0 }
     }
 
-    /// A compact row summary such as "5h limit low · resets in 1h 12m".
-    func summary(at date: Date = Date()) -> String? {
+    /// A compact row summary such as "5h limit low · resets in 1h 12m". A
+    /// healthier profile, when there is one, takes the countdown's place,
+    /// which the tooltip and the actions menu still give.
+    func summary(at date: Date = Date(), headroom: QuotaHeadroom? = nil) -> String? {
         guard let window = constrainingWindow(at: date) else { return nil }
         let name = window.durationLabel.map { "\($0) limit" } ?? "Limit"
         let state = window.remainingPercent == 0 ? "reached" : "low"
+        if let headroom { return "\(name) \(state) · \(headroom.profile) has \(headroom.remainingPercent)%" }
         guard let resetsAt = window.resetsAt else { return "\(name) \(state)" }
         let countdown = UsageFormat.countdown(to: Date(timeIntervalSince1970: resetsAt), from: date, style: .abbreviated)
         return "\(name) \(state) · resets in \(countdown)"

@@ -7,6 +7,15 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- A low profile row in the macOS menu now names a healthier profile, such as
+  `5h limit low · personal has 70%`, using the same fresh-reading rule as
+  low-quota notifications. It only suggests and never switches profiles.
+- Added an opt-in **Keyboard shortcut ⌃⌥⌘P** in the gear menu that opens the
+  menu from any app. It needs no Accessibility permission, stays off by
+  default, and is refused with a message when another app holds the keys.
+
 ### Changed
 
 - Redesigned the macOS menu around profiles. Each profile now leads a group
