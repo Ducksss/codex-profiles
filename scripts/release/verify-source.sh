@@ -93,10 +93,12 @@ grep -F "github:Ducksss/codex-profiles/v$version" docs/llms.txt >/dev/null \
 grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" install.sh >/dev/null \
   || { echo "install.sh usage must use immutable v$version." >&2; exit 1; }
 for public_document in README.md docs/llms.txt install.sh; do
-  while IFS= read -r installer_reference; do
-    [[ "$installer_reference" == "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" ]] \
-      || { echo "$public_document publishes non-release installer reference $installer_reference." >&2; exit 1; }
-  done < <(grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^[:space:]]*/install\.sh[^[:space:]]*' "$public_document" || true)
+  while IFS= read -r raw_reference; do
+    # Decode percent escapes first, so install%2Esh still counts as the installer.
+    [[ "$(printf '%b' "${raw_reference//%/\\x}" 2> /dev/null)" == */install.sh* ]] || continue
+    [[ "$raw_reference" == "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" ]] \
+      || { echo "$public_document publishes non-release installer reference $raw_reference." >&2; exit 1; }
+  done < <(grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^[:space:]]+' "$public_document" || true)
   while IFS= read -r nix_reference; do
     [[ "$nix_reference" == "github:Ducksss/codex-profiles/v$version" ]] \
       || { echo "$public_document publishes non-release Nix reference $nix_reference." >&2; exit 1; }

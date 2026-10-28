@@ -29,8 +29,11 @@ and this project follows semantic versioning for tagged releases.
 - Improved search and AI discovery with consistent app/CLI metadata, a real
   maintainer identity, linked setup and security sources, release-feed
   discovery, and editorial dates distinct from software release dates.
+  CONTRIBUTING.md now covers the site checks, the GitHub Pages host-root
+  robots.txt and the search console handoff.
 - Allowed raw Markdown source links through release validation while retaining
-  exact release-tag requirements for executable installer references.
+  exact release-tag requirements for executable installer references,
+  including percent-encoded installer paths.
 - Made the macOS menu-bar app the README's main entry point, with native
   previews, source installation and menu workflows before the CLI reference.
   Followed Best-README-Template's project, setup and contributor structure.

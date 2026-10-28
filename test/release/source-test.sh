@@ -77,6 +77,7 @@ cp "$ROOT_DIR/packaging/aur/PKGBUILD" "$ROOT_DIR/packaging/aur/.SRCINFO" "$fixtu
 for reference in \
   'https://raw.githubusercontent.com/Ducksss/codex-profiles/main/README.md' \
   'https://raw.githubusercontent.com/Ducksss/codex-profiles/main/install.sh' \
+  'https://raw.githubusercontent.com/Ducksss/codex-profiles/main/install%2Esh' \
   'https://raw.githubusercontent.com/Ducksss/codex-profiles/feature/nested/install.sh?download=1#fragment' \
   "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$VERSION/install.sh?download=1"; do
   cp "$ROOT_DIR/README.md" "$fixture/README.md"
