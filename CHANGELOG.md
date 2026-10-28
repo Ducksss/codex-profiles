@@ -12,8 +12,10 @@ and this project follows semantic versioning for tagged releases.
 - Redesigned the project website as a dark ASCII page drawn live with WebGL:
   an orbiting planet with one moon per profile, live phase moons for each
   Codex home, an install trajectory and a dawn horizon, all reacting to the
-  cursor. Static ASCII art replaces them without WebGL or JavaScript, and the
-  FAQ, project facts and safety boundaries stay in the HTML.
+  cursor. The menu bar section switches between the app's screenshot and real
+  `codex-profile usage` and `workspace list` output. Static ASCII art replaces
+  the scenes without WebGL or JavaScript, and the FAQ, project facts and safety
+  boundaries stay in the HTML.
 - Improved search and AI discovery with consistent app/CLI metadata, a real
   maintainer identity, linked setup and security sources, release-feed
   discovery, and editorial dates distinct from software release dates.
