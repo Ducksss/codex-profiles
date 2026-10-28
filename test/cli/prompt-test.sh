@@ -10,6 +10,8 @@ mkdir -p "$TMP_ROOT/home/.codex-work" "$TMP_ROOT/home/.codex-other" "$TMP_ROOT/h
 ln -s "$SCRIPT" "$TMP_ROOT/bin/codex-profile"
 
 # Exercise the shell's registered hooks, as the shell does before displaying PS1.
+# NO_COLOR keeps these exact transcripts to the marker itself; the coloured
+# dot that precedes it has its own checks below.
 cat > "$TMP_ROOT/check.sh" <<'CHECK'
 set -eu
 PS1='original> '
@@ -52,7 +54,7 @@ for shell in bash zsh; do
     printf 'SKIP: %s prompt runtime unavailable\n' "$shell"
     continue
   fi
-  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" TEST_SHELL="$shell" "$shell" -f "$TMP_ROOT/check.sh"
+  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" NO_COLOR=1 TEST_SHELL="$shell" "$shell" -f "$TMP_ROOT/check.sh"
   assert_status 0
   assert_equals $'original> \n[codex:work] original> \n[codex:work] original> \n[codex:other] original> \n[codex:default] original> \noriginal> \noriginal> \noriginal> '
   [[ ! -e "$TMP_ROOT/home/injected" ]] || fail 'prompt executed invalid profile text'
@@ -86,14 +88,14 @@ CHECK
 
 for shell in bash zsh; do
   command -v "$shell" > /dev/null 2>&1 || continue
-  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" TEST_SHELL="$shell" "$shell" -f "$TMP_ROOT/restore.sh"
+  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" NO_COLOR=1 TEST_SHELL="$shell" "$shell" -f "$TMP_ROOT/restore.sh"
   assert_status 0
   assert_equals $'[codex:work] base> \n[codex:work] (venv) base> \n[codex:other] (venv) base> \n[codex:other] base> \nbase> \n[codex:not a profile] base> '
 done
 
 # Bash users may already have multiple prompt hooks; preserve their array.
 # shellcheck disable=SC2016 # expanded by the child shell
-run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" bash -eu -c '
+run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" NO_COLOR=1 bash -eu -c '
   PS1="original> "
   PROMPT_COMMAND=("printf first" "PS1=\"original> \"; printf second")
   export PROMPT_COMMAND
@@ -105,6 +107,37 @@ run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" bash -eu -c '
 '
 assert_status 0
 assert_equals 'firstsecond[codex:work] original> '
+
+# A dot in the profile's colour precedes the marker. It follows the profile,
+# never stacks, and leaves with the marker.
+cat > "$TMP_ROOT/color.sh" <<'CHECK'
+set -eu
+PS1='base> '
+if [ "$TEST_SHELL" = bash ]; then
+  render() { eval "$PROMPT_COMMAND"; printf '%s\n' "$PS1"; }
+else
+  render() { local hook; for hook in "${precmd_functions[@]}"; do "$hook"; done; printf '%s\n' "$PS1"; }
+fi
+eval "$(codex-profile shell-init "$TEST_SHELL" --prompt)"
+codex-profile appearance work --color teal > /dev/null
+codex-profile use work
+render
+render
+codex-profile use other
+render
+unset CODEX_PROFILE_NAME CODEX_HOME
+render
+CHECK
+for shell in bash zsh; do
+  command -v "$shell" > /dev/null 2>&1 || continue
+  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" TEST_SHELL="$shell" "$shell" -f "$TMP_ROOT/color.sh"
+  assert_status 0
+  if [[ "$shell" == bash ]]; then
+    assert_equals $'\\[\\e[38;5;30m\\]●\\[\\e[39m\\] [codex:work] base> \n\\[\\e[38;5;30m\\]●\\[\\e[39m\\] [codex:work] base> \n\\[\\e[38;5;95m\\]●\\[\\e[39m\\] [codex:other] base> \nbase> '
+  else
+    assert_equals $'%F{30}●%f [codex:work] base> \n%F{30}●%f [codex:work] base> \n%F{95}●%f [codex:other] base> \nbase> '
+  fi
+done
 
 if command -v fish > /dev/null 2>&1; then
   cat > "$TMP_ROOT/check.fish" <<'CHECK'
@@ -134,7 +167,7 @@ fish_prompt
 false
 fish_prompt
 CHECK
-  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" fish --no-config "$TMP_ROOT/check.fish"
+  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" NO_COLOR=1 fish --no-config "$TMP_ROOT/check.fish"
   assert_status 0
   assert_equals $'original:0> \n[codex:work] original:0> \n[codex:work] original:0> \n[codex:other] original:0> \n[codex:default] original:0> \noriginal:0> \noriginal:0> \noriginal:0> \noriginal:1> '
   [[ ! -e "$TMP_ROOT/home/injected" ]] || fail 'fish prompt executed invalid profile text'
@@ -151,9 +184,21 @@ true | false
 fish_prompt
 printf 'called:%s' $prompt_called
 CHECK
-  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" fish --no-config "$TMP_ROOT/pipeline.fish"
+  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" NO_COLOR=1 fish --no-config "$TMP_ROOT/pipeline.fish"
   assert_status 0
   assert_equals $'[codex:work] status=0 pipeline=1,0>\n\n[codex:work] status=1 pipeline=0,1>\n\ncalled:yes'
+  # shellcheck disable=SC2016 # Evaluated by fish.
+  run_cmd env HOME="$TMP_ROOT/home" PATH="$TMP_ROOT/bin:$PATH" fish --no-config -c '
+    function fish_prompt; printf "base> \n"; end
+    codex-profile shell-init fish --prompt | source
+    codex-profile use work
+    fish_prompt
+    set -gx NO_COLOR 1
+    fish_prompt
+  '
+  assert_status 0
+  assert_contains '●'
+  assert_contains $'\n[codex:work] base> '
 else
   printf 'SKIP: fish prompt runtime unavailable\n'
 fi

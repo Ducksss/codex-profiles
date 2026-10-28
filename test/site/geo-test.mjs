@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { createPublicKey } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,6 +25,8 @@ const assertContains = (haystack, needle, label) => {
 };
 
 const html = read('docs/index.html');
+const body = html.split('<body>')[1].replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '');
+const textContent = (source) => source.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 const robots = read('docs/robots.txt');
 const sitemap = read('docs/sitemap.xml');
 const llms = read('docs/llms.txt');
@@ -61,6 +63,49 @@ assertContains(
   'separate local state',
   'homepage meta description'
 );
+
+const title = html.match(/<title>([^<]+)<\/title>/)[1];
+const headings = [...body.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/g)];
+assert.equal(headings.length, 1, 'homepage should have one descriptive H1');
+assert.match(textContent(headings[0][1]), /Codex profiles/i);
+assertContains(html, '<html lang="en">', 'homepage language');
+assertContains(body, 'href="#main-content"', 'keyboard skip link');
+for (const [attribute, name, value] of [
+  ['property', 'og:title', title],
+  ['property', 'og:description', pageDescription],
+  ['property', 'og:url', canonicalUrl],
+  ['name', 'twitter:title', title],
+  ['name', 'twitter:description', pageDescription],
+  ['name', 'twitter:card', 'summary_large_image'],
+]) {
+  assertContains(html, `<meta ${attribute}="${name}" content="${value}">`, name);
+}
+
+const imageUrl = `${canonicalUrl}og-image.png`;
+for (const [attribute, name] of [['property', 'og:image'], ['name', 'twitter:image']]) {
+  assertContains(html, `<meta ${attribute}="${name}" content="${imageUrl}">`, name);
+}
+const socialImage = readFileSync(join(siteRoot, 'og-image.png'));
+assert.equal(socialImage.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'social image is PNG');
+for (const [name, offset] of [['width', 16], ['height', 20]]) {
+  assertContains(html, `<meta property="og:image:${name}" content="${socialImage.readUInt32BE(offset)}">`, `social image ${name}`);
+}
+for (const [attribute, name] of [['property', 'og:image:alt'], ['name', 'twitter:image:alt']]) {
+  assert.match(html, new RegExp(`<meta ${attribute}="${name}" content="[^"]+">`));
+}
+
+// Check real files, not just the presence of discovery URLs in metadata.
+for (const [, target] of html.matchAll(/(?:href|src)="([^"]+)"/g)) {
+  const url = new URL(target, canonicalUrl);
+  if (!url.href.startsWith(canonicalUrl)) continue;
+  const path = decodeURIComponent(url.pathname.slice(new URL(canonicalUrl).pathname.length));
+  assert.ok(fileExists(`docs/${path || 'index.html'}`), `missing site link or asset: ${target}`);
+}
+for (const [, image] of body.matchAll(/(<img\b[^>]+>)/g)) {
+  assert.match(image, /alt="[^"]+"/, 'content image should have descriptive alt text');
+  assert.match(image, /width="\d+"/, 'image should reserve its layout width');
+  assert.match(image, /height="\d+"/, 'image should reserve its layout height');
+}
 
 assertContains(
   html,
@@ -129,16 +174,28 @@ assertContains(
 assert.doesNotMatch(html, /\bnoindex\b/i, 'homepage must not block indexing');
 assert.doesNotMatch(html, /max-snippet\s*:\s*0/i, 'homepage must not block snippets');
 
-const jsonLdMatch = html.match(
-  /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
-);
-assert.ok(jsonLdMatch, 'homepage should include JSON-LD');
-const jsonLd = JSON.parse(jsonLdMatch[1]);
-assert.equal(jsonLd['@context'], 'https://schema.org');
-assert.ok(Array.isArray(jsonLd['@graph']), 'JSON-LD should use @graph');
+const jsonLdBlocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+assert.ok(jsonLdBlocks.length, 'homepage should include JSON-LD');
+const graph = jsonLdBlocks.flatMap(([, source]) => {
+  const jsonLd = JSON.parse(source);
+  assert.equal(jsonLd['@context'], 'https://schema.org');
+  assert.ok(Array.isArray(jsonLd['@graph']), 'JSON-LD should use @graph');
+  return jsonLd['@graph'];
+});
+const graphIds = new Set(graph.map((node) => node['@id']));
+assert.equal(graphIds.size, graph.length, 'structured identities must not be duplicated');
+for (const id of graphIds) {
+  assert.ok(id?.startsWith(`${canonicalUrl}#`), `identity must use the canonical site: ${id}`);
+}
+function checkReferences(value) {
+  if (!value || typeof value !== 'object') return;
+  if (value['@id']) assert.ok(graphIds.has(value['@id']), `unresolved identity: ${value['@id']}`);
+  for (const child of Object.values(value)) checkReferences(child);
+}
+checkReferences(graph);
 
 const graphByType = new Map();
-for (const node of jsonLd['@graph']) {
+for (const node of graph) {
   const types = Array.isArray(node['@type']) ? node['@type'] : [node['@type']];
   for (const type of types) {
     if (!graphByType.has(type)) {
@@ -149,12 +206,12 @@ for (const node of jsonLd['@graph']) {
 }
 
 for (const type of [
-  'Organization',
+  'Person',
   'SoftwareApplication',
+  'SoftwareSourceCode',
   'WebSite',
   'WebPage',
   'FAQPage',
-  'BreadcrumbList',
 ]) {
   assert.ok(graphByType.has(type), `JSON-LD should include ${type}`);
 }
@@ -165,6 +222,8 @@ assert.equal(app.url, canonicalUrl);
 assert.equal(app.codeRepository, 'https://github.com/Ducksss/codex-profiles');
 assert.equal(app.downloadUrl, 'https://www.npmjs.com/package/codex-profile');
 assert.equal(app.softwareVersion, packageJson.version);
+assert.equal(app.license, 'https://github.com/Ducksss/codex-profiles/blob/main/LICENSE');
+assertContains(textContent(body), app.description, 'visible product definition');
 assertContains(
   app.description,
   'separate local state',
@@ -223,20 +282,33 @@ assert.equal(app.offers.price, '0');
 assert.equal(app.offers.priceCurrency, 'USD');
 
 const webPage = graphByType.get('WebPage')[0];
+assert.equal(webPage.name, title, 'page schema title should match the HTML title');
+assert.equal(webPage.description, pageDescription, 'page schema description should match metadata');
+assert.equal(webPage.url, canonicalUrl);
+const modified = body.match(/Page updated <time datetime="(\d{4}-\d{2}-\d{2})">\1<\/time>/);
+assert.ok(modified, 'homepage should state its editorial date visibly');
+const modifiedDate = modified[1];
+assert.equal(new Date(`${modifiedDate}T00:00:00Z`).toISOString().slice(0, 10), modifiedDate);
 assert.equal(
   webPage.dateModified,
-  releaseDate,
-  'WebPage dateModified should match the changelog release date'
+  modifiedDate,
+  'WebPage dateModified should match the editorial date, not the software release'
 );
 
-const organization = graphByType.get('Organization')[0];
+const maintainer = graphByType.get('Person')[0];
+assert.equal(maintainer.name, 'Ducksss');
+assert.equal(maintainer.url, 'https://github.com/Ducksss');
+assertContains(body, `<a href="${maintainer.url}">${maintainer.name}</a>`, 'visible maintainer');
+assert.equal(app.maintainer['@id'], maintainer['@id']);
+assert.equal(graphByType.get('WebSite')[0].publisher['@id'], maintainer['@id']);
+assert.ok(!graphByType.has('Organization'), 'do not invent an organization for an individual-maintained project');
 assert.ok(
-  organization.sameAs.includes('https://github.com/Ducksss/codex-profiles'),
-  'Organization schema should reuse official project profile links'
+  app.sameAs.includes('https://github.com/Ducksss/codex-profiles'),
+  'software identity should reuse the project repository'
 );
 assert.ok(
-  organization.sameAs.includes('https://www.npmjs.com/package/codex-profile'),
-  'Organization schema should include npm profile link'
+  app.sameAs.includes('https://www.npmjs.com/package/codex-profile'),
+  'software identity should reuse the npm package'
 );
 
 const faq = graphByType.get('FAQPage')[0];
@@ -247,17 +319,25 @@ for (const question of faq.mainEntity) {
   assert.equal(question['@type'], 'Question');
   assert.ok(question.name, 'FAQ question should have a name');
   assert.ok(question.acceptedAnswer?.text, `FAQ question ${question.name} should have an answer`);
-  assertContains(html, `<h3>${question.name}</h3>`, `visible FAQ question ${question.name}`);
-  assertContains(html, question.acceptedAnswer.text, `visible FAQ answer ${question.name}`);
+  assert.equal(question.acceptedAnswer['@type'], 'Answer');
 }
+// Never search the full document: the JSON-LD itself would satisfy a stale answer.
+const visibleFaq = [...body.matchAll(/<article>\s*<h3>([\s\S]*?)<\/h3>\s*<p>([\s\S]*?)<\/p>\s*<\/article>/g)]
+  .map(([, question, answer]) => ({ question: textContent(question), answer: textContent(answer) }));
+assert.deepEqual(
+  visibleFaq,
+  faq.mainEntity.map((question) => ({ question: question.name, answer: question.acceptedAnswer.text })),
+  'every structured FAQ answer must match its visible article, with no missing or extra answers'
+);
 
 assertContains(robots, 'User-agent: *', 'robots.txt');
 assertContains(robots, 'Allow: /', 'robots.txt');
 assertContains(robots, `Sitemap: ${canonicalUrl}sitemap.xml`, 'robots.txt');
 assert.doesNotMatch(robots, /^Disallow:\s*\/\s*$/m, 'robots.txt must not block the site');
+assertContains(robots, 'https://ducksss.github.io/robots.txt', 'host-root robots scope');
 
 assertContains(sitemap, `<loc>${canonicalUrl}</loc>`, 'sitemap');
-assertContains(sitemap, '<changefreq>monthly</changefreq>', 'sitemap');
+assertContains(sitemap, 'xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"', 'sitemap namespace');
 const sitemapEntries = [
   ...sitemap.matchAll(
     /<url>\s*<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>[\s\S]*?<\/url>/g
@@ -268,12 +348,17 @@ const sitemapEntries = [
 assert.deepEqual(
   sitemapEntries,
   [
-    { location: canonicalUrl, lastModified: releaseDate },
-    { location: `${canonicalUrl}llms.txt`, lastModified: releaseDate },
+    { location: canonicalUrl, lastModified: modifiedDate },
   ],
-  'sitemap should pair each public URL with the changelog release date'
+  'sitemap should pair canonical HTML with its editorial date'
 );
-assertContains(html, `Last updated ${releaseDate}.`, 'homepage footer');
+assert.deepEqual(
+  [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, url]) => url),
+  readdirSync(siteRoot, { recursive: true }).filter((path) => path.endsWith('.html'))
+    .map((path) => `${canonicalUrl}${path === 'index.html' ? '' : path}`).sort(),
+  'every public HTML page needs a canonical sitemap entry, without duplicate text references'
+);
+assertContains(body, `releases/tag/v${packageJson.version}">${packageJson.version}</a>, dated ${releaseDate}.`, 'visible software release');
 assertContains(html, 'uses make check', 'homepage validation description');
 assertContains(
   llms,
@@ -289,6 +374,19 @@ for (const required of [
   'Primary facts for AI answers',
 ]) {
   assertContains(llms, required, 'llms.txt');
+}
+
+for (const [type, url] of [
+  ['text/plain', `${canonicalUrl}llms.txt`],
+  ['application/atom+xml', 'https://github.com/Ducksss/codex-profiles/releases.atom'],
+]) {
+  assert.match(html, new RegExp(`<link rel="alternate" type="${type.replace('+', '\\+')}"[^>]+href="${url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">`));
+  assertContains(body, `href="${url}"`, 'visible reference/feed link');
+}
+for (const document of ['README.md', 'USAGE.md', 'agent.md', 'macos/README.md', 'SECURITY.md']) {
+  assert.ok(fileExists(document), `primary source should exist: ${document}`);
+  assertContains(body, `href="https://github.com/Ducksss/codex-profiles/blob/main/${document}`, 'visible primary source');
+  assertContains(llms, `https://raw.githubusercontent.com/Ducksss/codex-profiles/main/${document}`, 'plain-text primary source');
 }
 
 assert.ok(

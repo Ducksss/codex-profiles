@@ -20,6 +20,11 @@ final class WorkspaceStore {
 
     private(set) var phase: Phase = .idle
     private(set) var workspaces: [WorkspaceBinding] = []
+    /// Profile colours and symbols from the CLI. Profiles it has not
+    /// reported use their automatic appearance.
+    private(set) var appearances: [String: ProfileAppearance] = [:]
+    private var appearanceWrite: Task<Void, Never>?
+    private var pendingAppearanceWrites = 0
     private(set) var profiles: [String] = []
     private(set) var usage: [String: ProfileUsage] = [:] {
         didSet { if usage != oldValue { onUsageChange?() } }
@@ -43,6 +48,10 @@ final class WorkspaceStore {
     private let pinsKey = "workspacePins"
     private var refreshTask: Task<Bool, Never>?
     private var refreshRequested = false
+    /// Whether the refresh in flight reports progress and its outcome in the
+    /// status message. Background passes do not, so they never replace a
+    /// message the person is reading; a reporting caller that joins them does.
+    private var refreshReportsStatus = true
     private var hasLoaded = false
     private var usageTask: Task<Void, Never>?
     private var usageRefreshRequested = false
@@ -76,6 +85,39 @@ final class WorkspaceStore {
 
     func isPinned(_ workspace: WorkspaceBinding) -> Bool {
         (defaults.stringArray(forKey: pinsKey) ?? []).contains(workspace.id)
+    }
+
+    /// The profile's colour and symbol as the CLI last reported them, or its
+    /// automatic appearance.
+    func appearance(for profile: String) -> ProfileAppearance {
+        appearances[profile] ?? .automatic(for: profile)
+    }
+
+    /// Saves through the CLI, which the prompt, Raycast and launchers read
+    /// too. The menu shows the choice at once; writes run in order, so quick
+    /// choices cannot land out of order. A refused write reloads what the CLI
+    /// holds rather than guessing. The returned task finishes with the write.
+    @discardableResult
+    func setAppearance(_ appearance: ProfileAppearance?, for profile: String) -> Task<Void, Never> {
+        appearances[profile] = appearance ?? .automatic(for: profile)
+        pendingAppearanceWrites += 1
+        notify()
+        let earlier = appearanceWrite
+        let client = self.client
+        let write = Task { @MainActor in
+            await earlier?.value
+            do {
+                try await client.setAppearance(appearance, for: profile)
+            } catch {
+                statusMessage = error.localizedDescription
+                onError?(statusMessage)
+                if let loaded = try? await client.loadAppearances() { appearances = loaded }
+            }
+            pendingAppearanceWrites -= 1
+            notify()
+        }
+        appearanceWrite = write
+        return write
     }
 
     func usageState(for profile: String) -> UsageState {
@@ -182,9 +224,10 @@ final class WorkspaceStore {
     }
 
     private func refreshUsageInBackground() async {
-        // A login launch has not listed profiles yet; the menu refreshes the
-        // list whenever it opens.
-        if !hasLoaded { await refresh() }
+        // Each pass lists profiles first, so profiles created or removed
+        // outside the app join or leave the checks while the menu stays closed.
+        // It does so quietly, leaving the footer's message alone.
+        await refresh(quietly: hasLoaded)
         guard !profiles.isEmpty, !Task.isCancelled else { return }
         await refreshUsage()
     }
@@ -202,16 +245,18 @@ final class WorkspaceStore {
     }
 
     @discardableResult
-    func refresh() async -> Bool {
+    func refresh(quietly: Bool = false) async -> Bool {
         if let refreshTask {
             refreshRequested = true
+            if !quietly { refreshReportsStatus = true }
             return await refreshTask.value
         }
 
+        refreshReportsStatus = !quietly
         let task = Task { @MainActor in
             isRefreshing = true
             if !hasLoaded { phase = .loading }
-            statusMessage = "Refreshing profiles…"
+            if refreshReportsStatus { statusMessage = "Refreshing profiles…" }
             notify()
 
             var succeeded = false
@@ -233,18 +278,22 @@ final class WorkspaceStore {
         do {
             async let workspaceResponse = client.loadWorkspaces()
             async let profileResponse = client.loadProfiles()
+            async let appearanceResponse = client.loadAppearances()
             let (response, loadedProfiles) = try await (workspaceResponse, profileResponse)
+            // Appearance only decorates: a failed read keeps what is shown,
+            // and a write in flight is not overwritten by an older reading.
+            if let loaded = try? await appearanceResponse, pendingAppearanceWrites == 0 { appearances = loaded }
             workspaces = response.bindings
             profiles = loadedProfiles
             usage = usage.filter { profiles.contains($0.key) }
             guardMode = response.guardMode
             hasLoaded = true
             phase = .ready
-            statusMessage = restingMessage
+            if refreshReportsStatus { statusMessage = restingMessage }
             return true
         } catch {
             if !hasLoaded { phase = .failed(error.localizedDescription) }
-            statusMessage = "Could not refresh: \(error.localizedDescription)"
+            if refreshReportsStatus { statusMessage = "Could not refresh: \(error.localizedDescription)" }
             return false
         }
     }
@@ -457,8 +506,10 @@ final class WorkspaceStore {
     }
 
     func loadPreview(_ bindings: [WorkspaceBinding], profiles previewProfiles: [String]? = nil, usage previewUsage: [String: ProfileUsage] = [:],
-                     readingUsage previewReading: Set<String> = [], changingPaths previewChanging: Set<String> = []) {
+                     readingUsage previewReading: Set<String> = [], changingPaths previewChanging: Set<String> = [],
+                     appearances previewAppearances: [String: ProfileAppearance] = [:]) {
         workspaces = bindings
+        appearances = previewAppearances
         profiles = Array(Set(previewProfiles ?? bindings.filter(\.profileExists).map(\.profile))).sorted()
         // Like refreshUsage, settle readings before usage observers run.
         readingUsage = previewReading

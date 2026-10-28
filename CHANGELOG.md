@@ -9,6 +9,22 @@ and this project follows semantic versioning for tagged releases.
 
 ### Added
 
+- Gave each macOS menu profile a colour and symbol. New profiles get a
+  stable colour from their name, with `default` in graphite, and show their
+  initial; **Appearance…** in a profile's actions chooses one of eight
+  colours and twelve symbols, applied at once. The palette leaves out red,
+  orange and yellow, which mean low quota.
+- Added `codex-profile appearance` so a profile's colour and symbol live with
+  the CLI and every tool shows the same ones: the menu-bar app reads and
+  writes them there, `shell-init --prompt` puts a dot in the profile's colour
+  before `[codex:<profile>]` (omitted with `NO_COLOR`), `env` exports
+  `CODEX_PROFILE_COLOR`, Raycast's Open Profile tints each profile's icon,
+  and `launcher create` defaults to the profile's colour. Launcher colours
+  gain `indigo` and `brown`. Choices are stored privately in `appearance.tsv`
+  and forgotten by `remove`.
+- Added **Quota in menu bar**, an opt-in gear-menu toggle that shows the
+  lowest remaining Codex quota beside the menu-bar icon and keeps usage
+  current with the same five-minute background read as alerts.
 - A low profile row in the macOS menu now names a healthier profile, such as
   `5h limit low · personal has 70%`, using the same fresh-reading rule as
   low-quota notifications. It only suggests and never switches profiles.
@@ -18,6 +34,16 @@ and this project follows semantic versioning for tagged releases.
 
 ### Changed
 
+- Redesigned the project website as a dark ASCII page drawn live with WebGL:
+  an orbiting planet with one moon per profile, live phase moons for each
+  Codex home, an install trajectory and a dawn horizon, all reacting to the
+  cursor. The menu bar section switches between the app's screenshot and real
+  `codex-profile usage` and `workspace list` output. Static ASCII art replaces
+  the scenes without WebGL or JavaScript, and the FAQ, project facts and safety
+  boundaries stay in the HTML.
+- Redrew the link preview image to match: the site's ASCII planet and its
+  default, personal and work moons, drawn by the page's own WebGL engine, with
+  the headline and the three Codex homes.
 - Redesigned the macOS menu around profiles. Each profile now leads a group
   with its workspaces nested beneath it, replacing the profile filter, and a
   search selects its first match so Return's target is visible. Clicking a
@@ -28,6 +54,14 @@ and this project follows semantic versioning for tagged releases.
   darker orange or red when low so the number keeps its contrast, and the
   profile's actions list every window with its reset time. The popover is
   360 points wide, and previews render at 2x.
+- Improved search and AI discovery with consistent app/CLI metadata, a real
+  maintainer identity, linked setup and security sources, release-feed
+  discovery, and editorial dates distinct from software release dates.
+  CONTRIBUTING.md now covers the site checks, the GitHub Pages host-root
+  robots.txt and the search console handoff.
+- Allowed raw Markdown source links through release validation while retaining
+  exact release-tag requirements for executable installer references,
+  including percent-encoded installer paths.
 - Made the macOS menu-bar app the README's main entry point, with native
   previews, source installation and menu workflows before the CLI reference.
   Followed Best-README-Template's project, setup and contributor structure.

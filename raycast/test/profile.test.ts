@@ -9,6 +9,8 @@ import {
   folderName,
   isUsableWorkspacePath,
   isValidProfileName,
+  PROFILE_COLOR_HEX,
+  parseAppearances,
   parseProfileList,
   parseWorkspaceList,
 } from "../src/lib/profile.ts";
@@ -37,6 +39,60 @@ describe("isValidProfileName", () => {
       const bash = execFileSync("bash", ["-c", script, "_", name], { encoding: "utf8", env: { LC_ALL: "C" } });
       assert.equal(isValidProfileName(name), bash === "yes", `profile name ${JSON.stringify(name)}`);
     }
+  });
+});
+
+describe("appearances", () => {
+  test("maps each profile to its colour and skips anything unknown", () => {
+    const colors = parseAppearances(
+      JSON.stringify({
+        profiles: [
+          { profile: "work", color: "teal", symbol: "flask", automatic: false },
+          { profile: "default", color: "graphite", symbol: "monogram", automatic: true },
+          { profile: "client", color: "crimson", symbol: "monogram", automatic: false },
+          { profile: "bad name", color: "teal", symbol: "monogram", automatic: false },
+          { profile: "proto", color: "constructor", symbol: "monogram", automatic: false },
+          "not an object",
+        ],
+      }),
+    );
+    assert.deepEqual(
+      [...colors],
+      [
+        ["work", "#0B7A84"],
+        ["default", "#737378"],
+      ],
+    );
+  });
+
+  test("rejects output that is not an appearance list", () => {
+    assert.throws(() => parseAppearances("work: teal flask"), /not JSON/);
+    assert.throws(() => parseAppearances("{}"), /without a profiles list/);
+  });
+
+  test("offers exactly the CLI's colours", () => {
+    const source = readFileSync(CLI, "utf8");
+    const match = source.match(/^PROFILE_COLORS="([a-z ]+)"$/m);
+    assert.ok(match, "bin/codex-profile defines PROFILE_COLORS");
+    assert.deepEqual(Object.keys(PROFILE_COLOR_HEX).sort(), match[1].split(" ").sort());
+  });
+
+  test("uses the menu-bar app's tile colours", () => {
+    const models = readFileSync(
+      new URL("../../macos/CodexProfilesMenu/Sources/CodexProfilesMenu/WorkspaceModels.swift", import.meta.url),
+      "utf8",
+    );
+    const hex = (value: string) =>
+      Math.round(Number(value) * 255)
+        .toString(16)
+        .toUpperCase()
+        .padStart(2, "0");
+    let checked = 0;
+    for (const [, name, red, green, blue] of models.matchAll(/case \.(\w+): \(([\d.]+), ([\d.]+), ([\d.]+)\)/g)) {
+      assert.equal(PROFILE_COLOR_HEX[name], `#${hex(red)}${hex(green)}${hex(blue)}`, name);
+      checked += 1;
+    }
+    assert.equal(checked, Object.keys(PROFILE_COLOR_HEX).length);
   });
 });
 

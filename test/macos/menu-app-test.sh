@@ -110,6 +110,7 @@ swiftc \
   -o "$TMP_DIR/RenderPreview"
 "$TMP_DIR/RenderPreview" "$TMP_DIR/menu-light.png"
 "$TMP_DIR/RenderPreview" "$TMP_DIR/menu-dark.png" --dark
+"$TMP_DIR/RenderPreview" "$TMP_DIR/menu-appearance.png" --appearance
 printf 'Native light and dark preview backdrop checks passed.\n'
 
 MENU_APP_BUILD_DIR="$TMP_DIR/app-build" "$BUILD_SCRIPT"

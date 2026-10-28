@@ -6,7 +6,7 @@ import Foundation
 struct RenderPreview {
     static func main() {
         guard CommandLine.arguments.count >= 2 else {
-            FileHandle.standardError.write(Data("Usage: RenderPreview <output.png> [--empty] [--dark]\n".utf8))
+            FileHandle.standardError.write(Data("Usage: RenderPreview <output.png> [--empty] [--dark] [--no-results] [--appearance]\n".utf8))
             exit(2)
         }
 
@@ -36,14 +36,20 @@ struct RenderPreview {
             ]), checkedAt: now)
         }
         // One healthy, one low and one critical profile show every meter state.
+        // Chosen colours and symbols, as in the design; new profiles get automatic ones.
         store.loadPreview(bindings, profiles: profiles, usage: [
             "default": sample(18, 36), "personal": sample(43, 78), "work": sample(93, 59),
+        ], appearances: [
+            "default": ProfileAppearance(colour: .graphite, symbol: .person),
+            "personal": ProfileAppearance(colour: .green, symbol: .house),
+            "work": ProfileAppearance(colour: .blue, symbol: .briefcase),
         ])
         if let first = bindings.first { store.togglePin(first) }
         if CommandLine.arguments.contains("--no-results") { store.query = "does-not-exist" }
 
         let controller = WorkspaceMenuViewController(store: store, defaults: defaults)
         let previewView = controller.view
+        if CommandLine.arguments.contains("--appearance") { controller.editAppearance(of: "work") }
         let size = controller.preferredContentSize
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: .borderless, backing: .buffered, defer: false)
         window.appearance = NSAppearance(named: CommandLine.arguments.contains("--dark") ? .darkAqua : .aqua)

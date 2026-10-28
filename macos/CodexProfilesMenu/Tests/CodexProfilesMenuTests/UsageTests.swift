@@ -265,6 +265,11 @@ enum UsageTests {
             fixture='\#(root.path)'
             mode='\#(mode)'
             if [ "$1" = --version ]; then printf 'codex-cli 0.152.1\n'; exit; fi
+            # Listing answers from files a test writes and fails without them;
+            # it is not a usage read, so it is not counted.
+            if [ "$1" = list ]; then [ -f "$fixture/profiles" ] && cat "$fixture/profiles"; exit $?; fi
+            if [ "$1" = workspace ]; then [ -f "$fixture/workspaces.json" ] && cat "$fixture/workspaces.json"; exit $?; fi
+            if [ "$1" = appearance ]; then [ -f "$fixture/appearance.json" ] && cat "$fixture/appearance.json"; exit $?; fi
             profile=${2:-work}
             if [ "$1" = app-server ]; then profile=work; fi
             printf '%s\n' "$@" > "$fixture/arguments-$profile"

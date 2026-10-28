@@ -343,7 +343,29 @@ test_launcher_recovers_after_the_bundle_is_deleted_outside_the_cli() {
   rm -rf "$tmp"
 }
 
+test_launcher_defaults_to_the_profile_colour() {
+  local tmp app
+  tmp="$(mktemp -d)"
+  app="$tmp/apps/ChatGPT work.app"
+  prepare_launcher_test "$tmp" work
+
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher create work
+  assert_status 0
+  [[ "$(cat "$app/Contents/Resources/codex-profile/color")" == indigo ]] || fail "launcher did not use the automatic profile colour"
+  run_cmd launcher_env "$tmp" "$SCRIPT" appearance work --color brown
+  assert_status 0
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher create work --force
+  assert_status 0
+  [[ "$(cat "$app/Contents/Resources/codex-profile/color")" == brown ]] || fail "launcher did not follow the chosen profile colour"
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher create work --color orange --force
+  assert_status 0
+  [[ "$(cat "$app/Contents/Resources/codex-profile/color")" == orange ]] || fail "an explicit launcher colour was not kept"
+
+  rm -rf "$tmp"
+}
+
 test_launcher_create_list_and_path_are_deterministic
+test_launcher_defaults_to_the_profile_colour
 test_launcher_create_is_idempotent_and_force_replaces_managed_bundle
 test_launcher_refuses_invalid_inputs_and_unmanaged_collisions
 test_launcher_cleans_up_a_failed_icon_build

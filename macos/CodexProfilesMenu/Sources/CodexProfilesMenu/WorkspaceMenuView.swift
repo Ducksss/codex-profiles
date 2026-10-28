@@ -14,6 +14,8 @@ final class WorkspaceMenuViewController: NSViewController {
             let pinned: Bool
             /// Listed under its own profile's row, so it needs no profile name.
             let nested: Bool
+            /// The colour and symbol of the row's profile.
+            let appearance: ProfileAppearance
             let launching: Bool
             let changing: Bool
             let enabled: Bool
@@ -45,6 +47,9 @@ final class WorkspaceMenuViewController: NSViewController {
     private var headerLeadingConstraint: NSLayoutConstraint?
     private var destination: OpenDestination
     private var renderedList: ListModel?
+    /// The profile whose colour and symbol are being chosen, in place of the list.
+    private var editingProfile: String?
+    private var appearanceEditor: AppearanceEditorView?
     var onPreferredContentSizeChange: ((NSSize) -> Void)?
     /// Turns the global shortcut on or off; returns false when macOS refuses it.
     var onGlobalShortcutChange: ((Bool) -> Bool)?
@@ -93,6 +98,12 @@ final class WorkspaceMenuViewController: NSViewController {
 
     func handleShortcut(_ event: NSEvent) -> Bool {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.numericPad, .function])
+        // The appearance editor keeps native control handling; Escape returns to the list.
+        if editingProfile != nil {
+            guard modifiers.isEmpty, event.keyCode == 53 else { return false }
+            closeAppearanceEditor()
+            return true
+        }
         let responder = view.window?.firstResponder
         let navigatingList = responder === searchField || responder === searchField.currentEditor() || responder is LaunchRowButton
         let isReturn = [36, 76].contains(event.keyCode)
@@ -201,16 +212,27 @@ final class WorkspaceMenuViewController: NSViewController {
     private func render() {
         let targets = store.filteredTargets
         let populated = store.phase == .ready && (!store.profiles.isEmpty || !store.workspaces.isEmpty)
-        let shouldFocusSearch = populated && searchField.isHidden
-        searchField.isHidden = !populated
-        titleLabel.isHidden = populated
+        if let profile = editingProfile, !populated || !store.profiles.contains(profile) { editingProfile = nil }
+        let editing = editingProfile != nil
+        let shouldFocusSearch = populated && !editing && searchField.isHidden
+        searchField.isHidden = !populated || editing
+        titleLabel.isHidden = populated && !editing
+        titleLabel.stringValue = editing ? "Appearance" : "Codex Profiles"
         // The search field's bezel sits slightly outside the text column; the title sits on it.
-        headerLeadingConstraint?.constant = populated ? 10 : LaunchRowButton.contentInset
-        addButton.isHidden = !populated || store.profiles.isEmpty
+        headerLeadingConstraint?.constant = populated && !editing ? 10 : LaunchRowButton.contentInset
+        addButton.isHidden = !populated || store.profiles.isEmpty || editing
         addButton.toolTip = store.profiles.count == 1 ? "Add a workspace" : "Add a workspace or profile"
         refreshButton.isEnabled = !store.isRefreshing && !store.isRefreshingUsage
         selectedID = targets.first { $0.id == selectedID && store.canLaunch($0) }?.id
         selectFirstMatch(in: targets)
+        if let profile = editingProfile {
+            showAppearanceEditor(for: profile)
+            return
+        }
+        if appearanceEditor != nil {
+            appearanceEditor = nil
+            renderedList = nil
+        }
 
         let list = store.phase == .ready && !targets.isEmpty ? listModel(for: targets) : nil
         if let list, list == renderedList, scrollView != nil {
@@ -238,17 +260,12 @@ final class WorkspaceMenuViewController: NSViewController {
         case .ready:
             if let list { showLaunchList(list) }
         }
-        let chrome = Self.headerHeight + Self.footerHeight + 2
         // A list fits its rows up to 500 points; a message keeps room to breathe.
-        let height: CGFloat = if let document = scrollView?.documentView {
-            min(500, chrome + document.fittingSize.height)
+        if let document = scrollView?.documentView {
+            resize(toFit: document.fittingSize.height)
         } else {
-            min(500, max(260, chrome + (contentContainer.subviews.first.map { $0.fittingSize.height + 48 } ?? 100)))
+            resize(toFit: (contentContainer.subviews.first.map { $0.fittingSize.height + 48 } ?? 100), minimum: 260)
         }
-        heightConstraint?.constant = height
-        preferredContentSize = NSSize(width: Self.width, height: height)
-        onPreferredContentSizeChange?(preferredContentSize)
-        view.layoutSubtreeIfNeeded()
         updateFooter()
         if shouldFocusSearch, view.window?.isKeyWindow == true { focusSearch() }
         if let scrollView {
@@ -258,6 +275,54 @@ final class WorkspaceMenuViewController: NSViewController {
         }
     }
 
+    private func resize(toFit contentHeight: CGFloat, minimum: CGFloat = 0) {
+        let height = min(500, max(minimum, Self.headerHeight + Self.footerHeight + 2 + contentHeight))
+        heightConstraint?.constant = height
+        preferredContentSize = NSSize(width: Self.width, height: height)
+        onPreferredContentSizeChange?(preferredContentSize)
+        view.layoutSubtreeIfNeeded()
+    }
+
+    /// Shows the editor in place of the list. Later readings update it in
+    /// place, so keyboard focus stays on the chosen control.
+    private func showAppearanceEditor(for profile: String) {
+        let appearance = store.appearance(for: profile)
+        if let appearanceEditor, appearanceEditor.profile == profile {
+            appearanceEditor.update(appearance)
+        } else {
+            contentContainer.subviews.forEach { $0.removeFromSuperview() }
+            rows.removeAll()
+            scrollView = nil
+            renderedList = nil
+            let editor = AppearanceEditorView(profile: profile, appearance: appearance)
+            editor.onChoose = { [weak self] choice in self?.store.setAppearance(choice, for: profile) }
+            editor.onReset = { [weak self] in self?.store.setAppearance(nil, for: profile) }
+            editor.onDone = { [weak self] in self?.closeAppearanceEditor() }
+            editor.translatesAutoresizingMaskIntoConstraints = false
+            contentContainer.addSubview(editor)
+            NSLayoutConstraint.activate([
+                editor.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor),
+                editor.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor),
+                editor.topAnchor.constraint(equalTo: contentContainer.topAnchor),
+            ])
+            appearanceEditor = editor
+            resize(toFit: editor.fittingSize.height)
+        }
+        updateFooter()
+    }
+
+    /// Replaces the list with the profile's colour and symbol choices.
+    func editAppearance(of profile: String) {
+        editingProfile = profile
+        render()
+    }
+
+    private func closeAppearanceEditor() {
+        editingProfile = nil
+        render()
+        focusSearch()
+    }
+
     private func listModel(for targets: [LaunchTarget]) -> ListModel {
         let listedProfiles = Set(targets.filter { $0.workspace == nil }.map(\.profile))
         return ListModel(destination: destination, rows: targets.map { item in
@@ -265,6 +330,7 @@ final class WorkspaceMenuViewController: NSViewController {
                 item: item,
                 pinned: item.workspace.map(store.isPinned) ?? false,
                 nested: item.workspace.map { listedProfiles.contains($0.profile) } ?? false,
+                appearance: store.appearance(for: item.profile),
                 launching: store.launchingID == item.id,
                 changing: store.isChanging(item),
                 enabled: store.canLaunch(item) && store.launchingID == nil
@@ -296,7 +362,9 @@ final class WorkspaceMenuViewController: NSViewController {
     /// news to report, such as a launch or a refresh failure.
     private func updateFooter() {
         let other = "⌘↩ \(destination.alternate.label)"
-        if store.hasStatusNews {
+        if editingProfile != nil {
+            footerLabel.stringValue = "Changes apply at once  ·  Esc returns"
+        } else if store.hasStatusNews {
             footerLabel.stringValue = store.statusMessage
         } else if let item = rows.first(where: { $0.item.id == selectedID })?.item {
             footerLabel.stringValue = "↩ Open \(item.name) in \(destination.label)  ·  \(other)"
@@ -335,7 +403,7 @@ final class WorkspaceMenuViewController: NSViewController {
                 stack.addArrangedSubview(divider)
                 divider.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             }
-            let row = LaunchRowButton(item: item, destination: list.destination,
+            let row = LaunchRowButton(item: item, appearance: model.appearance, destination: list.destination,
                 usage: item.workspace == nil ? store.usageState(for: item.profile) : nil, pinned: model.pinned, nested: model.nested,
                 selected: selectedID == item.id, launching: model.launching, changing: model.changing,
                 enabled: model.enabled, target: self, action: #selector(launchClicked(_:)))
@@ -440,6 +508,7 @@ final class WorkspaceMenuViewController: NSViewController {
         menu.addItem(.separator())
         guard let workspace = item.workspace else {
             menu.addItem(menuItem("Add workspace…", #selector(addWorkspaceForProfile(_:)), symbol: "folder.badge.plus", item.profile))
+            menu.addItem(menuItem("Appearance…", #selector(editAppearance(_:)), symbol: "paintpalette", item.profile))
             menu.addItem(menuItem("Sign in to Codex CLI…", #selector(signInToCLI(_:)), symbol: "person.badge.key", item.profile))
             return menu
         }
@@ -545,6 +614,10 @@ final class WorkspaceMenuViewController: NSViewController {
             }
             lowQuota.isEnabled = !alerts.isChanging
             menu.addItem(lowQuota)
+            let figure = menuItem("Quota in menu bar", #selector(toggleMenuBarFigure), symbol: nil, nil)
+            figure.state = alerts.showsFigure ? .on : .off
+            figure.toolTip = "Show the lowest remaining Codex quota beside the icon. Checks usage every 5 minutes while on; never switches profiles."
+            menu.addItem(figure)
         }
         menu.addItem(.separator())
         menu.addItem(menuItem("About Codex Profiles", #selector(showAbout), symbol: nil, nil))
@@ -655,6 +728,9 @@ final class WorkspaceMenuViewController: NSViewController {
         menu.addItem(create)
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
     }
+    @objc private func editAppearance(_ sender: NSMenuItem) {
+        if let profile = sender.representedObject as? String { editAppearance(of: profile) }
+    }
     @objc private func profileChosen(_ sender: NSMenuItem) { if let profile = sender.representedObject as? String { chooseFolder(for: profile) } }
     @objc private func addWorkspaceForProfile(_ sender: NSMenuItem) { if let profile = sender.representedObject as? String { chooseFolder(for: profile) } }
 
@@ -728,6 +804,12 @@ final class WorkspaceMenuViewController: NSViewController {
             case .busy: break
             }
         }
+    }
+
+    @objc private func toggleMenuBarFigure() {
+        guard let alerts else { return }
+        alerts.setShowsFigure(!alerts.showsFigure)
+        store.showMessage(alerts.showsFigure ? "Lowest quota shown in the menu bar · checked every 5 minutes" : "Quota hidden from the menu bar")
     }
 
     @objc private func createProfile() { promptForProfile(addingWorkspace: false) }
@@ -812,7 +894,7 @@ final class LaunchRowButton: NSButton {
     private let avatar: RowAvatar?
     private let more: NSButton
 
-    init(item: LaunchTarget, destination: OpenDestination, usage: UsageState?, pinned: Bool, nested: Bool, selected: Bool,
+    init(item: LaunchTarget, appearance: ProfileAppearance, destination: OpenDestination, usage: UsageState?, pinned: Bool, nested: Bool, selected: Bool,
          launching: Bool, changing: Bool, enabled: Bool, target: AnyObject?, action: Selector?) {
         self.item = item
         self.destination = destination
@@ -827,8 +909,8 @@ final class LaunchRowButton: NSButton {
         }
         detail = NSTextField(labelWithString: workspaceDetail ?? profileDetail)
         usageView = workspace == nil ? ProfileUsageView(usage: usage ?? UsageState()) : nil
-        // A monogram tile marks each profile; workspaces carry a bare symbol.
-        avatar = workspace == nil ? RowAvatar(monogram: item.profile) : nil
+        // A tile in the profile's colour marks each profile; workspaces carry a bare symbol.
+        avatar = workspace == nil ? RowAvatar(profile: item.profile, appearance: appearance) : nil
         more = NSButton(image: NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Actions for \(item.name)") ?? NSImage(), target: nil, action: nil)
         super.init(frame: .zero)
         self.target = target
@@ -882,14 +964,19 @@ final class LaunchRowButton: NSButton {
         }
         rowViews.append(labels)
         if let workspace, !nested {
-            // Without its profile's row above, a workspace names its profile.
+            // Without its profile's row above, a workspace names its profile
+            // beside a dot in the profile's colour.
             let tag = NSTextField(labelWithString: workspace.profile)
             tag.font = .systemFont(ofSize: 11, weight: .medium)
             tag.textColor = .secondaryLabelColor
             tag.lineBreakMode = .byTruncatingTail
-            tag.setContentHuggingPriority(.required, for: .horizontal)
+            let marked = NSStackView(views: [ColourDot(appearance.colour), tag])
+            marked.spacing = 4
+            marked.alignment = .centerY
+            marked.setContentHuggingPriority(.required, for: .horizontal)
+            marked.setContentCompressionResistancePriority(.init(255), for: .horizontal)
             tag.setContentCompressionResistancePriority(.init(255), for: .horizontal)
-            rowViews.append(tag)
+            rowViews.append(marked)
         }
         if let usageView { rowViews.append(usageView) }
         if let workspace, !workspace.pathExists {
@@ -1162,31 +1249,55 @@ final class RowHighlightView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
-/// A profile's leading mark: a rounded tile holding its monogram.
-/// Monochrome, like the rest of the menu.
+extension ProfileAppearance.Colour {
+    var nsColor: NSColor { NSColor(srgbRed: components.red, green: components.green, blue: components.blue, alpha: 1) }
+}
+
+/// A profile's mark: a rounded tile in its colour holding its initial or
+/// chosen symbol in white. Colour belongs to profile identity; quota keeps
+/// orange and red, which the palette leaves out.
 final class RowAvatar: NSView {
-    init(monogram name: String) {
+    var profileAppearance: ProfileAppearance { didSet { if profileAppearance != oldValue { showGlyph(); needsDisplay = true } } }
+    private let initial: String
+    private let size: CGFloat
+
+    init(profile: String, appearance: ProfileAppearance, size: CGFloat = LaunchRowButton.avatarSize) {
+        profileAppearance = appearance
+        initial = profile.first.map { String($0).uppercased() } ?? ""
+        self.size = size
         super.init(frame: .zero)
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
         setAccessibilityElement(false)
-        let letter = NSTextField(labelWithString: name.first.map { String($0).uppercased() } ?? "")
-        let font = NSFont.systemFont(ofSize: 12, weight: .semibold)
-        letter.font = font.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: 12) } ?? font
-        letter.textColor = .secondaryLabelColor
-        letter.alignment = .center
-        letter.setAccessibilityElement(false)
-        letter.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(letter)
-        let size = LaunchRowButton.avatarSize
-        NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: size), heightAnchor.constraint(equalToConstant: size),
-            letter.centerXAnchor.constraint(equalTo: centerXAnchor), letter.centerYAnchor.constraint(equalTo: centerYAnchor),
-        ])
+        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: size), heightAnchor.constraint(equalToConstant: size)])
+        showGlyph()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func showGlyph() {
+        subviews.forEach { $0.removeFromSuperview() }
+        let glyph: NSView
+        if let name = profileAppearance.symbol.systemName, let image = NSImage(systemSymbolName: name, accessibilityDescription: nil) {
+            let symbol = NSImageView(image: image)
+            symbol.symbolConfiguration = .init(pointSize: (size * 0.48).rounded(), weight: .medium)
+            symbol.contentTintColor = .white
+            glyph = symbol
+        } else {
+            let letter = NSTextField(labelWithString: initial)
+            let points = (size * 0.48).rounded()
+            let font = NSFont.systemFont(ofSize: points, weight: .semibold)
+            letter.font = font.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: points) } ?? font
+            letter.textColor = .white
+            letter.alignment = .center
+            glyph = letter
+        }
+        glyph.setAccessibilityElement(false)
+        glyph.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(glyph)
+        NSLayoutConstraint.activate([glyph.centerXAnchor.constraint(equalTo: centerXAnchor), glyph.centerYAnchor.constraint(equalTo: centerYAnchor)])
+    }
 
     override var wantsUpdateLayer: Bool { true }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
@@ -1194,14 +1305,260 @@ final class RowAvatar: NSView {
     override func updateLayer() {
         guard let layer else { return }
         let contrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+        layer.backgroundColor = profileAppearance.colour.nsColor.cgColor
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            layer.backgroundColor = NSColor.quaternaryLabelColor.cgColor
-            // Increased contrast adds an outline so the shape never depends on a faint fill.
+            // Increased contrast outlines the tile against the popover.
             layer.borderWidth = contrast ? 1 : 0
-            layer.borderColor = NSColor.secondaryLabelColor.cgColor
+            layer.borderColor = NSColor.labelColor.cgColor
         }
         layer.cornerCurve = .continuous
-        layer.cornerRadius = 7
+        layer.cornerRadius = (size * 0.27).rounded()
+    }
+}
+
+/// A small square in a profile's colour beside its name.
+final class ColourDot: NSView {
+    init(_ colour: ProfileAppearance.Colour) {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.backgroundColor = colour.nsColor.cgColor
+        layer?.cornerRadius = 2.5
+        setAccessibilityElement(false)
+        translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: 8), heightAnchor.constraint(equalToConstant: 8)])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+/// Chooses a profile's colour and symbol in place of the list. A choice
+/// applies at once; Reset restores the automatic appearance and Done returns.
+final class AppearanceEditorView: NSStackView {
+    let profile: String
+    var onChoose: ((ProfileAppearance) -> Void)?
+    var onReset: (() -> Void)?
+    var onDone: (() -> Void)?
+    private(set) var profileAppearance: ProfileAppearance
+    private let preview: RowAvatar
+    private var swatches: [SwatchButton] = []
+    private var symbols: [SymbolChoiceButton] = []
+
+    init(profile: String, appearance: ProfileAppearance) {
+        self.profile = profile
+        profileAppearance = appearance
+        preview = RowAvatar(profile: profile, appearance: appearance, size: 40)
+        super.init(frame: .zero)
+        orientation = .vertical
+        alignment = .leading
+        spacing = 8
+        edgeInsets = NSEdgeInsets(top: 14, left: LaunchRowButton.contentInset, bottom: 12, right: LaunchRowButton.contentInset)
+
+        let name = Self.label(profile, size: 15, weight: .semibold)
+        name.lineBreakMode = .byTruncatingTail
+        // The profile's CODEX_HOME, from the documented mapping; nothing is read.
+        let home = Self.label(profile == "default" ? "~/.codex" : "~/.codex-\(profile)", size: 11, weight: .regular)
+        home.textColor = .secondaryLabelColor
+        let names = NSStackView(views: [name, home])
+        names.orientation = .vertical
+        names.alignment = .leading
+        names.spacing = 1
+        let identity = NSStackView(views: [preview, names])
+        identity.spacing = 12
+        identity.alignment = .centerY
+        addArrangedSubview(identity)
+        setCustomSpacing(16, after: identity)
+
+        let colourHeading = Self.heading("Colour")
+        addArrangedSubview(colourHeading)
+        swatches = ProfileAppearance.Colour.allCases.map { colour in
+            let swatch = SwatchButton(colour: colour)
+            swatch.target = self
+            swatch.action = #selector(chooseColour(_:))
+            return swatch
+        }
+        let palette = NSStackView(views: swatches)
+        palette.spacing = 8
+        palette.setAccessibilityElement(true)
+        palette.setAccessibilityRole(.group)
+        palette.setAccessibilityLabel("Colour")
+        addArrangedSubview(palette)
+        setCustomSpacing(16, after: palette)
+
+        let symbolHeading = Self.heading("Symbol")
+        addArrangedSubview(symbolHeading)
+        symbols = ProfileAppearance.Symbol.allCases.map { symbol in
+            let choice = SymbolChoiceButton(symbol: symbol, initial: profile.first.map { String($0).uppercased() } ?? "")
+            choice.target = self
+            choice.action = #selector(chooseSymbol(_:))
+            return choice
+        }
+        let columns = 6
+        let grid = NSStackView(views: stride(from: 0, to: symbols.count, by: columns).map { start in
+            let line = NSStackView(views: Array(symbols[start..<min(start + columns, symbols.count)]))
+            line.spacing = 6
+            return line
+        })
+        grid.orientation = .vertical
+        grid.alignment = .leading
+        grid.spacing = 6
+        grid.setAccessibilityElement(true)
+        grid.setAccessibilityRole(.group)
+        grid.setAccessibilityLabel("Symbol")
+        addArrangedSubview(grid)
+        setCustomSpacing(16, after: grid)
+
+        let reset = NSButton(title: "Reset", target: self, action: #selector(reset(_:)))
+        reset.bezelStyle = .rounded
+        reset.toolTip = "Use the automatic colour and the profile’s initial"
+        let done = NSButton(title: "Done", target: self, action: #selector(done(_:)))
+        done.bezelStyle = .rounded
+        done.keyEquivalent = "\r"
+        let buttons = NSStackView(views: [NSView(), reset, done])
+        buttons.spacing = 8
+        addArrangedSubview(buttons)
+        buttons.widthAnchor.constraint(equalTo: widthAnchor, constant: -2 * LaunchRowButton.contentInset).isActive = true
+        update(appearance)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func update(_ appearance: ProfileAppearance) {
+        profileAppearance = appearance
+        preview.profileAppearance = appearance
+        for swatch in swatches { swatch.isChosen = swatch.colour == appearance.colour }
+        for choice in symbols { choice.show(chosen: choice.symbol == appearance.symbol, colour: appearance.colour) }
+    }
+
+    @objc private func chooseColour(_ sender: SwatchButton) {
+        var choice = profileAppearance
+        choice.colour = sender.colour
+        update(choice)
+        onChoose?(choice)
+    }
+
+    @objc private func chooseSymbol(_ sender: SymbolChoiceButton) {
+        var choice = profileAppearance
+        choice.symbol = sender.symbol
+        update(choice)
+        onChoose?(choice)
+    }
+
+    @objc private func reset(_ sender: NSButton) { onReset?() }
+    @objc private func done(_ sender: NSButton) { onDone?() }
+
+    private static func label(_ text: String, size: CGFloat, weight: NSFont.Weight) -> NSTextField {
+        let value = NSTextField(labelWithString: text)
+        value.font = .systemFont(ofSize: size, weight: weight)
+        return value
+    }
+
+    private static func heading(_ text: String) -> NSTextField {
+        let value = label(text, size: 11, weight: .semibold)
+        value.textColor = .secondaryLabelColor
+        return value
+    }
+}
+
+/// A round colour choice. The chosen one gains a ring in the label colour,
+/// so the choice never depends on colour alone.
+final class SwatchButton: NSButton {
+    let colour: ProfileAppearance.Colour
+    var isChosen = false { didSet { state = isChosen ? .on : .off; needsDisplay = true } }
+    private let fill = CALayer()
+
+    init(colour: ProfileAppearance.Colour) {
+        self.colour = colour
+        super.init(frame: .zero)
+        title = ""
+        isBordered = false
+        setButtonType(.pushOnPushOff)
+        wantsLayer = true
+        focusRingType = .default
+        fill.actions = ["backgroundColor": NSNull(), "frame": NSNull()]
+        layer?.addSublayer(fill)
+        toolTip = colour.label
+        setAccessibilityLabel(colour.label)
+        translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: 30), heightAnchor.constraint(equalToConstant: 30)])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// The frame is the drawn shape, so layout spacing is the visible gap.
+    override var alignmentRectInsets: NSEdgeInsets { NSEdgeInsetsZero }
+    override var wantsUpdateLayer: Bool { true }
+    override func layout() { super.layout(); needsDisplay = true }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
+
+    override func updateLayer() {
+        guard let layer else { return }
+        fill.frame = bounds.insetBy(dx: 4, dy: 4)
+        fill.cornerRadius = fill.frame.width / 2
+        fill.backgroundColor = colour.nsColor.cgColor
+        layer.cornerRadius = bounds.width / 2
+        layer.borderWidth = isChosen ? 2 : 0
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer.borderColor = NSColor.labelColor.cgColor
+        }
+    }
+}
+
+/// One symbol choice. The chosen symbol sits on the profile's colour in
+/// white, as it will in the list.
+final class SymbolChoiceButton: NSButton {
+    let symbol: ProfileAppearance.Symbol
+    private var chosen = false
+    private var colour = ProfileAppearance.Colour.graphite
+
+    init(symbol: ProfileAppearance.Symbol, initial: String) {
+        self.symbol = symbol
+        super.init(frame: .zero)
+        isBordered = false
+        setButtonType(.pushOnPushOff)
+        wantsLayer = true
+        // A symbol this Mac lacks falls back to the initial, like the tile does.
+        if let name = symbol.systemName, let symbolImage = NSImage(systemSymbolName: name, accessibilityDescription: symbol.label) {
+            title = ""
+            image = symbolImage
+            symbolConfiguration = .init(pointSize: 14, weight: .regular)
+            imagePosition = .imageOnly
+        } else {
+            let font = NSFont.systemFont(ofSize: 14, weight: .semibold)
+            self.font = font.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: 14) } ?? font
+            title = initial
+        }
+        toolTip = symbol.label
+        setAccessibilityLabel(symbol.label)
+        translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: 46), heightAnchor.constraint(equalToConstant: 32)])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func show(chosen: Bool, colour: ProfileAppearance.Colour) {
+        self.chosen = chosen
+        self.colour = colour
+        state = chosen ? .on : .off
+        contentTintColor = chosen ? .white : .labelColor
+        needsDisplay = true
+    }
+
+    /// The frame is the drawn shape, so layout spacing is the visible gap.
+    override var alignmentRectInsets: NSEdgeInsets { NSEdgeInsetsZero }
+    override var wantsUpdateLayer: Bool { true }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
+
+    override func updateLayer() {
+        guard let layer else { return }
+        layer.cornerCurve = .continuous
+        layer.cornerRadius = 8
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer.backgroundColor = (chosen ? colour.nsColor : NSColor.labelColor.withAlphaComponent(0.06)).cgColor
+        }
     }
 }
 

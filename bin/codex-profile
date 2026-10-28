@@ -19,6 +19,10 @@ CODEX_PROFILE_CONFIG_HOME="${CODEX_PROFILE_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME
 CODEX_PROFILE_LAUNCHER_ROOT="${CODEX_PROFILE_LAUNCHER_ROOT:-$HOME/Applications}"
 WORKSPACE_REGISTRY="$CODEX_PROFILE_CONFIG_HOME/workspaces.tsv"
 WORKSPACE_GUARD_FILE="$CODEX_PROFILE_CONFIG_HOME/guard-mode"
+APPEARANCE_REGISTRY="$CODEX_PROFILE_CONFIG_HOME/appearance.tsv"
+# Profile colours leave out red, orange and yellow, which mean low quota.
+PROFILE_COLORS="blue indigo purple pink teal green brown graphite"
+PROFILE_SYMBOLS="monogram person house briefcase building book flask code terminal globe leaf bolt"
 LAUNCHER_STATE_DIR="$CODEX_PROFILE_CONFIG_HOME/launchers"
 STATE_SCHEMA_VERSION="1"
 STATE_VERSION_FILE="$CODEX_PROFILE_CONFIG_HOME/state-version"
@@ -226,6 +230,17 @@ strict | Refuse mismatched profiles.'
       examples="$PROGRAM workspace guard
 $PROGRAM workspace guard strict"
       ;;
+    appearance)
+      syntax='appearance [profile] [--color <color>] [--symbol <symbol>] [--reset] [--json]'
+      description='Show or set the colour and symbol that mark a profile in the menu-bar app, Raycast, the shell prompt and new launchers. Without a choice, default is graphite and other profiles take a stable colour from their name. Stored with the private control state; never reads authentication data.'
+      options="--color <color> | ${PROFILE_COLORS// /, }.
+--symbol <symbol> | ${PROFILE_SYMBOLS// /, }; monogram shows the profile's initial.
+--reset | Return to the automatic colour and initial.
+--json, -j | Emit machine-readable JSON."
+      examples="$PROGRAM appearance
+$PROGRAM appearance work --color teal --symbol briefcase
+$PROGRAM appearance work --reset"
+      ;;
     launcher)
       syntax='launcher <create|list|path|remove> ...'
       description='Manage named profile launchers for macOS. Launchers open the original signed ChatGPT app; they do not clone it.'
@@ -241,7 +256,7 @@ $PROGRAM help launcher create"
       syntax='launcher create <profile> [options]'
       description='Create a macOS launcher for an initialized profile. The default name is ChatGPT <profile>, under ~/Applications unless CODEX_PROFILE_LAUNCHER_ROOT is set.'
       options='--name <display-name> | Set the launcher name.
---color <color> | blue (default), green, teal, purple, pink, red, orange, or graphite.
+--color <color> | Defaults to the profile colour; blue, indigo, purple, pink, teal, green, brown, graphite, red, or orange.
 --force, -f | Replace an existing managed launcher.'
       examples="$PROGRAM launcher create work --name \"ChatGPT Work\" --color teal"
       ;;
@@ -405,6 +420,7 @@ clone-config <source-profile> <target-profile> [--force]
 remove <profile> [--yes]
 list [--details] | Names, or profile overview cards
 path <profile> | Print the Codex home path
+appearance [profile] [--color <color>] [--symbol <symbol>] [--reset] [--json]
 
 Workspaces:
 workspace bind <path> <profile> [--force]
@@ -945,6 +961,8 @@ workspace_assert_state_paths_safe() {
     die "Refusing symlinked workspace guard file: $WORKSPACE_GUARD_FILE"
   [[ ! -L "$STATE_VERSION_FILE" ]] || \
     die "Refusing symlinked state version file: $STATE_VERSION_FILE"
+  [[ ! -L "$APPEARANCE_REGISTRY" ]] || \
+    die "Refusing symlinked appearance registry: $APPEARANCE_REGISTRY"
 
   if [[ -e "$WORKSPACE_REGISTRY" && ! -f "$WORKSPACE_REGISTRY" ]]; then
     die "Workspace registry is not a regular file: $WORKSPACE_REGISTRY"
@@ -954,6 +972,9 @@ workspace_assert_state_paths_safe() {
   fi
   if [[ -e "$STATE_VERSION_FILE" && ! -f "$STATE_VERSION_FILE" ]]; then
     die "State version path is not a regular file: $STATE_VERSION_FILE"
+  fi
+  if [[ -e "$APPEARANCE_REGISTRY" && ! -f "$APPEARANCE_REGISTRY" ]]; then
+    die "Appearance registry is not a regular file: $APPEARANCE_REGISTRY"
   fi
 }
 
@@ -1745,6 +1766,7 @@ command_app_instance() {
 launcher_color_hex() {
   case "$1" in
     blue) printf '0A84FF\n' ;;
+    indigo) printf '5E5CE6\n' ;;
     green) printf '30D158\n' ;;
     teal) printf '64D2FF\n' ;;
     purple) printf 'BF5AF2\n' ;;
@@ -1752,6 +1774,7 @@ launcher_color_hex() {
     red) printf 'FF453A\n' ;;
     orange) printf 'FF9F0A\n' ;;
     graphite) printf '8E8E93\n' ;;
+    brown) printf 'AC8E68\n' ;;
     *) return 1 ;;
   esac
 }
@@ -1997,7 +2020,7 @@ EOF
 
 command_launcher_create() {
   local usage="Usage: $PROGRAM launcher create <profile> [--name <display-name>] [--color <color>] [--force]"
-  local profile="${1:-}" name="" color="blue" force=no path state_file old_path="" temp backup="" old_backup=""
+  local profile="${1:-}" name="" color="" force=no path state_file old_path="" temp backup="" old_backup=""
 
   [[ -n "$profile" && "$profile" != -* ]] || die "$usage"
   shift || true
@@ -2028,8 +2051,15 @@ command_launcher_create() {
     done
   fi
   validate_launcher_name "$name"
+  # The profile's colour by default, so the Dock icon matches the menu,
+  # prompt and Raycast.
+  if [[ -z "$color" ]]; then
+    workspace_assert_state_paths_safe
+    profile_appearance "$profile"
+    color="$APPEARANCE_COLOR"
+  fi
   launcher_color_hex "$color" > /dev/null ||
-    die "Unsupported launcher color '$color'. Use blue, green, teal, purple, pink, red, orange, or graphite."
+    die "Unsupported launcher color '$color'. Use blue, indigo, purple, pink, teal, green, brown, graphite, red, or orange."
   profile_is_initialized "$profile" ||
     die "Profile '$profile' is not initialized; run '$PROGRAM init $profile' first."
   [[ "$(uname -s)" == "Darwin" ]] || die_macos_only launcher
@@ -2798,6 +2828,7 @@ command_remove() {
     workspace_registry_validate
     profile_assert_removable "$profile"
     workspace_remove_profile_bindings "$profile"
+    appearance_forget_profile "$profile"
     note "Not initialized $profile ($codex_home)"
     return 0
   fi
@@ -2818,6 +2849,7 @@ command_remove() {
 
   rm -rf -- "$codex_home" || die "Cannot remove profile home: $codex_home"
   workspace_remove_profile_bindings "$profile"
+  appearance_forget_profile "$profile"
   note "Removed $profile ($codex_home)"
 }
 
@@ -3607,6 +3639,164 @@ profile_overview_rows() {
   [[ "$found" == yes ]] || printf 'No initialized profiles. Run %s setup work.\n' "$PROGRAM"
 }
 
+is_profile_color() {
+  [[ "$1" =~ ^[a-z]+$ && " $PROFILE_COLORS " == *" $1 "* ]]
+}
+
+is_profile_symbol() {
+  [[ "$1" =~ ^[a-z]+$ && " $PROFILE_SYMBOLS " == *" $1 "* ]]
+}
+
+# Graphite for default, the stock ChatGPT session. Otherwise FNV-1a over the
+# name picks one of the other seven colours, matching the menu-bar app, so a
+# profile keeps its colour on every launch and when profiles are added.
+profile_automatic_color() {
+  local profile="$1" hash=2166136261 index byte
+  local choices=(blue indigo purple pink teal green brown)
+
+  if [[ "$profile" == default ]]; then
+    printf 'graphite\n'
+    return 0
+  fi
+  for ((index = 0; index < ${#profile}; index++)); do
+    printf -v byte '%d' "'${profile:index:1}"
+    hash=$(( ((hash ^ byte) * 16777619) & 0xFFFFFFFF ))
+  done
+  printf '%s\n' "${choices[hash % 7]}"
+}
+
+# Sets APPEARANCE_COLOR, APPEARANCE_SYMBOL and APPEARANCE_AUTOMATIC. Lines
+# that do not parse are ignored, so a damaged entry falls back to automatic.
+profile_appearance() {
+  local profile="$1" name color symbol
+
+  APPEARANCE_COLOR="$(profile_automatic_color "$profile")"
+  APPEARANCE_SYMBOL=monogram
+  APPEARANCE_AUTOMATIC=true
+  [[ -f "$APPEARANCE_REGISTRY" ]] || return 0
+  while IFS=$'\t' read -r name color symbol || [[ -n "$name" ]]; do
+    if [[ "$name" != "$profile" ]] || ! is_profile_color "$color" || ! is_profile_symbol "$symbol"; then
+      continue
+    fi
+    APPEARANCE_COLOR="$color"
+    APPEARANCE_SYMBOL="$symbol"
+    APPEARANCE_AUTOMATIC=false
+  done < "$APPEARANCE_REGISTRY"
+}
+
+# Rewrites the registry without the profile's entry, adding a new one when a
+# colour and symbol are given. Callers hold the state mutation lock.
+appearance_registry_rewrite() {
+  local profile="$1" color="${2:-}" symbol="${3:-}" name line_color line_symbol temp
+
+  workspace_assert_state_paths_safe
+  state_schema_version > /dev/null
+  ensure_workspace_config_home
+  temp="$(mktemp "$CODEX_PROFILE_CONFIG_HOME/.appearance.tmp.XXXXXX")" || \
+    die "Cannot create a temporary appearance registry."
+  chmod 600 "$temp" || {
+    rm -f "$temp"
+    die "Cannot set private permissions on temporary appearance registry."
+  }
+  if [[ -f "$APPEARANCE_REGISTRY" ]]; then
+    while IFS=$'\t' read -r name line_color line_symbol || [[ -n "$name" ]]; do
+      if [[ "$name" == "$profile" ]] || ! is_valid_profile_name "$name" || \
+         ! is_profile_color "$line_color" || ! is_profile_symbol "$line_symbol"; then
+        continue
+      fi
+      printf '%s\t%s\t%s\n' "$name" "$line_color" "$line_symbol" >> "$temp" || {
+        rm -f "$temp"
+        die "Cannot write temporary appearance registry."
+      }
+    done < "$APPEARANCE_REGISTRY"
+  fi
+  if [[ -n "$color" ]]; then
+    printf '%s\t%s\t%s\n' "$profile" "$color" "$symbol" >> "$temp" || {
+      rm -f "$temp"
+      die "Cannot write temporary appearance registry."
+    }
+  fi
+  mv -f "$temp" "$APPEARANCE_REGISTRY" || {
+    rm -f "$temp"
+    die "Cannot replace appearance registry: $APPEARANCE_REGISTRY"
+  }
+}
+
+appearance_forget_profile() {
+  [[ -f "$APPEARANCE_REGISTRY" ]] || return 0
+  appearance_registry_rewrite "$1"
+}
+
+command_appearance() {
+  local usage="Usage: $PROGRAM appearance [profile] [--color <color>] [--symbol <symbol>] [--reset] [--json]"
+  local profile="" color="" symbol="" reset=no json=no first=yes name
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --color)
+        [[ -n "${2:-}" ]] || die "$usage"
+        color="$2"
+        shift
+        ;;
+      --symbol)
+        [[ -n "${2:-}" ]] || die "$usage"
+        symbol="$2"
+        shift
+        ;;
+      --reset) reset=yes ;;
+      --json | -j) json=yes ;;
+      -*) die "$usage" ;;
+      *)
+        [[ -z "$profile" ]] || die "$usage"
+        profile="$1"
+        ;;
+    esac
+    shift
+  done
+  [[ -z "$color" ]] || is_profile_color "$color" || \
+    die "Unsupported color '$color'. Use ${PROFILE_COLORS// /, }."
+  [[ -z "$symbol" ]] || is_profile_symbol "$symbol" || \
+    die "Unsupported symbol '$symbol'. Use ${PROFILE_SYMBOLS// /, }."
+  workspace_assert_state_paths_safe
+
+  if [[ -n "$color" || -n "$symbol" || "$reset" == yes ]]; then
+    [[ -n "$profile" ]] || die "$usage"
+    [[ "$reset" == no || ( -z "$color" && -z "$symbol" ) ]] || \
+      die "Use --reset on its own, or --color and --symbol."
+    validate_profile "$profile"
+    state_lock_acquire
+    require_initialized_profile "$profile"
+    if [[ "$reset" == yes ]]; then
+      appearance_registry_rewrite "$profile"
+    else
+      profile_appearance "$profile"
+      appearance_registry_rewrite "$profile" "${color:-$APPEARANCE_COLOR}" "${symbol:-$APPEARANCE_SYMBOL}"
+    fi
+  elif [[ -n "$profile" ]]; then
+    require_initialized_profile "$profile"
+  fi
+
+  [[ "$json" == no ]] || printf '{"profiles":['
+  while IFS= read -r name; do
+    if [[ -n "$profile" ]]; then
+      [[ "$name" == "$profile" ]] || continue
+    else
+      profile_is_initialized "$name" || continue
+    fi
+    profile_appearance "$name"
+    if [[ "$json" == yes ]]; then
+      if [[ "$first" == yes ]]; then first=no; else printf ','; fi
+      printf '{"profile":'
+      json_string "$name"
+      printf ',"color":"%s","symbol":"%s","automatic":%s}' "$APPEARANCE_COLOR" "$APPEARANCE_SYMBOL" "$APPEARANCE_AUTOMATIC"
+    else
+      printf '%s: %s %s%s\n' "$name" "$APPEARANCE_COLOR" "$APPEARANCE_SYMBOL" \
+        "$([[ "$APPEARANCE_AUTOMATIC" == false ]] || printf ' (automatic)')"
+    fi
+  done < <(if [[ -n "$profile" ]]; then printf '%s\n' "$profile"; else discover_profiles yes; fi)
+  [[ "$json" == no ]] || printf ']}\n'
+}
+
 command_workspace_bind() {
   local usage="Usage: $PROGRAM workspace bind <path> <profile> [--force]"
   local path="${1:-}" profile="${2:-}" force=no canonical existing
@@ -3917,14 +4107,19 @@ command_env() {
       "$PROGRAM" "$profile" "$codex_home" "$PROGRAM" "$profile" >&2
   fi
 
+  # The prompt colours its marker from this name without running the CLI.
+  workspace_assert_state_paths_safe
+  profile_appearance "$profile"
   case "$shell" in
     fish)
       printf 'set -gx CODEX_HOME %s\n' "$(fish_squote "$codex_home")"
       printf 'set -gx CODEX_PROFILE_NAME %s\n' "$(fish_squote "$profile")"
+      printf 'set -gx CODEX_PROFILE_COLOR %s\n' "$APPEARANCE_COLOR"
       ;;
     posix | sh | bash | zsh)
       printf 'export CODEX_HOME=%s\n' "$(shell_squote "$codex_home")"
       printf 'export CODEX_PROFILE_NAME=%s\n' "$(shell_squote "$profile")"
+      printf 'export CODEX_PROFILE_COLOR=%s\n' "$APPEARANCE_COLOR"
       ;;
     *)
       die "Unsupported shell '$shell'. Use bash, zsh, or fish."
@@ -4508,7 +4703,7 @@ _codex_profile_candidates() {
   candidate_words=''
   complete_dirs=no
   if [[ "$#" -eq 0 ]]; then
-    candidate_words='app app-instance cli login init setup detach remove launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help'
+    candidate_words='app app-instance cli login init setup detach remove appearance launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help'
     return 0
   fi
   shift
@@ -4521,7 +4716,7 @@ _codex_profile_candidates() {
     fi
     case "$command:$word" in
       app:-- | app-instance:--) end_options=yes ;;
-      env:--shell) skip=yes ;;
+      env:--shell | appearance:--color | appearance:--symbol) skip=yes ;;
       *:-*) ;;
       *) positional=$((positional + 1)) ;;
     esac
@@ -4573,6 +4768,16 @@ _codex_profile_candidates() {
       candidate_words='--force -f'
       [[ "$positional" -ge 2 || "$cur" == -* ]] || profiles=yes
       ;;
+    appearance)
+      case "$prev" in
+        --color) candidate_words='blue indigo purple pink teal green brown graphite' ;;
+        --symbol) candidate_words='monogram person house briefcase building book flask code terminal globe leaf bolt' ;;
+        *)
+          candidate_words='--color --symbol --reset --json -j'
+          [[ "$positional" -ne 0 || "$cur" == -* ]] || profiles=yes
+          ;;
+      esac
+      ;;
     launcher)
       if [[ "$#" -eq 0 ]]; then candidate_words='create list path remove'
       else
@@ -4582,7 +4787,7 @@ _codex_profile_candidates() {
             elif [[ "$1" == remove && "$#" -eq 2 ]]; then candidate_words='--yes -y'
             elif [[ "$1" == create ]]; then
               case "$prev" in
-                --color) candidate_words='blue green teal purple pink red orange graphite' ;;
+                --color) candidate_words='blue indigo purple pink teal green brown graphite red orange' ;;
                 --name) ;;
                 *) candidate_words='--name --color --force -f' ;;
               esac
@@ -4621,7 +4826,7 @@ _codex_profile_candidates() {
     list) [[ "$#" -ne 0 ]] || candidate_words='--details' ;;
     help)
       if [[ "$#" -eq 0 ]]; then
-        candidate_words='app app-instance cli login init setup detach remove launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help'
+        candidate_words='app app-instance cli login init setup detach remove appearance launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help'
       elif [[ "$#" -eq 1 ]]; then
         case "$1" in
           workspace) candidate_words='bind unbind list status guard' ;;
@@ -4711,7 +4916,7 @@ function __codex_profile_complete
     set -l profiles no
     set -l directories no
     if test (count $args) -eq 0
-        printf '%s\n' app app-instance cli login init setup detach remove launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help
+        printf '%s\n' app app-instance cli login init setup detach remove appearance launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help
         return
     end
     set -l cmd $args[1]
@@ -4734,7 +4939,7 @@ function __codex_profile_complete
         switch "$cmd:$word"
             case app:-- app-instance:--
                 set end_options yes
-            case env:--shell
+            case env:--shell appearance:--color appearance:--symbol
                 set skip yes
             case '*:-*'
             case '*'
@@ -4793,6 +4998,18 @@ function __codex_profile_complete
             else
                 set candidates --path --tail --instance
             end
+        case appearance
+            switch "$prev"
+                case --color
+                    set candidates blue indigo purple pink teal green brown graphite
+                case --symbol
+                    set candidates monogram person house briefcase building book flask code terminal globe leaf bolt
+                case '*'
+                    set candidates --color --symbol --reset --json -j
+                    if test $positional -eq 0; and not string match -q -- '-*' "$cur"
+                        set profiles yes
+                    end
+            end
         case launcher
             if test $count -eq 0
                 set candidates create list path remove
@@ -4806,7 +5023,7 @@ function __codex_profile_complete
                         else if test $args[1] = create
                             switch "$prev"
                                 case --color
-                                    set candidates blue green teal purple pink red orange graphite
+                                    set candidates blue indigo purple pink teal green brown graphite red orange
                                 case --name
                                 case '*'
                                     set candidates --name --color --force -f
@@ -4854,7 +5071,7 @@ function __codex_profile_complete
             string match -q -- '-*' "$cur"; or set profiles yes
         case help
             if test $count -eq 0
-                set candidates app app-instance cli login init setup detach remove launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help
+                set candidates app app-instance cli login init setup detach remove appearance launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help
             else if test $count -eq 1
                 switch $args[1]
                     case workspace
@@ -4914,7 +5131,14 @@ emit_shell_prompt() {
     bash | zsh)
       cat <<'EOF'
 __codex_profile_update_prompt() {
-  local __cp_status=$? __cp_home="${HOME:-}/.codex" __cp_kept='' __cp_rest="${PS1:-}" __cp_name
+  local __cp_status=$? __cp_home="${HOME:-}/.codex" __cp_kept='' __cp_rest __cp_name __cp_code __cp_dot=''
+  # The coloured dot before the marker uses fixed escapes, so earlier ones
+  # are removed exactly before the markers themselves.
+  for __cp_code in 33 62 97 161 30 28 95 244; do
+    PS1="${PS1//"%F{$__cp_code}●%f "/}"
+    PS1="${PS1//"\\[\\e[38;5;${__cp_code}m\\]●\\[\\e[39m\\] "/}"
+  done
+  __cp_rest="${PS1:-}"
   # Tools such as Python venv save and restore PS1 with an earlier indicator
   # inside it, so remove every [codex:<profile>] indicator, not just a leading one.
   while [[ "$__cp_rest" == *'[codex:'* ]]; do
@@ -4933,9 +5157,28 @@ __codex_profile_update_prompt() {
     [[ "$CODEX_PROFILE_NAME" == default ]] || __cp_home="$HOME/.codex-$CODEX_PROFILE_NAME"
     if [[ "${CODEX_HOME:-}" == "$__cp_home" ]]; then
       __codex_profile_prefix="[codex:$CODEX_PROFILE_NAME] "
+      # 256-colour approximations of the profile colours; NO_COLOR omits the dot.
+      case "${CODEX_PROFILE_COLOR:-}" in
+        blue) __cp_code=33 ;;
+        indigo) __cp_code=62 ;;
+        purple) __cp_code=97 ;;
+        pink) __cp_code=161 ;;
+        teal) __cp_code=30 ;;
+        green) __cp_code=28 ;;
+        brown) __cp_code=95 ;;
+        graphite) __cp_code=244 ;;
+        *) __cp_code='' ;;
+      esac
+      if [[ -n "$__cp_code" && -z "${NO_COLOR+x}" ]]; then
+        if [[ -n "${ZSH_VERSION:-}" ]]; then
+          __cp_dot="%F{$__cp_code}●%f "
+        else
+          __cp_dot="\\[\\e[38;5;${__cp_code}m\\]●\\[\\e[39m\\] "
+        fi
+      fi
     fi
   fi
-  PS1="$__codex_profile_prefix${PS1:-}"
+  PS1="$__cp_dot$__codex_profile_prefix${PS1:-}"
   return "$__cp_status"
 }
 EOF
@@ -4971,6 +5214,32 @@ function fish_prompt
             set __cp_home "$HOME/.codex-$CODEX_PROFILE_NAME"
         end
         if test "$CODEX_HOME" = "$__cp_home"
+            # A dot in the profile colour; NO_COLOR omits it.
+            set -l __cp_hex
+            switch "$CODEX_PROFILE_COLOR"
+                case blue
+                    set __cp_hex 0087ff
+                case indigo
+                    set __cp_hex 5f5fd7
+                case purple
+                    set __cp_hex 875faf
+                case pink
+                    set __cp_hex d7005f
+                case teal
+                    set __cp_hex 008787
+                case green
+                    set __cp_hex 008700
+                case brown
+                    set __cp_hex 875f5f
+                case graphite
+                    set __cp_hex 808080
+            end
+            if test -n "$__cp_hex"; and not set -q NO_COLOR
+                set_color $__cp_hex
+                printf '●'
+                set_color normal
+                printf ' '
+            end
             printf '[codex:%s] ' "$CODEX_PROFILE_NAME"
         end
     end
@@ -5241,7 +5510,7 @@ main() {
   fi
 
   case "$command" in
-    status | usage | doctor | workspace | launcher)
+    status | usage | doctor | workspace | launcher | appearance)
       for arg in "$@"; do
         if [[ "$arg" == "--json" || "$arg" == "-j" ]]; then
           json_command=yes
@@ -5282,6 +5551,9 @@ main() {
       ;;
     launcher)
       command_launcher "$@"
+      ;;
+    appearance)
+      command_appearance "$@"
       ;;
     workspace)
       command_workspace "$@"

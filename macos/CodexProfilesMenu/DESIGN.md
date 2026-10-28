@@ -10,13 +10,14 @@ Workspaces whose profile is missing follow the groups. A hairline divides
 groups; rows within a group have no rules, because the nesting already shows
 what belongs together. Nesting and search replace a profile filter.
 
-The 360-point popover uses semantic macOS colours, system type, monochrome
-SF Symbols and the material supplied by NSPopover. The content view has no
+The 360-point popover uses semantic macOS colours, system type, SF Symbols
+and the material supplied by NSPopover. Colour is reserved for two jobs:
+profile identity and quota emphasis. The content view has no
 additional effect layer. One type scale sets profile names in 13-point
 semibold, workspace names in 13-point regular and details in 11-point
 secondary text; weight, not size, carries the hierarchy. A profile row is 46
-points high: a 26-point monochrome monogram tile, the name above a detail
-line, and its quota. A workspace row is a single 30-point line starting at
+points high: a 26-point tile in the profile's colour holding its initial or
+chosen symbol in white, the name above a detail line, and its quota. A workspace row is a single 30-point line starting at
 its profile's title column: a pin or folder symbol, the project name and its
 path on one baseline. A search result listed without its profile's row starts
 under the profile tiles and names its profile instead. A workspace that
@@ -55,8 +56,33 @@ reset times, freshness and the Codex CLI sign-in scope. Countdowns stay in
 English to match the surrounding text, while clock times follow the user's
 locale and 12/24-hour setting. Workspace rows do not repeat account quota.
 Only explicitly adding a workspace asks for a folder. App-level setup,
-sign-in, the Return destination, Open at Login, Low-quota alerts, About and
-Quit live in the gear menu.
+sign-in, the Return destination, Open at Login, Low-quota alerts, Quota in
+menu bar, About and Quit live in the gear menu.
+
+Each profile has a colour and a symbol, stored by the CLI's `appearance`
+command so the prompt, Raycast and new launchers show the same ones. The menu
+reads them with every profile refresh and writes a choice through the CLI:
+the choice shows at once, writes run in order so quick choices cannot land
+out of order, a refresh never overwrites a write still in flight, and a
+refused write shows the CLI's reason and reloads what it holds. Until the
+person chooses, `default`
+is graphite and every other profile takes one of seven colours from an FNV-1a
+hash of its name, so the colour stays the same on every launch and does not
+shift when profiles are added; the symbol is the profile's initial. The app
+and the CLI compute this identically, which the real-CLI test checks. The
+palette of blue, indigo, purple, pink, teal, green, brown and graphite leaves
+out red, orange and yellow so they keep meaning low quota, and white symbols
+keep 4.5:1 contrast on every colour. Appearance… in a profile's actions
+replaces the list with an editor, in place rather than in a second popover so
+dismissal and keyboard focus stay with the menu: a 40-point preview with the
+profile's name and its CODEX_HOME path from the documented mapping, eight
+round colour swatches, and twelve symbols, the initial and eleven SF Symbols.
+A choice applies at once and updates the editor in place. Reset restores the
+automatic appearance; Done, Return or Escape returns to the list. The chosen
+swatch gains a ring and every choice reports its state to accessibility
+clients, so a choice never depends on colour alone. A search result listed
+without its profile's row shows a small square of the profile's colour beside
+its name. The status item stays a monochrome template image.
 
 Apple's [menu-bar guidance](https://developer.apple.com/design/human-interface-guidelines/the-menu-bar#Menu-bar-extras)
 prefers a menu unless the functionality calls for richer controls. Search,
@@ -111,8 +137,9 @@ removal and relocation update affected rows before reloading, so a failed
 refresh cannot restore an old launch identity. Superseded or removed rows
 cannot launch. The CLI remains the only writer of profile and binding state;
 the GUI persists only its pins,
-recents, destination preference, global shortcut choice and Low-quota alerts
-choice in UserDefaults. Profile-only launches start
+recents, destination preference, global shortcut choice, and Low-quota alerts
+and menu-bar figure choices in UserDefaults. Profile colours and symbols
+belong to the CLI. Profile-only launches start
 in the home directory, avoiding accidental project-binding inheritance. Explicit
 workspace launches pass their folder to the CLI and preserve its guard rules.
 
@@ -154,6 +181,16 @@ at the earliest reset, waiting at most a day so an implausible reset time
 cannot overflow it. Remaining quota only falls within a window, so a
 reading stays a true upper bound until then.
 
+Quota in menu bar, an opt-in gear-menu toggle that is off by default, adds
+the lowest remaining share across initialized profiles beside the icon in
+monospaced menu-bar text, such as 7%. Unlike the badge it also covers healthy
+windows, and the tooltip and accessibility label then name that profile and
+window. The lowest figure can only rise when its own window resets, so the
+same one-shot timer re-evaluates it then. While the figure is on, usage is
+read about every five minutes through the same refreshUsage path as alerts,
+so it stays current; it needs no notification permission. Background reads
+stop only when both alerts and the figure are off.
+
 Low-quota alerts is an opt-in gear-menu toggle, off by default so the app
 never shows an unrequested permission prompt. Authorization is requested only
 when the toggle is turned on; denial keeps it off and explains System
@@ -176,10 +213,15 @@ a threshold cannot repeat. A later critical notification replaces
 the low one for the same window. The body names the reset time and mentions
 another profile only when it has at least 50% of the same window left, no
 low window of its own and a reading under 15 minutes old. Clicking a
-notification opens the popover. While alerts are on, a five-minute loop with
-timer tolerance calls the same refreshUsage path, so the cache, two readers,
-deadlines and owned-process cleanup are unchanged; turning alerts off or
-Quit stops it, and no reader starts without initialized profiles. The app
+notification opens the popover. While alerts or the menu-bar figure are on,
+a five-minute loop with timer tolerance calls the same refreshUsage path, so
+the cache, two readers, deadlines and owned-process cleanup are unchanged;
+turning both off or Quit stops it, and no reader starts without initialized
+profiles. Each pass lists profiles before reading usage, so profiles created
+or removed outside the app join or leave the checks while the menu stays
+closed. After the first profile load these listings are quiet, leaving the
+status message the person may be reading alone; until then, as after a login
+launch, a pass loads profiles as opening the menu would. The app
 never switches profiles or accounts automatically: alerts show the numbers
 and the person chooses. The decision logic is plain Foundation behind a
 notifier protocol, so tests never touch UNUserNotificationCenter.
@@ -193,7 +235,8 @@ values. These are layout previews;
 they do not demonstrate live translucency, system permission prompts or
 upstream app behaviour. Previews render at 2x whatever display draws them. The
 AppKit interaction runner checks profile-first setup, nesting and alignment,
-selection, search, dismissal, Command-Return, the Return destination and
+automatic and chosen profile appearance, the appearance editor and its
+persistence, the menu-bar figure toggle, selection, search, dismissal, Command-Return, the Return destination and
 launch arguments against an isolated executable. It switches the same open view light → dark → light, checks
 system-colour and accessibility notifications, and verifies opaque selection
 policies and accessibility state. These checks do not change global OS
@@ -206,7 +249,8 @@ updates, refresh dimming, quota colours in both appearances, the usage lines
 in profile actions, rows being changed, right-click actions, menu enablement after AppKit
 validation, one-off destinations and Open at Login through a fake login item. An isolated real CLI integration verifies profile
 selection and strict workspace-guard handling with a fake app-server.
-Alert checks cover indicator state and its bounded timer, crossing and
+Alert checks cover indicator state and its bounded timer, the lowest
+figure and its tooltip, background reads that follow the figure, crossing and
 de-duplication across jitter, early resets and missing reset times, the
 settled baseline after enabling, headroom choice, preference persistence,
 permission denial, undecided and unanswered prompts, background reads that

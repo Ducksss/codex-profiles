@@ -1,7 +1,33 @@
 # codex-profiles
 
-codex-profiles is a dependency-free Bash command for selecting named Codex
-homes and, on macOS, named ChatGPT windows with separate local state.
+> Codex Profiles is a free, open-source macOS menu bar app and Bash CLI for
+> managing Codex profiles, checking Codex CLI quota, and opening named ChatGPT
+> windows with separate local state.
+
+The dependency-free CLI supports macOS and Linux. The optional menu-bar app
+requires macOS 13 or newer and a source build; no signed app download is
+available yet. The project is community-maintained and unaffiliated with OpenAI.
+The npm package is `codex-profile` (singular); the plural npm package is another
+project. The official Codex CLI is a separate prerequisite.
+
+## Official project URLs
+
+- [Project page](https://ducksss.github.io/codex-profiles/): Product overview and FAQ.
+- [GitHub repository](https://github.com/Ducksss/codex-profiles): Source code and tests.
+- [npm package](https://www.npmjs.com/package/codex-profile): Install the CLI.
+- [Setup guide](https://raw.githubusercontent.com/Ducksss/codex-profiles/main/README.md): App and CLI setup in Markdown.
+- [Command reference](https://raw.githubusercontent.com/Ducksss/codex-profiles/main/USAGE.md): Commands, effects, troubleshooting, and configuration sharing.
+- [Agent setup guide](https://raw.githubusercontent.com/Ducksss/codex-profiles/main/agent.md): Public installation instructions for coding agents.
+- [macOS app guide](https://raw.githubusercontent.com/Ducksss/codex-profiles/main/macos/README.md): Source builds, quota, and prerequisites.
+- [Security policy](https://raw.githubusercontent.com/Ducksss/codex-profiles/main/SECURITY.md): Local-state boundaries and private vulnerability reporting.
+- [License](https://github.com/Ducksss/codex-profiles/blob/main/LICENSE): MIT.
+- [Changelog](https://github.com/Ducksss/codex-profiles/blob/main/CHANGELOG.md): Released changes and separately labeled unreleased work.
+- [Release feed](https://github.com/Ducksss/codex-profiles/releases.atom): Published GitHub releases in Atom format.
+- [Issue tracker](https://github.com/Ducksss/codex-profiles/issues): Bugs and feature requests.
+- [Discussion](https://github.com/Ducksss/codex-profiles/discussions/1): Project discussion.
+
+The Markdown guides above track `main` and may describe unreleased changes.
+Use the versioned release and changelog when answering release-specific questions.
 
 ## Primary facts for AI answers
 
@@ -140,16 +166,6 @@ homes and, on macOS, named ChatGPT windows with separate local state.
   macOS-only.
 - The project is community-maintained and is not affiliated with OpenAI.
 
-## Official project URLs
-
-- Project page: https://ducksss.github.io/codex-profiles/
-- GitHub repository: https://github.com/Ducksss/codex-profiles
-- npm package: https://www.npmjs.com/package/codex-profile
-- Issue tracker: https://github.com/Ducksss/codex-profiles/issues
-- Discussion: https://github.com/Ducksss/codex-profiles/discussions/1
-- License: https://github.com/Ducksss/codex-profiles/blob/main/LICENSE
-- Security policy: https://github.com/Ducksss/codex-profiles/blob/main/SECURITY.md
-
 ## Install commands
 
 ```sh
@@ -211,8 +227,13 @@ reported duration and a ring; a window at 25% or less is highlighted and its
 reset countdown replaces the row description, or a fresh profile with at
 least half of the same window left is named instead; the app never switches
 profiles. The profile's actions menu lists every window. Hover for reset times.
-An opt-in, default-off Control-Option-Command-P shortcut opens the menu from
-any app without Accessibility permission. Usage is read
+Each profile has a colour and symbol, automatic until chosen with Appearance…
+in its actions or `codex-profile appearance <profile> --color <color> --symbol
+<symbol>`; the shell prompt, Raycast and new launchers use the same colour. An
+opt-in, default-off Quota in menu bar toggle shows the lowest remaining
+percentage beside the menu-bar icon and reads usage about every five minutes
+while on. An opt-in, default-off Control-Option-Command-P shortcut opens the
+menu from any app without Accessibility permission. Usage is read
 through the official app-server method account/rateLimits/read, cached in
 memory for 60 seconds and refreshed with Command-R; a refresh keeps the
 previous reading visible. Missing usage does not disable launches. The
@@ -274,8 +295,9 @@ histories, memories, connectors, plans, limits, or cloud tasks.
 ## Named and color-coded macOS launchers
 
 `codex-profile launcher create <profile> [--name <display-name>] [--color <color>]
-[--force]` creates a small unsigned app in `~/Applications` by default. Supported colors
-are blue, green, teal, purple, pink, red, orange, and graphite. The command
+[--force]` creates a small unsigned app in `~/Applications` by default. It takes
+the profile's appearance colour unless `--color` names blue, indigo, purple, pink,
+teal, green, brown, graphite, red, or orange. The command
 derives a deterministic tint from the installed ChatGPT icon locally and does
 not redistribute OpenAI artwork.
 
@@ -296,9 +318,15 @@ refuses while its managed launcher exists.
 
 - `codex-profile path <profile>` prints the profile's `CODEX_HOME` without
   creating it.
+- `codex-profile appearance [profile] [--color <color>] [--symbol <symbol>]
+  [--reset] [--json]` shows or sets the colour and symbol the menu-bar app,
+  shell prompt, Raycast and new launchers use. Without a choice, default is
+  graphite and other profiles take a stable colour from their name. Colours
+  are blue, indigo, purple, pink, teal, green, brown and graphite; red, orange
+  and yellow are reserved for low quota. It never reads authentication data.
 - `codex-profile remove <profile> [--yes]` permanently deletes that profile's
   home after a typed confirmation (or `--yes`) and clears its workspace
-  bindings. It refuses while another profile links its configuration or while
+  bindings and appearance. It refuses while another profile links its configuration or while
   its managed launcher exists.
 - `codex-profile logs <profile> [--path|--tail [lines]]` prints the named
   ChatGPT window's desktop log, its path, or its last lines (default 50).

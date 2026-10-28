@@ -376,6 +376,30 @@ initialized.
   Account identity still must be verified in the relevant UI.
 - Opening a named window never quits the stock window or another profile.
 
+### Give each profile a colour and symbol
+
+Each profile has one colour and symbol that the menu-bar app, the shell
+prompt, Raycast and new launchers all use, so `work` looks the same
+everywhere:
+
+```sh
+codex-profile appearance
+codex-profile appearance work --color teal --symbol briefcase
+codex-profile appearance work --reset
+codex-profile appearance --json
+```
+
+Without a choice, `default` is `graphite` and every other profile takes a
+stable colour from its name, so it never changes between launches or when
+you add profiles; the symbol is the profile's initial (`monogram`). Colours
+are `blue`, `indigo`, `purple`, `pink`, `teal`, `green`, `brown` and
+`graphite`; red, orange and yellow are left out because the menu-bar app uses
+them for low quota. Symbols are `monogram`, `person`, `house`, `briefcase`,
+`building`, `book`, `flask`, `code`, `terminal`, `globe`, `leaf` and `bolt`.
+Choices are stored privately in `appearance.tsv` beside the workspace
+bindings, and `remove` forgets a removed profile's choice. The command never
+reads authentication data.
+
 ### Add named, color-coded macOS launchers
 
 Create small launcher apps for profiles you want to distinguish in Finder,
@@ -388,8 +412,8 @@ codex-profile launcher list
 codex-profile launcher path personal
 ```
 
-Supported colors are `blue`, `green`, `teal`, `purple`, `pink`, `red`,
-`orange`, and `graphite`. Launchers are stored in `~/Applications` by default;
+A launcher takes the profile's colour by default. `--color` accepts the
+profile colours plus `red` and `orange`. Launchers are stored in `~/Applications` by default;
 set `CODEX_PROFILE_LAUNCHER_ROOT` to use another directory. Creation derives a
 deterministically tinted icon from the installed ChatGPT artwork on the local
 Mac. The project does not redistribute that artwork.
@@ -508,7 +532,7 @@ codex-profile use work
 ```
 
 Activation exports functional `CODEX_HOME` and informational
-`CODEX_PROFILE_NAME`. It affects subsequent Codex CLI commands in that shell,
+`CODEX_PROFILE_NAME` and `CODEX_PROFILE_COLOR`. It affects subsequent Codex CLI commands in that shell,
 not an existing ChatGPT window. Open a new shell or unset both variables to
 deactivate.
 
@@ -523,9 +547,11 @@ eval "$(codex-profile shell-init zsh --prompt)"
 codex-profile shell-init fish --prompt | source
 ```
 
-The dynamic prefix, for example `[codex:work]`, appears only when
-`CODEX_PROFILE_NAME` matches the selected managed `CODEX_HOME`. It follows
-profile changes and disappears when activation is unset or inconsistent.
+The dynamic prefix, for example `● [codex:work]`, appears only when
+`CODEX_PROFILE_NAME` matches the selected managed `CODEX_HOME`. The dot takes
+the profile's colour from `CODEX_PROFILE_COLOR`, so the prompt never runs the
+CLI; set `NO_COLOR=1` to leave it out. The prefix follows profile changes and
+disappears when activation is unset or inconsistent.
 Your existing prompt is preserved; `shell-init` never edits startup files.
 
 Add `--completions` to load tab completion at the same time:
@@ -683,6 +709,7 @@ codex-profile init <profile> [--share-with <source-profile>]
 codex-profile setup <profile>
 codex-profile detach <profile>
 codex-profile remove <profile> [--yes]
+codex-profile appearance [profile] [--color <color>] [--symbol <symbol>] [--reset] [--json]
 codex-profile launcher create <profile> [--name <display-name>] [--color <color>] [--force]
 codex-profile launcher list [--json]
 codex-profile launcher path <profile>
@@ -736,7 +763,7 @@ launch or log mode.
 | `CODEX_PROFILE_USAGE_TIMEOUT` | Seconds `usage` waits for each profile's quota read, from 1 to 999; default `10`. |
 | `CODEX_CLI` | Use a specific Codex CLI. An invalid explicit override fails instead of silently selecting another binary. |
 | `CODEX_BUNDLED_CLI` | Optional fallback Codex CLI checked after `PATH` and before the selected app's bundled CLI. |
-| `CODEX_PROFILE_CONFIG_HOME` | Override the private, versioned state directory containing workspace bindings, guard mode, and launcher metadata. |
+| `CODEX_PROFILE_CONFIG_HOME` | Override the private, versioned state directory containing workspace bindings, guard mode, profile appearances, and launcher metadata. |
 | `CODEX_PROFILE_LAUNCHER_ROOT` | Override the macOS launcher install directory (default: `~/Applications`). |
 | `CODEX_PROFILE_UPGRADE_REPO` | Override the source-upgrade repository. |
 | `CODEX_PROFILE_UPGRADE_REF` | Override the upgrade git ref; defaults to the latest immutable release. |

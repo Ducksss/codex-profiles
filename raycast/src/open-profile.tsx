@@ -103,7 +103,7 @@ function ProfileItem(props: {
 
   return (
     <List.Item
-      icon={Icon.Person}
+      icon={profile.color ? { source: Icon.Person, tintColor: profile.color } : Icon.Person}
       title={profile.name}
       subtitle={profile.home ? displayPath(profile.home, HOME) : undefined}
       accessories={accessories}

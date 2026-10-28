@@ -29,7 +29,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://github.com/Ducksss/codex-profiles/raw/refs/heads/main/macos/CodexProfilesMenu/Previews/menu-dark.png">
-    <img src="https://github.com/Ducksss/codex-profiles/raw/refs/heads/main/macos/CodexProfilesMenu/Previews/menu-light.png" width="360" alt="Codex Profiles menu with default, personal and work profiles, each showing its remaining Codex quota beside a ring, and project shortcuts nested under their profiles.">
+    <img src="https://github.com/Ducksss/codex-profiles/raw/refs/heads/main/macos/CodexProfilesMenu/Previews/menu-light.png" width="360" alt="Codex Profiles menu with default, personal and work profiles, each in its own colour and symbol and showing its remaining Codex quota beside a ring, and project shortcuts nested under their profiles.">
   </picture>
   <br />
   <sub>Actual AppKit view with sample quota values. Light and dark appearance follow macOS.</sub>
@@ -127,9 +127,15 @@ profile's ⋯ menu lists every window. Hover for details or press **⌘R** to
 refresh.
 
 The menu bar icon gains a badge when a profile runs low. Turn on
-**Low-quota alerts** in the gear menu for a notification when a profile
-crosses into low or critical. Alerts are off by default, and the app never
-switches profiles for you.
+**Quota in menu bar** in the gear menu to see the lowest remaining
+percentage beside the icon, or **Low-quota alerts** for a notification when a
+profile crosses into low or critical. Both are off by default, and the app
+never switches profiles for you.
+
+Give each profile its own colour and symbol with **Appearance…** in its ⋯
+menu, or `codex-profile appearance work --color teal`, so work and personal
+are easy to tell apart. The shell prompt, Raycast and new launchers use the
+same colour.
 
 For an unavailable reading, use **Sign in to Codex CLI…** in that profile's
 actions menu, then refresh. Quota follows the profile's **CLI sign-in**.

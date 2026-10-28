@@ -13,10 +13,13 @@ Community-maintained; not affiliated with OpenAI.
 Lists initialized profiles. Return opens the profile's ChatGPT window;
 ⌘Return opens Codex CLI for it in Terminal. It also copies the profile's
 `CODEX_HOME` path, shows it in Finder, or starts Codex CLI sign-in, and shows
-each profile's lowest remaining quota when a reading is available.
+each profile's lowest remaining quota when a reading is available. Each
+profile's icon takes the colour set with `codex-profile appearance`, the same
+one the menu bar app shows; an older codex-profile without that command keeps
+plain icons.
 
-Uses `list`, `path <profile>`, `app <profile>`, `cli <profile>`,
-`login <profile>` and `usage --json`.
+Uses `list`, `path <profile>`, `appearance --json`, `app <profile>`,
+`cli <profile>`, `login <profile>` and `usage --json`.
 
 ### Open Workspace
 

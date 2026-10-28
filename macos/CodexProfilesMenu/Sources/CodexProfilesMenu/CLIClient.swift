@@ -103,6 +103,56 @@ struct CLIClient: Sendable {
         }.value
     }
 
+    /// Every initialized profile's colour and symbol, chosen or automatic.
+    func loadAppearances() async throws -> [String: ProfileAppearance] {
+        let executableURL = try requiredExecutableURL()
+        return try await Task.detached(priority: .userInitiated) {
+            let result = try await ProcessRunner().run(executableURL: executableURL, arguments: ["appearance", "--json"])
+            guard result.terminationStatus == 0 else {
+                throw CLIClientError.commandFailed(Self.errorMessage(from: result))
+            }
+            return try Self.parseAppearances(result.standardOutput)
+        }.value
+    }
+
+    /// Saves a profile's colour and symbol with the CLI, which the prompt,
+    /// Raycast and launchers also read; nil restores the automatic one.
+    func setAppearance(_ appearance: ProfileAppearance?, for profile: String) async throws {
+        guard Self.isValidProfileName(profile) else { throw CLIClientError.invalidProfileName }
+        let executableURL = try requiredExecutableURL()
+        let choice = appearance.map { ["--color", $0.colour.rawValue, "--symbol", $0.symbol.rawValue] } ?? ["--reset"]
+        try await Task.detached(priority: .userInitiated) {
+            let result = try await ProcessRunner().run(executableURL: executableURL, arguments: ["appearance", profile] + choice)
+            guard result.terminationStatus == 0 else {
+                throw CLIClientError.commandFailed(Self.errorMessage(from: result))
+            }
+        }.value
+    }
+
+    /// Entries naming a colour or symbol this app does not know are skipped,
+    /// so those profiles keep their automatic appearance.
+    static func parseAppearances(_ data: Data) throws -> [String: ProfileAppearance] {
+        struct Entry: Decodable {
+            let profile: String
+            let color: String
+            let symbol: String
+        }
+        struct Response: Decodable { let profiles: [Entry] }
+        let response: Response
+        do {
+            response = try JSONDecoder().decode(Response.self, from: data)
+        } catch {
+            throw CLIClientError.commandFailed("Could not read profile appearances: \(error.localizedDescription)")
+        }
+        var appearances: [String: ProfileAppearance] = [:]
+        for entry in response.profiles {
+            guard let colour = ProfileAppearance.Colour(rawValue: entry.color),
+                  let symbol = ProfileAppearance.Symbol(rawValue: entry.symbol) else { continue }
+            appearances[entry.profile] = ProfileAppearance(colour: colour, symbol: symbol)
+        }
+        return appearances
+    }
+
     func loadProfiles() async throws -> [String] {
         let executableURL = try requiredExecutableURL()
         return try await Task.detached(priority: .userInitiated) {
