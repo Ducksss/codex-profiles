@@ -1,104 +1,106 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="js">
 <head>
 <meta charset="utf-8">
 <!--
   Source for docs/og-image.png (1200x630 social card).
-  Regenerate with headless Chrome:
+  The orbit is drawn by the site's own WebGL engine, read from docs/index.html
+  at render time with its clock frozen, so the card follows the live page.
+  Regenerate with headless Chrome from the repository root:
 
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu \
-    --screenshot="$PWD/docs/og-image.png" --window-size=1200,630 --hide-scrollbars \
-    --virtual-time-budget=10000 "file://$PWD/scripts/og-image.html"
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
+    --allow-file-access-from-files --use-angle=metal --hide-scrollbars \
+    --window-size=1200,630 --virtual-time-budget=10000 \
+    --screenshot="$PWD/docs/og-image.png" "file://$PWD/scripts/og-image.html"
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter+Tight:wght@300&display=block">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 1200px; height: 630px; overflow: hidden; }
-  body {
-    position: relative;
-    font-family: "Geist", -apple-system, sans-serif;
-    background: #09090b;
-    color: #fafafa;
+  :root {
+    color-scheme: dark;
+    --bg: #080808;
+    --ink: #ECECE8;
+    --soft: #B4B4AF;
+    --mute: #8C8C87;
+    --line: #222220;
+    --line-2: #3A3A38;
+    --sans: 'Inter Tight', 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
   }
-  .dots {
-    position: absolute; inset: 0;
-    background-image: radial-gradient(#26262b 1px, transparent 1px);
-    background-size: 26px 26px;
-    -webkit-mask-image: radial-gradient(ellipse 85% 90% at 35% 30%, #000 25%, transparent 75%);
-    mask-image: radial-gradient(ellipse 85% 90% at 35% 30%, #000 25%, transparent 75%);
-  }
-  .card { position: relative; z-index: 1; height: 100%; padding: 64px 72px; display: flex; flex-direction: column; }
-  .brand { display: flex; align-items: center; gap: 16px; }
-  .tile { width: 52px; height: 52px; border-radius: 12px; background: #fafafa; display: grid; place-items: center; }
-  .tile svg { width: 30px; height: 30px; }
-  .brand .name { font-weight: 600; font-size: 27px; letter-spacing: -0.01em; }
-  h1 {
-    margin-top: 56px;
-    font-weight: 700;
-    font-size: 82px;
-    line-height: 1.04;
-    letter-spacing: -0.045em;
-    max-width: 780px;
-  }
-  h1 .code {
-    font-family: "Geist Mono", monospace;
-    font-weight: 600;
-    font-size: 0.78em;
-    letter-spacing: -0.02em;
-    background: #18181b;
-    border: 2px solid #26262b;
-    border-radius: 16px;
-    padding: 0 0.22em 0.05em;
-    vertical-align: 0.05em;
-    color: #fafafa;
-  }
-  .sub { margin-top: 30px; font-size: 29px; font-weight: 500; color: #a1a1aa; max-width: 700px; line-height: 1.4; letter-spacing: -0.01em; }
-  .badges { margin-top: auto; display: flex; gap: 12px; font-family: "Geist Mono", monospace; font-size: 18px; color: #a1a1aa; }
-  .badges span { border: 1.5px solid #26262b; border-radius: 999px; padding: 8px 18px; }
-  .term {
-    position: absolute; right: -50px; top: 168px; z-index: 2;
-    width: 430px; border-radius: 14px;
-    background: #0c0c0e; border: 1.5px solid #26262b;
-    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8);
-    font-family: "Geist Mono", monospace; font-size: 18px;
-  }
-  .term-bar { display: flex; gap: 8px; padding: 16px 18px; border-bottom: 1.5px solid #1f1f23; }
-  .term-bar i { width: 12px; height: 12px; border-radius: 50%; background: #2c2c32; }
-  .term-body { padding: 20px 22px 26px; line-height: 2.05; color: #d4d4d8; }
-  .pl { color: #52525b; } .cmd { color: #fafafa; } .arg { color: #a1a1aa; } .ok { color: #4ade80; } .out { color: #71717a; }
+  * { box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; margin: 0; overflow: hidden; background: var(--bg); }
+  body { position: relative; color: var(--ink); font-family: var(--sans); font-feature-settings: 'calt' 0; -webkit-font-smoothing: antialiased; }
+
+  .field { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+  /* The engine sizes the planet to this stage's height and centres it here. */
+  .stage { position: absolute; top: -30px; left: 180px; width: 1200px; height: 600px; }
+
+  .lab { position: absolute; top: 0; left: 0; will-change: transform; }
+  .lab > div { position: absolute; top: -66px; left: 50px; padding: 6px 11px; background: var(--bg); border: 1px solid var(--line-2); font: 500 19px var(--mono); letter-spacing: 0.01em; white-space: nowrap; }
+  .lab[data-side="l"] > div { right: 50px; left: auto; }
+  .lab i { position: absolute; top: 0; left: 0; width: 1px; height: 64px; background: var(--mute); transform: rotate(-145deg); transform-origin: 0 0; }
+  .lab[data-side="l"] i { transform: rotate(145deg); }
+  /* Every moon in this frame sits clear of the planet, so keep each label at full ink. */
+  .lab { opacity: 1 !important; }
+
+  .top { position: absolute; top: 0; right: 0; left: 0; display: flex; justify-content: space-between; align-items: center; height: 76px; padding: 0 56px; border-bottom: 1px solid var(--line); background: var(--bg); }
+  .brand { display: inline-flex; align-items: center; gap: 14px; font: 500 25px var(--mono); letter-spacing: -0.01em; }
+  .brand-mark { width: 21px; height: 21px; border-radius: 50%; background: linear-gradient(90deg, var(--ink) 50%, var(--bg) 50%); box-shadow: 0 0 0 1.5px var(--ink); }
+  .top-cap { font: 400 17px var(--mono); letter-spacing: 0.01em; color: var(--mute); }
+
+  .foot { position: absolute; bottom: 52px; left: 56px; display: flex; flex-direction: column; gap: 22px; }
+  .foot::before { content: ''; position: absolute; inset: -40px -90px -52px -56px; z-index: -1; background: radial-gradient(ellipse 60% 70% at 40% 62%, rgba(8, 8, 8, 0.92), rgba(8, 8, 8, 0.6) 55%, rgba(8, 8, 8, 0) 100%); }
+  h1 { margin: 0; font-weight: 300; font-size: 80px; line-height: 0.94; letter-spacing: -0.05em; }
+  .paths { margin: 0; font: 400 19px var(--mono); letter-spacing: 0.01em; color: var(--soft); }
+  .paths b { font-weight: 400; color: var(--mute); }
+  .err { position: absolute; top: 96px; left: 56px; font: 16px var(--mono); }
 </style>
 </head>
 <body>
-  <div class="dots"></div>
-  <div class="term">
-    <div class="term-bar"><i></i><i></i><i></i></div>
-    <div class="term-body">
-      <div><span class="pl">$</span> <span class="cmd">codex-profile</span> <span class="arg">init work</span></div>
-      <div><span class="ok">✓</span> <span class="out">created ~/.codex-work</span></div>
-      <div><span class="pl">$</span> <span class="cmd">codex-profile</span> <span class="arg">app work</span></div>
-      <div><span class="ok">✓</span> <span class="out">named window launched</span></div>
-    </div>
+  <canvas class="field" data-ascii-gl="orbit" data-tone="dark" data-stage="og" aria-hidden="true"></canvas>
+  <div class="stage" data-ascii-stage="og"></div>
+  <div class="lab" data-orbit-label="0"><i></i><div>default</div></div>
+  <div class="lab" data-orbit-label="1"><i></i><div>personal</div></div>
+  <div class="lab" data-orbit-label="2"><i></i><div>work</div></div>
+  <header class="top">
+    <span class="brand"><span class="brand-mark"></span>codex-profiles</span>
+    <span class="top-cap">macOS menu bar app + CLI</span>
+  </header>
+  <div class="foot">
+    <h1>Your Codex profiles,<br>one click away.</h1>
+    <p class="paths">~/.codex <b>·</b> ~/.codex-personal <b>·</b> ~/.codex-work</p>
   </div>
-  <div class="card">
-    <div class="brand">
-      <div class="tile">
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <path d="M17 21l13 11-13 11" fill="none" stroke="#09090b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-          <rect x="35" y="40" width="13" height="7" rx="3.5" fill="#09090b"/>
-        </svg>
-      </div>
-      <span class="name">codex-profiles</span>
-    </div>
-    <h1>One <span class="code">~/.codex</span> is not enough.</h1>
-    <p class="sub">Named Codex homes — and named ChatGPT windows with separate local state. Auth files are never copied.</p>
-    <div class="badges">
-      <span>single-file bash</span>
-      <span>zero deps</span>
-      <span>macOS + Linux</span>
-      <span>MIT</span>
-    </div>
-  </div>
+  <script>
+  (() => {
+    // 608.8 s into the page's orbit: all three moons clear of the planet and
+    // the headline, with the light turned towards the viewer.
+    const frozen = 'const t = 608.8;';
+    const clock = 'const t = live ? (now - f.start) / 1000 : 6;';
+    const fail = (msg) => {
+      const p = document.createElement('p');
+      p.className = 'err';
+      p.textContent = 'og-image: ' + msg;
+      document.body.appendChild(p);
+    };
+    // XHR, not fetch: Chrome reads file:// only through XHR, with
+    // --allow-file-access-from-files.
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', '../docs/index.html');
+    xhr.onload = () => {
+      const html = xhr.responseText;
+      const src = html.slice(html.lastIndexOf('<script>') + '<script>'.length, html.lastIndexOf('<\/script>'));
+      if (!src.includes(clock)) return fail('engine clock not found in docs/index.html');
+      const run = () => {
+        const s = document.createElement('script');
+        s.textContent = src.replace(clock, frozen);
+        document.body.appendChild(s);
+      };
+      document.fonts.load('500 52px "IBM Plex Mono"').then(run, run);
+    };
+    xhr.onerror = () => fail('could not read docs/index.html');
+    xhr.send();
+  })();
+  </script>
 </body>
 </html>
