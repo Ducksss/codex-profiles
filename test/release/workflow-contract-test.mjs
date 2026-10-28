@@ -32,6 +32,7 @@ const requiredLiterals = [
   "dry_run:",
   "desktop_smoke_attestation:",
   "skip_homebrew:",
+  "menu_dmg:",
   "group: release",
   "cancel-in-progress: false",
   "needs: verify",
@@ -102,6 +103,7 @@ for (const secret of ["NPM_TOKEN", "TAP_TOKEN"]) {
 
 const publishSteps = [
   "Validate live release source",
+  "Download notarised menu-bar DMG",
   "Preflight release credential identities",
   "Revalidate live release state",
   "Create and push tag",
@@ -181,6 +183,7 @@ for (const script of [
   "publish-github.sh",
   "update-homebrew.sh",
   "deploy-pages.sh",
+  "build-menu-dmg.sh",
 ]) {
   const matches = workflow.match(new RegExp(`scripts/release/${script.replace(".", "\\.")}`, "g")) ?? [];
   const expected = ["verify-distribution.sh", "publish-npm.sh", "publish-github.sh", "preflight.sh"].includes(script)
@@ -199,6 +202,7 @@ for (const script of [
   "publish-github.sh",
   "update-homebrew.sh",
   "deploy-pages.sh",
+  "build-menu-dmg.sh",
 ]) {
   const source = readFileSync(`scripts/release/${script}`, "utf8");
   assert.match(
@@ -260,6 +264,67 @@ assert.ok(
   !pagesDispatch.includes('--commit "$GITHUB_SHA"'),
   "Pages run discovery must tolerate main advancing between release verification and dispatch",
 );
+
+// The menu-bar DMG is signed and notarised on macOS before anything is
+// published, because an immutable release cannot gain assets afterwards.
+const menuDmgJob = jobBlock("menu-dmg");
+const menuDmgSecrets = [
+  "MENU_APP_CERTIFICATE_P12",
+  "MENU_APP_CERTIFICATE_PASSWORD",
+  "MENU_APP_NOTARY_API_KEY",
+  "MENU_APP_NOTARY_KEY_ID",
+  "MENU_APP_NOTARY_ISSUER",
+];
+assert.match(
+  workflow,
+  /      menu_dmg:\n(?:        .*\n)*?        default: true\n        type: boolean\n/,
+  "releases should attach the DMG unless the operator opts out",
+);
+for (const literal of [
+  "    needs: verify\n",
+  "    runs-on: macos-latest\n",
+  "    environment:\n      name: release",
+  "    permissions:\n      contents: read\n",
+  "ref: ${{ needs.verify.outputs.commit }}",
+  "persist-credentials: false",
+  "scripts/release/build-menu-dmg.sh",
+  "if-no-files-found: error",
+]) {
+  assert.ok(menuDmgJob.includes(literal), `menu-dmg job should contain ${JSON.stringify(literal)}`);
+}
+for (const permission of ["contents: write", "id-token: write", "actions: write"]) {
+  assert.ok(!menuDmgJob.includes(permission), `menu-dmg job must not grant ${permission}`);
+}
+const menuDmgBuild = stepBlock("Build, sign and notarise menu-bar DMG");
+for (const secret of menuDmgSecrets) {
+  assert.ok(
+    menuDmgBuild.includes(`${secret}: \${{ secrets.${secret} }}`),
+    `the DMG build step should receive ${secret}`,
+  );
+  assert.equal(
+    workflow.split(`secrets.${secret} }}`).length - 1,
+    1,
+    `${secret} should reach only the DMG build step`,
+  );
+}
+assert.ok(!menuDmgBuild.includes("if: ${{ ! inputs.dry_run"), "dry runs should prove the Apple credentials");
+for (const name of ["Check out verified menu-bar source", "Build, sign and notarise menu-bar DMG", "Upload menu-bar DMG"]) {
+  assert.ok(stepBlock(name).includes("if: ${{ inputs.menu_dmg }}"), `${name} should honour menu_dmg`);
+}
+assert.ok(publishJob.includes("    needs: [verify, menu-dmg]\n"), "publication should wait for the notarised DMG");
+assert.ok(
+  stepBlock("Download notarised menu-bar DMG").includes("if: ${{ ! inputs.dry_run && inputs.menu_dmg }}"),
+  "the DMG download should be live-only and honour menu_dmg",
+);
+for (const name of ["Create GitHub Release", "Verify GitHub Release"]) {
+  assert.ok(
+    stepBlock(name).includes("MENU_DMG_DIR: ${{ inputs.menu_dmg && format('{0}/menu-dmg', runner.temp) || '' }}"),
+    `${name} should require the DMG exactly when menu_dmg is set`,
+  );
+}
+for (const name of ["Menu-bar DMG summary", "Release summary"]) {
+  assert.ok(stepBlock(name).includes("MENU_DMG: ${{ inputs.menu_dmg }}"), `${name} should report the DMG`);
+}
 
 console.log("Release workflow wiring tests passed.");
 

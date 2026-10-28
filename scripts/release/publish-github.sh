@@ -10,6 +10,25 @@ cd "$ROOT_DIR"
 
 mode="${1:-}"
 
+# MENU_DMG_DIR holds the notarised menu-bar DMG and its checksum. When it is
+# set, the release must carry both files; immutable releases cannot gain them later.
+menu_dmg_assets=()
+if [[ -n "${MENU_DMG_DIR:-}" ]]; then
+  release_require_env TAG
+  menu_dmg="Codex-Profiles-${TAG#v}-universal.dmg"
+  for asset in "$menu_dmg" "$menu_dmg.sha256"; do
+    [[ -s "$MENU_DMG_DIR/$asset" ]] || release_die "Missing menu-bar release asset: $MENU_DMG_DIR/$asset"
+    menu_dmg_assets+=("$MENU_DMG_DIR/$asset")
+  done
+  if command -v sha256sum >/dev/null 2>&1; then
+    hash_command=(sha256sum)
+  else
+    hash_command=(shasum -a 256)
+  fi
+  (cd "$MENU_DMG_DIR" && "${hash_command[@]}" -c "$menu_dmg.sha256" >/dev/null) \
+    || release_die "$menu_dmg does not match its checksum."
+fi
+
 if [[ "$mode" == "publish" ]]; then
 release_require_env TAG
 release_require_env GITHUB_REPOSITORY
@@ -80,7 +99,8 @@ else
   release_create_succeeded=false
   if gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
     --title "codex-profile $TAG" --generate-notes --notes "$release_notes" \
-    --latest --verify-tag 2> "$create_error"; then
+    --latest --verify-tag \
+    ${menu_dmg_assets[@]+"${menu_dmg_assets[@]}"} 2> "$create_error"; then
     release_create_succeeded=true
   fi
 
@@ -124,7 +144,7 @@ release_view_succeeded=false
 for attempt in {1..5}; do
   : > "$release_view_error"
   if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
-    --json tagName,isDraft,isPrerelease,publishedAt,body,isImmutable \
+    --json tagName,isDraft,isPrerelease,publishedAt,body,isImmutable,assets \
     > "$release_json" 2> "$release_view_error"; then
     release_view_succeeded=true
     break
@@ -138,9 +158,14 @@ done
   echo "Could not read GitHub Release $TAG after 5 attempts." >&2
   exit 1
 }
-node - "$TAG" "$release_json" <<'NODE'
+expected_assets=""
+for asset in ${menu_dmg_assets[@]+"${menu_dmg_assets[@]}"}; do
+  expected_assets+="${asset##*/}|$(wc -c < "$asset" | tr -d '[:space:]')"
+  expected_assets+="|$("${hash_command[@]}" < "$asset" | awk '{ print $1 }')"$'\n'
+done
+node - "$TAG" "$release_json" "$expected_assets" <<'NODE'
 const fs = require('fs');
-const [, , expectedTag, file] = process.argv;
+const [, , expectedTag, file, expectedAssets] = process.argv;
 const release = JSON.parse(fs.readFileSync(file, 'utf8'));
 if (release.tagName !== expectedTag) {
   throw new Error(`GitHub Release reported ${release.tagName}; expected ${expectedTag}`);
@@ -163,6 +188,17 @@ if (typeof release.body !== 'string' || release.body.trim().length === 0) {
 if (process.env.DESKTOP_SMOKE_ATTESTATION === 'waived-by-maintainer' &&
     !release.body.includes('Desktop smoke checks waived by maintainer; real Desktop behavior is unverified.')) {
   throw new Error(`GitHub Release ${expectedTag} is missing the Desktop smoke waiver disclosure`);
+}
+for (const line of expectedAssets.split('\n').filter(Boolean)) {
+  const [name, size, sha256] = line.split('|');
+  const asset = (release.assets ?? []).find((candidate) => candidate.name === name);
+  if (!asset) {
+    throw new Error(`GitHub Release ${expectedTag} is missing the ${name} asset`);
+  }
+  if (asset.state !== 'uploaded' || asset.size !== Number(size) ||
+      (asset.digest && asset.digest !== `sha256:${sha256}`)) {
+    throw new Error(`GitHub Release ${expectedTag} asset ${name} does not match the notarised build`);
+  }
 }
 NODE
 

@@ -230,6 +230,10 @@ MENU_APP_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
 MENU_APP_NOTARY_PROFILE=codex-profiles make menu-dmg
 ```
 
+Instead of a Keychain profile, `MENU_APP_NOTARY_KEY` (the path to an App Store
+Connect `.p8` key), `MENU_APP_NOTARY_KEY_ID` and `MENU_APP_NOTARY_ISSUER` can
+authenticate `notarytool`; the release workflow uses this form.
+
 The script signs the companion with hardened runtime and the Apple Events
 entitlement needed for Terminal, signs the DMG, submits it to Apple, requires
 an **Accepted** result, staples and validates the ticket, and assesses the
@@ -242,31 +246,54 @@ never modified or signed by this builder.
 Follow [Apple's distribution testing guidance](https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution)
 to test a downloaded release on a fresh Mac, including opening from the image
 and after moving to Applications. Publishing the resulting files is a separate
-maintainer step; the build does not upload them to GitHub.
+maintainer step; the local build does not upload them to GitHub.
 
 ### Publish a signed download
 
-A public download is deferred until the project has a Developer ID. The
-signing and notarisation build above is ready; publishing still needs these
-maintainer steps:
+The `Release` workflow builds the DMG on a macOS runner, signs it with the
+Developer ID certificate, notarises and staples it, and attaches the DMG and
+its `.sha256` to the GitHub Release as it is created. GitHub Releases here are
+immutable, so a version published without the DMG can never gain it. The
+`menu_dmg` input therefore defaults to `true`, and a DMG failure stops the
+release before anything is tagged or published. Dry runs also sign and
+notarise, which proves the credentials work.
 
-1. Enrol in the [Apple Developer Program](https://developer.apple.com/programs/)
-   and create a **Developer ID Application** certificate. Install it in
-   Keychain and store notarisation credentials as described above.
-2. Decide how the DMG reaches the release. GitHub Releases here are
-   immutable, and the `Release` workflow publishes each release without
-   assets, so a DMG cannot be added to a release after it is published. Either
-   change the workflow to create a draft, upload the DMG and `.sha256`, then
-   publish; or add a macOS job that signs and notarises in CI, passes both
-   files to the release job, and attaches them before the release is
-   published. A CI job needs the certificate exported as a password-protected
-   `.p12` and an App Store Connect API key for `notarytool`, stored as
-   `release` environment secrets.
-   Either way, a version that already has a published release cannot gain a
-   DMG, so the first download ships with a new version.
-3. After a release carries the notarised DMG, add a Homebrew cask beside the
-   `codex-profile` formula in
-   [Ducksss/homebrew-tap](https://github.com/Ducksss/homebrew-tap), pointing at
-   the release asset and its SHA-256.
-4. Test the downloaded DMG on a Mac that has never built the app, following
+One-time maintainer setup:
+
+1. Enrol in the [Apple Developer Program](https://developer.apple.com/programs/).
+   In Certificates, Identifiers & Profiles, create a **Developer ID
+   Application** certificate and install it in Keychain. Export that
+   certificate with its private key as a password-protected `.p12`.
+2. In App Store Connect, under Users and Access, Integrations, create a Team
+   API key with the **Developer** role. Download the `.p8` file (Apple offers
+   it only once) and note its key ID and the issuer ID.
+3. Store the five values as `release` environment secrets. Each command reads
+   from a file or prompts without echoing, so no secret reaches shell history:
+
+   ```sh
+   base64 -i DeveloperID.p12 | gh secret set MENU_APP_CERTIFICATE_P12 --env release
+   gh secret set MENU_APP_CERTIFICATE_PASSWORD --env release
+   gh secret set MENU_APP_NOTARY_API_KEY --env release < AuthKey_KEYID.p8
+   gh secret set MENU_APP_NOTARY_KEY_ID --env release
+   gh secret set MENU_APP_NOTARY_ISSUER --env release
+   ```
+
+   Then delete the exported `.p12` and keep the `.p8` in a password manager.
+4. Dispatch a `Release` dry run. The **Build notarised menu-bar DMG** job must
+   report an **Accepted** notarisation before a live release.
+
+`scripts/release/build-menu-dmg.sh` imports the certificate into a temporary
+keychain that is deleted when the job ends, requires exactly one Developer ID
+Application identity, and requires the DMG version to match the release. To
+release without the DMG, for example while a certificate is being renewed,
+set `menu_dmg: false`; that version will never carry a download. If the asset
+upload fails after GitHub created a draft release, delete the draft and rerun.
+
+After the first release that carries the DMG:
+
+1. Test the downloaded DMG on a Mac that has never built the app, following
    Apple's distribution testing guidance above, before announcing it.
+2. Add a Homebrew cask beside the `codex-profile` formula in
+   [Ducksss/homebrew-tap](https://github.com/Ducksss/homebrew-tap), pointing at
+   the release asset and its SHA-256. The `Release` workflow does not update a
+   cask yet.
