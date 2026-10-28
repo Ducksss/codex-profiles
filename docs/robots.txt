@@ -1,3 +1,6 @@
+# GitHub Pages serves this file under /codex-profiles/.
+# Crawlers only apply https://ducksss.github.io/robots.txt at the host root.
+# Keep this policy as a template; see CONTRIBUTING.md for host setup.
 User-agent: *
 Allow: /
 
