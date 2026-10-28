@@ -206,9 +206,11 @@ notification opens the popover. While alerts or the menu-bar figure are on,
 a five-minute loop with timer tolerance calls the same refreshUsage path, so
 the cache, two readers, deadlines and owned-process cleanup are unchanged;
 turning both off or Quit stops it, and no reader starts without initialized
-profiles. Each pass first lists profiles quietly, so profiles created or
-removed outside the app join or leave the checks while the menu stays closed,
-and the status message the person may be reading is left alone. The app
+profiles. Each pass lists profiles before reading usage, so profiles created
+or removed outside the app join or leave the checks while the menu stays
+closed. After the first profile load these listings are quiet, leaving the
+status message the person may be reading alone; until then, as after a login
+launch, a pass loads profiles as opening the menu would. The app
 never switches profiles or accounts automatically: alerts show the numbers
 and the person chooses. The decision logic is plain Foundation behind a
 notifier protocol, so tests never touch UNUserNotificationCenter.

@@ -99,6 +99,67 @@ the current signed ChatGPT app with non-sensitive accounts:
 Never publish screenshots, logs, account names, histories, or tokens from this
 test without explicit sanitization.
 
+## Search and AI discovery
+
+The public site is static HTML in `docs/index.html`. Keep product definitions,
+platform limits, installation paths and FAQ answers readable without JavaScript.
+Use `docs/llms.txt` to link the maintained guides rather than creating duplicate
+documentation pages. JSON-LD must describe visible facts and real identities;
+do not add ratings, testimonials or an organization that the project cannot
+substantiate. The GEO test compares FAQ answers against the visible articles,
+checks metadata and graph references, and validates local discovery assets.
+
+For a substantive page edit, update the visible `Page updated` date, JSON-LD
+`WebPage.dateModified` and the homepage's sitemap `lastmod` together. Use the
+actual editorial date, not the release, build or deployment date. The release
+version and date remain sourced from `package.json` and `CHANGELOG.md`.
+The sitemap lists canonical HTML pages; text references are linked from HTML
+and `llms.txt`. GitHub's existing release Atom feed supplies publication dates.
+
+Run `node test/site/geo-test.mjs`, then `make check`. Preview `docs/` locally and
+check desktop and mobile layouts, JavaScript disabled, WebGL unavailable,
+reduced motion, and keyboard navigation including the Menu bar / Terminal
+switch. Essential answers must remain visible without JavaScript, and the ASCII
+art must stand in for each WebGL scene. The terminal panel is real
+`codex-profile usage` and `workspace list` output with sample quota; capture it
+again if their output changes.
+
+After an approved Pages deployment, compare the live response with the deployed
+commit and check redirects, MIME types and indexing headers:
+
+```sh
+curl -fsSI https://ducksss.github.io/codex-profiles/
+curl -fsS https://ducksss.github.io/codex-profiles/sitemap.xml
+curl -fsS https://ducksss.github.io/codex-profiles/llms.txt
+curl -sSI https://ducksss.github.io/robots.txt
+curl -fsS -A Googlebot https://ducksss.github.io/codex-profiles/
+curl -fsS -A OAI-SearchBot https://ducksss.github.io/codex-profiles/
+```
+
+GitHub Pages hosts this project under `/codex-profiles/`. Its nested
+`docs/robots.txt` is only a policy template: crawlers consult
+`https://ducksss.github.io/robots.txt` at the **origin root**. A 404 there does
+not block Google crawling, but it also does not advertise this sitemap. The
+host maintainer can add the sitemap directive to the user-site repository
+(`Ducksss/ducksss.github.io`), preserving any existing policy for other projects,
+or submit the exact sitemap URL in verified Google Search Console and Bing
+Webmaster Tools properties. Do not claim that the nested file controls crawlers.
+
+The maintainer owns console verification, sitemap submission and index coverage
+review after deployment, with a monthly recheck for coverage errors and stale
+product descriptions. Record the observation date, canonical URL, provider and
+evidence; a successful fetch or search sample does not prove complete indexing,
+rankings or AI citations. No analytics or account tracking is needed for the
+local checks. `OAI-SearchBot` concerns search discovery; `GPTBot` is a separate
+training control. Changing either policy requires a deliberate host-level choice.
+
+These practices follow [Google's AI search guidance](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide),
+[robots.txt scope](https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec),
+and [OpenAI's crawler documentation](https://developers.openai.com/api/docs/bots).
+`llms.txt` is an additional reference, not a Google ranking signal or a promise
+of AI citations. FAQ markup describes the visible answers; Google [retired FAQ rich results](https://developers.google.com/search/updates)
+in May 2026, so it is not a rich-result eligibility claim.
+
 ## Release rehearsal and attestation
 
 Dispatch the `Release` workflow from the current `main` commit with the exact

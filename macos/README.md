@@ -152,7 +152,8 @@ every five minutes through the same reader, cache, two-reader limit,
 deadlines and process cleanup. Checks stop when both are off or the app
 quits, and no reader starts when no profile is initialized. Each check lists
 profiles first, so profiles created or removed outside the app join or leave
-the checks without opening the menu; it leaves the menu's status line alone.
+the checks without opening the menu. Once profiles have loaded, these checks
+leave the menu's status line alone.
 
 The app never switches profiles or accounts for you. It shows the numbers
 and you choose which profile to open. This is deliberate: Codex Profiles

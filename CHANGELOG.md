@@ -28,6 +28,13 @@ and this project follows semantic versioning for tagged releases.
 
 ### Changed
 
+- Redesigned the project website as a dark ASCII page drawn live with WebGL:
+  an orbiting planet with one moon per profile, live phase moons for each
+  Codex home, an install trajectory and a dawn horizon, all reacting to the
+  cursor. The menu bar section switches between the app's screenshot and real
+  `codex-profile usage` and `workspace list` output. Static ASCII art replaces
+  the scenes without WebGL or JavaScript, and the FAQ, project facts and safety
+  boundaries stay in the HTML.
 - Redesigned the macOS menu around profiles. Each profile now leads a group
   with its workspaces nested beneath it, replacing the profile filter, and a
   search selects its first match so Return's target is visible. Clicking a
@@ -38,6 +45,14 @@ and this project follows semantic versioning for tagged releases.
   darker orange or red when low so the number keeps its contrast, and the
   profile's actions list every window with its reset time. The popover is
   360 points wide, and previews render at 2x.
+- Improved search and AI discovery with consistent app/CLI metadata, a real
+  maintainer identity, linked setup and security sources, release-feed
+  discovery, and editorial dates distinct from software release dates.
+  CONTRIBUTING.md now covers the site checks, the GitHub Pages host-root
+  robots.txt and the search console handoff.
+- Allowed raw Markdown source links through release validation while retaining
+  exact release-tag requirements for executable installer references,
+  including percent-encoded installer paths.
 - Made the macOS menu-bar app the README's main entry point, with native
   previews, source installation and menu workflows before the CLI reference.
   Followed Best-README-Template's project, setup and contributor structure.
