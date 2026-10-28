@@ -20,6 +20,11 @@ final class WorkspaceStore {
 
     private(set) var phase: Phase = .idle
     private(set) var workspaces: [WorkspaceBinding] = []
+    /// Profile colours and symbols from the CLI. Profiles it has not
+    /// reported use their automatic appearance.
+    private(set) var appearances: [String: ProfileAppearance] = [:]
+    private var appearanceWrite: Task<Void, Never>?
+    private var pendingAppearanceWrites = 0
     private(set) var profiles: [String] = []
     private(set) var usage: [String: ProfileUsage] = [:] {
         didSet { if usage != oldValue { onUsageChange?() } }
@@ -41,7 +46,6 @@ final class WorkspaceStore {
     private let defaults: UserDefaults
     private let recentsKey = "workspaceRecents"
     private let pinsKey = "workspacePins"
-    private let appearanceKey = "profileAppearance"
     private var refreshTask: Task<Bool, Never>?
     private var refreshRequested = false
     /// Whether the refresh in flight reports progress and its outcome in the
@@ -83,22 +87,37 @@ final class WorkspaceStore {
         (defaults.stringArray(forKey: pinsKey) ?? []).contains(workspace.id)
     }
 
-    /// The profile's chosen colour and symbol, or its automatic appearance.
+    /// The profile's colour and symbol as the CLI last reported them, or its
+    /// automatic appearance.
     func appearance(for profile: String) -> ProfileAppearance {
-        let automatic = ProfileAppearance.automatic(for: profile)
-        guard let saved = defaults.dictionary(forKey: appearanceKey)?[profile] as? [String: String] else { return automatic }
-        return ProfileAppearance(
-            colour: saved["colour"].flatMap(ProfileAppearance.Colour.init) ?? automatic.colour,
-            symbol: saved["symbol"].flatMap(ProfileAppearance.Symbol.init) ?? automatic.symbol
-        )
+        appearances[profile] ?? .automatic(for: profile)
     }
 
-    /// Saves a profile's appearance; nil restores the automatic one.
-    func setAppearance(_ appearance: ProfileAppearance?, for profile: String) {
-        var saved = defaults.dictionary(forKey: appearanceKey) ?? [:]
-        saved[profile] = appearance.map { ["colour": $0.colour.rawValue, "symbol": $0.symbol.rawValue] }
-        defaults.set(saved, forKey: appearanceKey)
+    /// Saves through the CLI, which the prompt, Raycast and launchers read
+    /// too. The menu shows the choice at once; writes run in order, so quick
+    /// choices cannot land out of order. A refused write reloads what the CLI
+    /// holds rather than guessing. The returned task finishes with the write.
+    @discardableResult
+    func setAppearance(_ appearance: ProfileAppearance?, for profile: String) -> Task<Void, Never> {
+        appearances[profile] = appearance ?? .automatic(for: profile)
+        pendingAppearanceWrites += 1
         notify()
+        let earlier = appearanceWrite
+        let client = self.client
+        let write = Task { @MainActor in
+            await earlier?.value
+            do {
+                try await client.setAppearance(appearance, for: profile)
+            } catch {
+                statusMessage = error.localizedDescription
+                onError?(statusMessage)
+                if let loaded = try? await client.loadAppearances() { appearances = loaded }
+            }
+            pendingAppearanceWrites -= 1
+            notify()
+        }
+        appearanceWrite = write
+        return write
     }
 
     func usageState(for profile: String) -> UsageState {
@@ -259,7 +278,11 @@ final class WorkspaceStore {
         do {
             async let workspaceResponse = client.loadWorkspaces()
             async let profileResponse = client.loadProfiles()
+            async let appearanceResponse = client.loadAppearances()
             let (response, loadedProfiles) = try await (workspaceResponse, profileResponse)
+            // Appearance only decorates: a failed read keeps what is shown,
+            // and a write in flight is not overwritten by an older reading.
+            if let loaded = try? await appearanceResponse, pendingAppearanceWrites == 0 { appearances = loaded }
             workspaces = response.bindings
             profiles = loadedProfiles
             usage = usage.filter { profiles.contains($0.key) }
@@ -483,8 +506,10 @@ final class WorkspaceStore {
     }
 
     func loadPreview(_ bindings: [WorkspaceBinding], profiles previewProfiles: [String]? = nil, usage previewUsage: [String: ProfileUsage] = [:],
-                     readingUsage previewReading: Set<String> = [], changingPaths previewChanging: Set<String> = []) {
+                     readingUsage previewReading: Set<String> = [], changingPaths previewChanging: Set<String> = [],
+                     appearances previewAppearances: [String: ProfileAppearance] = [:]) {
         workspaces = bindings
+        appearances = previewAppearances
         profiles = Array(Set(previewProfiles ?? bindings.filter(\.profileExists).map(\.profile))).sorted()
         // Like refreshUsage, settle readings before usage observers run.
         readingUsage = previewReading

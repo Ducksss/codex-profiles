@@ -78,6 +78,44 @@ export function parseWorkspaceList(stdout: string): WorkspaceList {
   return { guardMode: typeof value.guard_mode === "string" ? value.guard_mode : "warn", bindings };
 }
 
+/**
+ * Profile colours as the menu-bar app draws its tiles, keyed by the names
+ * `codex-profile appearance` uses. Red, orange and yellow mean low quota and
+ * are not profile colours.
+ */
+export const PROFILE_COLOR_HEX: Readonly<Record<string, string>> = {
+  blue: "#0A6CDB",
+  indigo: "#4E4CC4",
+  purple: "#8944AB",
+  pink: "#C7255B",
+  teal: "#0B7A84",
+  green: "#24853B",
+  brown: "#86664A",
+  graphite: "#737378",
+};
+
+/** Parses `codex-profile appearance --json` into profile colours. Unknown colours are skipped. */
+export function parseAppearances(stdout: string): Map<string, string> {
+  let value: unknown;
+  try {
+    value = JSON.parse(stdout);
+  } catch {
+    throw new Error("codex-profile appearance returned output that is not JSON.");
+  }
+  if (!isRecord(value) || !Array.isArray(value.profiles)) {
+    throw new Error("codex-profile appearance returned JSON without a profiles list.");
+  }
+  const colors = new Map<string, string>();
+  for (const row of value.profiles) {
+    if (!isRecord(row)) continue;
+    const { profile, color } = row;
+    if (typeof profile !== "string" || typeof color !== "string" || !isValidProfileName(profile)) continue;
+    const hex = Object.hasOwn(PROFILE_COLOR_HEX, color) ? PROFILE_COLOR_HEX[color] : undefined;
+    if (hex) colors.set(profile, hex);
+  }
+  return colors;
+}
+
 /** Why a binding cannot open, or undefined when it can. */
 export function bindingProblem(binding: WorkspaceBinding): string | undefined {
   if (!binding.pathExists && !binding.profileExists) return "Folder and profile are missing";

@@ -14,6 +14,14 @@ and this project follows semantic versioning for tagged releases.
   initial; **Appearance…** in a profile's actions chooses one of eight
   colours and twelve symbols, applied at once. The palette leaves out red,
   orange and yellow, which mean low quota.
+- Added `codex-profile appearance` so a profile's colour and symbol live with
+  the CLI and every tool shows the same ones: the menu-bar app reads and
+  writes them there, `shell-init --prompt` puts a dot in the profile's colour
+  before `[codex:<profile>]` (omitted with `NO_COLOR`), `env` exports
+  `CODEX_PROFILE_COLOR`, Raycast's Open Profile tints each profile's icon,
+  and `launcher create` defaults to the profile's colour. Launcher colours
+  gain `indigo` and `brown`. Choices are stored privately in `appearance.tsv`
+  and forgotten by `remove`.
 - Added **Quota in menu bar**, an opt-in gear-menu toggle that shows the
   lowest remaining Codex quota beside the menu-bar icon and keeps usage
   current with the same five-minute background read as alerts.

@@ -364,11 +364,15 @@ struct MenuInteractionTests {
         expect(swatches.filter { $0.state == .on }.map(\.colour) == [automatic.colour]
             && symbolChoices.filter { $0.state == .on }.map(\.symbol) == [.monogram],
             "the current colour and symbol must be marked as chosen")
+        try? FileManager.default.removeItem(at: marker)
         swatches.first { $0.colour == .teal }!.performClick(nil)
         symbolChoices.first { $0.symbol == .flask }!.performClick(nil)
         let chosen = ProfileAppearance(colour: .teal, symbol: .flask)
-        expect(store.appearance(for: "work") == chosen && WorkspaceStore(client: CLIClient(executableURL: nil), defaults: defaults).appearance(for: "work") == chosen,
-            "choices must apply at once and persist")
+        expect(store.appearance(for: "work") == chosen, "choices must show at once")
+        // The CLI holds appearances for every tool; the shim records the last write.
+        let savedChoice = "appearance\nwork\n--color\nteal\n--symbol\nflask\n"
+        try await waitUntil { (try? String(contentsOf: marker, encoding: .utf8)) == savedChoice }
+        expect((try? String(contentsOf: marker, encoding: .utf8)) == savedChoice, "choices must be saved through the CLI, in the order made")
         expect(descendants(controller.view).compactMap { $0 as? AppearanceEditorView }.first === editor
             && swatches.filter { $0.state == .on }.map(\.colour) == [.teal],
             "a choice must update the editor in place, so focus stays put")
@@ -379,6 +383,8 @@ struct MenuInteractionTests {
         controller.editAppearance(of: "work")
         descendants(controller.view).compactMap { $0 as? NSButton }.first { $0.title == "Reset" }!.performClick(nil)
         expect(store.appearance(for: "work") == automatic, "Reset must restore the automatic appearance")
+        try await waitUntil { (try? String(contentsOf: marker, encoding: .utf8)) == "appearance\nwork\n--reset\n" }
+        expect((try? String(contentsOf: marker, encoding: .utf8)) == "appearance\nwork\n--reset\n", "Reset must be saved through the CLI")
         descendants(controller.view).compactMap { $0 as? NSButton }.first { $0.title == "Done" }!.performClick(nil)
         expect(descendants(controller.view).contains { $0 is LaunchRowButton } && !descendants(controller.view).contains { $0 is AppearanceEditorView },
             "Done must return to the list")

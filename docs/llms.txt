@@ -210,7 +210,9 @@ Profile rows show the tightest Codex CLI window's remaining percentage,
 reported duration and a ring; a window at 25% or less is highlighted and its
 reset countdown replaces the row description. The profile's actions menu lists
 every window. Hover for reset times. Each profile has a colour and symbol,
-automatic until chosen with Appearance… in its actions. An opt-in, default-off
+automatic until chosen with Appearance… in its actions or `codex-profile
+appearance <profile> --color <color> --symbol <symbol>`; the shell prompt,
+Raycast and new launchers use the same colour. An opt-in, default-off
 Quota in menu bar toggle shows the lowest remaining percentage beside the
 menu-bar icon and reads usage about every five minutes while on. Usage is read
 through the official app-server method account/rateLimits/read, cached in
@@ -274,8 +276,9 @@ histories, memories, connectors, plans, limits, or cloud tasks.
 ## Named and color-coded macOS launchers
 
 `codex-profile launcher create <profile> [--name <display-name>] [--color <color>]
-[--force]` creates a small unsigned app in `~/Applications` by default. Supported colors
-are blue, green, teal, purple, pink, red, orange, and graphite. The command
+[--force]` creates a small unsigned app in `~/Applications` by default. It takes
+the profile's appearance colour unless `--color` names blue, indigo, purple, pink,
+teal, green, brown, graphite, red, or orange. The command
 derives a deterministic tint from the installed ChatGPT icon locally and does
 not redistribute OpenAI artwork.
 
@@ -296,9 +299,15 @@ refuses while its managed launcher exists.
 
 - `codex-profile path <profile>` prints the profile's `CODEX_HOME` without
   creating it.
+- `codex-profile appearance [profile] [--color <color>] [--symbol <symbol>]
+  [--reset] [--json]` shows or sets the colour and symbol the menu-bar app,
+  shell prompt, Raycast and new launchers use. Without a choice, default is
+  graphite and other profiles take a stable colour from their name. Colours
+  are blue, indigo, purple, pink, teal, green, brown and graphite; red, orange
+  and yellow are reserved for low quota. It never reads authentication data.
 - `codex-profile remove <profile> [--yes]` permanently deletes that profile's
   home after a typed confirmation (or `--yes`) and clears its workspace
-  bindings. It refuses while another profile links its configuration or while
+  bindings and appearance. It refuses while another profile links its configuration or while
   its managed launcher exists.
 - `codex-profile logs <profile> [--path|--tail [lines]]` prints the named
   ChatGPT window's desktop log, its path, or its last lines (default 50).
