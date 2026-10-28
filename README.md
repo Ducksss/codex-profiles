@@ -133,7 +133,9 @@ profile crosses into low or critical. Both are off by default, and the app
 never switches profiles for you.
 
 Give each profile its own colour and symbol with **Appearance…** in its ⋯
-menu, so work and personal are easy to tell apart.
+menu, or `codex-profile appearance work --color teal`, so work and personal
+are easy to tell apart. The shell prompt, Raycast and new launchers use the
+same colour.
 
 For an unavailable reading, use **Sign in to Codex CLI…** in that profile's
 actions menu, then refresh. Quota follows the profile's **CLI sign-in**.

@@ -138,6 +138,22 @@ for shell in bash zsh fish; do
   complete_words launcher create client --color ''
   assert_contains graphite
   assert_not_contains client
+  assert_contains indigo
+  complete_words appearance ''
+  assert_contains client
+  complete_words appearance client --
+  assert_contains --color
+  assert_contains --symbol
+  assert_contains --reset
+  complete_words appearance client --color ''
+  assert_contains brown
+  assert_not_contains red
+  assert_not_contains client
+  complete_words appearance client --symbol ''
+  assert_contains briefcase
+  assert_not_contains client
+  complete_words appearance client --color teal ''
+  assert_not_contains client
   complete_words launcher create client --name ''
   assert_equals ''
   complete_words upgrade --

@@ -11,6 +11,7 @@ import {
   failureMessage,
   isUsableWorkspacePath,
   isValidProfileName,
+  parseAppearances,
   parseProfileList,
   parseWorkspaceList,
   type CommandOutput,
@@ -208,6 +209,8 @@ export interface ProfileEntry {
   name: string;
   /** CODEX_HOME, as printed by `codex-profile path`. */
   home?: string;
+  /** The profile's colour as a hex string, from `codex-profile appearance`. */
+  color?: string;
 }
 
 /** Initialized profile names from `codex-profile list`. */
@@ -217,19 +220,31 @@ async function listProfiles(cli: string, signal?: AbortSignal): Promise<string[]
   return parseProfileList(result.stdout);
 }
 
+/** Profile colours from `codex-profile appearance --json`, shared with the menu-bar app. */
+async function loadProfileColors(cli: string, signal?: AbortSignal): Promise<Map<string, string>> {
+  // Colours only decorate: a CLI without the command keeps plain icons.
+  try {
+    const result = await runCli(cli, ["appearance", "--json"], { signal, timeout: 10_000 });
+    return result.code === 0 ? parseAppearances(result.stdout) : new Map();
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    return new Map();
+  }
+}
+
 /** `codex-profile list`, then `codex-profile path <name>` for each initialized profile. */
 export async function loadProfiles(cli: string, signal?: AbortSignal): Promise<ProfileEntry[]> {
-  const names = await listProfiles(cli, signal);
+  const [names, colors] = await Promise.all([listProfiles(cli, signal), loadProfileColors(cli, signal)]);
   return Promise.all(
     names.map(async (name): Promise<ProfileEntry> => {
       // The home is optional decoration: one failed lookup keeps the list.
       try {
         const path = await runCli(cli, ["path", name], { signal, timeout: 10_000 });
         const home = path.code === 0 ? path.stdout.trim().split(/\r?\n/).pop() : undefined;
-        return { name, home: home && home.startsWith("/") ? home : undefined };
+        return { name, home: home && home.startsWith("/") ? home : undefined, color: colors.get(name) };
       } catch (error) {
         if (signal?.aborted) throw error;
-        return { name };
+        return { name, color: colors.get(name) };
       }
     }),
   );

@@ -54,10 +54,17 @@ Only explicitly adding a workspace asks for a folder. App-level setup,
 sign-in, the Return destination, Open at Login, Low-quota alerts, Quota in
 menu bar, About and Quit live in the gear menu.
 
-Each profile has a colour and a symbol. Until the person chooses, `default`
+Each profile has a colour and a symbol, stored by the CLI's `appearance`
+command so the prompt, Raycast and new launchers show the same ones. The menu
+reads them with every profile refresh and writes a choice through the CLI:
+the choice shows at once, writes run in order so quick choices cannot land
+out of order, a refresh never overwrites a write still in flight, and a
+refused write shows the CLI's reason and reloads what it holds. Until the
+person chooses, `default`
 is graphite and every other profile takes one of seven colours from an FNV-1a
 hash of its name, so the colour stays the same on every launch and does not
-shift when profiles are added; the symbol is the profile's initial. The
+shift when profiles are added; the symbol is the profile's initial. The app
+and the CLI compute this identically, which the real-CLI test checks. The
 palette of blue, indigo, purple, pink, teal, green, brown and graphite leaves
 out red, orange and yellow so they keep meaning low quota, and white symbols
 keep 4.5:1 contrast on every colour. Appearance… in a profile's actions
@@ -120,8 +127,8 @@ removal and relocation update affected rows before reloading, so a failed
 refresh cannot restore an old launch identity. Superseded or removed rows
 cannot launch. The CLI remains the only writer of profile and binding state;
 the GUI persists only its pins,
-recents, destination preference, profile colours and symbols, and its
-Low-quota alerts and menu-bar figure choices in UserDefaults. Profile-only launches start
+recents, destination preference, and its Low-quota alerts and menu-bar figure
+choices in UserDefaults. Profile colours and symbols belong to the CLI. Profile-only launches start
 in the home directory, avoiding accidental project-binding inheritance. Explicit
 workspace launches pass their folder to the CLI and preserve its guard rules.
 

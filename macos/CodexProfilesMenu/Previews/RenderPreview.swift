@@ -36,14 +36,15 @@ struct RenderPreview {
             ]), checkedAt: now)
         }
         // One healthy, one low and one critical profile show every meter state.
+        // Chosen colours and symbols, as in the design; new profiles get automatic ones.
         store.loadPreview(bindings, profiles: profiles, usage: [
             "default": sample(18, 36), "personal": sample(43, 78), "work": sample(93, 59),
+        ], appearances: [
+            "default": ProfileAppearance(colour: .graphite, symbol: .person),
+            "personal": ProfileAppearance(colour: .green, symbol: .house),
+            "work": ProfileAppearance(colour: .blue, symbol: .briefcase),
         ])
         if let first = bindings.first { store.togglePin(first) }
-        // Chosen colours and symbols, as in the design; new profiles get automatic ones.
-        store.setAppearance(ProfileAppearance(colour: .graphite, symbol: .person), for: "default")
-        store.setAppearance(ProfileAppearance(colour: .green, symbol: .house), for: "personal")
-        store.setAppearance(ProfileAppearance(colour: .blue, symbol: .briefcase), for: "work")
         if CommandLine.arguments.contains("--no-results") { store.query = "does-not-exist" }
 
         let controller = WorkspaceMenuViewController(store: store, defaults: defaults)

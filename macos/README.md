@@ -52,7 +52,9 @@ Each profile has a coloured tile. New profiles get a colour from their name,
 with `default` in graphite, and show their initial. **Appearance…** lets you
 choose one of eight colours and twelve symbols; changes apply at once and
 **Done** or Escape returns to the list. Red, orange and yellow are left out
-because they mean low quota.
+because they mean low quota. The choice is saved with `codex-profile
+appearance`, so the shell prompt, Raycast and new launchers use the same
+colour.
 Actions that cannot apply, such as revealing a missing folder, are disabled.
 
 Search receives focus when the menu opens. Typing selects the first

@@ -169,6 +169,28 @@ struct CodexProfilesMenuTests {
         expect(created && store.profiles == ["work-main"], "profile creation did not refresh the GUI")
         expect(store.workspaces.isEmpty && store.filteredTargets == [.profile("work-main")],
             "creating a profile must immediately make it launchable without binding a folder")
+        // Appearances live with the CLI, which must agree with the app on the
+        // automatic choice and keep a chosen one for every tool.
+        for name in ["personal", "client-a", "z"] { _ = await store.createProfile(name) }
+        let automaticFromCLI = try await client.loadAppearances()
+        expect(["work-main", "personal", "client-a", "z"].allSatisfy { automaticFromCLI[$0] == .automatic(for: $0) },
+            "the CLI and the app must pick the same automatic appearance")
+        let chosen = ProfileAppearance(colour: .teal, symbol: .flask)
+        await store.setAppearance(chosen, for: "work-main").value
+        let reopened = WorkspaceStore(client: client, defaults: defaults)
+        _ = await reopened.refresh()
+        expect(reopened.appearance(for: "work-main") == chosen, "a chosen appearance must persist through the CLI")
+        await store.setAppearance(nil, for: "work-main").value
+        _ = await reopened.refresh()
+        expect(reopened.appearance(for: "work-main") == .automatic(for: "work-main"), "a reset must reach the CLI")
+        await store.setAppearance(chosen, for: "missing-profile").value
+        expect(store.appearance(for: "missing-profile") == .automatic(for: "missing-profile") && store.statusMessage.contains("not initialized"),
+            "a refused write must show the CLI's reason and fall back to what the CLI holds")
+        for name in ["personal", "client-a", "z"] {
+            _ = try await ProcessRunner().run(executableURL: URL(fileURLWithPath: cliPath), arguments: ["remove", name, "--yes"])
+        }
+        _ = await store.refresh()
+
         let profileHome = URL(fileURLWithPath: home).appendingPathComponent(".codex-work-main")
         let permissions = try FileManager.default.attributesOfItem(atPath: profileHome.path)[.posixPermissions] as? NSNumber
         expect(permissions?.intValue == 0o700, "created profile is not private")
