@@ -306,6 +306,9 @@ struct CodexProfilesMenuTests {
         let store = fixture.store()
         expect(await store.refresh(), "store did not refresh")
         expect(store.guardMode == "warn", "workspace guard mode was not retained")
+        expect(!store.hasStatusNews, "a loaded store must rest on its prompt so the footer can show key hints")
+        store.showMessage("Copied workspace path")
+        expect(store.hasStatusNews, "a reported outcome must count as news")
         expect(store.filteredWorkspaces == [gamma, beta, alpha], "recent workspaces were not ordered")
         store.togglePin(alpha)
         expect(store.filteredWorkspaces == [alpha, gamma, beta], "pinned workspace did not precede recents")
@@ -313,13 +316,13 @@ struct CodexProfilesMenuTests {
         await restored.refresh()
         expect(restored.isPinned(alpha), "pin was not persisted")
         expect(restored.filteredWorkspaces == [alpha, gamma, beta], "restored pin ordering differs")
-        restored.selectedProfile = "work"
+        expect(restored.filteredTargets == [.profile("default"), .profile("personal"), .workspace(beta), .profile("work"), .workspace(alpha), .workspace(gamma)],
+            "each profile must lead its own workspaces, pinned first and then most recent")
         restored.query = "ALPHA"
-        expect(restored.filteredWorkspaces == [alpha], "profile and search filters were not combined")
-        restored.query = "beta"
-        expect(restored.filteredWorkspaces.isEmpty, "search bypassed the selected profile")
-        restored.selectedProfile = nil
-        expect(restored.filteredWorkspaces == [beta], "clearing profile filter did not restore search result")
+        expect(restored.filteredWorkspaces == [alpha] && restored.filteredTargets == [.workspace(alpha)],
+            "a search must ignore case and list a match without its unmatched profile")
+        restored.query = "personal"
+        expect(restored.filteredTargets == [.profile("personal"), .workspace(beta)], "a profile search must keep that profile's workspaces")
         restored.query = ""
         restored.togglePin(alpha)
         expect(restored.filteredWorkspaces == [gamma, beta, alpha], "unpin did not restore recency ordering")
@@ -334,7 +337,6 @@ struct CodexProfilesMenuTests {
         try fixture.writeWorkspaces([alpha])
         let store = fixture.store()
         await store.refresh()
-        store.selectedProfile = "work"
         try fixture.write("", to: "hold-refresh")
         try FileManager.default.removeItem(at: fixture.url("refresh-started"))
         let first = Task { await store.refresh() }
@@ -353,16 +355,14 @@ struct CodexProfilesMenuTests {
         expect(firstSucceeded && secondSucceeded, "queued refresh did not finish")
         expect(!FileManager.default.fileExists(atPath: fixture.url("refresh-overlap").path), "workspace loads overlapped")
         expect(try fixture.read("refresh-calls").split(whereSeparator: \.isNewline).count == 3, "overlapping requests did not produce one serial reload")
-        expect(store.selectedProfile == "work", "valid profile filter was cleared")
         try fixture.write("registry unavailable", to: "refresh-error")
         expect(!(await store.refresh()), "failed refresh reported success")
         expect(store.phase == .ready && store.workspaces == [alpha], "failed refresh discarded loaded content")
         expect(!store.isRefreshing && store.statusMessage.contains("registry unavailable"), "refresh error was not visible")
         try FileManager.default.removeItem(at: fixture.url("refresh-error"))
-        store.selectedProfile = "personal"
         try fixture.write("default\nwork\n", to: "profiles")
         await store.refresh()
-        expect(store.selectedProfile == nil, "removed profile filter was retained")
+        expect(store.profiles == ["default", "work"] && !store.filteredTargets.contains(.profile("personal")), "a removed profile was retained")
         try fixture.write("not json", to: "workspaces.json")
         expect(!(await store.refresh()), "invalid JSON was accepted")
         expect(store.workspaces == [alpha] && store.statusMessage.contains("Could not read workspace bindings"), "invalid JSON lost content or useful error")
@@ -491,9 +491,8 @@ struct CodexProfilesMenuTests {
         expect(await store.refresh(), "profiles could not load without workspace bindings")
         expect(store.filteredTargets == [.profile("default"), .profile("personal"), .profile("work")],
             "all initialized profiles must be offered before any folders are added")
-        store.selectedProfile = "work"
         store.query = "WORK"
-        expect(store.filteredTargets == [.profile("work")], "profile search and filtering must work without folders")
+        expect(store.filteredTargets == [.profile("work")], "profile search must work without folders")
         expect(await store.launch(.profile("work"), in: .chatGPT), "profile-only launch failed")
         expect(try fixture.read("arguments").hasSuffix("app\u{0}work\u{0}\n"),
             "profile launch must not fabricate a workspace argument")

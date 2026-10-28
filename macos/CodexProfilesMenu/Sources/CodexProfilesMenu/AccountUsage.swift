@@ -132,15 +132,20 @@ struct UsageState: Equatable {
         return nil
     }
 
-    /// The window that blocks first, once it is low enough to mention.
-    func constrainingWindow(at date: Date) -> RateLimitWindow? {
+    /// The window that blocks first. A passed reset leaves no current figure.
+    func tightestWindow(at date: Date) -> RateLimitWindow? {
         limits?.windows
-            .filter { !$0.hasReset(at: date) && $0.level != .normal }
+            .filter { !$0.hasReset(at: date) }
             .min { lhs, rhs in
                 lhs.remainingPercent != rhs.remainingPercent
                     ? lhs.remainingPercent < rhs.remainingPercent
                     : (lhs.resetsAt ?? 0) > (rhs.resetsAt ?? 0)
             }
+    }
+
+    /// The window that blocks first, once it is low enough to mention.
+    func constrainingWindow(at date: Date) -> RateLimitWindow? {
+        tightestWindow(at: date).flatMap { $0.level == .normal ? nil : $0 }
     }
 
     /// A compact row summary such as "5h limit low · resets in 1h 12m".

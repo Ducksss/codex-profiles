@@ -32,15 +32,19 @@ struct MenuInteractionTests {
         firstRunController.onRequestClose = { profileClosed = true }
         let profileRow = descendants(firstRunController.view).compactMap { $0 as? LaunchRowButton }.first!
         let usageView = descendants(profileRow).compactMap { $0 as? ProfileUsageView }.first!
-        expect(descendants(usageView).compactMap { $0 as? NSTextField }.map(\.stringValue) == ["5h", "77%", "7d", "9%"],
-            "profile rows must show remaining percentages and actual window durations")
+        let usageText = descendants(usageView).compactMap { $0 as? NSTextField }
+        expect(usageText.map(\.stringValue) == ["9%", "7d left"],
+            "profile rows must show the tightest window's remaining percentage and actual duration")
+        expect(usageText[0].attributedStringValue.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == QuotaPalette.critical,
+            "a critical window's figure must carry the critical colour")
+        expect(descendants(usageView).contains { $0 is QuotaRing }, "the figure must sit beside a ring")
         expect(profileRow.accessibilityLabel()!.contains("77% remaining") && profileRow.accessibilityLabel()!.contains("Resets"),
-            "quota and reset times must be available to accessibility clients")
+            "every window's quota and reset time must be available to accessibility clients")
         expect(usageView.toolTip!.contains("ChatGPT may use a different account") && usageView.toolTip!.contains("Checked"),
             "quota tooltips must explain sign-in scope and freshness")
         let profileArguments = try await launchArguments(recordedIn: marker, until: { profileClosed },
-            "a profile launch must dismiss the menu and record its arguments") { openButton(in: profileRow).performClick(nil) }
-        expect(profileArguments == "app\nwork\n", "a profile must open without supplying a workspace path")
+            "a profile launch must dismiss the menu and record its arguments") { profileRow.performClick(nil) }
+        expect(profileArguments == "app\nwork\n", "clicking a profile must open it without supplying a workspace path")
         expect(store.workspaces.isEmpty, "opening a profile must not create a workspace binding")
         store.loadPreview([], profiles: [])
         expect(descendants(firstRunController.view).compactMap { $0 as? NSButton }.contains { $0.title == "Create profile…" },
@@ -52,113 +56,118 @@ struct MenuInteractionTests {
         store.loadPreview([first, missing, last], usage: ["work": quota])
         store.togglePin(first)
         let controller = WorkspaceMenuViewController(store: store, defaults: defaults)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 480), styleMask: .borderless, backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 480), styleMask: .borderless, backing: .buffered, defer: false)
         window.contentViewController = controller
         window.setContentSize(controller.preferredContentSize)
         controller.view.layoutSubtreeIfNeeded()
         controller.focusSearch()
-        expect(controller.preferredContentSize.width == 400, "popover must retain compact reference width")
+        expect(controller.preferredContentSize.width == WorkspaceMenuViewController.width, "popover must retain its compact width")
         let allViews = descendants(controller.view)
         expect(!(controller.view is NSVisualEffectView) && !allViews.contains { $0 is NSVisualEffectView },
             "NSPopover must own its background material without a duplicate effect layer")
-        let title = allViews.compactMap { $0 as? NSTextField }.first { $0.stringValue == "Codex Profiles" }!
-        let options = allViews.compactMap { $0 as? NSButton }.first { $0.toolTip == "Options" }!
-        let titleCenter = controller.view.convert(NSPoint(x: title.bounds.midX, y: title.bounds.midY), from: title)
-        let optionsCenter = controller.view.convert(NSPoint(x: options.bounds.midX, y: options.bounds.midY), from: options)
-        expect(abs(titleCenter.y - optionsCenter.y) < 1, "title and options must share one compact header line")
-        let headerIcon = title.superview!.subviews.compactMap { $0 as? NSImageView }.first!
-        expect(isMonochrome(headerIcon.contentTintColor), "header symbol must use native monochrome tint")
         let searchFields = allViews.compactMap { $0 as? NSSearchField }
         expect(searchFields.count == 1, "workspace search must use native NSSearchField")
         let search = searchFields[0]
-        expect(allViews.contains { $0 is NSPopUpButton }, "profile filter must remain available")
-        expect(allViews.contains { $0 is NSSegmentedControl }, "launch destination must remain available")
+        let options = allViews.compactMap { $0 as? NSButton }.first { $0.toolTip == "Options" }!
+        let searchCenter = controller.view.convert(NSPoint(x: search.bounds.midX, y: search.bounds.midY), from: search)
+        let optionsCenter = controller.view.convert(NSPoint(x: options.bounds.midX, y: options.bounds.midY), from: options)
+        expect(abs(searchCenter.y - optionsCenter.y) < 1, "search and options must share one compact header line")
+        expect(allViews.compactMap { $0 as? NSTextField }.first { $0.stringValue == "Codex Profiles" }!.isHidden,
+            "search must take the title's place once there is something to search")
+        expect(!allViews.contains { $0 is NSPopUpButton || $0 is NSSegmentedControl },
+            "nesting and Command-Return replace the profile filter and destination control")
         let initialRows = descendants(controller.view).compactMap { $0 as? LaunchRowButton }
         let list = descendants(controller.view).compactMap { $0 as? NSScrollView }.first!
         let listWidth = list.contentView.bounds.width
-        expect(initialRows.count == 4, "initialized profiles and all bindings must be rendered")
+        expect(initialRows.map(\.item) == [.profile("work"), .workspace(first), .workspace(missing), .workspace(last)],
+            "workspaces must follow their profile, pinned first")
         expect(list.documentView!.bounds.height <= list.contentView.bounds.height + 1,
             "a short list must fit without clipping the last row or needing to scroll")
-        expect(initialRows.allSatisfy { abs($0.frame.width - listWidth) < 1 }, "workspace rows must fill the list width")
-        let separators = descendants(list).compactMap { $0 as? NSBox }.filter { $0.boxType == .separator }
-        // Profiles, pinned and other workspaces: only the two unpinned workspaces share a group.
-        expect(separators.count == 1, "rows within a group must have native separators; headings separate groups")
+        expect(initialRows.allSatisfy { abs($0.frame.width - listWidth) < 1 }, "rows must fill the list width")
+        expect(!descendants(list).contains { $0 is GroupDivider }, "one profile group needs no divider")
         let titleColumn = descendants(initialRows[0]).compactMap { $0 as? NSTextField }.first { $0.stringValue == "work" }!
         // Labels pad their frames; the alignment rect is where the text starts.
         let titleX = list.documentView!.convert(titleColumn.alignmentRect(forFrame: titleColumn.frame), from: titleColumn.superview).minX
-        expect(separators.allSatisfy {
-            let frame = list.documentView!.convert($0.bounds, from: $0)
-            return abs(frame.minX - titleX) < 1 && abs(frame.maxX - (listWidth - LaunchRowButton.contentInset)) < 1
-        }, "row separators must start at the title column and keep the trailing inset")
         let profileUsage = descendants(initialRows[0]).compactMap { $0 as? ProfileUsageView }.first!
-        let profileName = descendants(initialRows[0]).compactMap { $0 as? NSTextField }.first { $0.stringValue == "work" }!
-        let profileOpen = openButton(in: initialRows[0])
-        let nameFrame = initialRows[0].convert(profileName.bounds, from: profileName)
+        let profileActions = actionsButton(in: initialRows[0])
+        let nameFrame = initialRows[0].convert(titleColumn.bounds, from: titleColumn)
         let usageFrame = initialRows[0].convert(profileUsage.bounds, from: profileUsage)
-        let openFrame = initialRows[0].convert(profileOpen.bounds, from: profileOpen)
-        expect(usageFrame.width == ProfileUsageView.columnWidth && nameFrame.maxX <= usageFrame.minX && usageFrame.maxX < openFrame.minX,
-            "quota must fit beside the profile without obscuring its name or Open button")
+        let actionsFrame = initialRows[0].convert(profileActions.bounds, from: profileActions)
+        expect(nameFrame.maxX <= usageFrame.minX && usageFrame.maxX <= actionsFrame.minX && actionsFrame.maxX <= initialRows[0].bounds.maxX,
+            "quota must fit beside the profile without obscuring its name or actions")
+        expect(abs(initialRows[0].frame.height - 46) < 1, "profile rows must stay compact")
         for row in initialRows where row.item.workspace != nil {
             expect(!descendants(row).contains { $0 is ProfileUsageView }, "workspace rows must not duplicate account quota")
             let workspace = row.item.workspace!
             let labels = descendants(row).compactMap { $0 as? NSTextField }
             let name = labels.first { $0.stringValue == workspace.name }!
-            let path = labels.first { $0.stringValue == "\(workspace.profile) · \(workspace.displayPath())" }!
-            expect(abs(row.convert(name.bounds.origin, from: name).x - row.convert(path.bounds.origin, from: path).x) < 1,
-                "workspace profile and path must align with project title")
+            let detail = labels.first { $0.stringValue == (workspace.availabilityReason.map { "\($0) · " } ?? "") + workspace.displayPath() }!
+            expect(!labels.contains { $0.stringValue == workspace.profile }, "a nested workspace must not repeat its profile")
             let icon = descendants(row).compactMap { $0 as? NSImageView }.first!
+            expect(abs(list.documentView!.convert(icon.frame, from: icon.superview).minX - titleX) < 1,
+                "a nested workspace must start at its profile's title column")
             expect(isMonochrome(icon.contentTintColor), "folder and pin symbols must use native monochrome tint")
-            let open = openButton(in: row)
-            expect(open.controlSize == .small, "explicit Open action must use a compact native button")
-            expect(open.isEnabled == workspace.isAvailable, "Open availability must match workspace availability")
-            expect(abs(row.frame.height - (workspace.isAvailable ? 48 : 64)) < 1,
-                "rows must remain compact while leaving space for missing-folder guidance")
+            if workspace.isAvailable {
+                expect(abs(baseline(of: name) - baseline(of: detail)) < 1, "a workspace's name and path must share one line")
+                expect(actionsButton(in: row).alphaValue == 0, "resting rows must keep their actions out of sight")
+            } else {
+                expect(baseline(of: name) > baseline(of: detail) + 8, "a missing folder must explain itself on a second line")
+                expect(actionsButton(in: row).alphaValue == 1, "rows that need repair must always show their actions")
+                expect(descendants(row).compactMap { $0 as? NSButton }.contains { $0.title == "Locate…" }, "a missing folder must offer to locate it")
+            }
+            expect(row.isEnabled == workspace.isAvailable, "launching must match workspace availability")
+            expect(abs(row.frame.height - (workspace.isAvailable ? 30 : 44)) < 1,
+                "workspace rows must stay to one line unless they explain a missing folder")
         }
-        expect(initialRows.allSatisfy { !$0.isSelectedRow }, "opening must not paint an unsolicited grey selection")
-        expect(initialRows.first(where: { $0.item.workspace == missing })?.isEnabled == false, "missing workspace must not launch")
-        expect(descendants(initialRows.first(where: { $0.item.workspace == missing })!).contains { ($0 as? NSButton)?.toolTip?.contains("remove binding") == true }, "missing rows must retain an actions button")
+        expect(initialRows.allSatisfy { !$0.isSelectedRow }, "opening must not paint an unsolicited selection")
         expect(controller.handleShortcut(key(125)), "down arrow must be handled")
         expect(initialRows.first?.item == .profile("work") && initialRows.first?.isSelectedRow == true,
-            "first down arrow must select the profile before optional workspaces")
+            "first down arrow must select the profile before its workspaces")
         expect(controller.handleShortcut(key(125)), "next down arrow must be handled")
-        expect(initialRows.first(where: { $0.item.workspace == first })?.isSelectedRow == true,
-            "next down arrow must select the first available workspace")
+        let firstRow = initialRows.first { $0.item.workspace == first }!
+        expect(firstRow.isSelectedRow && actionsButton(in: firstRow).alphaValue == 1,
+            "next down arrow must select the first available workspace and reveal its actions")
         expect(controller.handleShortcut(key(125)), "second down arrow must be handled")
         expect(initialRows.first(where: { $0.item.workspace == last })?.isSelectedRow == true, "arrow must skip unavailable workspace")
-        let ruleBesideSelection = descendants(initialRows.first { $0.item.workspace == last }!.ruleAbove!).compactMap { $0 as? NSBox }.first!
-        expect(ruleBesideSelection.isHidden, "a rule beside the selected row must step aside for its plate")
+        expect(actionsButton(in: firstRow).alphaValue == 0, "actions must hide again once the selection moves on")
+        let footer = allViews.compactMap { $0 as? NSTextField }.first { $0.stringValue.hasPrefix("↩ ") }!
+        expect(footer.stringValue == "↩ Open last in ChatGPT  ·  ⌘↩ Terminal", "the footer must name what Return and Command-Return open")
         expect(controller.handleShortcut(key(126)), "up arrow must be handled")
-        expect(initialRows.first(where: { $0.item.workspace == first })?.isSelectedRow == true, "up arrow must restore prior selection")
-        expect(!ruleBesideSelection.isHidden, "a rule must return once neither neighbour is highlighted")
-        let actions = descendants(initialRows.first { $0.item.workspace == first }!).compactMap { $0 as? NSButton }.first { $0.toolTip?.contains("remove binding") == true }!
-        window.makeFirstResponder(actions)
+        expect(firstRow.isSelectedRow, "up arrow must restore prior selection")
+        window.makeFirstResponder(actionsButton(in: firstRow))
         expect(!controller.handleShortcut(key(36)), "Return on an actions button must retain its native action")
+        expect(!controller.handleShortcut(key(36, modifiers: .command)), "Command-Return on a native control must retain native behaviour")
         expect(!controller.handleShortcut(key(125)), "arrows on a native control must retain native behaviour")
         controller.focusSearch()
         expect(initialRows.allSatisfy { !$0.isSelectedRow }, "focusing search on reopening must clear old selection")
+        expect(footer.stringValue == "↩ Open in ChatGPT  ·  ⌘↩ Terminal", "without a selection the footer must describe both keys")
         expect(controller.handleShortcut(key(126)), "up arrow must be handled from an unselected list")
         expect(initialRows.first(where: { $0.item.workspace == last })?.isSelectedRow == true,
             "first up arrow must select the last available workspace")
         controller.focusSearch()
         search.stringValue = "last"
         expect(search.sendAction(search.action, to: search.target), "native search action must have a receiver")
-        expect(descendants(controller.view).compactMap { $0 as? LaunchRowButton }.count == 1, "search must replace list with matching workspace")
-        expect(descendants(controller.view).compactMap { $0 as? LaunchRowButton }.allSatisfy { !$0.isSelectedRow },
-            "typing a new search must clear prior keyboard selection")
+        let searchRows = descendants(controller.view).compactMap { $0 as? LaunchRowButton }
+        expect(searchRows.count == 1, "search must replace list with matching workspace")
+        expect(searchRows[0].isSelectedRow, "typing a search must select its first match so Return's target is visible")
+        expect(descendants(searchRows[0]).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "work" },
+            "a match listed without its profile must name the profile")
         search.stringValue = ""
         _ = search.sendAction(search.action, to: search.target)
         expect(store.query.isEmpty && descendants(controller.view).compactMap { $0 as? LaunchRowButton }.count == 4,
             "native search cancel action must restore all workspaces")
+        expect(descendants(controller.view).compactMap { $0 as? LaunchRowButton }.allSatisfy { !$0.isSelectedRow },
+            "clearing the search must leave the list unselected")
         search.stringValue = "does-not-exist"
         _ = search.sendAction(search.action, to: search.target)
         window.setContentSize(controller.preferredContentSize)
         controller.view.layoutSubtreeIfNeeded()
-        let reset = descendants(controller.view).compactMap { $0 as? NSButton }.first { $0.title == "Reset filters" }!
-        expect(controller.view.convert(reset.bounds, from: reset).minY >= 50,
-            "the no-match reset button must fit above the footer with padding")
-        reset.performClick(nil)
+        let clear = descendants(controller.view).compactMap { $0 as? NSButton }.first { $0.title == "Clear search" }!
+        expect(controller.view.convert(clear.bounds, from: clear).minY >= 50,
+            "the no-match button must fit above the footer with padding")
+        clear.performClick(nil)
         expect(store.query.isEmpty && descendants(controller.view).compactMap { $0 as? LaunchRowButton }.count == 4,
-            "reset filters must restore the profile and workspace rows")
+            "clearing the search must restore the profile and workspace rows")
         search.stringValue = "last"
         _ = search.sendAction(search.action, to: search.target)
         var closed = false
@@ -178,11 +187,11 @@ struct MenuInteractionTests {
         closed = false
         search.stringValue = "first"
         _ = search.sendAction(search.action, to: search.target)
-        let firstRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first!
+        let firstMatch = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first!
         let clickArgs = try await launchArguments(recordedIn: marker, until: { closed },
-            "successful explicit Open action must dismiss popover and record its arguments") { openButton(in: firstRow).performClick(nil) }
-        expect(clickArgs.contains(first.path), "Open must launch its own workspace")
-        expect(!clickArgs.contains(last.path), "Open must replace the prior launch arguments")
+            "a successful click must dismiss popover and record its arguments") { firstMatch.performClick(nil) }
+        expect(clickArgs.contains(first.path), "clicking must launch its own workspace")
+        expect(!clickArgs.contains(last.path), "clicking must replace the prior launch arguments")
         closed = false
         search.stringValue = "last"
         _ = search.sendAction(search.action, to: search.target)
@@ -230,6 +239,14 @@ struct MenuInteractionTests {
         }
         expect(borders[0] < 0.5 && borders[1] > 0.5 && borders[2] < 0.5,
             "custom row decoration must resolve semantic colours again when appearance changes")
+        // Emphasis colours resolve per appearance: darker in light mode for contrast, lighter in dark mode.
+        var criticalRed: [CGFloat] = []
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            NSAppearance(named: appearance)!.performAsCurrentDrawingAppearance {
+                criticalRed.append(QuotaPalette.critical.usingColorSpace(.sRGB)!.greenComponent)
+            }
+        }
+        expect(criticalRed[0] < 0.1 && criticalRed[1] > 0.3, "quota emphasis must adapt to light and dark appearance")
         let expired = ProfileUsage.available(CodexRateLimits(windows: [RateLimitWindow(usedPercent: 80, windowDurationMins: nil, resetsAt: 1)]), checkedAt: checkedAt)
         store.loadPreview([], profiles: ["very-long-profile-name-for-a-client", "work"], usage: [
             "work": expired, "very-long-profile-name-for-a-client": .unavailable(checkedAt: checkedAt),
@@ -239,13 +256,14 @@ struct MenuInteractionTests {
         let quotaRows = descendants(controller.view).compactMap { $0 as? LaunchRowButton }
         expect(descendants(quotaRows[0]).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "Unavailable" },
             "missing quota must say Unavailable rather than zero")
-        expect(openButton(in: quotaRows[0]).isEnabled, "unavailable quota must not disable Open")
-        expect(descendants(quotaRows[1]).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "—" },
+        expect(quotaRows[0].isEnabled, "unavailable quota must not prevent launching")
+        expect(descendants(quotaRows[1]).compactMap { $0 as? NSTextField }.map(\.stringValue).contains("—"),
             "a passed reset must not show stale percentages")
+        expect(descendants(controller.view).filter { $0 is GroupDivider }.count == 1, "separate profiles must be divided into groups")
         let longName = descendants(quotaRows[0]).compactMap { $0 as? NSTextField }.first { $0.stringValue == "very-long-profile-name-for-a-client" }!
         expect(longName.lineBreakMode == .byTruncatingTail && longName.toolTip == longName.stringValue,
             "long profile names must truncate while retaining the full name on hover")
-        store.loadPreview((0..<12).map { workspace("/projects/project-\($0)") })
+        store.loadPreview((0..<16).map { workspace("/projects/project-\($0)") })
         window.setContentSize(controller.preferredContentSize)
         controller.view.layoutSubtreeIfNeeded()
         let longList = descendants(controller.view).compactMap { $0 as? NSScrollView }.first!
@@ -253,38 +271,57 @@ struct MenuInteractionTests {
         expect(longList.documentView!.bounds.height > longList.contentView.bounds.height,
             "projects beyond the height limit must remain in the scrollable document")
 
+        // A workspace whose profile is missing follows the groups and names its profile.
+        let orphan = WorkspaceBinding(path: "/projects/orphan", profile: "gone", pathExists: true, profileExists: false)
+        store.loadPreview([first, orphan], profiles: ["work"])
+        let orphanRows = descendants(controller.view).compactMap { $0 as? LaunchRowButton }
+        expect(orphanRows.map(\.item) == [.profile("work"), .workspace(first), .workspace(orphan)]
+            && descendants(controller.view).filter { $0 is GroupDivider }.count == 1,
+            "a workspace without a listed profile must follow the profile groups after a divider")
+        expect(descendants(orphanRows[2]).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "gone" } && !orphanRows[2].isEnabled,
+            "a workspace without its profile must name it and refuse to launch")
+
         // Usage readings stream in after opening; they must not rebuild the list.
         store.loadPreview([first], profiles: ["work", "personal"], usage: ["work": quota])
-        let picker = descendants(controller.view).compactMap { $0 as? NSPopUpButton }.first!
-        let pickerItem = picker.item(at: 1)
         let stableRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first { $0.item == .profile("work") }!
         let lowQuota = ProfileUsage.available(CodexRateLimits(windows: [
             RateLimitWindow(usedPercent: 95, windowDurationMins: 300, resetsAt: checkedAt.addingTimeInterval(4320).timeIntervalSince1970),
         ]), checkedAt: checkedAt)
         store.loadPreview([first], profiles: ["work", "personal"], usage: ["work": lowQuota], readingUsage: ["work"])
         let updatedRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first { $0.item == .profile("work") }!
-        expect(updatedRow === stableRow && picker.item(at: 1) === pickerItem,
-            "a usage reading must update rows in place without rebuilding the list or the profile filter")
+        expect(updatedRow === stableRow, "a usage reading must update rows in place without rebuilding the list")
         let updatedText = descendants(updatedRow).compactMap { $0 as? NSTextField }.map(\.stringValue)
-        expect(updatedText.contains("5%") && updatedText.contains { $0.hasPrefix("5h limit low · resets in ") },
+        expect(updatedText.contains("5%") && updatedText.contains("5h left") && updatedText.contains { $0.hasPrefix("5h limit low · resets in ") },
             "the row must show the newer reading and when the low window resets")
         let refreshingUsage = descendants(updatedRow).compactMap { $0 as? ProfileUsageView }.first!
         expect(refreshingUsage.arrangedSubviews.allSatisfy { $0.alphaValue < 1 } && refreshingUsage.toolTip!.contains("Refreshing"),
             "a refresh must dim the previous reading rather than hide it")
-        expect(descendants(refreshingUsage).contains { $0 is QuotaMeter }, "each quota window must have a meter beside its percentage")
 
         // A row whose binding is changing shows progress and refuses launches.
         store.loadPreview([first, last], profiles: ["work"], usage: ["work": quota], changingPaths: [last.path])
         let changingRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first { $0.item.workspace == last }!
-        expect(!changingRow.isEnabled && openButton(in: changingRow).title == "Updating…" && !openButton(in: changingRow).isEnabled,
+        expect(!changingRow.isEnabled && descendants(changingRow).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "Updating…" },
             "a row being changed must show progress and refuse launches")
-        expect(descendants(changingRow).compactMap { $0 as? NSButton }.first { $0.toolTip?.contains("remove binding") == true }?.isEnabled == false,
-            "a row being changed must not accept another change")
+        expect(!actionsButton(in: changingRow).isEnabled, "a row being changed must not accept another change")
         controller.focusSearch()
         _ = controller.handleShortcut(key(125))
         _ = controller.handleShortcut(key(125))
         _ = controller.handleShortcut(key(125))
         expect(changingRow.isSelectedRow == false, "keyboard selection must skip a row being changed")
+
+        // The profile's actions list every window, which the row's single figure leaves out.
+        let usageMenu = controller.actionsMenu(for: .profile("work"))
+        let usageLines = usageMenu.items.prefix { !$0.isSeparatorItem }
+        expect(usageLines.map(\.title).first == "Codex CLI usage" && usageLines.allSatisfy { !$0.isEnabled }
+            && usageLines.contains { $0.title.hasPrefix("5h: 77% left · resets ") } && usageLines.contains { $0.title.hasPrefix("7d: 9% left · resets ") }
+            && usageLines.contains { $0.title.hasPrefix("Checked ") },
+            "profile actions must list each window's remaining quota, reset time and freshness as information")
+        let passed = ProfileUsage.available(CodexRateLimits(windows: [
+            RateLimitWindow(usedPercent: 60, windowDurationMins: 300, resetsAt: checkedAt.addingTimeInterval(-60).timeIntervalSince1970),
+        ]), checkedAt: checkedAt)
+        store.loadPreview([first, last], profiles: ["work"], usage: ["work": passed])
+        expect(controller.actionsMenu(for: .profile("work")).items.contains { $0.title.hasPrefix("5h: reset at ") && $0.title.hasSuffix(" · awaiting a fresh reading") },
+            "a window whose reset has passed must keep its reset time and say it awaits a fresh reading")
 
         // Disabled actions stay disabled through AppKit's menu validation.
         store.loadPreview([first, missing], profiles: ["work", "personal"])
@@ -303,12 +340,17 @@ struct MenuInteractionTests {
         let profileMenu = controller.actionsMenu(for: .profile("work"))
         expect(["Open in ChatGPT", "Open in Terminal", "Add workspace…", "Sign in to Codex CLI…"].allSatisfy { item($0, in: profileMenu).isEnabled },
             "profile actions must offer both destinations, a workspace shortcut and CLI sign-in")
+        let rowWithMenu = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first { $0.item.workspace == first }!
+        expect(rowWithMenu.menu(for: NSEvent.mouseEvent(with: .rightMouseDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0,
+            context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)?.items.contains { $0.title == "Copy path" } == true,
+            "right-clicking a row must offer the same actions as its actions button")
 
         // A row action opens the other destination without changing the default.
         defaults.set(OpenDestination.terminal.rawValue, forKey: "openDestination")
         let login = FakeLoginItem()
         let terminalController = WorkspaceMenuViewController(store: store, defaults: defaults, loginItem: login)
-        _ = terminalController.view
+        let terminalWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 480), styleMask: .borderless, backing: .buffered, defer: false)
+        terminalWindow.contentViewController = terminalController
         var terminalClosed = false
         terminalController.onRequestClose = { terminalClosed = true }
         let alternate = terminalController.actionsMenu(for: .profile("work"))
@@ -318,6 +360,24 @@ struct MenuInteractionTests {
         }
         expect(alternateArguments == "app\nwork\n", "Open in ChatGPT must launch ChatGPT while Terminal stays the default")
         expect(defaults.string(forKey: "openDestination") == OpenDestination.terminal.rawValue, "a row action must not change the default destination")
+        terminalController.focusSearch()
+        terminalClosed = false
+        let commandReturnArguments = try await launchArguments(recordedIn: marker, until: { terminalClosed },
+            "Command-Return must dismiss the menu and record its arguments") {
+            expect(terminalController.handleShortcut(key(36, modifiers: .command)), "Command-Return must be handled from search")
+        }
+        expect(commandReturnArguments == "app\npersonal\n", "Command-Return must open the first row in ChatGPT while Terminal is the default")
+        var returnOpens = item("Return opens in", in: terminalController.settingsMenu()).submenu!
+        expect(item("Terminal", in: returnOpens).state == .on && item("ChatGPT", in: returnOpens).state == .off,
+            "the options menu must show which destination Return opens")
+        returnOpens.performActionForItem(at: returnOpens.indexOfItem(withTitle: "ChatGPT"))
+        returnOpens = item("Return opens in", in: terminalController.settingsMenu()).submenu!
+        expect(defaults.string(forKey: "openDestination") == OpenDestination.chatGPT.rawValue && item("ChatGPT", in: returnOpens).state == .on,
+            "choosing a destination must persist it")
+        // A launch reports its outcome in the footer until the next reload.
+        store.loadPreview([first, missing], profiles: ["work", "personal"])
+        expect(descendants(terminalController.view).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "↩ Open in ChatGPT  ·  ⌘↩ Terminal" },
+            "the footer must follow the chosen destination")
 
         // Open at Login reflects and changes the login item.
         var settings = terminalController.settingsMenu()
@@ -442,8 +502,12 @@ struct MenuInteractionTests {
     private static func descendants(_ view: NSView) -> [NSView] {
         view.subviews.flatMap { [$0] + descendants($0) }
     }
-    private static func openButton(in row: LaunchRowButton) -> NSButton {
-        descendants(row).compactMap { $0 as? NSButton }.first { ["Open", "Opening…", "Updating…"].contains($0.title) }!
+    private static func actionsButton(in row: LaunchRowButton) -> NSButton {
+        descendants(row).compactMap { $0 as? NSButton }.first { $0.toolTip?.hasPrefix("Open elsewhere") == true }!
+    }
+    /// A label's first baseline in window coordinates, which run upwards.
+    private static func baseline(of label: NSTextField) -> CGFloat {
+        label.convert(label.bounds, to: nil).maxY - label.firstBaselineOffsetFromTop
     }
     /// Polls until a condition holds or 10 seconds pass. Work usually settles
     /// within milliseconds; the bound only absorbs a loaded machine, and the

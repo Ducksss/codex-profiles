@@ -9,6 +9,16 @@ and this project follows semantic versioning for tagged releases.
 
 ### Changed
 
+- Redesigned the macOS menu around profiles. Each profile now leads a group
+  with its workspaces nested beneath it, replacing the profile filter, and a
+  search selects its first match so Return's target is visible. Clicking a
+  row opens it; ⌘Return and ⌘-click open the other destination, and the gear
+  menu's **Return opens in** replaces the ChatGPT/Terminal control. Rows drop
+  their Open buttons and reveal actions on hover, selection or right-click.
+  Each profile shows its tightest Codex window as a figure and ring, in a
+  darker orange or red when low so the number keeps its contrast, and the
+  profile's actions list every window with its reset time. The popover is
+  360 points wide, and previews render at 2x.
 - Made the macOS menu-bar app the README's main entry point, with native
   previews, source installation and menu workflows before the CLI reference.
   Followed Best-README-Template's project, setup and contributor structure.

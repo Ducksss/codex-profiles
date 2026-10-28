@@ -29,7 +29,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://github.com/Ducksss/codex-profiles/raw/refs/heads/main/macos/CodexProfilesMenu/Previews/menu-dark.png">
-    <img src="https://github.com/Ducksss/codex-profiles/raw/refs/heads/main/macos/CodexProfilesMenu/Previews/menu-light.png" width="440" alt="Codex Profiles menu bar with personal and work profiles, remaining Codex quota, reset times and pinned project shortcuts.">
+    <img src="https://github.com/Ducksss/codex-profiles/raw/refs/heads/main/macos/CodexProfilesMenu/Previews/menu-light.png" width="360" alt="Codex Profiles menu with default, personal and work profiles, each showing its remaining Codex quota beside a ring, and project shortcuts nested under their profiles.">
   </picture>
   <br />
   <sub>Actual AppKit view with sample quota values. Light and dark appearance follow macOS.</sub>
@@ -111,8 +111,9 @@ notarisation, see the [macOS build guide](https://github.com/Ducksss/codex-profi
 1. Click the menu bar icon. Existing profiles appear automatically.
 2. Choose **New profile…** in the gear menu, or **Create profile…** if the list
    is empty. Give it a name such as `personal` or `work`.
-3. Select **ChatGPT**, click **Open** beside the profile and sign in inside
-   that window when prompted. Choose **Terminal** to start Codex CLI instead.
+3. Click the profile to open it in ChatGPT and sign in inside that window
+   when prompted. ⌘-click it, or press ⌘Return, to start Codex CLI in
+   Terminal instead.
 
 Different names can stay open side by side. Reopening a name keeps its local
 data, and `default` opens your normal ChatGPT session. Enable **Open at Login**
@@ -120,8 +121,10 @@ in the gear menu to keep the app available after you log in.
 
 ### Check quota before opening a profile
 
-**Codex left** shows remaining CLI quota. Low readings turn orange or red
-and show their reset time. Hover for details or press **⌘R** to refresh.
+Each profile shows the remaining CLI quota of its tightest window beside a
+ring. Low readings turn orange or red and show their reset time, and the
+profile's ⋯ menu lists every window. Hover for details or press **⌘R** to
+refresh.
 
 The menu bar icon gains a badge when a profile runs low. Turn on
 **Low-quota alerts** in the gear menu for a notification when a profile
@@ -137,10 +140,10 @@ for supported accounts and troubleshooting.
 
 ### Open a project with its profile
 
-Choose **Add workspace…**, select a folder and assign a profile. Pin the
-projects you use often, then search and click **Open** to return to them.
-The row's actions menu lets you change the profile, repair a moved folder or
-remove the shortcut. Bindings are local metadata and do not change project files.
+Choose **+**, select a folder and assign a profile. The project appears under
+its profile; pin the ones you use often, then search and click one, or press
+Return, to open it. The row's ⋯ menu, or a right-click, lets you change the
+profile, repair a moved folder or remove the shortcut. Bindings are local metadata and do not change project files.
 
 <details>
 <summary>Keyboard shortcuts and macOS controls</summary>
@@ -148,6 +151,7 @@ remove the shortcut. Bindings are local metadata and do not change project files
 | Shortcut | Action |
 | --- | --- |
 | ↑ / ↓, then Return | Select and open a profile or project |
+| ⌘Return or ⌘-click | Open in the other destination: Terminal, unless the gear menu's **Return opens in** chooses it for Return |
 | ⌘1–9 | Open the corresponding visible row |
 | ⌘K | Focus search |
 | ⌘R | Refresh profiles, projects and quota |
