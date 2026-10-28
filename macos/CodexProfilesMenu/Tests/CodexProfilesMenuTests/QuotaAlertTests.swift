@@ -15,6 +15,7 @@ enum QuotaAlertTests {
         await unansweredPermissionStopsWaiting()
         print("Checking background usage refresh only while alerts are on…")
         try await backgroundRefreshFollowsAlerts()
+        await figureKeepsReadingsFresh()
         print("Low-quota indicator, crossing, headroom and preference tests passed.")
     }
 
@@ -58,6 +59,20 @@ enum QuotaAlertTests {
             "a window must leave the icon once its reset passes, without a new reading")
         expect(QuotaIndicator(usage: ["personal": usage["personal"]!], profiles: ["personal"], at: now).level == .low,
             "a low window alone must show the low badge")
+        expect(indicator.figure == "8%" && indicator.lowest?.profile == "work" && empty.figure == nil,
+            "the optional figure must be the lowest remaining share across profiles, and absent without readings")
+
+        // The figure also covers a healthy window, which the badge ignores.
+        let healthy = QuotaIndicator(usage: ["healthy": usage["healthy"]!], profiles: ["healthy"], at: now)
+        let healthyReset = UsageFormat.clock(now.addingTimeInterval(600), relativeTo: now)
+        expect(healthy.level == .normal && healthy.alerts.isEmpty && healthy.figure == "80%" && healthy.nextChange == now.addingTimeInterval(600),
+            "a healthy window must leave the icon unbadged but give the figure, refreshed at its reset")
+        expect(healthy.toolTip(at: now) == "Codex Profiles"
+            && healthy.toolTip(at: now, showingFigure: true) == "Codex Profiles\nLowest: healthy: 5h limit at 80%, resets \(healthyReset)"
+            && healthy.accessibilityLabel(at: now, showingFigure: true) == "Codex Profiles. Lowest: healthy: 5h limit at 80%, resets \(healthyReset)",
+            "a shown figure must be named in the tooltip and to VoiceOver")
+        expect(indicator.toolTip(at: now, showingFigure: true) == indicator.toolTip(at: now),
+            "a lowest window already listed as low must not be repeated")
 
         let reached = QuotaIndicator(usage: ["work": reading([window(0, 300, resetIn: 600)])], profiles: ["work"], at: now)
         expect(reached.lines(at: now)[0].hasPrefix("work: 5h limit reached, resets "), "an exhausted window must say reached")
@@ -230,6 +245,9 @@ enum QuotaAlertTests {
             "turning alerts on must persist under a stable key")
         QuotaAlertPreferences(defaults: defaults).isEnabled = false
         expect(!QuotaAlertPreferences(defaults: reopened).isEnabled, "turning alerts off must persist")
+        expect(!QuotaAlertPreferences(defaults: defaults).showsFigure, "the menu-bar figure must default to off")
+        QuotaAlertPreferences(defaults: defaults).showsFigure = true
+        expect(reopened.bool(forKey: "menuBarQuotaFigure"), "showing the figure must persist under a stable key")
     }
 
     private static func controllerAsksOnlyWhenTurnedOn() async throws {
@@ -405,11 +423,21 @@ enum QuotaAlertTests {
         store.loadPreview([], profiles: ["work"], usage: ["work": reading([window(50, 300, resetIn: 3600, from: Date())], checkedAt: Date().addingTimeInterval(-120))])
         try await waitUntil { calls(fixture) == first + 1 && !store.isRefreshingUsage }
         expect(!(try fixture.isRunning("work")), "background reads must stop their app-servers")
+        // Each pass lists profiles quietly, so one created outside the app
+        // joins the checks without replacing the footer's message.
+        store.showMessage("Opened work in ChatGPT")
+        try fixture.write("work\npersonal\n", to: "profiles")
+        try fixture.write(#"{"guard_mode":"off","bindings":[]}"#, to: "workspaces.json")
+        try await waitUntil { store.usage["personal"] != nil && !store.isRefreshingUsage }
+        expect(store.profiles == ["work", "personal"] && store.usage["personal"] != nil,
+            "a profile created outside the app must join the background checks")
+        expect(store.statusMessage == "Opened work in ChatGPT", "background passes must not replace the footer's message")
         _ = await alerts.setEnabled(false)
         try await Task.sleep(nanoseconds: 150_000_000)
+        let stopped = calls(fixture)
         store.loadPreview([], profiles: ["work"], usage: ["work": reading([window(50, 300, resetIn: 3600, from: Date())], checkedAt: Date().addingTimeInterval(-120))])
         try await Task.sleep(nanoseconds: 250_000_000)
-        expect(calls(fixture) == first + 1, "turning alerts off must stop background reads")
+        expect(calls(fixture) == stopped, "turning alerts off must stop background reads")
 
         let empty = try UsageTests.Fixture()
         defer { empty.cleanup() }
@@ -450,6 +478,33 @@ enum QuotaAlertTests {
         }
 
         func post(_ notification: QuotaNotification) { posted.append(notification) }
+    }
+
+    /// The figure keeps readings fresh without alerts or notification permission.
+    private static func figureKeepsReadingsFresh() async {
+        let suite = WorkspaceStore.testSuiteName("QuotaFigure")
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        // Fresh readings stay cached, so background passes start no reader.
+        let store = WorkspaceStore(client: CLIClient(executableURL: nil), defaults: defaults)
+        let start = Date()
+        store.loadPreview([], profiles: ["work"], usage: ["work": reading([window(64, 300, resetIn: 3600, from: start)], checkedAt: start)])
+        let notifier = FakeNotifier()
+        let alerts = QuotaAlertController(store: store, notifier: notifier, defaults: defaults, refreshInterval: 3600)
+        var redraws = 0
+        alerts.onIndicatorChange = { _ in redraws += 1 }
+        alerts.start()
+        expect(!alerts.showsFigure && !store.isRefreshingUsageInBackground, "the figure must start off without background reads")
+        alerts.setShowsFigure(true)
+        expect(alerts.showsFigure && QuotaAlertPreferences(defaults: defaults).showsFigure && store.isRefreshingUsageInBackground && redraws > 0,
+            "showing the figure must persist, redraw the icon and keep readings fresh")
+        expect(notifier.permissionChecks == 0 && notifier.requests == 0, "the figure must never involve notification permission")
+        expect(alerts.indicator.figure == "64%", "the figure must show the lowest share even when nothing is low")
+        expect(await alerts.setEnabled(false) == .disabled && store.isRefreshingUsageInBackground,
+            "turning alerts off must keep the reads the figure needs")
+        alerts.setShowsFigure(false)
+        expect(!store.isRefreshingUsageInBackground, "hiding the figure with alerts off must stop background reads")
+        await store.stopUsageRefresh()
     }
 
     private static func calls(_ fixture: UsageTests.Fixture) -> Int {

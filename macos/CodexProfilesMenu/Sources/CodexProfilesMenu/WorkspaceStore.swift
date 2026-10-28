@@ -41,8 +41,13 @@ final class WorkspaceStore {
     private let defaults: UserDefaults
     private let recentsKey = "workspaceRecents"
     private let pinsKey = "workspacePins"
+    private let appearanceKey = "profileAppearance"
     private var refreshTask: Task<Bool, Never>?
     private var refreshRequested = false
+    /// Whether the refresh in flight reports progress and its outcome in the
+    /// status message. Background passes do not, so they never replace a
+    /// message the person is reading; a reporting caller that joins them does.
+    private var refreshReportsStatus = true
     private var hasLoaded = false
     private var usageTask: Task<Void, Never>?
     private var usageRefreshRequested = false
@@ -76,6 +81,24 @@ final class WorkspaceStore {
 
     func isPinned(_ workspace: WorkspaceBinding) -> Bool {
         (defaults.stringArray(forKey: pinsKey) ?? []).contains(workspace.id)
+    }
+
+    /// The profile's chosen colour and symbol, or its automatic appearance.
+    func appearance(for profile: String) -> ProfileAppearance {
+        let automatic = ProfileAppearance.automatic(for: profile)
+        guard let saved = defaults.dictionary(forKey: appearanceKey)?[profile] as? [String: String] else { return automatic }
+        return ProfileAppearance(
+            colour: saved["colour"].flatMap(ProfileAppearance.Colour.init) ?? automatic.colour,
+            symbol: saved["symbol"].flatMap(ProfileAppearance.Symbol.init) ?? automatic.symbol
+        )
+    }
+
+    /// Saves a profile's appearance; nil restores the automatic one.
+    func setAppearance(_ appearance: ProfileAppearance?, for profile: String) {
+        var saved = defaults.dictionary(forKey: appearanceKey) ?? [:]
+        saved[profile] = appearance.map { ["colour": $0.colour.rawValue, "symbol": $0.symbol.rawValue] }
+        defaults.set(saved, forKey: appearanceKey)
+        notify()
     }
 
     func usageState(for profile: String) -> UsageState {
@@ -182,9 +205,10 @@ final class WorkspaceStore {
     }
 
     private func refreshUsageInBackground() async {
-        // A login launch has not listed profiles yet; the menu refreshes the
-        // list whenever it opens.
-        if !hasLoaded { await refresh() }
+        // Each pass lists profiles first, so profiles created or removed
+        // outside the app join or leave the checks while the menu stays closed.
+        // It does so quietly, leaving the footer's message alone.
+        await refresh(quietly: hasLoaded)
         guard !profiles.isEmpty, !Task.isCancelled else { return }
         await refreshUsage()
     }
@@ -202,16 +226,18 @@ final class WorkspaceStore {
     }
 
     @discardableResult
-    func refresh() async -> Bool {
+    func refresh(quietly: Bool = false) async -> Bool {
         if let refreshTask {
             refreshRequested = true
+            if !quietly { refreshReportsStatus = true }
             return await refreshTask.value
         }
 
+        refreshReportsStatus = !quietly
         let task = Task { @MainActor in
             isRefreshing = true
             if !hasLoaded { phase = .loading }
-            statusMessage = "Refreshing profiles…"
+            if refreshReportsStatus { statusMessage = "Refreshing profiles…" }
             notify()
 
             var succeeded = false
@@ -240,11 +266,11 @@ final class WorkspaceStore {
             guardMode = response.guardMode
             hasLoaded = true
             phase = .ready
-            statusMessage = restingMessage
+            if refreshReportsStatus { statusMessage = restingMessage }
             return true
         } catch {
             if !hasLoaded { phase = .failed(error.localizedDescription) }
-            statusMessage = "Could not refresh: \(error.localizedDescription)"
+            if refreshReportsStatus { statusMessage = "Could not refresh: \(error.localizedDescription)" }
             return false
         }
     }

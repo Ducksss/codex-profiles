@@ -17,6 +17,7 @@ struct CodexProfilesMenuTests {
         try await testProfileOnlyLaunches()
         testTerminalPermissionErrorsAreActionable()
         testProfileNames()
+        testProfileAppearanceContrast()
         try await testProcessDrainsBothStreams()
         try await testProcessTerminationAndLaunchFailure()
         try await testCreatesAndBindsWithRealCLI()
@@ -99,6 +100,22 @@ struct CodexProfilesMenuTests {
     private static func testParsesProfiles() {
         let profiles = CLIClient.parseProfiles(Data("default\npersonal\nwork\n".utf8))
         expect(profiles == ["default", "personal", "work"], "profiles were not parsed")
+    }
+
+    /// White symbols sit on every profile colour, so each must keep the
+    /// WCAG 4.5:1 contrast for normal text that the initial needs.
+    private static func testProfileAppearanceContrast() {
+        func linear(_ value: Double) -> Double { value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4) }
+        for colour in ProfileAppearance.Colour.allCases {
+            let (red, green, blue) = colour.components
+            let luminance = 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+            let contrast = 1.05 / (luminance + 0.05)
+            expect(contrast >= 4.5, "white on \(colour.rawValue) has \(contrast):1 contrast, below 4.5:1")
+        }
+        expect(ProfileAppearance.automatic(for: "default") == ProfileAppearance(colour: .graphite, symbol: .monogram)
+            && ProfileAppearance.automatic(for: "client-a") == ProfileAppearance.automatic(for: "client-a")
+            && ProfileAppearance.automatic(for: "client-a").colour != .graphite,
+            "automatic colours must be stable, graphite only for default")
     }
 
     private static func testProfileNames() {

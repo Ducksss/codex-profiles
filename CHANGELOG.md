@@ -7,6 +7,17 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- Gave each macOS menu profile a colour and symbol. New profiles get a
+  stable colour from their name, with `default` in graphite, and show their
+  initial; **Appearance…** in a profile's actions chooses one of eight
+  colours and twelve symbols, applied at once. The palette leaves out red,
+  orange and yellow, which mean low quota.
+- Added **Quota in menu bar**, an opt-in gear-menu toggle that shows the
+  lowest remaining Codex quota beside the menu-bar icon and keeps usage
+  current with the same five-minute background read as alerts.
+
 ### Changed
 
 - Redesigned the project website as a dark ASCII page drawn live with WebGL:

@@ -74,12 +74,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// The icon is a template image either way; a low quota adds a badge shape,
     /// and the tooltip and accessibility label name each profile and window.
+    /// When chosen, the lowest remaining share follows the icon in menu-bar text.
     private func updateStatusItem(_ indicator: QuotaIndicator) {
-        guard let button = statusItem?.button else { return }
+        guard let item = statusItem, let button = item.button else { return }
         let now = Date()
-        let label = indicator.accessibilityLabel(at: now)
+        let figure = alerts.showsFigure ? indicator.figure : nil
+        let label = indicator.accessibilityLabel(at: now, showingFigure: figure != nil)
         button.image = StatusItemIcon.image(for: indicator.level, accessibilityDescription: label)
-        button.toolTip = indicator.toolTip(at: now)
+        button.title = figure ?? ""
+        button.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        button.imagePosition = figure == nil ? .imageOnly : .imageLeading
+        item.length = figure == nil ? NSStatusItem.squareLength : NSStatusItem.variableLength
+        button.toolTip = indicator.toolTip(at: now, showingFigure: figure != nil)
         button.setAccessibilityLabel(label)
     }
 

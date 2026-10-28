@@ -40,20 +40,27 @@ struct QuotaIndicator: Equatable {
 
     /// Most constrained first.
     let alerts: [QuotaAlert]
+    /// The tightest window across profiles, low or not, for the optional
+    /// figure beside the icon.
+    let lowest: QuotaAlert?
     /// The earliest reset among them, when the icon must be re-evaluated.
     let nextChange: Date?
 
     var level: QuotaLevel { alerts.map(\.level).max() ?? .normal }
 
-    init(alerts: [QuotaAlert], nextChange: Date?) {
+    /// The lowest remaining share, such as "7%".
+    var figure: String? { lowest.map { "\($0.window.remainingPercent)%" } }
+
+    init(alerts: [QuotaAlert], lowest: QuotaAlert? = nil, nextChange: Date?) {
         self.alerts = alerts
+        self.lowest = lowest
         self.nextChange = nextChange
     }
 
     init(usage: [String: ProfileUsage], profiles: [String], at now: Date) {
-        let alerts = profiles.compactMap { profile -> QuotaAlert? in
+        let tightest = profiles.compactMap { profile -> QuotaAlert? in
             let state = UsageState(reading: usage[profile])
-            guard let window = state.constrainingWindow(at: now),
+            guard let window = state.tightestWindow(at: now),
                   let index = state.limits?.windows.firstIndex(of: window) else { return nil }
             return QuotaAlert(profile: profile, window: window, slot: QuotaAlert.slot(of: window, at: index))
         }.sorted { lhs, rhs in
@@ -61,7 +68,11 @@ struct QuotaIndicator: Equatable {
                 ? lhs.window.remainingPercent < rhs.window.remainingPercent
                 : lhs.profile < rhs.profile
         }
-        self.init(alerts: alerts, nextChange: alerts.compactMap(\.window.resetsAt).min().map(Date.init(timeIntervalSince1970:)))
+        let alerts = tightest.filter { $0.level != .normal }
+        // Removing a window can only raise a profile's tightest figure, so the
+        // lowest changes only when its own window resets.
+        let resets = (alerts + tightest.prefix(1)).compactMap(\.window.resetsAt)
+        self.init(alerts: alerts, lowest: tightest.first, nextChange: resets.min().map(Date.init(timeIntervalSince1970:)))
     }
 
     /// Seconds until the icon must be re-evaluated: just after the earliest
@@ -77,15 +88,19 @@ struct QuotaIndicator: Equatable {
         return alerts.count > 4 ? shown + ["and \(alerts.count - 4) more"] : shown
     }
 
-    func toolTip(at now: Date) -> String {
-        (["Codex Profiles"] + lines(at: now)).joined(separator: "\n")
+    /// With the figure shown, a lowest window that is not low gets its own line.
+    func toolTip(at now: Date, showingFigure: Bool = false) -> String {
+        var shown = ["Codex Profiles"] + lines(at: now)
+        if showingFigure, let lowest, !alerts.contains(lowest) { shown.append("Lowest: " + lowest.description(at: now)) }
+        return shown.joined(separator: "\n")
     }
 
     /// Names each profile and window, so the state never depends on the icon alone.
-    func accessibilityLabel(at now: Date) -> String {
+    func accessibilityLabel(at now: Date, showingFigure: Bool = false) -> String {
         let lines = lines(at: now)
-        guard !lines.isEmpty else { return "Codex Profiles" }
-        return "Codex Profiles. Low Codex quota: " + lines.joined(separator: "; ")
+        var label = lines.isEmpty ? "Codex Profiles" : "Codex Profiles. Low Codex quota: " + lines.joined(separator: "; ")
+        if showingFigure, let lowest { label += ". Lowest: " + lowest.description(at: now) }
+        return label
     }
 }
 
@@ -232,11 +247,18 @@ struct QuotaNotification: Equatable {
 /// asks for notification permission until the person turns alerts on.
 struct QuotaAlertPreferences {
     static let enabledKey = "lowQuotaAlerts"
+    static let figureKey = "menuBarQuotaFigure"
     let defaults: UserDefaults
 
     var isEnabled: Bool {
         get { defaults.bool(forKey: Self.enabledKey) }
         nonmutating set { defaults.set(newValue, forKey: Self.enabledKey) }
+    }
+
+    /// Whether the menu-bar icon shows the lowest remaining share. Off by default.
+    var showsFigure: Bool {
+        get { defaults.bool(forKey: Self.figureKey) }
+        nonmutating set { defaults.set(newValue, forKey: Self.figureKey) }
     }
 }
 
@@ -288,6 +310,10 @@ final class QuotaAlertController {
     private var indicatorTimer: Task<Void, Never>?
 
     var isEnabled: Bool { preferences.isEnabled }
+    /// Whether the menu-bar icon shows the lowest remaining share. While it
+    /// does, usage is read in the background as for alerts, so the figure
+    /// stays current; no notification permission is involved.
+    var showsFigure: Bool { preferences.showsFigure }
 
     /// Alerts are on, but macOS will not show them: permission was denied, or
     /// was never granted to this copy of the app.
@@ -304,13 +330,28 @@ final class QuotaAlertController {
         store.onUsageChange = { [weak self] in self?.usageDidChange() }
     }
 
-    /// Shows the current state and resumes background reads if alerts are on.
-    /// Turning alerts on is the only path that asks for permission.
+    /// Shows the current state and resumes background reads if alerts or the
+    /// figure are on. Turning alerts on is the only path that asks for permission.
     func start() {
         updateIndicator(at: Date())
+        updateBackgroundRefresh()
         guard isEnabled else { return }
-        store.startBackgroundUsageRefresh(every: refreshInterval)
         Task { await refreshPermission() }
+    }
+
+    func setShowsFigure(_ shown: Bool) {
+        preferences.showsFigure = shown
+        updateBackgroundRefresh()
+        onIndicatorChange?(indicator)
+    }
+
+    /// Background reads run while alerts or the figure need fresh readings.
+    private func updateBackgroundRefresh() {
+        if isEnabled || showsFigure {
+            store.startBackgroundUsageRefresh(every: refreshInterval)
+        } else {
+            store.stopBackgroundUsageRefresh()
+        }
     }
 
     /// Notices permission changed in System Settings since the last check.
@@ -324,7 +365,7 @@ final class QuotaAlertController {
         guard enabled else {
             preferences.isEnabled = false
             permission = nil
-            store.stopBackgroundUsageRefresh()
+            updateBackgroundRefresh()
             tracker.reset()
             return .disabled
         }

@@ -225,7 +225,10 @@ Finder launches without a separately installed Codex CLI on PATH.
 Profile rows show the tightest Codex CLI window's remaining percentage,
 reported duration and a ring; a window at 25% or less is highlighted and its
 reset countdown replaces the row description. The profile's actions menu lists
-every window. Hover for reset times. Usage is read
+every window. Hover for reset times. Each profile has a colour and symbol,
+automatic until chosen with Appearance… in its actions. An opt-in, default-off
+Quota in menu bar toggle shows the lowest remaining percentage beside the
+menu-bar icon and reads usage about every five minutes while on. Usage is read
 through the official app-server method account/rateLimits/read, cached in
 memory for 60 seconds and refreshed with Command-R; a refresh keeps the
 previous reading visible. Missing usage does not disable launches. The

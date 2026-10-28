@@ -45,7 +45,14 @@ Every row's actions menu offers **Open in ChatGPT** and **Open in Terminal**,
 which use that destination once without changing the default. **Return opens
 in** in the gear menu sets the default; ChatGPT is the default until you
 change it. Profile rows also list each Codex window with its reset time, and
-offer **Add workspace…** for that profile and **Sign in to Codex CLI…**.
+offer **Add workspace…** for that profile, **Appearance…** and **Sign in to
+Codex CLI…**.
+
+Each profile has a coloured tile. New profiles get a colour from their name,
+with `default` in graphite, and show their initial. **Appearance…** lets you
+choose one of eight colours and twelve symbols; changes apply at once and
+**Done** or Escape returns to the list. Red, orange and yellow are left out
+because they mean low quota.
 Actions that cannot apply, such as revealing a missing folder, are disabled.
 
 Search receives focus when the menu opens. Typing selects the first
@@ -111,6 +118,12 @@ stays an upper bound on what is left: the badge never overstates the remaining
 quota, but a profile can run lower than it shows until the next reading. The
 icon needs no permission and starts no reads of its own.
 
+**Quota in menu bar** in the gear menu shows the lowest remaining percentage
+across your profiles beside the icon, such as `7%`, even when nothing is low.
+It is off by default. While it is on, the app checks usage about every five
+minutes, like alerts, so the figure stays current; it needs no notification
+permission and never switches profiles.
+
 **Low-quota alerts** in the gear menu adds macOS notifications. It is off by
 default, and macOS asks for notification permission only when you turn it on.
 If notifications are not allowed, alerts stay off and the app explains how to
@@ -132,11 +145,13 @@ profile has at least 50% of the same window left in a reading under 15
 minutes old, it also says so, for example `personal has 70% left.` Clicking
 the notification opens the menu.
 
-While alerts are on, the app checks usage about every five minutes through
-the same reader, cache, two-reader limit, deadlines and process cleanup.
-Checks stop when alerts are turned off or the app quits, and no reader starts
-when no profile is initialized. A login launch lists profiles once; profiles
-created outside the app join the checks the next time the menu opens.
+While alerts or **Quota in menu bar** are on, the app checks usage about
+every five minutes through the same reader, cache, two-reader limit,
+deadlines and process cleanup. Checks stop when both are off or the app
+quits, and no reader starts when no profile is initialized. Each check lists
+profiles first, so profiles created or removed outside the app join or leave
+the checks without opening the menu. Once profiles have loaded, these checks
+leave the menu's status line alone.
 
 The app never switches profiles or accounts for you. It shows the numbers
 and you choose which profile to open. This is deliberate: Codex Profiles
@@ -172,6 +187,7 @@ provided by NSPopover and depends on macOS appearance and accessibility settings
 
 <img src="CodexProfilesMenu/Previews/menu-light.png" width="360" alt="Native profile and workspace menu in light appearance">
 <img src="CodexProfilesMenu/Previews/menu-dark.png" width="360" alt="Native profile and workspace menu in dark appearance">
+<img src="CodexProfilesMenu/Previews/menu-appearance.png" width="360" alt="Choosing a profile's colour and symbol in light appearance">
 
 See the [design notes](CodexProfilesMenu/DESIGN.md) for Apple guidance and
 interaction behaviour. Re-render the previews after changing the view:
@@ -179,6 +195,7 @@ interaction behaviour. Re-render the previews after changing the view:
 ```sh
 scripts/macos/render-menu-preview.sh macos/CodexProfilesMenu/Previews/menu-light.png
 scripts/macos/render-menu-preview.sh macos/CodexProfilesMenu/Previews/menu-dark.png --dark
+scripts/macos/render-menu-preview.sh macos/CodexProfilesMenu/Previews/menu-appearance.png --appearance
 ```
 
 ## Build locally
