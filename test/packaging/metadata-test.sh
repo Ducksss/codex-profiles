@@ -122,9 +122,24 @@ grep -F "github:Ducksss/codex-profiles/v$version" docs/llms.txt >/dev/null \
   || fail "docs/llms.txt Nix install is not pinned to v$version"
 grep -F "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" install.sh >/dev/null \
   || fail "install.sh usage is not pinned to v$version"
-installer_reference_probe='https://raw.githubusercontent.com/Ducksss/codex-profiles/feature/nested/install.sh?download=1#fragment'
-[[ "$(printf '%s\n' "$installer_reference_probe" | grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^[:space:]]+')" == "$installer_reference_probe" ]] \
-  || fail "installer reference validation misses nested paths, queries, or fragments"
+# Raw links to Markdown sources may track main; installer links, including
+# percent-encoded ones such as install%2Esh, must name the release exactly.
+installer_references() {
+  local raw_reference
+  while IFS= read -r raw_reference; do
+    if [[ "$(printf '%b' "${raw_reference//%/\\x}" 2> /dev/null)" == */install.sh* ]]; then
+      printf '%s\n' "$raw_reference"
+    fi
+  done < <(grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^[:space:]]+' "$1" || true)
+}
+for installer_reference_probe in \
+  'https://raw.githubusercontent.com/Ducksss/codex-profiles/feature/nested/install.sh?download=1#fragment' \
+  'https://raw.githubusercontent.com/Ducksss/codex-profiles/main/install%2Esh'; do
+  [[ "$(installer_references <(printf '%s\n' "$installer_reference_probe"))" == "$installer_reference_probe" ]] \
+    || fail "installer reference validation misses $installer_reference_probe"
+done
+[[ -z "$(installer_references <(printf '%s\n' 'https://raw.githubusercontent.com/Ducksss/codex-profiles/main/README.md'))" ]] \
+  || fail "installer reference validation flags a raw Markdown source"
 nix_reference_probe='github:Ducksss/codex-profiles/feature/path?dir=package#fragment'
 [[ "$(printf '%s\n' "$nix_reference_probe" | grep -Eo 'github:Ducksss/codex-profiles[^[:space:]]*')" == "$nix_reference_probe" ]] \
   || fail "Nix reference validation misses paths, queries, or fragments"
@@ -132,7 +147,7 @@ for public_document in README.md docs/llms.txt install.sh; do
   while IFS= read -r installer_reference; do
     [[ "$installer_reference" == "https://raw.githubusercontent.com/Ducksss/codex-profiles/v$version/install.sh" ]] \
       || fail "$public_document publishes non-release installer reference $installer_reference"
-  done < <(grep -Eo 'https://raw\.githubusercontent\.com/Ducksss/codex-profiles/[^[:space:]]+' "$public_document" || true)
+  done < <(installer_references "$public_document")
   while IFS= read -r nix_reference; do
     [[ "$nix_reference" == "github:Ducksss/codex-profiles/v$version" ]] \
       || fail "$public_document publishes non-release Nix reference $nix_reference"
