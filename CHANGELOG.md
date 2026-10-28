@@ -27,6 +27,9 @@ and this project follows semantic versioning for tagged releases.
   `codex-profile usage` and `workspace list` output. Static ASCII art replaces
   the scenes without WebGL or JavaScript, and the FAQ, project facts and safety
   boundaries stay in the HTML.
+- Redrew the link preview image to match: the site's ASCII planet and its
+  default, personal and work moons, drawn by the page's own WebGL engine, with
+  the headline and the three Codex homes.
 - Redesigned the macOS menu around profiles. Each profile now leads a group
   with its workspaces nested beneath it, replacing the profile filter, and a
   search selects its first match so Return's target is visible. Clicking a
