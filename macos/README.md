@@ -68,7 +68,8 @@ popover.
 **Keyboard shortcut ⌃⌥⌘P** in the gear menu opens the menu from any app. It
 is off by default because a global shortcut takes those keys from every other
 app; if another app already uses them, the app says so and leaves it off. It
-needs no Accessibility permission.
+needs no Accessibility permission. P is whichever key types P in your keyboard
+layout, so Dvorak and Colemak work too.
 
 Profile-only launches start in the home directory. Adding a project shortcut
 is a separate action; creating a profile never opens a folder picker unless

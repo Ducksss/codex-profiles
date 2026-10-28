@@ -30,7 +30,8 @@ and this project follows semantic versioning for tagged releases.
   low-quota notifications. It only suggests and never switches profiles.
 - Added an opt-in **Keyboard shortcut ⌃⌥⌘P** in the gear menu that opens the
   menu from any app. It needs no Accessibility permission, stays off by
-  default, and is refused with a message when another app holds the keys.
+  default, follows the keyboard layout's P, and is refused with a message
+  when another app holds the keys.
 
 ### Changed
 

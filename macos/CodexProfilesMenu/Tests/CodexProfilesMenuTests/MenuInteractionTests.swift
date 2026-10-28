@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import Foundation
 
 @MainActor
@@ -463,6 +464,19 @@ struct MenuInteractionTests {
             expect(GlobalShortcut(action: {}) != nil, "released keys must be available again")
         } else {
             print("Skipping global shortcut registration: \(GlobalShortcut.label) is held by another app.")
+        }
+        // The shortcut uses the key that types P with Command held.
+        for (layout, key, reason) in [
+            ("com.apple.keylayout.US", kVK_ANSI_P, "US must use the P key"),
+            ("com.apple.keylayout.Dvorak", kVK_ANSI_R, "Dvorak must use its own P, on QWERTY's R key"),
+            ("com.apple.keylayout.DVORAK-QWERTYCMD", kVK_ANSI_P, "Dvorak – QWERTY ⌘ must keep QWERTY's P under Command"),
+        ] {
+            let filter = [kTISPropertyInputSourceID as String: layout] as CFDictionary
+            guard let source = (TISCreateInputSourceList(filter, true)?.takeRetainedValue() as? [TISInputSource])?.first else {
+                print("Skipping \(layout): the layout is not installed.")
+                continue
+            }
+            expect(GlobalShortcut.keyCode(in: source) == UInt32(key), reason)
         }
 
         // Open at Login reflects and changes the login item.

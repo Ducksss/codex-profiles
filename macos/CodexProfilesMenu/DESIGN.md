@@ -115,9 +115,12 @@ rows, Command-K focuses search, Command-R refreshes, and Escape clears search
 before closing. An opt-in gear-menu toggle registers Control-Option-Command-P
 as a global shortcut that opens or closes the menu from any app. It uses the
 Carbon hot-key API, so it needs no Accessibility or Input Monitoring
-permission. A global shortcut overrides the same keys in every app, so it is
-off by default; keys another app already holds are refused with a message,
-and a shortcut taken since the last launch is turned off at launch.
+permission. The key is whichever one types P with Command held in the current
+layout, resolved again when the layout changes, so Dvorak and Colemak use their
+own P and "Dvorak – QWERTY ⌘" keeps QWERTY's. A global shortcut overrides the
+same keys in every app, so it is off by default; keys another app already
+holds are refused with a message, and a shortcut taken since the last launch is
+turned off at launch.
 Successful launches dismiss the popover. Failed launches leave the error
 visible. Folder pickers and About dismiss the menu before opening; alerts can
 remain above it. Dialogs and native menus retain their own keyboard handling.
