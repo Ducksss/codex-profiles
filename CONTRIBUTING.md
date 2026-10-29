@@ -145,8 +145,9 @@ which holds only `robots.txt`: it allows every crawler and advertises this
 sitemap. Change crawler policy there, keep `Allow: /` for the account's other
 project sites, and keep the template here in step with it. Submitting the exact
 sitemap URL in verified Google Search Console and Bing Webmaster Tools
-properties is still needed for indexing. Do not claim that the nested file
-controls crawlers.
+properties is still recommended: it speeds discovery and reports coverage, but
+a sitemap is a hint and neither engine guarantees indexing from it. Do not
+claim that the nested file controls crawlers.
 
 The maintainer owns console verification, sitemap submission and index coverage
 review after deployment, with a monthly recheck for coverage errors and stale
