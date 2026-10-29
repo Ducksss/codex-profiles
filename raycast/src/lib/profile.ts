@@ -14,6 +14,11 @@ export function isUsableWorkspacePath(path: string): boolean {
   return path.startsWith("/") && !/[\u0000-\u001f\u007f]/.test(path);
 }
 
+/** The same mapping as `codex-profile path`: default -> ~/.codex, any other name -> ~/.codex-<name>. */
+export function codexHomeFor(profile: string, home: string): string {
+  return profile === "default" ? `${home}/.codex` : `${home}/.codex-${profile}`;
+}
+
 /** "/Users/me/Dev/app" -> "~/Dev/app" when it is inside the home directory. */
 export function displayPath(path: string, home: string): string {
   const trimmedHome = home.replace(/\/+$/, "");
