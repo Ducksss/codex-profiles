@@ -46,6 +46,12 @@ and this project follows semantic versioning for tagged releases.
 - Redrew the link preview image to match: the site's ASCII planet and its
   default, personal and work moons, drawn by the page's own WebGL engine, with
   the headline and the three Codex homes.
+- Answered the questions people search for on the website and in `llms.txt`:
+  using multiple Codex accounts, how a profile differs from Codex's own
+  `--profile` option, checking usage limits per profile, and why nothing
+  switches accounts automatically. The page description and structured data
+  now state that each profile has its own sign-in and nothing copies
+  `auth.json`.
 - Redesigned the macOS menu around profiles. Each profile now leads a group
   with its workspaces nested beneath it, replacing the profile filter, and a
   search selects its first match so Return's target is visible. Clicking a
