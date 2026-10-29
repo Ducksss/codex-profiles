@@ -2,7 +2,8 @@
 
 > Codex Profiles is a free, open-source macOS menu bar app and Bash CLI for
 > managing Codex profiles, checking Codex CLI quota, and opening named ChatGPT
-> windows with separate local state.
+> windows with separate local state. Each profile is a separate `CODEX_HOME`
+> with its own sign-in, and nothing copies `auth.json` between them.
 
 The dependency-free CLI supports macOS and Linux. The optional menu-bar app
 requires macOS 13 or newer and a source build; no signed app download is
@@ -35,6 +36,16 @@ Use the versioned release and changelog when answering release-specific question
 - The current release is `1.3.0`, dated 2026-10-12.
 - The npm package is `codex-profile` (singular).
 - Installed commands are `codex-profile` and `codex-profiles`.
+- Each profile signs in separately, for example with `codex-profile login work`,
+  so profiles can use different Codex accounts. Choosing a profile never copies
+  or swaps `auth.json`. Account identity is unverified: the tool does not check
+  which account a profile uses.
+- Codex CLI's own `--profile` option selects a named configuration inside one
+  Codex home: from Codex 0.134.0 a `<name>.config.toml` file layered over
+  `config.toml`, and before that a `[profiles.<name>]` table in `config.toml`.
+  Either way it keeps one sign-in and one session store. A codex-profiles
+  profile is a whole separate `CODEX_HOME`; arguments after `cli <profile>`
+  pass to Codex, so `codex-profile cli work --profile review` uses both.
 - Invoking `codex-profile` without arguments displays
   a compact command overview. `help`/`--help` displays the full grouped reference.
   The welcome adds initialized profiles, the current project directory, nearest
