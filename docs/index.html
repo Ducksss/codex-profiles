@@ -983,11 +983,14 @@
         if (!term || this.reduceMotion || !window.IntersectionObserver) return;
         term.classList.add('wait');
         const io = new IntersectionObserver((entries) => {
-          if (!entries[entries.length - 1].isIntersecting) return;
+          // Start once 35% of it shows, or most of a viewport too short for that.
+          const e = entries[entries.length - 1];
+          const view = e.rootBounds ? e.rootBounds.height : window.innerHeight;
+          if (e.intersectionRatio < 0.35 && e.intersectionRect.height < view * 0.6) return;
           io.disconnect();
           term.classList.remove('wait');
           term.classList.add('play');
-        }, { threshold: 0.35 });
+        }, { threshold: [0, 0.1, 0.2, 0.3, 0.35] });
         io.observe(term);
       }
 
