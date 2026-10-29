@@ -1,7 +1,7 @@
 {
   "name": "codex-profile",
   "version": "1.3.0",
-  "description": "Named Codex CLI profiles with separate local ChatGPT desktop state.",
+  "description": "Named Codex CLI profiles with per-profile quota and separate local ChatGPT desktop state, without copying auth.json.",
   "license": "MIT",
   "homepage": "https://ducksss.github.io/codex-profiles/",
   "repository": {
@@ -18,9 +18,12 @@
     "chatgpt-desktop",
     "codex",
     "codex-cli",
+    "codex-home",
     "codex-profiles",
+    "codex-quota",
     "developer-tools",
     "local-state",
+    "menu-bar",
     "named-profiles",
     "openai",
     "openai-codex",
