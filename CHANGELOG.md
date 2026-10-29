@@ -38,8 +38,9 @@ and this project follows semantic versioning for tagged releases.
 - Redesigned the project website as a dark ASCII page drawn live with WebGL:
   an orbiting planet with one moon per profile, live phase moons for each
   Codex home, an install trajectory and a dawn horizon, all reacting to the
-  cursor. The menu bar section switches between the app's screenshot and real
-  `codex-profile usage` and `workspace list` output. Static ASCII art replaces
+  cursor. The menu bar section shows the app's current screenshot beside real
+  `codex-profile appearance`, `usage` and `workspace list` output, with
+  matching numbered markers in both. Static ASCII art replaces
   the scenes without WebGL or JavaScript, and the FAQ, project facts and safety
   boundaries stay in the HTML.
 - Redrew the link preview image to match: the site's ASCII planet and its
@@ -87,6 +88,22 @@ and this project follows semantic versioning for tagged releases.
 
 ### Fixed
 
+- `launcher remove` now clears a launcher record it cannot read, such as one
+  created under a different `CODEX_PROFILE_LAUNCHER_ROOT`, so `remove` is no
+  longer blocked by it. Only the record is cleared; the app it named is left
+  in place and its path is printed.
+- Launchers keep working after `codex-profile` moves, for example after a Node
+  version switch: when the recorded copy is gone they look in `~/.local/bin`,
+  `/opt/homebrew/bin`, `/usr/local/bin` and the login shell's `PATH`. Existing
+  launchers pick this up when recreated with `launcher create --force`.
+- `usage` no longer counts a reply that arrives in pieces twice towards its
+  1 MiB limit, which could reject a valid reply of around half that size.
+- The macOS menu reads quota from the same replies as the CLI: a reply with
+  only the Codex limit bucket, a window without a numeric `usedPercent`, or an
+  `"error": null` field no longer shows the profile as unavailable.
+- The Raycast extension no longer starts one `codex-profile path` process per
+  profile, and reuses its last reading's profile count instead of running
+  `list` before each quota read.
 - `status --json` stays valid JSON when a profile's status fails or the Codex
   CLI is missing, and rejects invalid profile names instead of reporting them.
   Plain `status` reports a missing Codex CLI once instead of running an empty

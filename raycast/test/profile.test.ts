@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import {
   bindingProblem,
+  codexHomeFor,
   displayPath,
   failureMessage,
   folderName,
@@ -38,6 +39,19 @@ describe("isValidProfileName", () => {
     for (const name of samples) {
       const bash = execFileSync("bash", ["-c", script, "_", name], { encoding: "utf8", env: { LC_ALL: "C" } });
       assert.equal(isValidProfileName(name), bash === "yes", `profile name ${JSON.stringify(name)}`);
+    }
+  });
+});
+
+describe("codexHomeFor", () => {
+  test("matches codex-profile path", () => {
+    const home = "/tmp/raycast-home";
+    for (const name of ["default", "work", "a.b-c_d", "Default"]) {
+      const cli = execFileSync("bash", [CLI.pathname, "path", name], {
+        encoding: "utf8",
+        env: { HOME: home, PATH: process.env.PATH, CODEX_PROFILE_NO_UPDATE_CHECK: "1" },
+      }).trim();
+      assert.equal(codexHomeFor(name, home), cli, `profile ${name}`);
     }
   });
 });

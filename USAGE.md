@@ -419,9 +419,11 @@ deterministically tinted icon from the installed ChatGPT artwork on the local
 Mac. The project does not redistribute that artwork.
 
 Each generated app is a small unsigned shell launcher. It runs `app <profile>`
-through the absolute path of the `codex-profile` that created it (recreate it
-with `--force` after moving or reinstalling `codex-profile` elsewhere) and
-leaves the installed, signed ChatGPT bundle untouched. Its custom name and icon appear on the launcher in Finder,
+through the absolute path of the `codex-profile` that created it; if that copy
+has moved, for example after a Node version switch, it looks in
+`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` and then the login
+shell's `PATH`. It leaves the installed, signed ChatGPT bundle untouched. Its
+custom name and icon appear on the launcher in Finder,
 Launchpad, and when pinned to the Dock. After launch, the active ChatGPT process
 keeps ChatGPT's native name and icon because macOS is running the original
 signed app.
@@ -440,7 +442,10 @@ Deleting a generated launcher in Finder is safe. `launcher list` reports the
 stale record on stderr and keeps listing the healthy launchers, `launcher
 create` rebuilds the missing app, and `launcher remove` clears the leftover
 record. A launcher path that exists but belongs to another profile is still
-refused rather than overwritten.
+refused rather than overwritten. A record that cannot be read, such as one
+created under a different `CODEX_PROFILE_LAUNCHER_ROOT`, blocks profile
+removal until `launcher remove` clears it; that clears only the record, prints
+the app path it named, and leaves any app in place.
 
 #### Deprecated compatibility spellings
 
