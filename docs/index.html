@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Codex Profiles | macOS menu bar app and CLI</title>
-  <meta name="description" content="Manage Codex profiles from a macOS menu bar app or CLI. Check Codex quota and open named ChatGPT windows with separate local state. Free and open source.">
+  <meta name="description" content="Manage Codex profiles with their own sign-in and separate local state, and see quota per profile in a free macOS menu bar app or CLI. Never copies auth.json.">
   <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
   <link rel="canonical" href="https://ducksss.github.io/codex-profiles/">
   <link rel="alternate" type="text/plain" title="Codex Profiles reference" href="https://ducksss.github.io/codex-profiles/llms.txt">
@@ -16,8 +16,9 @@
   <meta name="color-scheme" content="dark">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Codex Profiles">
+  <meta property="og:locale" content="en_US">
   <meta property="og:title" content="Codex Profiles | macOS menu bar app and CLI">
-  <meta property="og:description" content="Manage Codex profiles from a macOS menu bar app or CLI. Check Codex quota and open named ChatGPT windows with separate local state. Free and open source.">
+  <meta property="og:description" content="Manage Codex profiles with their own sign-in and separate local state, and see quota per profile in a free macOS menu bar app or CLI. Never copies auth.json.">
   <meta property="og:url" content="https://ducksss.github.io/codex-profiles/">
   <meta property="og:image" content="https://ducksss.github.io/codex-profiles/og-image.png">
   <meta property="og:image:width" content="1200">
@@ -25,7 +26,7 @@
   <meta property="og:image:alt" content="codex-profiles: an ASCII planet orbited by three moons labelled default, personal and work, with the headline Your Codex profiles, one click away.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Codex Profiles | macOS menu bar app and CLI">
-  <meta name="twitter:description" content="Manage Codex profiles from a macOS menu bar app or CLI. Check Codex quota and open named ChatGPT windows with separate local state. Free and open source.">
+  <meta name="twitter:description" content="Manage Codex profiles with their own sign-in and separate local state, and see quota per profile in a free macOS menu bar app or CLI. Never copies auth.json.">
   <meta name="twitter:image" content="https://ducksss.github.io/codex-profiles/og-image.png">
   <meta name="twitter:image:alt" content="codex-profiles: an ASCII planet orbited by three moons labelled default, personal and work, with the headline Your Codex profiles, one click away.">
   <script>document.documentElement.classList.add('js');</script>
@@ -66,6 +67,12 @@
         "Linux"
       ],
       "softwareVersion": "1.3.0",
+      "softwareRequirements": "Official Codex CLI; macOS 13 or newer for the menu bar app",
+      "programmingLanguage": ["Bash", "Swift"],
+      "isAccessibleForFree": true,
+      "releaseNotes": "https://github.com/Ducksss/codex-profiles/blob/main/CHANGELOG.md",
+      "screenshot": "https://ducksss.github.io/codex-profiles/menu-dark.png",
+      "image": "https://ducksss.github.io/codex-profiles/og-image.png",
       "license": "https://github.com/Ducksss/codex-profiles/blob/main/LICENSE",
       "codeRepository": "https://github.com/Ducksss/codex-profiles",
       "sameAs": [
@@ -78,7 +85,11 @@
       "maintainer": {
         "@id": "https://ducksss.github.io/codex-profiles/#maintainer"
       },
+      "author": {
+        "@id": "https://ducksss.github.io/codex-profiles/#maintainer"
+      },
       "featureList": [
+        "One Codex sign-in per profile, without copying auth.json",
         "Separate CODEX_HOME directories per profile",
         "Codex CLI launch support",
         "Interactive profile picker with workspace binding hints",
@@ -89,6 +100,8 @@
         "Named ChatGPT windows with separate local state",
         "Named color-coded macOS launchers that preserve the signed ChatGPT app",
         "Native macOS menu-bar app with per-profile Codex quota",
+        "Per-profile Codex CLI quota report with reset times",
+        "Workspace bindings that pick a profile for each project folder",
         "Read-only profile status and doctor diagnostics",
         "Safe non-secret config cloning",
         "Bash, Zsh, and Fish completion generators",
@@ -107,8 +120,8 @@
       "@id": "https://ducksss.github.io/codex-profiles/#webpage",
       "url": "https://ducksss.github.io/codex-profiles/",
       "name": "Codex Profiles | macOS menu bar app and CLI",
-      "description": "Manage Codex profiles from a macOS menu bar app or CLI. Check Codex quota and open named ChatGPT windows with separate local state. Free and open source.",
-      "dateModified": "2026-10-27",
+      "description": "Manage Codex profiles with their own sign-in and separate local state, and see quota per profile in a free macOS menu bar app or CLI. Never copies auth.json.",
+      "dateModified": "2026-10-29",
       "image": "https://ducksss.github.io/codex-profiles/og-image.png",
       "isPartOf": {
         "@id": "https://ducksss.github.io/codex-profiles/#website"
@@ -127,7 +140,23 @@
           "name": "What is codex-profiles?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "codex-profiles is a free, open-source macOS menu bar app and Bash CLI for managing Codex profiles. It opens named ChatGPT windows with separate local state on macOS and supports Codex CLI profiles on macOS and Linux."
+            "text": "codex-profiles is a free, open-source macOS menu bar app and Bash CLI for managing Codex profiles. It opens named ChatGPT windows with separate local state on macOS and supports Codex CLI profiles on macOS and Linux. It is community-maintained and not affiliated with OpenAI."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use multiple Codex accounts with codex-profiles?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Each profile is its own CODEX_HOME with its own sign-in, so you can sign a different Codex account into each one, for example with codex-profile login work, and choose the profile whenever you start Codex. Unlike tools that swap auth.json into ~/.codex, choosing a profile never copies credentials. codex-profiles does not verify which account a profile uses, and local-state separation is not an account, OS or server-side security boundary."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is codex-profiles the same as the Codex CLI --profile option?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Codex's own --profile option selects a named configuration inside one Codex home: from Codex 0.134.0 a profile-name.config.toml file layered over config.toml, and before that a [profiles.profile-name] table in config.toml. Either way, sign-in, sessions and history stay shared. A codex-profiles profile selects a whole separate CODEX_HOME with its own sign-in, sessions and logs. Codex's --profile still works inside each one, for example codex-profile cli work --profile review."
           }
         },
         {
@@ -200,6 +229,22 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "Yes. On macOS 13 or newer, an optional native menu-bar app built from a source checkout with make menu-app opens profiles and bound projects in ChatGPT or Terminal and shows each profile's remaining Codex CLI quota. It includes codex-profile but still needs the official Codex CLI."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I check Codex usage limits for each profile?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Run codex-profile usage. It prints each profile's remaining Codex CLI quota for every reported window, such as the 5-hour and 7-day limits, with reset times, and codex-profile usage --json work returns one profile as JSON. The menu bar app shows each profile's tightest window as a figure and a ring. Readings come from the official Codex app-server without reading credentials or sending inference requests. ChatGPT may use a different account."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does codex-profiles switch accounts automatically when quota runs low?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. It never switches profiles or accounts for you. When a profile's tightest window is at 25% or less, the menu bar app highlights it with its reset time, or names a fresh profile with at least half of the same window left. You choose which profile to open."
           }
         },
         {
@@ -767,7 +812,15 @@
         <div class="faq-list">
           <article>
             <h3>What is codex-profiles?</h3>
-            <p>codex-profiles is a free, open-source macOS menu bar app and Bash CLI for managing Codex profiles. It opens named ChatGPT windows with separate local state on macOS and supports Codex CLI profiles on macOS and Linux.</p>
+            <p>codex-profiles is a free, open-source macOS menu bar app and Bash CLI for managing Codex profiles. It opens named ChatGPT windows with separate local state on macOS and supports Codex CLI profiles on macOS and Linux. It is community-maintained and not affiliated with OpenAI.</p>
+          </article>
+          <article>
+            <h3>Can I use multiple Codex accounts with codex-profiles?</h3>
+            <p>Yes. Each profile is its own CODEX_HOME with its own sign-in, so you can sign a different Codex account into each one, for example with codex-profile login work, and choose the profile whenever you start Codex. Unlike tools that swap auth.json into ~/.codex, choosing a profile never copies credentials. codex-profiles does not verify which account a profile uses, and local-state separation is not an account, OS or server-side security boundary.</p>
+          </article>
+          <article>
+            <h3>Is codex-profiles the same as the Codex CLI --profile option?</h3>
+            <p>No. Codex's own --profile option selects a named configuration inside one Codex home: from Codex 0.134.0 a profile-name.config.toml file layered over config.toml, and before that a [profiles.profile-name] table in config.toml. Either way, sign-in, sessions and history stay shared. A codex-profiles profile selects a whole separate CODEX_HOME with its own sign-in, sessions and logs. Codex's --profile still works inside each one, for example codex-profile cli work --profile review.</p>
           </article>
           <article>
             <h3>Why use separate CODEX_HOME directories?</h3>
@@ -806,6 +859,14 @@
             <p>Yes. On macOS 13 or newer, an optional native menu-bar app built from a source checkout with make menu-app opens profiles and bound projects in ChatGPT or Terminal and shows each profile's remaining Codex CLI quota. It includes codex-profile but still needs the official Codex CLI.</p>
           </article>
           <article>
+            <h3>How do I check Codex usage limits for each profile?</h3>
+            <p>Run codex-profile usage. It prints each profile's remaining Codex CLI quota for every reported window, such as the 5-hour and 7-day limits, with reset times, and codex-profile usage --json work returns one profile as JSON. The menu bar app shows each profile's tightest window as a figure and a ring. Readings come from the official Codex app-server without reading credentials or sending inference requests. ChatGPT may use a different account.</p>
+          </article>
+          <article>
+            <h3>Does codex-profiles switch accounts automatically when quota runs low?</h3>
+            <p>No. It never switches profiles or accounts for you. When a profile's tightest window is at 25% or less, the menu bar app highlights it with its reset time, or names a fresh profile with at least half of the same window left. You choose which profile to open.</p>
+          </article>
+          <article>
             <h3>Can an AI assistant tell me how to run codex-profiles?</h3>
             <p>Yes. The repository's agent.md is the public installation and setup guide, and llms.txt is the plain-text product reference. Ask your assistant to install codex-profile, initialize work, authenticate with codex-profile login work, and launch codex-profile cli work. AGENTS.md is for repository contributors.</p>
           </article>
@@ -838,7 +899,7 @@
   </main>
 
   <footer class="foot">
-    <p>Maintained by <a href="https://github.com/Ducksss">Ducksss</a>. codex-profiles is community-maintained and is not affiliated with OpenAI. Release <a href="https://github.com/Ducksss/codex-profiles/releases/tag/v1.3.0">1.3.0</a>, dated 2026-10-12. Page updated <time datetime="2026-10-27">2026-10-27</time>.</p>
+    <p>Maintained by <a href="https://github.com/Ducksss">Ducksss</a>. codex-profiles is community-maintained and is not affiliated with OpenAI. Release <a href="https://github.com/Ducksss/codex-profiles/releases/tag/v1.3.0">1.3.0</a>, dated 2026-10-12. Page updated <time datetime="2026-10-29">2026-10-29</time>.</p>
     <nav aria-label="Footer links">
       <a class="u" href="https://github.com/Ducksss/codex-profiles">GitHub</a>
       <a class="u" href="https://www.npmjs.com/package/codex-profile">npm</a>
