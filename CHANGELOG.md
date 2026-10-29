@@ -38,8 +38,9 @@ and this project follows semantic versioning for tagged releases.
 - Redesigned the project website as a dark ASCII page drawn live with WebGL:
   an orbiting planet with one moon per profile, live phase moons for each
   Codex home, an install trajectory and a dawn horizon, all reacting to the
-  cursor. The menu bar section switches between the app's screenshot and real
-  `codex-profile usage` and `workspace list` output. Static ASCII art replaces
+  cursor. The menu bar section shows the app's current screenshot beside real
+  `codex-profile appearance`, `usage` and `workspace list` output, with
+  matching numbered markers in both. Static ASCII art replaces
   the scenes without WebGL or JavaScript, and the FAQ, project facts and safety
   boundaries stay in the HTML.
 - Redrew the link preview image to match: the site's ASCII planet and its
