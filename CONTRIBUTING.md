@@ -138,12 +138,15 @@ curl -fsS -A OAI-SearchBot https://ducksss.github.io/codex-profiles/
 
 GitHub Pages hosts this project under `/codex-profiles/`. Its nested
 `docs/robots.txt` is only a policy template: crawlers consult
-`https://ducksss.github.io/robots.txt` at the **origin root**. A 404 there does
-not block Google crawling, but it also does not advertise this sitemap. The
-host maintainer can add the sitemap directive to the user-site repository
-(`Ducksss/ducksss.github.io`), preserving any existing policy for other projects,
-or submit the exact sitemap URL in verified Google Search Console and Bing
-Webmaster Tools properties. Do not claim that the nested file controls crawlers.
+`https://ducksss.github.io/robots.txt` at the **origin root**. That file lives
+in the user-site repository
+[`Ducksss/ducksss.github.io`](https://github.com/Ducksss/ducksss.github.io),
+which holds only `robots.txt`: it allows every crawler and advertises this
+sitemap. Change crawler policy there, keep `Allow: /` for the account's other
+project sites, and keep the template here in step with it. Submitting the exact
+sitemap URL in verified Google Search Console and Bing Webmaster Tools
+properties is still needed for indexing. Do not claim that the nested file
+controls crawlers.
 
 The maintainer owns console verification, sitemap submission and index coverage
 review after deployment, with a monthly recheck for coverage errors and stale
