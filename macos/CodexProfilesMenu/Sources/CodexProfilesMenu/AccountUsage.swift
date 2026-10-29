@@ -87,19 +87,31 @@ enum UsageFormat {
 struct CodexRateLimits: Equatable, Sendable {
     let windows: [RateLimitWindow]
 
+    /// Accepts what `codex-profile usage` accepts: the Codex bucket or the
+    /// legacy snapshot, skipping a window without a numeric usedPercent.
     static func decode(_ data: Data) throws -> Self {
         struct Snapshot: Decodable {
             let primary: RateLimitWindow?
             let secondary: RateLimitWindow?
-            let limitId: String?
+            /// False when limitId names another limit or is not a string.
+            let isCodex: Bool
+
+            enum CodingKeys: String, CodingKey { case primary, secondary, limitId }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                primary = try? container.decodeIfPresent(RateLimitWindow.self, forKey: .primary)
+                secondary = try? container.decodeIfPresent(RateLimitWindow.self, forKey: .secondary)
+                isCodex = (try? container.decodeNil(forKey: .limitId)) ?? true
+                    || (try? container.decode(String.self, forKey: .limitId)) == "codex"
+            }
         }
         struct Response: Decodable {
-            let rateLimits: Snapshot
+            let rateLimits: Snapshot?
             let rateLimitsByLimitId: [String: Snapshot]?
         }
         let response = try JSONDecoder().decode(Response.self, from: data)
-        let snapshot = response.rateLimitsByLimitId?["codex"] ?? response.rateLimits
-        guard snapshot.limitId == nil || snapshot.limitId == "codex" else {
+        guard let snapshot = response.rateLimitsByLimitId?["codex"] ?? response.rateLimits, snapshot.isCodex else {
             throw UsageReadError.unavailable
         }
         let windows = [snapshot.primary, snapshot.secondary].compactMap { $0 }
@@ -317,7 +329,9 @@ private final class AccountUsageReader: @unchecked Sendable {
                     }
                     // Ignore asynchronous notifications and unrelated replies.
                     guard message["method"] == nil, let responseID = message["id"] as? Int, responseID == id else { continue }
-                    guard message["error"] == nil, let result = message["result"] as? [String: Any] else {
+                    // "error": null is no error, as in the CLI's reader.
+                    guard message["error"] == nil || message["error"] is NSNull,
+                          let result = message["result"] as? [String: Any] else {
                         throw UsageReadError.unavailable
                     }
                     return try JSONSerialization.data(withJSONObject: result)

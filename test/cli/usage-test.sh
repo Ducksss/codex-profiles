@@ -89,6 +89,12 @@ while IFS= read -r line; do
           sleep 0.3
           printf 'ercent":10,"windowDurationMins":300,"resetsAt":null},"secondary":null}}}\n'
           ;;
+        split-large)
+          # A 600 KB reply in two writes stays under the 1 MiB reply limit.
+          printf '{"id":2,"result":{"padding":"%s' "$(printf '%600000s' '' | tr ' ' x)"
+          sleep 0.3
+          printf '","rateLimits":{"limitId":"codex","primary":{"usedPercent":30,"windowDurationMins":300,"resetsAt":null},"secondary":null}}}\n'
+          ;;
       esac
       ;;
   esac
@@ -276,6 +282,16 @@ test_usage_survives_split_replies_and_rejects_malformed_ones() {
   assert_json 'value.profiles[1].state === "unavailable"'
 }
 
+test_usage_counts_split_reply_bytes_once() {
+  local home="$TMP_ROOT/split-large"
+  new_home "$home" .codex-large split-large
+
+  run_usage "$home" --json large
+
+  assert_status 0
+  assert_json 'value.profiles[0].state === "ok" && value.profiles[0].windows[0].remaining_percent === 70'
+}
+
 test_usage_times_out_and_stops_the_server() {
   local home="$TMP_ROOT/timeout" started elapsed pid
   new_home "$home" .codex-slow hang .codex-gone exit-early
@@ -433,6 +449,7 @@ test_usage_keeps_empty_duration_fields
 test_usage_reads_each_named_profile_once
 test_usage_overview_lists_initialized_profiles_and_succeeds
 test_usage_survives_split_replies_and_rejects_malformed_ones
+test_usage_counts_split_reply_bytes_once
 test_usage_times_out_and_stops_the_server
 test_usage_timeout_holds_during_a_message_stream
 test_usage_term_stops_readers_and_removes_temporary_files

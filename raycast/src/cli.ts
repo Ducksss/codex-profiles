@@ -8,6 +8,7 @@ import { homedir, userInfo } from "node:os";
 import { dirname } from "node:path";
 import { augmentedPath, cliEnvironment, executableCandidates, lastAbsolutePath, preferencePath } from "./lib/discovery";
 import {
+  codexHomeFor,
   failureMessage,
   isUsableWorkspacePath,
   isValidProfileName,
@@ -207,7 +208,7 @@ function assertWorkspace(path: string): void {
 
 export interface ProfileEntry {
   name: string;
-  /** CODEX_HOME, as printed by `codex-profile path`. */
+  /** CODEX_HOME, as `codex-profile path` maps it. */
   home?: string;
   /** The profile's colour as a hex string, from `codex-profile appearance`. */
   color?: string;
@@ -232,22 +233,13 @@ async function loadProfileColors(cli: string, signal?: AbortSignal): Promise<Map
   }
 }
 
-/** `codex-profile list`, then `codex-profile path <name>` for each initialized profile. */
+/**
+ * `codex-profile list` with each profile's colour. Homes follow the fixed
+ * `codex-profile path` mapping, so they need no process per profile.
+ */
 export async function loadProfiles(cli: string, signal?: AbortSignal): Promise<ProfileEntry[]> {
   const [names, colors] = await Promise.all([listProfiles(cli, signal), loadProfileColors(cli, signal)]);
-  return Promise.all(
-    names.map(async (name): Promise<ProfileEntry> => {
-      // The home is optional decoration: one failed lookup keeps the list.
-      try {
-        const path = await runCli(cli, ["path", name], { signal, timeout: 10_000 });
-        const home = path.code === 0 ? path.stdout.trim().split(/\r?\n/).pop() : undefined;
-        return { name, home: home && home.startsWith("/") ? home : undefined, color: colors.get(name) };
-      } catch (error) {
-        if (signal?.aborted) throw error;
-        return { name, color: colors.get(name) };
-      }
-    }),
-  );
+  return names.map((name) => ({ name, home: codexHomeFor(name, HOME), color: colors.get(name) }));
 }
 
 /** `codex-profile workspace list --json`. */
@@ -293,8 +285,13 @@ export async function loadUsage(
     return cached;
   }
   // The CLI reads four profiles at a time, each for up to the fixed per-read
-  // timeout, so the overall limit grows with the number of profiles.
-  const count = await countProfiles(cli, options.signal);
+  // timeout, so the overall limit grows with the number of profiles. The last
+  // reading's count avoids a `list` call; the timeout's slack covers one more
+  // round if profiles were added since.
+  const count =
+    cached?.cliPath === cli && cached.outcome.kind === "ok" && cached.outcome.profiles.length > 0
+      ? cached.outcome.profiles.length
+      : await countProfiles(cli, options.signal);
   const result = await runCli(cli, ["usage", "--json"], {
     timeout: usageTimeoutMs(count),
     signal: options.signal,

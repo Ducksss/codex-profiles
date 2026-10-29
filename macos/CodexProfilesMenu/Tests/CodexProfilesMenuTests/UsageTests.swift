@@ -30,9 +30,16 @@ enum UsageTests {
         let unknown = try CodexRateLimits.decode(Data(#"{"rateLimits":{"primary":{"usedPercent":12.4,"windowDurationMins":null,"resetsAt":null}}}"#.utf8))
         expect(unknown.windows[0].durationLabel == nil && unknown.windows[0].remainingPercent == 87,
             "missing durations must not become a guessed 5h window or overstate remaining quota")
+        // The CLI's reader accepts these, so the menu must show the same quota.
+        let bucketOnly = try CodexRateLimits.decode(Data(#"{"rateLimitsByLimitId":{"codex":{"primary":{"usedPercent":40,"windowDurationMins":300}}}}"#.utf8))
+        expect(bucketOnly.windows.map(\.remainingPercent) == [60], "a reply with only the Codex bucket must stay usable")
+        let partial = try CodexRateLimits.decode(Data(#"{"rateLimits":{"primary":{"usedPercent":10},"secondary":{"usedPercent":null}}}"#.utf8))
+        expect(partial.windows.map(\.remainingPercent) == [90], "a window without a numeric usedPercent must be skipped, not fail the reading")
         for json in [#"{"rateLimits":{"primary":null,"secondary":null}}"#,
                      #"{"rateLimits":{"primary":{"windowDurationMins":300}}}"#,
-                     #"{"rateLimits":{"limitId":"code_reviews","primary":{"usedPercent":1}}}"#] {
+                     #"{"rateLimits":{"limitId":"code_reviews","primary":{"usedPercent":1}}}"#,
+                     #"{"rateLimits":{"limitId":7,"primary":{"usedPercent":1}}}"#,
+                     #"{"rateLimitsByLimitId":{"code_reviews":{"primary":{"usedPercent":1}}}}"#] {
             do { _ = try CodexRateLimits.decode(Data(json.utf8)); fatalError("missing or unrelated quotas were accepted") }
             catch {}
         }
@@ -119,6 +126,10 @@ enum UsageTests {
             "account queries must not inherit a project-bound directory")
         expect(!FileManager.default.fileExists(atPath: directory), "the private query directory must be cleaned up")
         expect(!(try fixture.isRunning("work")), "a successful read left an app-server running")
+        let nullError = try Fixture(mode: "null-error")
+        defer { nullError.cleanup() }
+        let nullErrorResult = try await CLIClient(executableURL: nullError.executable).loadUsage(for: "work")
+        expect(nullErrorResult.windows.map(\.remainingPercent) == [77, 9], "\"error\": null must not discard a successful reply")
         do { _ = try await client.loadUsage(for: "invalid;profile"); fatalError("invalid profile accepted") }
         catch { expect(error as? CLIClientError == .invalidProfileName, "profile validation lost its error") }
     }
@@ -305,6 +316,7 @@ enum UsageTests {
             case "$mode" in
               rate-error) printf '%s\n' '{"id":2,"error":{"code":-32600,"message":"private diagnostic"}}' ;;
               malformed) printf '%s\n' 'invalid json' ;;
+              null-error) printf '%s\n' '{"id":2,"error":null,"result":\#(UsageTests.response)}' ;;
               oversized) exec /usr/bin/head -c 1048577 /dev/zero ;;
               *) printf '%s\n' '{"id":2,"result":\#(UsageTests.response)}' ;;
             esac

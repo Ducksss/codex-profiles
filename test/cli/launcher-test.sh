@@ -343,6 +343,57 @@ test_launcher_recovers_after_the_bundle_is_deleted_outside_the_cli() {
   rm -rf "$tmp"
 }
 
+test_launcher_remove_clears_a_record_from_another_root() {
+  local tmp app
+  tmp="$(mktemp -d)"
+  app="$tmp/apps/ChatGPT Personal.app"
+  prepare_launcher_test "$tmp" personal
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher create personal --name "ChatGPT Personal" --color blue
+  assert_status 0
+
+  # The same record read with a different launcher root no longer validates.
+  run_cmd launcher_env "$tmp" env CODEX_PROFILE_LAUNCHER_ROOT="$tmp/other" "$SCRIPT" remove personal --yes
+  assert_status 1
+  assert_contains "launcher remove personal"
+
+  run_cmd launcher_env "$tmp" env CODEX_PROFILE_LAUNCHER_ROOT="$tmp/other" "$SCRIPT" launcher remove personal
+  assert_status 0
+  assert_contains "Cleared an unreadable launcher record for personal"
+  assert_contains "It recorded $app"
+  [[ -d "$app" ]] || fail "clearing an unreadable record removed an app"
+  [[ ! -e "$tmp/config/launchers/personal.state" ]] || fail "unreadable launcher state survived removal"
+
+  run_cmd launcher_env "$tmp" env CODEX_PROFILE_LAUNCHER_ROOT="$tmp/other" "$SCRIPT" remove personal --yes
+  assert_status 0
+  run_cmd launcher_env "$tmp" "$SCRIPT" launcher remove personal
+  assert_status 1
+  assert_contains "No managed launcher for profile 'personal'"
+
+  rm -rf "$tmp"
+}
+
+test_launcher_finds_a_moved_codex_profile() {
+  local tmp app recorded
+  tmp="$(mktemp -d)"
+  app="$tmp/apps/ChatGPT Personal.app"
+  prepare_launcher_test "$tmp" personal
+  mkdir -p "$tmp/moving" "$tmp/home/.local/bin"
+  cp "$SCRIPT" "$tmp/moving/codex-profile"
+  run_cmd launcher_env "$tmp" "$tmp/moving/codex-profile" launcher create personal --name "ChatGPT Personal" --color blue
+  assert_status 0
+
+  # As after a Node version switch: the recorded executable is gone.
+  rm -f "$tmp/moving/codex-profile"
+  printf '#!/bin/sh\nprintf "%%s\\n" "$@" > "%s/launched"\n' "$tmp" > "$tmp/home/.local/bin/codex-profile"
+  chmod 755 "$tmp/home/.local/bin/codex-profile"
+  env HOME="$tmp/home" SHELL=/bin/sh /bin/bash "$app/Contents/MacOS/launch-profile" ||
+    fail "launcher did not fall back to an installed codex-profile"
+  recorded="$(cat "$tmp/launched")"
+  assert_equals "moved launcher arguments" $'app\npersonal\n'"$tmp/home" "$recorded"
+
+  rm -rf "$tmp"
+}
+
 test_launcher_defaults_to_the_profile_colour() {
   local tmp app
   tmp="$(mktemp -d)"
@@ -375,5 +426,7 @@ test_launcher_force_can_change_only_letter_case
 test_launcher_remove_preserves_profile_data
 test_profile_remove_refuses_managed_launcher_orphans
 test_launcher_recovers_after_the_bundle_is_deleted_outside_the_cli
+test_launcher_remove_clears_a_record_from_another_root
+test_launcher_finds_a_moved_codex_profile
 
 printf 'launcher tests passed\n'
