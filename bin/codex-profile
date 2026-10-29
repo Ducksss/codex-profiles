@@ -274,7 +274,7 @@ $PROGRAM launcher list --json"
       ;;
     'launcher remove')
       syntax='launcher remove <profile> [--yes]'
-      description='Remove a managed launcher and its record while preserving profile data. Prompts for the profile name unless --yes is supplied.'
+      description='Remove a managed launcher and its record while preserving profile data. Prompts for the profile name unless --yes is supplied. A record that cannot be read, such as one from another launcher root, is cleared without removing any app.'
       options='--yes, -y | Skip the confirmation prompt.'
       examples="$PROGRAM launcher remove work"
       ;;
@@ -896,7 +896,7 @@ profile_assert_removable() {
   state_file="$(launcher_state_file "$profile")"
   if [[ -e "$state_file" || -L "$state_file" ]]; then
     launcher_load_state "$profile" || \
-      die "Cannot remove profile '$profile' while launcher state is invalid: $state_file"
+      die "Cannot remove profile '$profile' while launcher state is invalid: $state_file; run '$PROGRAM launcher remove $profile' to clear it."
     die "Cannot remove profile '$profile' while its managed launcher exists at $LAUNCHER_STATE_PATH; run '$PROGRAM launcher remove $profile' first."
   fi
 }
@@ -2008,8 +2008,21 @@ launcher_build_bundle() {
 EOF
   {
     printf '#!/bin/bash\n'
-    # shellcheck disable=SC2016 # the generated launcher expands $HOME at click time
-    printf 'exec %s app %s "$HOME"\n' "$(shell_squote "$program_path")" "$(shell_squote "$profile")"
+    printf 'program=%s\n' "$(shell_squote "$program_path")"
+    # A moved codex-profile (a Node version switch, a replaced app bundle) is
+    # found again in the usual locations or the login shell's PATH.
+    # shellcheck disable=SC2016 # the generated launcher expands these at click time
+    printf '%s\n' \
+      'if [[ ! -x "$program" ]]; then' \
+      '  for candidate in "$HOME/.local/bin/codex-profile" /opt/homebrew/bin/codex-profile /usr/local/bin/codex-profile; do' \
+      '    if [[ -x "$candidate" ]]; then program="$candidate"; break; fi' \
+      '  done' \
+      'fi' \
+      'if [[ ! -x "$program" ]]; then' \
+      '  program="$("${SHELL:-/bin/zsh}" -lc '"'command -v codex-profile'"' 2> /dev/null | tail -n 1)"' \
+      'fi'
+    # shellcheck disable=SC2016 # the generated launcher expands $program and $HOME at click time
+    printf 'exec "$program" app %s "$HOME"\n' "$(shell_squote "$profile")"
   } > "$bundle/Contents/MacOS/launch-profile" || return 1
   chmod 755 "$bundle/Contents/MacOS/launch-profile" || return 1
   printf '%s\n' "$profile" > "$bundle/Contents/Resources/codex-profile/profile" || return 1
@@ -2085,7 +2098,7 @@ command_launcher_create() {
         die "Refusing to replace unmanaged launcher path: $old_path"
     fi
   elif [[ -e "$state_file" || -L "$state_file" ]]; then
-    die "Refusing invalid launcher state: $state_file"
+    die "Refusing invalid launcher state: $state_file; run '$PROGRAM launcher remove $profile' to clear it."
   fi
 
   if [[ -e "$path" || -L "$path" ]]; then
@@ -2204,7 +2217,7 @@ command_launcher_path() {
 }
 
 command_launcher_remove() {
-  local profile="${1:-}" yes=no confirmation state_file
+  local profile="${1:-}" yes=no confirmation state_file recorded
 
   [[ -n "$profile" ]] || die "Usage: $PROGRAM launcher remove <profile> [--yes]"
   shift || true
@@ -2213,7 +2226,20 @@ command_launcher_remove() {
   validate_profile "$profile"
   state_lock_acquire
   state_file="$(launcher_state_file "$profile")"
-  launcher_load_state "$profile" || die "No managed launcher for profile '$profile'."
+  if ! launcher_load_state "$profile"; then
+    [[ -e "$state_file" || -L "$state_file" ]] || die "No managed launcher for profile '$profile'."
+    # A damaged record, or one from another launcher root, cannot name a
+    # bundle safely: forget it and leave any app where it is.
+    recorded=""
+    if [[ -f "$state_file" && ! -L "$state_file" ]]; then
+      recorded="$(sed -n '4p' "$state_file" 2> /dev/null || true)"
+      recorded="${recorded//[^[:print:]]/}"
+    fi
+    rm -f -- "$state_file" || die "Cannot remove launcher state: $state_file"
+    note "Cleared an unreadable launcher record for $profile; no app was removed. Profile data was preserved."
+    [[ -z "$recorded" ]] || note "It recorded $recorded; delete that launcher yourself if you no longer need it."
+    return 0
+  fi
   if launcher_path_is_absent "$LAUNCHER_STATE_PATH"; then
     rm -f -- "$state_file" || die "Cannot remove launcher state: $state_file"
     note "Launcher for $profile was already gone; cleared its record. Profile data was preserved."
@@ -3235,9 +3261,10 @@ usage_await_reply() {
       return 0
     fi
     if IFS= read -r line <&4; then
+      # Pending bytes were counted when they arrived.
+      USAGE_RECEIVED=$((USAGE_RECEIVED + ${#line} + 1))
       line="$USAGE_PENDING$line"
       USAGE_PENDING=''
-      USAGE_RECEIVED=$((USAGE_RECEIVED + ${#line} + 1))
       if [[ "$USAGE_RECEIVED" -gt "$USAGE_REPLY_LIMIT" ]]; then
         USAGE_REPLY=invalid
         return 0

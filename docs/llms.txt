@@ -313,8 +313,9 @@ derives a deterministic tint from the installed ChatGPT icon locally and does
 not redistribute OpenAI artwork.
 
 The generated app runs `app <profile>` through the absolute path of the
-`codex-profile` that created it, so recreate it with `--force` after moving or
-reinstalling `codex-profile` elsewhere. It never copies, modifies, or re-signs
+`codex-profile` that created it; if that copy has moved, it looks in
+`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` and then the login
+shell's `PATH`. It never copies, modifies, or re-signs
 the installed ChatGPT bundle. Its custom identity is
 visible in Finder, Launchpad, and on a pinned Dock launcher. The active ChatGPT
 process retains its native name and icon. `launcher list [--json]`, `launcher
