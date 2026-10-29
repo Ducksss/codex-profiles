@@ -213,6 +213,9 @@ enum QuotaAlertTests {
             "equal headroom must choose deterministically by name")
         expect(QuotaHeadroom.suggestion(for: alert, usage: usage, profiles: ["work", "client", "stale", "weekly", "expired", "nearly"], at: now) == nil,
             "without a clear alternative there must be no suggestion")
+        expect(QuotaHeadroom.suggestion(forProfile: "work", usage: usage, profiles: profiles + ["another"], at: now)?.profile == "another"
+            && QuotaHeadroom.suggestion(forProfile: "personal", usage: usage, profiles: profiles, at: now) == nil,
+            "a row suggestion must start from the profile's own low window, and a healthy profile needs none")
         let unknown = QuotaAlert(profile: "work", window: window(8, nil, resetIn: 3600), slot: -1)
         expect(QuotaHeadroom.suggestion(for: unknown, usage: usage, profiles: profiles, at: now) == nil,
             "an unknown window duration has no comparable window")

@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let notifier = UserNotificationsQuotaNotifier()
     private lazy var alerts = QuotaAlertController(store: store, notifier: notifier)
     private var menuController: WorkspaceMenuViewController?
+    private var globalShortcut: GlobalShortcut?
     private var eventMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -29,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.popover.contentSize = size
         }
         controller.onRequestClose = { [weak self] in self?.popover.performClose(nil) }
+        controller.onGlobalShortcutChange = { [weak self] enabled in self?.setGlobalShortcut(enabled) ?? false }
         menuController = controller
 
         popover.behavior = .transient
@@ -58,6 +60,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 event.window == self.menuController?.view.window else { return event }
             return self.menuController?.handleShortcut(event) == true ? nil : event
         }
+        // A shortcut another app took since last time is turned off, so the
+        // options menu never claims one that does nothing.
+        if UserDefaults.standard.bool(forKey: GlobalShortcut.preferenceKey), !setGlobalShortcut(true) {
+            UserDefaults.standard.set(false, forKey: GlobalShortcut.preferenceKey)
+        }
         // Login launches stay in the menu bar; launches by the user open the menu.
         if !Self.launchedAsLoginItem { togglePopover() }
     }
@@ -66,6 +73,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showMenu()
         return false
+    }
+
+    /// Registers or releases the global shortcut; false when macOS refuses it.
+    private func setGlobalShortcut(_ enabled: Bool) -> Bool {
+        guard enabled else {
+            globalShortcut = nil
+            return true
+        }
+        if globalShortcut == nil { globalShortcut = GlobalShortcut { [weak self] in self?.togglePopover() } }
+        return globalShortcut != nil
     }
 
     private func showMenu() {

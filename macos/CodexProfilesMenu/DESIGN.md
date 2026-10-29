@@ -43,7 +43,12 @@ or less the ring and number turn orange, and at 10% or less red. In light
 mode these are darker than systemOrange and systemRed, so a coloured figure
 keeps 4.5:1 contrast on the popover and on the hover plate; dark mode uses
 lighter tints. The number always carries the value. A low window replaces
-the row's destination description with its name and reset countdown. The
+the row's destination description with its name and reset countdown. When
+another profile qualifies as headroom by the same rule the notifications use
+(a fresh reading with at least 50% of the same window left and no low window
+of its own), it takes the countdown's place, as in "5h limit low · personal
+has 70%"; the tooltip, accessibility label and actions menu keep the reset
+time. The row only suggests and never switches profiles. The
 profile's actions menu lists every window with its remaining share and reset
 clock time, and when it was checked, as disabled information lines.
 Tooltips and the row's accessibility label include relative and absolute
@@ -107,7 +112,15 @@ or projects. Return launches the selection or the first available match in
 the default destination, and Command-Return launches it in the other one, as
 Command-click does for a click. Command-1 through Command-9 launch visible
 rows, Command-K focuses search, Command-R refreshes, and Escape clears search
-before closing.
+before closing. An opt-in gear-menu toggle registers Control-Option-Command-P
+as a global shortcut that opens or closes the menu from any app. It uses the
+Carbon hot-key API, so it needs no Accessibility or Input Monitoring
+permission. The key is whichever one types P with Command held in the current
+layout, resolved again when the layout changes, so Dvorak and Colemak use their
+own P and "Dvorak – QWERTY ⌘" keeps QWERTY's. A global shortcut overrides the
+same keys in every app, so it is off by default; keys another app already
+holds are refused with a message, and a shortcut taken since the last launch is
+turned off at launch.
 Successful launches dismiss the popover. Failed launches leave the error
 visible. Folder pickers and About dismiss the menu before opening; alerts can
 remain above it. Dialogs and native menus retain their own keyboard handling.
@@ -127,8 +140,9 @@ removal and relocation update affected rows before reloading, so a failed
 refresh cannot restore an old launch identity. Superseded or removed rows
 cannot launch. The CLI remains the only writer of profile and binding state;
 the GUI persists only its pins,
-recents, destination preference, and its Low-quota alerts and menu-bar figure
-choices in UserDefaults. Profile colours and symbols belong to the CLI. Profile-only launches start
+recents, destination preference, global shortcut choice, and Low-quota alerts
+and menu-bar figure choices in UserDefaults. Profile colours and symbols
+belong to the CLI. Profile-only launches start
 in the home directory, avoiding accidental project-binding inheritance. Explicit
 workspace launches pass their folder to the CLI and preserve its guard rules.
 

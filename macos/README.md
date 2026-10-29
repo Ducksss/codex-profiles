@@ -65,6 +65,12 @@ uses. ⌘1–9 opens the corresponding visible row, ⌘K focuses search, and ⌘
 refreshes. Escape clears search before closing. Successful launches close the
 popover.
 
+**Keyboard shortcut ⌃⌥⌘P** in the gear menu opens the menu from any app. It
+is off by default because a global shortcut takes those keys from every other
+app; if another app already uses them, the app says so and leaves it off. It
+needs no Accessibility permission. P is whichever key types P in your keyboard
+layout, so Dvorak and Colemak work too.
+
 Profile-only launches start in the home directory. Adding a project shortcut
 is a separate action; creating a profile never opens a folder picker unless
 you explicitly started **Add workspace…**.
@@ -77,7 +83,10 @@ the remaining share. Window labels come from the response: for example, `5h`
 and `7d`, or `15m` when that is the actual duration. At 25% or less the ring
 and number turn orange, and at 10% or less they turn red; the number always
 carries the value. A low window also replaces the row's description with its
-reset time, such as `5h limit low · resets in 1h 12m`. The profile's ⋯ menu
+reset time, such as `5h limit low · resets in 1h 12m`. When another profile
+has at least half of the same window left in a fresh reading, the row names it
+instead, such as `5h limit low · personal has 70%`; the app never switches for
+you. The profile's ⋯ menu
 lists every window with its remaining share and reset time, and when it was
 checked; hover a reading for the same detail. Missing limits show
 **Unavailable**; expired readings show a dash until refreshed. Neither state

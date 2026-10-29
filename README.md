@@ -162,6 +162,7 @@ profile, repair a moved folder or remove the shortcut. Bindings are local metada
 | ⌘K | Focus search |
 | ⌘R | Refresh profiles, projects and quota |
 | Escape | Clear search, then close the menu |
+| ⌃⌥⌘P | Open the menu from any app, once **Keyboard shortcut** is on in the gear menu |
 
 Opening the app again from Finder or Spotlight shows the menu. Terminal
 actions may request macOS Automation permission on first use. The

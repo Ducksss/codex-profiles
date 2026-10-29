@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import Foundation
 
 @MainActor
@@ -296,6 +297,17 @@ struct MenuInteractionTests {
         let refreshingUsage = descendants(updatedRow).compactMap { $0 as? ProfileUsageView }.first!
         expect(refreshingUsage.arrangedSubviews.allSatisfy { $0.alphaValue < 1 } && refreshingUsage.toolTip!.contains("Refreshing"),
             "a refresh must dim the previous reading rather than hide it")
+        // A low row names a fresh, healthier profile; it never switches to it.
+        let healthy = ProfileUsage.available(CodexRateLimits(windows: [
+            RateLimitWindow(usedPercent: 20, windowDurationMins: 300, resetsAt: checkedAt.addingTimeInterval(7200).timeIntervalSince1970),
+        ]), checkedAt: Date())
+        store.loadPreview([first], profiles: ["work", "personal"], usage: ["work": lowQuota, "personal": healthy])
+        let suggestingRow = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first { $0.item == .profile("work") }!
+        expect(descendants(suggestingRow).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "5h limit low · personal has 80%" }
+            && suggestingRow.accessibilityLabel()!.contains("personal has 80% of the same window left")
+            && suggestingRow.toolTip!.contains("Resets in"),
+            "a low row must name a healthier profile while its tooltip keeps the reset time")
+        expect(store.profiles == ["personal", "work"] && store.launchingID == nil, "a suggestion must never switch or launch a profile")
 
         // A row whose binding is changing shows progress and refuses launches.
         store.loadPreview([first, last], profiles: ["work"], usage: ["work": quota], changingPaths: [last.path])
@@ -427,8 +439,48 @@ struct MenuInteractionTests {
         expect(descendants(terminalController.view).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "↩ Open in ChatGPT  ·  ⌘↩ Terminal" },
             "the footer must follow the chosen destination")
 
-        // Open at Login reflects and changes the login item.
+        // The global shortcut is opt-in and reports keys another app holds.
+        let shortcutItem = "Keyboard shortcut \(GlobalShortcut.label)"
         var settings = terminalController.settingsMenu()
+        expect(item(shortcutItem, in: settings).state == .off, "the global shortcut must start off")
+        terminalController.onGlobalShortcutChange = { _ in false }
+        settings.performActionForItem(at: settings.indexOfItem(withTitle: shortcutItem))
+        expect(!defaults.bool(forKey: GlobalShortcut.preferenceKey) && store.statusMessage.hasSuffix("is already used by another app"),
+            "a refused shortcut must stay off and say why")
+        var requested: [Bool] = []
+        terminalController.onGlobalShortcutChange = { requested.append($0); return true }
+        settings = terminalController.settingsMenu()
+        settings.performActionForItem(at: settings.indexOfItem(withTitle: shortcutItem))
+        expect(defaults.bool(forKey: GlobalShortcut.preferenceKey) && item(shortcutItem, in: terminalController.settingsMenu()).state == .on,
+            "choosing the shortcut must turn it on and persist it")
+        settings = terminalController.settingsMenu()
+        settings.performActionForItem(at: settings.indexOfItem(withTitle: shortcutItem))
+        expect(requested == [true, false] && !defaults.bool(forKey: GlobalShortcut.preferenceKey), "choosing it again must release it")
+        // A real registration holds the keys until released, so a second one is refused.
+        var held = GlobalShortcut(action: {})
+        if held != nil {
+            expect(GlobalShortcut(action: {}) == nil, "keys already held must be refused")
+            held = nil
+            expect(GlobalShortcut(action: {}) != nil, "released keys must be available again")
+        } else {
+            print("Skipping global shortcut registration: \(GlobalShortcut.label) is held by another app.")
+        }
+        // The shortcut uses the key that types P with Command held.
+        for (layout, key, reason) in [
+            ("com.apple.keylayout.US", kVK_ANSI_P, "US must use the P key"),
+            ("com.apple.keylayout.Dvorak", kVK_ANSI_R, "Dvorak must use its own P, on QWERTY's R key"),
+            ("com.apple.keylayout.DVORAK-QWERTYCMD", kVK_ANSI_P, "Dvorak – QWERTY ⌘ must keep QWERTY's P under Command"),
+        ] {
+            let filter = [kTISPropertyInputSourceID as String: layout] as CFDictionary
+            guard let source = (TISCreateInputSourceList(filter, true)?.takeRetainedValue() as? [TISInputSource])?.first else {
+                print("Skipping \(layout): the layout is not installed.")
+                continue
+            }
+            expect(GlobalShortcut.keyCode(in: source) == UInt32(key), reason)
+        }
+
+        // Open at Login reflects and changes the login item.
+        settings = terminalController.settingsMenu()
         expect(item("Open at Login", in: settings).state == .off, "Open at Login must start off")
         settings.performActionForItem(at: settings.indexOfItem(withTitle: "Open at Login"))
         expect(login.status == .enabled && item("Open at Login", in: terminalController.settingsMenu()).state == .on,

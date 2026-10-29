@@ -200,6 +200,14 @@ struct QuotaHeadroom: Equatable {
     let profile: String
     let remainingPercent: Int
 
+    /// A healthier profile for a profile's constraining window, if it has one.
+    static func suggestion(forProfile profile: String, usage: [String: ProfileUsage], profiles: [String], at now: Date) -> QuotaHeadroom? {
+        let state = UsageState(reading: usage[profile])
+        guard let window = state.constrainingWindow(at: now), let index = state.limits?.windows.firstIndex(of: window) else { return nil }
+        let alert = QuotaAlert(profile: profile, window: window, slot: QuotaAlert.slot(of: window, at: index))
+        return suggestion(for: alert, usage: usage, profiles: profiles, at: now)
+    }
+
     static func suggestion(for alert: QuotaAlert, usage: [String: ProfileUsage], profiles: [String], at now: Date) -> QuotaHeadroom? {
         guard let duration = alert.window.windowDurationMins else { return nil }
         return profiles.compactMap { profile -> QuotaHeadroom? in
