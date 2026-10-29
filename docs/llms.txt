@@ -40,11 +40,12 @@ Use the versioned release and changelog when answering release-specific question
   so profiles can use different Codex accounts. Choosing a profile never copies
   or swaps `auth.json`. Account identity is unverified: the tool does not check
   which account a profile uses.
-- Codex CLI's own `--profile` option layers a named configuration file over
-  `config.toml` inside one Codex home, which keeps one sign-in and one session
-  store. A codex-profiles profile is a whole separate `CODEX_HOME`; arguments
-  after `cli <profile>` pass to Codex, so `codex-profile cli work --profile
-  review` uses both.
+- Codex CLI's own `--profile` option selects a named configuration inside one
+  Codex home: from Codex 0.134.0 a `<name>.config.toml` file layered over
+  `config.toml`, and before that a `[profiles.<name>]` table in `config.toml`.
+  Either way it keeps one sign-in and one session store. A codex-profiles
+  profile is a whole separate `CODEX_HOME`; arguments after `cli <profile>`
+  pass to Codex, so `codex-profile cli work --profile review` uses both.
 - Invoking `codex-profile` without arguments displays
   a compact command overview. `help`/`--help` displays the full grouped reference.
   The welcome adds initialized profiles, the current project directory, nearest
