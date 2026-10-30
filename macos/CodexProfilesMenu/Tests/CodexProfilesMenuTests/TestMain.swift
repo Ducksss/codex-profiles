@@ -14,6 +14,7 @@ struct CodexProfilesMenuTests {
         try await testRefreshPreservesContentAndSerializesRequests()
         try await testMutationsAndLaunchResults()
         try await testInFlightChangesBlockStaleLaunches()
+        try await testProfileRemovalBlocksLaunchesAndRefreshesAfterFailure()
         try await testProfileOnlyLaunches()
         testTerminalPermissionErrorsAreActionable()
         testProfileNames()
@@ -21,6 +22,7 @@ struct CodexProfilesMenuTests {
         try await testProcessDrainsBothStreams()
         try await testProcessTerminationAndLaunchFailure()
         try await testCreatesAndBindsWithRealCLI()
+        try await testRemovesProfileWithRealCLI()
         try await testErrorsRemainActionable()
         try await testTerminalCommandsPreserveArguments()
         try await UsageTests.run()
@@ -232,6 +234,40 @@ struct CodexProfilesMenuTests {
         expect(recents?[moved.id] == 123.0 && recents?[previous.id] == nil, "real relocation lost recent preferences")
     }
 
+    private static func testRemovesProfileWithRealCLI() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let cliPath = environment["PROFILE_TEST_CLI"], let home = environment["HOME"],
+              home.hasPrefix(environment["PROFILE_TEST_TMP"] ?? "missing") else {
+            throw CLIClientError.commandFailed("Tests require an isolated HOME and PROFILE_TEST_CLI.")
+        }
+        let client = CLIClient(executableURL: URL(fileURLWithPath: cliPath))
+        let suite = WorkspaceStore.testSuiteName("CodexProfilesMenuTests.removeProfile")
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = WorkspaceStore(client: client, defaults: defaults)
+        let created = await store.createProfile("short-lived")
+        let folder = URL(fileURLWithPath: home).appendingPathComponent("short-lived project")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let bound = await store.bindWorkspace(path: folder.path, profile: "short-lived")
+        expect(created && bound, "the profile to remove was not set up")
+        let workspace = store.workspaces.first { $0.profile == "short-lived" }!
+        store.togglePin(workspace)
+
+        let removed = await store.removeProfile("short-lived")
+        let remaining = try await client.loadWorkspaces().bindings
+        expect(removed && store.statusMessage == "Removed short-lived" && !store.profiles.contains("short-lived")
+            && !store.workspaces.contains { $0.profile == "short-lived" } && !remaining.contains { $0.profile == "short-lived" },
+            "removal must drop the profile and its bindings from the CLI and the menu")
+        expect(!FileManager.default.fileExists(atPath: URL(fileURLWithPath: home).appendingPathComponent(".codex-short-lived").path),
+            "removal must delete the profile's Codex home")
+        expect(!store.isPinned(workspace) && store.changingPaths.isEmpty, "removal must forget the profile's pins and release its workspaces")
+
+        let defaultRemoved = await store.removeProfile("default")
+        expect(!defaultRemoved && store.profiles.contains("default")
+            && FileManager.default.fileExists(atPath: URL(fileURLWithPath: home).appendingPathComponent(".codex").path),
+            "the menu must never remove default, the stock ~/.codex")
+    }
+
     private static func testErrorsRemainActionable() async throws {
         let failure = try executable("failure", body: "printf 'Cannot create directory: choose another profile\\n' >&2\nexit 7\n")
         let store = WorkspaceStore(client: CLIClient(executableURL: failure))
@@ -241,6 +277,17 @@ struct CodexProfilesMenuTests {
         expect(!created, "failed profile creation reported success")
         expect(presentedError == "Cannot create directory: choose another profile", "native alert lost the remedy")
         expect(store.statusMessage == presentedError, "footer lost the full error")
+
+        // The CLI refuses a profile with a launcher or dependants; the menu keeps it and shows why.
+        let refusal = try executable("remove-refusal", body: "printf 'Cannot remove work: run launcher remove first\\n' >&2\nexit 1\n")
+        let refusingStore = WorkspaceStore(client: CLIClient(executableURL: refusal))
+        refusingStore.loadPreview([WorkspaceBinding(path: "/tmp/kept", profile: "work", pathExists: true, profileExists: true)], profiles: ["work"])
+        var refusalError: String?
+        refusingStore.onError = { refusalError = $0 }
+        let removed = await refusingStore.removeProfile("work")
+        expect(!removed && refusingStore.profiles == ["work"] && refusingStore.workspaces.count == 1 && refusingStore.changingPaths.isEmpty,
+            "a refused removal must keep the profile and release its workspaces")
+        expect(refusalError == "Cannot remove work: run launcher remove first", "a refused removal lost the CLI's remedy")
         await expectFailure({ _ = try await CLIClient(executableURL: nil).loadProfiles() }, containing: "could not be found")
 
         let refreshFailure = try executable("refresh-failure", body: """
@@ -511,6 +558,35 @@ struct CodexProfilesMenuTests {
         expect(await store.launch(.workspace(reassigned), in: .chatGPT), "the replacement row must launch once the change finishes")
     }
 
+    private static func testProfileRemovalBlocksLaunchesAndRefreshesAfterFailure() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let alpha = binding("alpha", "work")
+        try fixture.writeWorkspaces([alpha])
+        let store = fixture.store()
+        await store.refresh()
+        try fixture.write("", to: "hold-mutation")
+        let removal = Task { await store.removeProfile("work") }
+        try await waitForFile(fixture.url("mutation-started"))
+        expect(!store.canLaunch(.profile("work")) && !store.canLaunch(.workspace(alpha)) && store.canLaunch(.profile("personal")),
+            "a profile being removed and its workspaces must not launch, while other profiles still can")
+        let argumentsDuringRemoval = try fixture.read("arguments")
+        expect(!(await store.launch(.profile("work"), in: .chatGPT)) && store.statusMessage.contains("being removed"),
+            "a launch of a profile being removed must be refused with a reason")
+        expect(!(await store.removeProfile("work")), "a second removal must wait for the first")
+        expect(try fixture.read("arguments") == argumentsDuringRemoval, "a launch or second removal during removal invoked the CLI")
+        // remove deletes the home before the bindings, so a late failure can leave both changed.
+        try fixture.write("default\npersonal\n", to: "profiles")
+        try fixture.writeWorkspaces([])
+        try fixture.write("Cannot update workspace bindings\n", to: "mutation-error")
+        try FileManager.default.removeItem(at: fixture.url("hold-mutation"))
+        let removed = await removal.value
+        expect(!removed && store.statusMessage == "Cannot update workspace bindings"
+            && store.profiles == ["default", "personal"] && store.workspaces.isEmpty,
+            "a failed removal must keep the CLI's reason and refresh to what the CLI now holds")
+        expect(store.removingProfiles.isEmpty && store.changingPaths.isEmpty, "a finished removal must release the profile and its workspaces")
+    }
+
     private static func testTerminalPermissionErrorsAreActionable() {
         func result(_ message: String) -> CommandResult {
             CommandResult(standardOutput: Data(), standardError: Data(message.utf8), terminationStatus: 1)
@@ -592,7 +668,7 @@ struct CodexProfilesMenuTests {
                 cat "$fixture/workspaces.json"
                 ;;
               list:*) cat "$fixture/profiles" ;;
-              workspace:bind|workspace:unbind)
+              workspace:bind|workspace:unbind|remove:*)
                 touch "$fixture/mutation-started"
                 count=0
                 while [ -f "$fixture/hold-mutation" ] && [ "$count" -lt 500 ]; do

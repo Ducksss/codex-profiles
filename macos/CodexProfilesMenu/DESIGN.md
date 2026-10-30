@@ -127,7 +127,10 @@ remain above it. Dialogs and native menus retain their own keyboard handling.
 
 Every row's actions open it once in ChatGPT or Terminal without changing the
 default destination, which the gear menu's Return opens in sets. Profile actions add a workspace for that profile and offer
-optional Codex CLI sign-in. Workspace actions: pin/unpin,
+optional Codex CLI sign-in. Named profiles can be removed after their name is
+typed back, which keeps the destructive button disabled until it matches;
+`default` is the stock `~/.codex`, so the menu never offers it. The profile's
+workspaces refuse launches while the CLI removes it. Workspace actions: pin/unpin,
 reveal in Finder, copy path, change profile, locate a moved folder, and remove
 only the binding. Menus disable inapplicable items explicitly, because NSMenu's
 default auto-enabling re-enables any item whose target responds. A row whose

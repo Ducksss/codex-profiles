@@ -210,6 +210,21 @@ struct CLIClient: Sendable {
         }.value
     }
 
+    /// The app asks for the typed name itself, so the CLI's own prompt is skipped.
+    func removeProfile(_ profile: String) async throws {
+        guard Self.isValidProfileName(profile) else { throw CLIClientError.invalidProfileName }
+        let executableURL = try requiredExecutableURL()
+        try await Task.detached(priority: .userInitiated) {
+            let result = try await ProcessRunner().run(
+                executableURL: executableURL,
+                arguments: ["remove", profile, "--yes"]
+            )
+            guard result.terminationStatus == 0 else {
+                throw CLIClientError.commandFailed(Self.errorMessage(from: result))
+            }
+        }.value
+    }
+
     func signInToCLI(_ profile: String) async throws {
         guard Self.isValidProfileName(profile) else { throw CLIClientError.invalidProfileName }
         let executableURL = try requiredExecutableURL()

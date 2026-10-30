@@ -34,6 +34,9 @@ final class WorkspaceStore {
     /// Folders whose binding is being changed. Their rows cannot launch until
     /// the CLI reports the outcome, so a stale row never opens the old profile.
     private(set) var changingPaths: Set<String> = []
+    /// Profiles the CLI is removing. It deletes their home, so neither the
+    /// profile nor its workspaces may launch until it reports the outcome.
+    private(set) var removingProfiles: Set<String> = []
     private(set) var guardMode = "off"
     private(set) var isRefreshing = false
     private(set) var launchingID: LaunchTarget.ID?
@@ -125,7 +128,7 @@ final class WorkspaceStore {
     }
 
     func isChanging(_ target: LaunchTarget) -> Bool {
-        target.workspace.map { changingPaths.contains($0.path) } ?? false
+        removingProfiles.contains(target.profile) || (target.workspace.map { changingPaths.contains($0.path) } ?? false)
     }
 
     /// Whether a row may launch now: available, current and not being changed.
@@ -336,6 +339,45 @@ final class WorkspaceStore {
         }
     }
 
+    /// Deletes the profile's Codex home and bindings through the CLI. The
+    /// profile and its workspaces cannot launch meanwhile, and their pins and
+    /// recents go with it. default is the stock ~/.codex, so only the CLI
+    /// removes it.
+    @discardableResult
+    func removeProfile(_ profile: String) async -> Bool {
+        guard profile != "default" else {
+            showMessage("The default profile can only be removed from the CLI")
+            return false
+        }
+        guard !removingProfiles.contains(profile) else { return false }
+        let bound = workspaces.filter { $0.profile == profile }
+        let paths = bound.map(\.path)
+        guard beginChanging(paths) else { return false }
+        removingProfiles.insert(profile)
+        defer {
+            removingProfiles.remove(profile)
+            endChanging(paths)
+        }
+        statusMessage = "Removing \(profile)…"
+        notify()
+        defer { notify() }
+
+        do {
+            try await client.removeProfile(profile)
+            bound.forEach(forget)
+            workspaces.removeAll { $0.profile == profile }
+            profiles.removeAll { $0 == profile }
+            return await refreshAfterMutation("Removed \(profile)")
+        } catch {
+            statusMessage = error.localizedDescription
+            onError?(statusMessage)
+            // remove deletes the home before the bindings, so a late failure
+            // can leave both changed; show what the CLI now holds.
+            await refresh(quietly: true)
+            return false
+        }
+    }
+
     func signInToCLI(_ profile: String) async {
         statusMessage = "Opening sign-in for \(profile)…"
         notify()
@@ -465,6 +507,10 @@ final class WorkspaceStore {
         guard launchingID == nil else { return false }
         guard target.isAvailable else {
             showMessage(target.workspace?.availabilityReason ?? "Profile is unavailable")
+            return false
+        }
+        if removingProfiles.contains(target.profile) {
+            showMessage("\(target.profile) is being removed.")
             return false
         }
         if let workspace = target.workspace, changingPaths.contains(workspace.path) {

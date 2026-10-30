@@ -135,7 +135,8 @@ never switches profiles for you.
 Give each profile its own colour and symbol with **Appearance…** in its ⋯
 menu, or `codex-profile appearance work --color teal`, so work and personal
 are easy to tell apart. The shell prompt, Raycast and new launchers use the
-same colour.
+same colour. To delete a profile you no longer need, use **Remove profile…**
+in its ⋯ menu, or `codex-profile remove <profile>`.
 
 For an unavailable reading, use **Sign in to Codex CLI…** in that profile's
 actions menu, then refresh. Quota follows the profile's **CLI sign-in**.
