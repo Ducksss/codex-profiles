@@ -103,7 +103,10 @@ test_picker_removes_profile_after_typed_confirmation() {
   run_cmd "${TEST_ENV[@]}" "$SCRIPT" workspace bind "$tmp/workspace" personal
   assert_status 0
   # Ctrl-X hands the selection to remove's own prompt, then the menu returns.
-  run_interactive 'personal\030personal\nwork\n' env TERM=xterm-256color "$SCRIPT" cli
+  # Each answer waits for its prompt: Linux delivers lines typed ahead during
+  # the menu's raw mode as one read, which Bash would keep buffered.
+  local -a INTERACTIVE_THEN=("Type 'personal'" 'personal\n' 'Removed personal' 'work\n')
+  run_interactive 'personal\030' env TERM=xterm-256color "$SCRIPT" cli
   assert_status 0
   assert_contains 'Ctrl-X: remove'
   assert_contains "Type 'personal' to permanently remove"
@@ -116,7 +119,8 @@ test_picker_removes_profile_after_typed_confirmation() {
   # Delete also removes; a mismatched name keeps the profile and the menu.
   prepare_interactive_test
   mkdir -p "$tmp/home/.codex-personal" "$tmp/home/.codex-work"
-  run_interactive 'personal\033[3~nope\n\033' env TERM=xterm-256color "$SCRIPT" cli
+  INTERACTIVE_THEN=("Type 'personal'" 'nope\n' 'did not match' '\033')
+  run_interactive 'personal\033[3~' env TERM=xterm-256color "$SCRIPT" cli
   assert_status 1
   assert_contains 'Confirmation did not match; nothing removed.'
   [[ -d "$tmp/home/.codex-personal" ]] || fail 'a mismatched confirmation removed the profile'
@@ -125,6 +129,7 @@ test_picker_removes_profile_after_typed_confirmation() {
   # default is the stock ~/.codex; the picker never offers to remove it.
   prepare_interactive_test
   mkdir -p "$tmp/home/.codex" "$tmp/home/.codex-work"
+  INTERACTIVE_THEN=()
   run_interactive 'default\030\033' env TERM=xterm-256color "$SCRIPT" cli
   assert_status 1
   assert_contains "default (~/.codex) can't be removed here"
@@ -358,7 +363,7 @@ test_setup_macos_bash_preserves_login_startup() {
 # Record the child status explicitly and keep stdin open until it exits: BSD
 # script can otherwise inject EOF before the piped answers reach the child.
 run_interactive() {
-  local input="$1" runner ready result attempt command_text transcript
+  local input="$1" runner ready result attempt step command_text transcript
   shift
   runner="$(mktemp "$tmp/runner.XXXXXX")"
   ready="$runner.ready"
@@ -387,6 +392,16 @@ run_interactive() {
     fi
     # A command with no selectable profiles can exit before consuming input.
     printf '%b' "$input" 2>/dev/null || true
+    # INTERACTIVE_THEN pairs a prompt with the input sent once it appears.
+    if [[ -n "${INTERACTIVE_THEN+x}" ]]; then
+      for ((step = 0; step + 1 < ${#INTERACTIVE_THEN[@]}; step += 2)); do
+        for ((attempt = 0; attempt < 200; attempt++)); do
+          if [[ -f "$transcript" ]] && grep -Fq "${INTERACTIVE_THEN[step]}" "$transcript"; then break; fi
+          sleep 0.05
+        done
+        printf '%b' "${INTERACTIVE_THEN[step + 1]}" 2>/dev/null || true
+      done
+    fi
     for ((attempt = 0; attempt < 200; attempt++)); do
       [[ ! -f "$result" ]] || break
       sleep 0.05
