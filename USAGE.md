@@ -465,9 +465,33 @@ scripts should use `codex-profile app <name> [workspace]`.
 ### Use the macOS menu-bar app
 
 The optional **Codex Profiles.app** opens profiles and bound projects from the
-menu bar and shows each profile's remaining Codex CLI quota. Build it from a
-source checkout on macOS 13 or newer with the Xcode Command Line Tools, which
-include Swift (`xcode-select --install`):
+menu bar and shows each profile's remaining Codex CLI quota. It runs on macOS
+13 or newer. Build and install it on your Mac with the Xcode Command Line
+Tools, which include Swift (`xcode-select --install`); Xcode is not needed:
+
+```sh
+codex-profile menu install --dry-run
+codex-profile menu install
+codex-profile menu install --dir ~/Applications
+```
+
+`menu install` builds the release that matches this CLI, `v<version>`, so the
+app bundles the same `codex-profile` version. Like `upgrade`, it requires an
+immutable, final GitHub Release, fetches that exact tag into the upgrade cache
+and refuses a tag whose CLI declares another version. It runs the release's
+own `scripts/macos/build-menu-app.sh` in a temporary folder, which takes a few
+minutes, checks that the app bundles the tag's `codex-profile`, then moves it
+into place. Without `--dir`, it replaces an existing copy in `/Applications`
+or `~/Applications`; otherwise it installs in `/Applications` when that folder
+is writable and in `~/Applications` when it is not. It refuses to replace a
+bundle that is not Codex Profiles, and a failed build leaves the installed
+copy unchanged. After upgrading the CLI, run it again to rebuild the app.
+
+An app built on your Mac is not quarantined, so Gatekeeper does not assess it
+when it opens. It is still unsigned, so do not copy it to another Mac. The
+command never signs the app or changes its extended attributes.
+
+From a source checkout, `make menu-app` builds the same app into `build/macos`:
 
 ```sh
 make menu-app
@@ -475,8 +499,8 @@ open "build/macos/Codex Profiles.app"
 make menu-dmg   # optional: unsigned disk image with an Applications shortcut
 ```
 
-Move the app to Applications before turning on **Open at Login** in its gear
-menu. It includes its own `codex-profile`, so this tool needs no separate
+Keep the app in Applications or ~/Applications before turning on **Open at
+Login** in its gear menu. It includes its own `codex-profile`, so this tool needs no separate
 installation, but Terminal launches, Codex CLI sign-in and quota readings use
 the official Codex CLI. Quota belongs to each profile's Codex CLI sign-in; a
 named ChatGPT window may use a different account. The app never reads tokens
@@ -739,6 +763,7 @@ codex-profile doctor [--json] [--check]
 codex-profile completions <bash|zsh|fish>
 codex-profile shell-init <bash|zsh|fish> [--prompt] [--completions]
 codex-profile upgrade [--dry-run] [--prefix <path>] [--ref <git-ref>]
+codex-profile menu install [--dry-run] [--dir <path>]
 codex-profile version
 codex-profile --version
 codex-profile help [command [subcommand]]
@@ -770,10 +795,11 @@ launch or log mode.
 | `CODEX_BUNDLED_CLI` | Optional fallback Codex CLI checked after `PATH` and before the selected app's bundled CLI. |
 | `CODEX_PROFILE_CONFIG_HOME` | Override the private, versioned state directory containing workspace bindings, guard mode, profile appearances, and launcher metadata. |
 | `CODEX_PROFILE_LAUNCHER_ROOT` | Override the macOS launcher install directory (default: `~/Applications`). |
-| `CODEX_PROFILE_UPGRADE_REPO` | Override the source-upgrade repository. |
+| `CODEX_PROFILE_UPGRADE_REPO` | Override the repository used by source upgrade and `menu install`. |
 | `CODEX_PROFILE_UPGRADE_REF` | Override the upgrade git ref; defaults to the latest immutable release. |
 | `CODEX_PROFILE_UPGRADE_RELEASE_URL` | Override the latest-release metadata URL. |
-| `CODEX_PROFILE_UPGRADE_CACHE` | Override the source-upgrade cache. |
+| `CODEX_PROFILE_MENU_RELEASE_URL` | Override the release metadata URL `menu install` checks; defaults to the GitHub Release for this version. |
+| `CODEX_PROFILE_UPGRADE_CACHE` | Override the source checkout cache shared by upgrade and `menu install`. |
 | `CODEX_PROFILE_UPGRADE_PREFIX` | Override the source-upgrade install prefix. |
 | `CODEX_PROFILE_NO_UPDATE_CHECK` | Disable update checks; `DO_NOT_TRACK` is also honored. |
 | `CODEX_PROFILE_UPDATE_INTERVAL` | Seconds between update checks. |
@@ -824,7 +850,8 @@ opens the original signed app with a profile-specific environment and user-data
 directory; it never copies or re-signs an application bundle.
 
 The optional [menu-bar app](#use-the-macos-menu-bar-app) requires macOS 13 or
-newer and runs on Apple silicon and Intel.
+newer and runs on Apple silicon and Intel. `menu install`, which builds it,
+is macOS-only.
 
 ## Security and privacy model
 

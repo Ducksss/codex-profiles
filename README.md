@@ -74,8 +74,11 @@ accent colours and accessibility preferences.
 
 ## Getting started
 
-**Build from source for now.** A signed app download is planned.
-**Prefer not to build?** Install the [CLI](#command-line-usage) with
+**The app is built on your Mac, in one command.** There is no signed download
+yet. `codex-profile menu install` builds the app from its release source and
+installs it, with no clone needed. macOS does not quarantine an app built on
+the same Mac, so Gatekeeper lets it open.
+**Prefer the terminal?** Install the [CLI](#command-line-usage) with
 `brew install Ducksss/tap/codex-profile` or `npm install -g codex-profile`
 and follow its [quick start](#quick-start) on macOS or Linux.
 
@@ -83,11 +86,30 @@ and follow its [quick start](#quick-start) on macOS or Linux.
 
 - **macOS 13+**, on Apple silicon or Intel.
 - **Xcode Command Line Tools** with Swift. Install with `xcode-select --install`.
+  Xcode itself is not needed.
 - The official **ChatGPT desktop app** for ChatGPT windows. Terminal launches
   and quota readings need the official **Codex CLI**, installed separately or
   available inside ChatGPT.
 
 ### Installation
+
+```sh
+brew install Ducksss/tap/codex-profile
+codex-profile menu install
+```
+
+Without Homebrew, run `npx -y codex-profile@latest menu install`, or install
+the CLI [another way](#install) first.
+
+The build takes a few minutes. It installs **Codex Profiles.app** in
+**Applications**, or in **~/Applications** if you cannot write to
+Applications, and replaces an earlier copy where it is. Open it from Spotlight
+or Applications. The app bundles the same `codex-profile` version, so it needs
+no separate CLI. After upgrading the CLI, run `codex-profile menu install`
+again to rebuild the app at the new version.
+
+<details>
+<summary>Build from a source checkout instead</summary>
 
 ```sh
 git clone https://github.com/Ducksss/codex-profiles.git
@@ -96,11 +118,12 @@ make menu-app
 open build/macos
 ```
 
-Drag **Codex Profiles.app** to **Applications**, then open it. The app includes
-this project's CLI, so no separate npm or Homebrew installation is needed.
+Drag **Codex Profiles.app** to **Applications**, then open it.
 
-Local builds are unsigned development builds. For a DMG, signing and
-notarisation, see the [macOS build guide](https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md#build-locally).
+</details>
+
+Local builds are unsigned and meant only for the Mac that built them. For a DMG,
+signing and notarisation, see the [macOS build guide](https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md#build-locally).
 
 <a id="menu-bar-app-macos"></a>
 
@@ -283,14 +306,15 @@ For agent-led setup, use [agent.md](agent.md) or the
 
 ### Platform support
 
-CLI commands work on macOS and Linux. `app` and `launcher create` require
-macOS. Shell integration supports Bash, Zsh and Fish. `NO_COLOR=1` disables
+CLI commands work on macOS and Linux. `app`, `launcher create` and
+`menu install` require macOS. Shell integration supports Bash, Zsh and Fish. `NO_COLOR=1` disables
 terminal colours, and piped help is plain text.
 
 ## Roadmap
 
 - [x] Native menu bar app with profile, quota and project controls.
 - [x] Universal app and DMG builds with signing and notarisation support.
+- [x] One-command local build and install with `codex-profile menu install`.
 - [ ] Published signed and notarised macOS app download.
 
 See the [changelog](CHANGELOG.md) and [open issues](https://github.com/Ducksss/codex-profiles/issues).

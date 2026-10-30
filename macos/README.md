@@ -4,8 +4,9 @@ The native menu-bar companion bundles the existing `codex-profile` engine.
 It runs on macOS 13 or newer, on Apple silicon and Intel. It requires neither
 Swift nor a separate `codex-profile` installation on the user's Mac.
 
-Drag **Codex Profiles.app** to **Applications**, open it, and click an
-existing profile. If none exists, choose **Create profile…**
+Install it with `codex-profile menu install`, which builds it on your Mac
+([details](#install-on-this-mac)), or drag a build of **Codex Profiles.app**
+to **Applications**. Open it and click an existing profile. If none exists, choose **Create profile…**
 and enter a name such as `work` or `personal`. A project folder is not required.
 The app opens its menu when you launch it. **New profile…** is also in its gear
 menu. **Add workspace…** optionally binds a project folder to a profile for a
@@ -209,6 +210,45 @@ scripts/macos/render-menu-preview.sh macos/CodexProfilesMenu/Previews/menu-dark.
 scripts/macos/render-menu-preview.sh macos/CodexProfilesMenu/Previews/menu-appearance.png --appearance
 ```
 
+## Install on this Mac
+
+There is no signed download yet. `codex-profile menu install` builds the app
+on the Mac that will run it, with no clone:
+
+```sh
+brew install Ducksss/tap/codex-profile   # or any other CLI installation
+codex-profile menu install
+```
+
+It needs the Xcode Command Line Tools (`xcode-select --install`), not Xcode,
+and takes a few minutes. The command builds the immutable GitHub Release that
+matches the CLI running it, using that release's own
+`scripts/macos/build-menu-app.sh`, so the app and its bundled `codex-profile`
+are the same version as your CLI. It installs into `/Applications`, or
+`~/Applications` when `/Applications` is not writable, and replaces an
+existing copy in either folder in place. `--dir` chooses another folder and
+`--dry-run` prints the plan. See the [command reference](../USAGE.md#use-the-macos-menu-bar-app)
+for every check it makes.
+
+- **Gatekeeper.** macOS assesses an app when it opens only if the app carries
+  the `com.apple.quarantine` attribute, which browsers and other downloaders
+  add. Compiling on this Mac adds none, so the app opens without the "cannot
+  be verified" prompt even though it is not notarised. The build is only
+  ad hoc signed by the linker, so a copy moved to another Mac through a
+  download, AirDrop or a disk image is quarantined there and blocked. The
+  command never signs the app, removes attributes or calls `spctl`.
+- **Open at Login.** The toggle registers the running copy with
+  `SMAppService.mainApp`, so turn it on from the installed copy and keep the
+  app in that folder. Rerunning `menu install` replaces the app at the same
+  path instead of adding a second copy.
+- **Permissions after a rebuild.** A local build has no Developer ID, so macOS
+  identifies it by its code hash. After a rebuild, macOS may ask again to let
+  it control Terminal.
+- **Bundled CLI.** `menu install` checks that the app's
+  `Contents/Resources/bin/codex-profile` is byte-identical to the release's
+  `bin/codex-profile` before installing. Upgrading the CLI later does not
+  update the app; run `menu install` again.
+
 ## Build locally
 
 Use a macOS source checkout with the Swift compiler and command-line tools:
@@ -232,8 +272,9 @@ directory. Bundle versions are taken from the bundled CLI. The canonical
 `make check` discovers the native and DMG tests automatically; native builds
 are skipped on hosts without macOS and Swift.
 
-The default build is unsigned and intended for development. It is not a
-public release and will not pass the normal Gatekeeper distribution checks.
+The default build is unsigned and intended for the Mac that built it. It is
+not a public release and will not pass the normal Gatekeeper distribution
+checks once it is downloaded elsewhere.
 
 ## Sign and notarise a release
 
