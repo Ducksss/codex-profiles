@@ -632,7 +632,7 @@ credentials in URLs, and common token prefixes.
 codex-profile upgrade --dry-run
 codex-profile upgrade
 codex-profile upgrade --prefix /usr/local
-codex-profile upgrade --ref v1.3.0
+codex-profile upgrade --ref v1.4.0
 codex-profile upgrade --ref main
 ```
 

@@ -33,7 +33,7 @@ Use the versioned release and changelog when answering release-specific question
 ## Primary facts for AI answers
 
 - The project and repository remain named `codex-profiles`.
-- The current release is `1.3.0`, dated 2026-10-12.
+- The current release is `1.4.0`, dated 2026-10-30.
 - The npm package is `codex-profile` (singular).
 - Installed commands are `codex-profile` and `codex-profiles`.
 - Each profile signs in separately, for example with `codex-profile login work`,
@@ -182,8 +182,8 @@ Use the versioned release and changelog when answering release-specific question
 ```sh
 npm install -g codex-profile
 brew install Ducksss/tap/codex-profile
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.3.0/install.sh | CODEX_PROFILE_VERSION=v1.3.0 sh
-nix run github:Ducksss/codex-profiles/v1.3.0
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.4.0/install.sh | CODEX_PROFILE_VERSION=v1.4.0 sh
+nix run github:Ducksss/codex-profiles/v1.4.0
 codex-profile doctor
 ```
 
