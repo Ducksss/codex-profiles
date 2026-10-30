@@ -352,6 +352,19 @@ struct MenuInteractionTests {
         let profileMenu = controller.actionsMenu(for: .profile("work"))
         expect(["Open in ChatGPT", "Open in Terminal", "Add workspace…", "Sign in to Codex CLI…"].allSatisfy { item($0, in: profileMenu).isEnabled },
             "profile actions must offer both destinations, a workspace shortcut and CLI sign-in")
+        expect(item("Remove profile…", in: profileMenu).isEnabled
+            && !controller.actionsMenu(for: .profile("default")).items.contains { $0.title == "Remove profile…" },
+            "a named profile must offer removal, while default, the stock ~/.codex, must not")
+        let confirm = NSButton(title: "Remove profile", target: nil, action: nil)
+        let confirmation = TypedConfirmation(expected: "work", button: confirm)
+        let typed = NSTextField(string: "Work")
+        let startedDisabled = !confirm.isEnabled
+        confirmation.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: typed))
+        let mismatchDisabled = !confirm.isEnabled
+        typed.stringValue = "work"
+        confirmation.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: typed))
+        expect(startedDisabled && mismatchDisabled && confirm.isEnabled,
+            "removal must stay disabled until the exact profile name is typed")
         let rowWithMenu = descendants(controller.view).compactMap { $0 as? LaunchRowButton }.first { $0.item.workspace == first }!
         expect(rowWithMenu.menu(for: NSEvent.mouseEvent(with: .rightMouseDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0,
             context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)?.items.contains { $0.title == "Copy path" } == true,

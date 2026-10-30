@@ -336,6 +336,36 @@ final class WorkspaceStore {
         }
     }
 
+    /// Deletes the profile's Codex home and bindings through the CLI. Its
+    /// workspaces cannot launch meanwhile, and their pins and recents go with
+    /// it. default is the stock ~/.codex, so only the CLI removes it.
+    @discardableResult
+    func removeProfile(_ profile: String) async -> Bool {
+        guard profile != "default" else {
+            showMessage("The default profile can only be removed from the CLI")
+            return false
+        }
+        let bound = workspaces.filter { $0.profile == profile }
+        let paths = bound.map(\.path)
+        guard beginChanging(paths) else { return false }
+        defer { endChanging(paths) }
+        statusMessage = "Removing \(profile)…"
+        notify()
+        defer { notify() }
+
+        do {
+            try await client.removeProfile(profile)
+            bound.forEach(forget)
+            workspaces.removeAll { $0.profile == profile }
+            profiles.removeAll { $0 == profile }
+            return await refreshAfterMutation("Removed \(profile)")
+        } catch {
+            statusMessage = error.localizedDescription
+            onError?(statusMessage)
+            return false
+        }
+    }
+
     func signInToCLI(_ profile: String) async {
         statusMessage = "Opening sign-in for \(profile)…"
         notify()

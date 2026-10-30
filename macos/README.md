@@ -48,6 +48,14 @@ change it. Profile rows also list each Codex window with its reset time, and
 offer **Add workspace…** for that profile, **Appearance…** and **Sign in to
 Codex CLI…**.
 
+Named profiles also offer **Remove profile…**. Type the profile's name to
+enable **Remove profile**, which runs `codex-profile remove`: it permanently
+deletes the profile's Codex home, with its Codex and ChatGPT window sign-ins,
+sessions and settings, and removes its workspace bindings. Close the profile's
+ChatGPT window first. `default` is the stock `~/.codex`, so only the CLI
+removes it. A profile that still has a launcher, or whose configuration other
+profiles share, is kept and the menu shows the CLI's reason.
+
 Each profile has a coloured tile. New profiles get a colour from their name,
 with `default` in graphite, and show their initial. **Appearance…** lets you
 choose one of eight colours and twelve symbols; changes apply at once and

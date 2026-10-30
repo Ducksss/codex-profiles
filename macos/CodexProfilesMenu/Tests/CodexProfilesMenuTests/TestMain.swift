@@ -21,6 +21,7 @@ struct CodexProfilesMenuTests {
         try await testProcessDrainsBothStreams()
         try await testProcessTerminationAndLaunchFailure()
         try await testCreatesAndBindsWithRealCLI()
+        try await testRemovesProfileWithRealCLI()
         try await testErrorsRemainActionable()
         try await testTerminalCommandsPreserveArguments()
         try await UsageTests.run()
@@ -232,6 +233,40 @@ struct CodexProfilesMenuTests {
         expect(recents?[moved.id] == 123.0 && recents?[previous.id] == nil, "real relocation lost recent preferences")
     }
 
+    private static func testRemovesProfileWithRealCLI() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let cliPath = environment["PROFILE_TEST_CLI"], let home = environment["HOME"],
+              home.hasPrefix(environment["PROFILE_TEST_TMP"] ?? "missing") else {
+            throw CLIClientError.commandFailed("Tests require an isolated HOME and PROFILE_TEST_CLI.")
+        }
+        let client = CLIClient(executableURL: URL(fileURLWithPath: cliPath))
+        let suite = WorkspaceStore.testSuiteName("CodexProfilesMenuTests.removeProfile")
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = WorkspaceStore(client: client, defaults: defaults)
+        let created = await store.createProfile("short-lived")
+        let folder = URL(fileURLWithPath: home).appendingPathComponent("short-lived project")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let bound = await store.bindWorkspace(path: folder.path, profile: "short-lived")
+        expect(created && bound, "the profile to remove was not set up")
+        let workspace = store.workspaces.first { $0.profile == "short-lived" }!
+        store.togglePin(workspace)
+
+        let removed = await store.removeProfile("short-lived")
+        let remaining = try await client.loadWorkspaces().bindings
+        expect(removed && store.statusMessage == "Removed short-lived" && !store.profiles.contains("short-lived")
+            && !store.workspaces.contains { $0.profile == "short-lived" } && !remaining.contains { $0.profile == "short-lived" },
+            "removal must drop the profile and its bindings from the CLI and the menu")
+        expect(!FileManager.default.fileExists(atPath: URL(fileURLWithPath: home).appendingPathComponent(".codex-short-lived").path),
+            "removal must delete the profile's Codex home")
+        expect(!store.isPinned(workspace) && store.changingPaths.isEmpty, "removal must forget the profile's pins and release its workspaces")
+
+        let defaultRemoved = await store.removeProfile("default")
+        expect(!defaultRemoved && store.profiles.contains("default")
+            && FileManager.default.fileExists(atPath: URL(fileURLWithPath: home).appendingPathComponent(".codex").path),
+            "the menu must never remove default, the stock ~/.codex")
+    }
+
     private static func testErrorsRemainActionable() async throws {
         let failure = try executable("failure", body: "printf 'Cannot create directory: choose another profile\\n' >&2\nexit 7\n")
         let store = WorkspaceStore(client: CLIClient(executableURL: failure))
@@ -241,6 +276,17 @@ struct CodexProfilesMenuTests {
         expect(!created, "failed profile creation reported success")
         expect(presentedError == "Cannot create directory: choose another profile", "native alert lost the remedy")
         expect(store.statusMessage == presentedError, "footer lost the full error")
+
+        // The CLI refuses a profile with a launcher or dependants; the menu keeps it and shows why.
+        let refusal = try executable("remove-refusal", body: "printf 'Cannot remove work: run launcher remove first\\n' >&2\nexit 1\n")
+        let refusingStore = WorkspaceStore(client: CLIClient(executableURL: refusal))
+        refusingStore.loadPreview([WorkspaceBinding(path: "/tmp/kept", profile: "work", pathExists: true, profileExists: true)], profiles: ["work"])
+        var refusalError: String?
+        refusingStore.onError = { refusalError = $0 }
+        let removed = await refusingStore.removeProfile("work")
+        expect(!removed && refusingStore.profiles == ["work"] && refusingStore.workspaces.count == 1 && refusingStore.changingPaths.isEmpty,
+            "a refused removal must keep the profile and release its workspaces")
+        expect(refusalError == "Cannot remove work: run launcher remove first", "a refused removal lost the CLI's remedy")
         await expectFailure({ _ = try await CLIClient(executableURL: nil).loadProfiles() }, containing: "could not be found")
 
         let refreshFailure = try executable("refresh-failure", body: """
