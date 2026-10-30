@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 1.4.0 - 2026-10-30
+
 ### Added
 
 - Gave each macOS menu profile a colour and symbol. New profiles get a
