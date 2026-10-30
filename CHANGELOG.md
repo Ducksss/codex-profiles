@@ -7,6 +7,14 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+### Added
+
+- The terminal profile picker that `cli` and `app` show without a profile now
+  removes the selected profile with Ctrl-X or Delete. It hands the profile to
+  `codex-profile remove`, which asks for the name to be typed, then returns to
+  the updated list; a mismatch or refusal keeps the profile. `default`, the
+  stock `~/.codex`, is not offered.
+
 ## 1.4.0 - 2026-10-30
 
 ### Added

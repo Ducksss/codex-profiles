@@ -96,6 +96,42 @@ test_picker_keyboard_navigation_and_filter() {
   assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-work ARGS=' 'menu number selects original index'
 }
 
+test_picker_removes_profile_after_typed_confirmation() {
+  local INTERACTIVE_WAIT_FOR='Filter:'
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-personal" "$tmp/home/.codex-work"
+  run_cmd "${TEST_ENV[@]}" "$SCRIPT" workspace bind "$tmp/workspace" personal
+  assert_status 0
+  # Ctrl-X hands the selection to remove's own prompt, then the menu returns.
+  run_interactive 'personal\030personal\nwork\n' env TERM=xterm-256color "$SCRIPT" cli
+  assert_status 0
+  assert_contains 'Ctrl-X: remove'
+  assert_contains "Type 'personal' to permanently remove"
+  assert_contains 'Removed personal'
+  [[ ! -e "$tmp/home/.codex-personal" ]] || fail 'picker removal kept the profile home'
+  assert_contains "$(tail -n 1 "$tmp/tool.log")" 'home/.codex-work ARGS=' 'the menu returns for a launch after removal'
+  run_cmd "${TEST_ENV[@]}" "$SCRIPT" workspace list --json
+  assert_not_contains '"profile":"personal"'
+
+  # Delete also removes; a mismatched name keeps the profile and the menu.
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex-personal" "$tmp/home/.codex-work"
+  run_interactive 'personal\033[3~nope\n\033' env TERM=xterm-256color "$SCRIPT" cli
+  assert_status 1
+  assert_contains 'Confirmation did not match; nothing removed.'
+  [[ -d "$tmp/home/.codex-personal" ]] || fail 'a mismatched confirmation removed the profile'
+  [[ ! -e "$tmp/tool.log" ]] || fail 'a cancelled picker launched CLI after a refused removal'
+
+  # default is the stock ~/.codex; the picker never offers to remove it.
+  prepare_interactive_test
+  mkdir -p "$tmp/home/.codex" "$tmp/home/.codex-work"
+  run_interactive 'default\030\033' env TERM=xterm-256color "$SCRIPT" cli
+  assert_status 1
+  assert_contains "default (~/.codex) can't be removed here"
+  assert_not_contains 'permanently remove'
+  [[ -d "$tmp/home/.codex" ]] || fail 'the picker removed the default home'
+}
+
 test_picker_restores_terminal() {
   local input expected INTERACTIVE_WAIT_FOR='Filter:'
   for input in 'work\n' '\033' '\003' '\004' 'q\n'; do
@@ -677,6 +713,7 @@ ICON_TOOL
 
 test_picker_cancellation_status_reaches_all_commands
 test_picker_keyboard_navigation_and_filter
+test_picker_removes_profile_after_typed_confirmation
 test_picker_restores_terminal
 test_picker_numeric_names_and_cancel
 test_run_app_recovers_requested_workspace
