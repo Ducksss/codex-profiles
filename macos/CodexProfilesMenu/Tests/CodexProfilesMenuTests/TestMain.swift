@@ -14,6 +14,7 @@ struct CodexProfilesMenuTests {
         try await testRefreshPreservesContentAndSerializesRequests()
         try await testMutationsAndLaunchResults()
         try await testInFlightChangesBlockStaleLaunches()
+        try await testProfileRemovalBlocksLaunchesAndRefreshesAfterFailure()
         try await testProfileOnlyLaunches()
         testTerminalPermissionErrorsAreActionable()
         testProfileNames()
@@ -557,6 +558,35 @@ struct CodexProfilesMenuTests {
         expect(await store.launch(.workspace(reassigned), in: .chatGPT), "the replacement row must launch once the change finishes")
     }
 
+    private static func testProfileRemovalBlocksLaunchesAndRefreshesAfterFailure() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let alpha = binding("alpha", "work")
+        try fixture.writeWorkspaces([alpha])
+        let store = fixture.store()
+        await store.refresh()
+        try fixture.write("", to: "hold-mutation")
+        let removal = Task { await store.removeProfile("work") }
+        try await waitForFile(fixture.url("mutation-started"))
+        expect(!store.canLaunch(.profile("work")) && !store.canLaunch(.workspace(alpha)) && store.canLaunch(.profile("personal")),
+            "a profile being removed and its workspaces must not launch, while other profiles still can")
+        let argumentsDuringRemoval = try fixture.read("arguments")
+        expect(!(await store.launch(.profile("work"), in: .chatGPT)) && store.statusMessage.contains("being removed"),
+            "a launch of a profile being removed must be refused with a reason")
+        expect(!(await store.removeProfile("work")), "a second removal must wait for the first")
+        expect(try fixture.read("arguments") == argumentsDuringRemoval, "a launch or second removal during removal invoked the CLI")
+        // remove deletes the home before the bindings, so a late failure can leave both changed.
+        try fixture.write("default\npersonal\n", to: "profiles")
+        try fixture.writeWorkspaces([])
+        try fixture.write("Cannot update workspace bindings\n", to: "mutation-error")
+        try FileManager.default.removeItem(at: fixture.url("hold-mutation"))
+        let removed = await removal.value
+        expect(!removed && store.statusMessage == "Cannot update workspace bindings"
+            && store.profiles == ["default", "personal"] && store.workspaces.isEmpty,
+            "a failed removal must keep the CLI's reason and refresh to what the CLI now holds")
+        expect(store.removingProfiles.isEmpty && store.changingPaths.isEmpty, "a finished removal must release the profile and its workspaces")
+    }
+
     private static func testTerminalPermissionErrorsAreActionable() {
         func result(_ message: String) -> CommandResult {
             CommandResult(standardOutput: Data(), standardError: Data(message.utf8), terminationStatus: 1)
@@ -638,7 +668,7 @@ struct CodexProfilesMenuTests {
                 cat "$fixture/workspaces.json"
                 ;;
               list:*) cat "$fixture/profiles" ;;
-              workspace:bind|workspace:unbind)
+              workspace:bind|workspace:unbind|remove:*)
                 touch "$fixture/mutation-started"
                 count=0
                 while [ -f "$fixture/hold-mutation" ] && [ "$count" -lt 500 ]; do

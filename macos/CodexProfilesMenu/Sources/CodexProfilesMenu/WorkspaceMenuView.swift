@@ -514,7 +514,7 @@ final class WorkspaceMenuViewController: NSViewController {
             if item.profile != "default" {
                 menu.addItem(.separator())
                 let remove = menuItem("Remove profile…", #selector(removeProfile(_:)), symbol: "trash", item.profile)
-                remove.isEnabled = idle
+                remove.isEnabled = idle && !store.isChanging(item)
                 menu.addItem(remove)
             }
             return menu
