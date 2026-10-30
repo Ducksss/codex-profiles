@@ -9,6 +9,16 @@ and this project follows semantic versioning for tagged releases.
 
 ### Added
 
+- Added `codex-profile menu install`, which builds the macOS menu-bar app on
+  your Mac and installs it, with no clone and no signed download. It needs
+  the Xcode Command Line Tools, not Xcode. It builds the immutable GitHub
+  Release that matches the running CLI, so the app bundles the same
+  `codex-profile` version. It installs into `/Applications`, or
+  `~/Applications` when `/Applications` is not writable, replacing an
+  existing copy in place. It refuses to replace another app, keeps the
+  installed copy when a build fails, and never signs the app or changes its
+  quarantine attributes; a build made on the same Mac is not quarantined, so
+  Gatekeeper does not block it.
 - Gave each macOS menu profile a colour and symbol. New profiles get a
   stable colour from their name, with `default` in graphite, and show their
   initial; **Appearance…** in a profile's actions chooses one of eight

@@ -152,13 +152,12 @@ FAKE_BUNDLED_CODEX
   printf 'fake ChatGPT icon\n' > "$app/Contents/Resources/icon-chatgpt.png"
 }
 
-write_fake_chatgpt_open_tools() {
-  local fake_bin="$1"
-  local tool
+# A read-only plutil for hosts without one; it answers `-extract <key> raw`
+# for string values and refuses everything else.
+write_fake_plutil() {
+  local path="$1"
 
-  mkdir -p "$fake_bin"
-
-  cat > "$fake_bin/plutil" <<'FAKE_PLUTIL'
+  cat > "$path" <<'FAKE_PLUTIL'
 #!/usr/bin/env bash
 if [[ "${1:-}" != "-extract" ]]; then
   printf 'unexpected plutil mutation: %s\n' "$*" >&2
@@ -185,7 +184,15 @@ awk -v target="$key" '
   END { if (!found) exit 1 }
 ' "$plist"
 FAKE_PLUTIL
-  chmod 755 "$fake_bin/plutil"
+  chmod 755 "$path"
+}
+
+write_fake_chatgpt_open_tools() {
+  local fake_bin="$1"
+  local tool
+
+  mkdir -p "$fake_bin"
+  write_fake_plutil "$fake_bin/plutil"
 
   for tool in codesign osascript pgrep pkill cp; do
     cat > "$fake_bin/$tool" <<'FAKE_FORBIDDEN_TOOL'
