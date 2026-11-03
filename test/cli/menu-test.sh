@@ -350,6 +350,21 @@ test_menu_install_requires_the_immutable_matching_release() {
   [[ ! -e "$tmp/Apps/$APP_NAME" ]] || fail "menu install installed an unverified release"
 }
 
+test_menu_install_requires_release_metadata_for_another_repository() {
+  local tmp
+  tmp="$(new_menu_case)"
+
+  # An empty URL falls back to the official release, which says nothing about
+  # the fixture repository.
+  menu_cmd "$tmp" CODEX_PROFILE_MENU_RELEASE_URL= "$SCRIPT" menu install --dry-run --dir "$tmp/Apps"
+  assert_status 1
+  assert_contains "CODEX_PROFILE_UPGRADE_REPO points menu install at $tmp/repo"
+  assert_contains "Set CODEX_PROFILE_MENU_RELEASE_URL"
+  assert_not_contains "Menu-bar app install plan"
+  assert_no_source_fetched "$tmp" "for a repository the release check does not describe"
+  [[ ! -e "$tmp/Apps" ]] || fail "menu install created the install folder for an unchecked repository"
+}
+
 test_menu_install_refuses_a_tag_declaring_another_version() {
   local tmp
   tmp="$(new_menu_case 9.9.8)"
@@ -464,6 +479,7 @@ test_menu_install_replaces_an_existing_copy_in_place
 test_menu_install_refuses_to_replace_other_bundles
 test_menu_install_requires_macos_and_command_line_tools
 test_menu_install_requires_the_immutable_matching_release
+test_menu_install_requires_release_metadata_for_another_repository
 test_menu_install_refuses_a_tag_declaring_another_version
 test_menu_install_keeps_the_existing_copy_when_the_build_fails
 test_menu_install_refuses_a_running_copy

@@ -804,7 +804,7 @@ launch or log mode.
 | `CODEX_PROFILE_UPGRADE_REPO` | Override the repository used by source upgrade and `menu install`. |
 | `CODEX_PROFILE_UPGRADE_REF` | Override the upgrade git ref; defaults to the latest immutable release. |
 | `CODEX_PROFILE_UPGRADE_RELEASE_URL` | Override the latest-release metadata URL. |
-| `CODEX_PROFILE_MENU_RELEASE_URL` | Override the release metadata URL `menu install` checks; defaults to the GitHub Release for this version. |
+| `CODEX_PROFILE_MENU_RELEASE_URL` | Override the release metadata URL `menu install` checks; defaults to the GitHub Release for this version. Set it as well when `CODEX_PROFILE_UPGRADE_REPO` points elsewhere; otherwise `menu install` refuses to build. |
 | `CODEX_PROFILE_UPGRADE_CACHE` | Override the source-upgrade cache. |
 | `CODEX_PROFILE_UPGRADE_PREFIX` | Override the source-upgrade install prefix. |
 | `CODEX_PROFILE_NO_UPDATE_CHECK` | Disable update checks; `DO_NOT_TRACK` is also honored. |

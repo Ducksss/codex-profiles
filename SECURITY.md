@@ -110,7 +110,10 @@ features:
   source repository into a temporary folder and runs its menu-bar app build
   script on your Mac. It does not use the upgrade cache. `menu install --dry-run`
   makes no network requests. The build itself needs no network access, and
-  the result is not signed for distribution.
+  the result is not signed for distribution. A non-default source repository
+  is refused unless `CODEX_PROFILE_MENU_RELEASE_URL` also names release
+  metadata for it, because the official release check says nothing about
+  other repositories.
 - Runs whose standard output is a terminal may make one anonymous HTTPS
   request to the npm registry at most once per day to compare versions. Pipes,
   captured output, runs without a terminal such as most CI, and JSON output do
