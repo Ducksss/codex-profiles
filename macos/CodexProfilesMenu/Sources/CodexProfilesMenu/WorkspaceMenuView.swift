@@ -510,6 +510,13 @@ final class WorkspaceMenuViewController: NSViewController {
             menu.addItem(menuItem("Add workspace…", #selector(addWorkspaceForProfile(_:)), symbol: "folder.badge.plus", item.profile))
             menu.addItem(menuItem("Appearance…", #selector(editAppearance(_:)), symbol: "paintpalette", item.profile))
             menu.addItem(menuItem("Sign in to Codex CLI…", #selector(signInToCLI(_:)), symbol: "person.badge.key", item.profile))
+            // default is the stock ~/.codex; only the CLI removes it.
+            if item.profile != "default" {
+                menu.addItem(.separator())
+                let remove = menuItem("Remove profile…", #selector(removeProfile(_:)), symbol: "trash", item.profile)
+                remove.isEnabled = idle && !store.isChanging(item)
+                menu.addItem(remove)
+            }
             return menu
         }
         let changing = store.isChanging(item)
@@ -846,6 +853,34 @@ final class WorkspaceMenuViewController: NSViewController {
         Task { await store.signInToCLI(profile) }
     }
 
+    @objc private func removeProfile(_ sender: NSMenuItem) {
+        guard let profile = sender.representedObject as? String else { return }
+        // Schedule outside menu tracking so the alert gets keyboard focus.
+        DispatchQueue.main.async { [weak self] in self?.confirmRemoval(of: profile) }
+    }
+
+    /// Removal deletes the profile's Codex home, so, like the CLI, it asks
+    /// for the name typed back instead of a single click.
+    private func confirmRemoval(of profile: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Remove the \(profile) profile?"
+        alert.informativeText = "This permanently deletes ~/.codex-\(profile) with its Codex and ChatGPT window sign-ins, sessions and settings, and removes its workspace bindings. Close its ChatGPT window first, then type \(profile) to confirm."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        field.placeholderString = profile
+        field.setAccessibilityLabel("Type \(profile) to confirm removal")
+        alert.accessoryView = field
+        let remove = alert.addButton(withTitle: "Remove profile")
+        remove.hasDestructiveAction = true
+        alert.addButton(withTitle: "Cancel")
+        let confirmation = TypedConfirmation(expected: profile, button: remove)
+        field.delegate = confirmation
+        alert.window.initialFirstResponder = field
+        let response = withExtendedLifetime(confirmation) { alert.runModal() }
+        guard response == .alertFirstButtonReturn, confirmation.matches(field.stringValue) else { return }
+        Task { await store.removeProfile(profile) }
+    }
+
     private func presentError(_ message: String) {
         // Schedule outside render and menu tracking so the alert gets keyboard focus.
         DispatchQueue.main.async {
@@ -860,6 +895,27 @@ final class WorkspaceMenuViewController: NSViewController {
 }
 
 final class FlippedView: NSView { override var isFlipped: Bool { true } }
+
+/// Keeps a destructive button disabled until its field holds the exact
+/// expected text, so Return cannot confirm a mistyped name.
+final class TypedConfirmation: NSObject, NSTextFieldDelegate {
+    let expected: String
+    private weak var button: NSButton?
+
+    init(expected: String, button: NSButton) {
+        self.expected = expected
+        self.button = button
+        super.init()
+        button.isEnabled = false
+    }
+
+    func matches(_ text: String) -> Bool { text == expected }
+
+    func controlTextDidChange(_ notification: Notification) {
+        guard let field = notification.object as? NSTextField else { return }
+        button?.isEnabled = matches(field.stringValue)
+    }
+}
 
 /// One launchable row. A profile row is 46 points with its quota beside the
 /// name; a workspace is a single 30-point line nested under its profile, and
