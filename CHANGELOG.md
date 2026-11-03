@@ -15,7 +15,7 @@ and this project follows semantic versioning for tagged releases.
   the updated list; a mismatch or refusal keeps the profile. `default`, the
   stock `~/.codex`, is not offered.
 
-## 1.4.0 - 2026-10-30
+## 1.4.0 - 2026-11-03
 
 ### Added
 
