@@ -19,6 +19,16 @@ and this project follows semantic versioning for tagged releases.
   installed copy when a build fails, and never signs the app or changes its
   quarantine attributes; a build made on the same Mac is not quarantined, so
   Gatekeeper does not block it.
+- Added **Remove profile…** to each named profile's actions in the macOS menu.
+  It asks you to type the profile's name, then runs `codex-profile remove`,
+  which deletes the profile's Codex home, including its ChatGPT window data,
+  and its workspace bindings. `default`, the stock `~/.codex`, is left to the
+  CLI.
+
+## 1.4.0 - 2026-11-03
+
+### Added
+
 - Gave each macOS menu profile a colour and symbol. New profiles get a
   stable colour from their name, with `default` in graphite, and show their
   initial; **Appearance…** in a profile's actions chooses one of eight
