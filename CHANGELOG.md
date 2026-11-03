@@ -15,7 +15,7 @@ and this project follows semantic versioning for tagged releases.
   and its workspace bindings. `default`, the stock `~/.codex`, is left to the
   CLI.
 
-## 1.4.0 - 2026-10-30
+## 1.4.0 - 2026-11-03
 
 ### Added
 
