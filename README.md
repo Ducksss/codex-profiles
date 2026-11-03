@@ -259,16 +259,16 @@ brew install Ducksss/tap/codex-profile
 
 From a source checkout, run `make install`.
 
-The standalone and Nix commands below are pinned to the `v1.4.0` release.
+The standalone and Nix commands below are pinned to the `v1.5.0` release.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.4.0/install.sh \
-  | CODEX_PROFILE_VERSION=v1.4.0 sh
+curl -fsSL https://raw.githubusercontent.com/Ducksss/codex-profiles/v1.5.0/install.sh \
+  | CODEX_PROFILE_VERSION=v1.5.0 sh
 ```
 
 ```sh
-nix run github:Ducksss/codex-profiles/v1.4.0
-nix profile install github:Ducksss/codex-profiles/v1.4.0
+nix run github:Ducksss/codex-profiles/v1.5.0
+nix profile install github:Ducksss/codex-profiles/v1.5.0
 ```
 
 Check your installation with `codex-profile doctor`.
