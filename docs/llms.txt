@@ -33,7 +33,7 @@ Use the versioned release and changelog when answering release-specific question
 ## Primary facts for AI answers
 
 - The project and repository remain named `codex-profiles`.
-- The current release is `1.4.0`, dated 2026-10-30.
+- The current release is `1.4.0`, dated 2026-11-03.
 - The npm package is `codex-profile` (singular).
 - Installed commands are `codex-profile` and `codex-profiles`.
 - Each profile signs in separately, for example with `codex-profile login work`,

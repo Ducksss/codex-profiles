@@ -7,7 +7,7 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
-## 1.4.0 - 2026-10-30
+## 1.4.0 - 2026-11-03
 
 ### Added
 
