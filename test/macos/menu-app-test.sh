@@ -119,5 +119,15 @@ APP_DIR="$TMP_DIR/app-build/Codex Profiles.app"
 [[ -x "$APP_DIR/Contents/MacOS/CodexProfilesMenu" ]]
 [[ -x "$APP_DIR/Contents/Resources/bin/codex-profile" ]]
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :LSUIElement' "$APP_DIR/Contents/Info.plist")" == "true" ]]
+# `menu install` relies on both: Gatekeeper assesses only quarantined apps,
+# and the app's version is the version of the CLI it bundles.
+APP_ATTRIBUTES="$(find "$APP_DIR" -exec xattr {} +)"
+if [[ "$APP_ATTRIBUTES" == *com.apple.quarantine* ]]; then
+  printf 'The local build is quarantined:\n%s\n' "$APP_ATTRIBUTES" >&2
+  exit 1
+fi
+cmp -s "$ROOT_DIR/bin/codex-profile" "$APP_DIR/Contents/Resources/bin/codex-profile"
+[[ "$("$APP_DIR/Contents/Resources/bin/codex-profile" version)" == \
+  "codex-profile $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_DIR/Contents/Info.plist")" ]]
 
 printf 'Native menu app tests passed.\n'

@@ -24,7 +24,7 @@ FORBIDDEN_CODEX
   chmod 755 "$TMP_ROOT/forbidden-codex"
 
   for topic in app app-instance cli login run setup init detach clone-config remove list path \
-    workspace launcher status usage doctor logs upgrade version env use completions shell-init help; do
+    workspace launcher menu status usage doctor logs upgrade version env use completions shell-init help; do
     help_cmd help "$topic"
     assert_status 0
     assert_contains "Usage: codex-profile $topic"
@@ -57,12 +57,12 @@ FORBIDDEN_CODEX
 
 test_nested_command_help() {
   local topic subcommand reference flag
-  for topic in workspace launcher; do
-    if [[ "$topic" == workspace ]]; then
-      set -- bind unbind list status guard
-    else
-      set -- create list path remove
-    fi
+  for topic in workspace launcher menu; do
+    case "$topic" in
+      workspace) set -- bind unbind list status guard ;;
+      launcher) set -- create list path remove ;;
+      menu) set -- install ;;
+    esac
     for subcommand in "$@"; do
       help_cmd help "$topic" "$subcommand"
       assert_status 0
@@ -83,6 +83,10 @@ test_nested_command_help() {
   assert_contains '--name <display-name>'
   assert_contains '--color <color>'
   assert_contains '--force'
+  help_cmd menu install --help
+  assert_contains '--dir <path>'
+  assert_contains 'Command Line Tools'
+  assert_contains 'not quarantined'
 }
 
 test_unknown_help_topics_fail() {

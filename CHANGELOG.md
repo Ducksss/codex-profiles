@@ -9,6 +9,18 @@ and this project follows semantic versioning for tagged releases.
 
 ### Added
 
+- Added `codex-profile menu install`, which builds the macOS menu-bar app on
+  your Mac and installs it, with no clone and no signed download. It needs
+  the Xcode Command Line Tools, not Xcode. It builds the immutable GitHub
+  Release that matches the running CLI, so the app bundles the same
+  `codex-profile` version. It installs into `/Applications`, or
+  `~/Applications` when `/Applications` is not writable, replacing an
+  existing copy in place. It fetches only that release's tag, into a
+  temporary folder. It refuses to replace another app or a running copy,
+  warns when another copy stays in the other folder, keeps the installed copy
+  when a build fails, and never signs the app or changes its
+  quarantine attributes; a build made on the same Mac is not quarantined, so
+  Gatekeeper does not block it.
 - Added **Remove profile…** to each named profile's actions in the macOS menu.
   It asks you to type the profile's name, then runs `codex-profile remove`,
   which deletes the profile's Codex home, including its ChatGPT window data,

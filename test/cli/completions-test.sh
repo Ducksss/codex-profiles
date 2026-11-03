@@ -85,6 +85,18 @@ for shell in bash zsh fish; do
   complete_words help workspace ''
   assert_contains bind
   assert_contains guard
+  complete_words help menu ''
+  assert_equals install
+  complete_words menu ''
+  assert_equals install
+  complete_words menu install --
+  assert_contains --dry-run
+  assert_contains --dir
+  complete_words menu install --h
+  assert_equals --help
+  complete_words menu install --dir "$TMP_ROOT/project"
+  if [[ "$shell" == zsh ]]; then assert_contains 'DIRECTORY COMPLETION'; else assert_contains 'spaces'; fi
+  assert_not_contains --dry-run
   complete_words init new --share-with ''
   assert_equals client
   complete_words cli client ''

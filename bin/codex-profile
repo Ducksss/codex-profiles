@@ -12,9 +12,14 @@ CODEX_APP="${CODEX_APP:-}"
 CODEX_APP_BIN="${CODEX_APP_BIN:-}"
 CODEX_BUNDLED_CLI="${CODEX_BUNDLED_CLI:-}"
 CODEX_PROFILE_APP_INSTANCE_ROOT="${CODEX_PROFILE_APP_INSTANCE_ROOT:-$HOME/Library/Application Support/codex-profile/app-instances}"
-CODEX_PROFILE_UPGRADE_REPO="${CODEX_PROFILE_UPGRADE_REPO:-https://github.com/Ducksss/codex-profiles.git}"
+DEFAULT_UPGRADE_REPO="https://github.com/Ducksss/codex-profiles.git"
+DEFAULT_MENU_RELEASE_URL="https://api.github.com/repos/Ducksss/codex-profiles/releases/tags/v$VERSION"
+CODEX_PROFILE_UPGRADE_REPO="${CODEX_PROFILE_UPGRADE_REPO:-$DEFAULT_UPGRADE_REPO}"
 CODEX_PROFILE_UPGRADE_REF="${CODEX_PROFILE_UPGRADE_REF:-latest}"
 CODEX_PROFILE_UPGRADE_RELEASE_URL="${CODEX_PROFILE_UPGRADE_RELEASE_URL:-https://api.github.com/repos/Ducksss/codex-profiles/releases/latest}"
+CODEX_PROFILE_MENU_RELEASE_URL="${CODEX_PROFILE_MENU_RELEASE_URL:-$DEFAULT_MENU_RELEASE_URL}"
+MENU_APP_NAME="Codex Profiles.app"
+MENU_APP_BUNDLE_ID="dev.ducksss.codex-profiles.menu"
 CODEX_PROFILE_CONFIG_HOME="${CODEX_PROFILE_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/codex-profile}"
 CODEX_PROFILE_LAUNCHER_ROOT="${CODEX_PROFILE_LAUNCHER_ROOT:-$HOME/Applications}"
 WORKSPACE_REGISTRY="$CODEX_PROFILE_CONFIG_HOME/workspaces.tsv"
@@ -278,6 +283,23 @@ $PROGRAM launcher list --json"
       options='--yes, -y | Skip the confirmation prompt.'
       examples="$PROGRAM launcher remove work"
       ;;
+    menu)
+      syntax='menu install [options]'
+      description='Install the macOS menu-bar app, Codex Profiles.app, by building it on this Mac. No signed download is needed.'
+      section=Commands
+      options='install [--dry-run] [--dir <path>] | Build the app from this version'"'"'s release and install it.'
+      examples="$PROGRAM menu install
+$PROGRAM help menu install"
+      ;;
+    'menu install')
+      syntax='menu install [--dry-run] [--dir <path>]'
+      description="Build Codex Profiles.app from the immutable GitHub Release matching this CLI (v$VERSION) and install it. The app bundles this same codex-profile version. Needs macOS 13 or newer and Apple's Command Line Tools (xcode-select --install), not Xcode; the build takes a few minutes. Built on this Mac, the app is not quarantined, so Gatekeeper does not block it. Quit the app first; a running copy is not replaced. Run it again after upgrading codex-profile to rebuild the app."
+      options='--dir <path> | Install folder. Defaults to the folder of an existing copy, then /Applications when writable, then ~/Applications.
+--dry-run, -n | Print the plan without downloading or building.'
+      examples="$PROGRAM menu install --dry-run
+$PROGRAM menu install
+$PROGRAM menu install --dir ~/Applications"
+      ;;
     status)
       syntax='status [--json] [profile]'
       description='Show a read-only Codex-local overview for one profile or all profiles. Uses Codex CLI login status; account equality with Desktop is not inspected.'
@@ -435,6 +457,10 @@ launcher list [--json]
 launcher path <profile>
 launcher remove <profile> [--yes]
 
+macOS menu-bar app:
+menu install | Build and install Codex Profiles.app
+menu install [--dry-run] [--dir <path>]
+
 Inspect and maintain:
 status [profile] | Read-only Codex-local overview
 status --json [profile]
@@ -482,9 +508,10 @@ CODEX_PROFILE_USAGE_TIMEOUT | Seconds per usage read; default: 10
 CODEX_PROFILE_CONFIG_HOME | Private versioned control-state storage
 CODEX_PROFILE_LAUNCHER_ROOT | Launcher directory; default: ~/Applications
 CODEX_PROFILE_APP_INSTANCE_ROOT | Legacy clone root; doctor only, read-only
-CODEX_PROFILE_UPGRADE_REPO | Upgrade repository
+CODEX_PROFILE_UPGRADE_REPO | Upgrade and menu install repository
 CODEX_PROFILE_UPGRADE_REF | Git ref; default: latest immutable release
 CODEX_PROFILE_UPGRADE_RELEASE_URL | Latest-release metadata URL
+CODEX_PROFILE_MENU_RELEASE_URL | Menu install release metadata URL
 CODEX_PROFILE_UPGRADE_CACHE | Upgrade cache checkout
 CODEX_PROFILE_UPGRADE_PREFIX | Upgrade install prefix
 CODEX_PROFILE_NO_UPDATE_CHECK | Disable daily checks (or DO_NOT_TRACK)
@@ -502,7 +529,7 @@ Desktop auth safety:
 app refuses an inherited CODEX_ACCESS_TOKEN so a shell credential cannot silently override the selected window. Local-state separation is not an OS or account security boundary.
 
 Platform:
-app and launcher create require macOS. Other commands run on macOS and Linux.
+app, launcher create and menu install require macOS. Other commands run on macOS and Linux.
 EOF_HELP
 }
 
@@ -4573,19 +4600,29 @@ upgrade_fetch_release_metadata() {
   fi
 }
 
-upgrade_latest_release_ref() {
-  local body tag immutable draft prerelease
+release_metadata_tag() {
+  printf '%s\n' "$1" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n '1p'
+}
 
-  body="$(upgrade_fetch_release_metadata "$CODEX_PROFILE_UPGRADE_RELEASE_URL")" \
-    || die "Cannot fetch latest release metadata: $CODEX_PROFILE_UPGRADE_RELEASE_URL"
-  tag="$(printf '%s\n' "$body" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n '1p')"
+release_metadata_is_final() {
+  local body="$1" immutable draft prerelease
+
   immutable="$(printf '%s\n' "$body" | sed -n 's/.*"immutable"[[:space:]]*:[[:space:]]*\([a-z]*\).*/\1/p' | sed -n '1p')"
   draft="$(printf '%s\n' "$body" | sed -n 's/.*"draft"[[:space:]]*:[[:space:]]*\([a-z]*\).*/\1/p' | sed -n '1p')"
   prerelease="$(printf '%s\n' "$body" | sed -n 's/.*"prerelease"[[:space:]]*:[[:space:]]*\([a-z]*\).*/\1/p' | sed -n '1p')"
+  [[ "$immutable" == "true" && "$draft" == "false" && "$prerelease" == "false" ]]
+}
+
+upgrade_latest_release_ref() {
+  local body tag
+
+  body="$(upgrade_fetch_release_metadata "$CODEX_PROFILE_UPGRADE_RELEASE_URL")" \
+    || die "Cannot fetch latest release metadata: $CODEX_PROFILE_UPGRADE_RELEASE_URL"
+  tag="$(release_metadata_tag "$body")"
 
   [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] \
     || die "Latest release metadata does not contain an exact vX.Y.Z tag."
-  [[ "$immutable" == "true" && "$draft" == "false" && "$prerelease" == "false" ]] \
+  release_metadata_is_final "$body" \
     || die "Latest GitHub Release $tag is not immutable and final."
   printf '%s\n' "$tag"
 }
@@ -4746,6 +4783,238 @@ command_upgrade() {
   note "Installed $version_output to $installed"
 }
 
+# An existing copy keeps its folder, so Open at Login keeps pointing at it.
+menu_app_install_root() {
+  local root
+
+  for root in /Applications "$HOME/Applications"; do
+    if [[ -e "$root/$MENU_APP_NAME" || -L "$root/$MENU_APP_NAME" ]]; then
+      printf '%s\n' "$root"
+      return 0
+    fi
+  done
+  if [[ -d /Applications && -w /Applications ]]; then
+    printf '%s\n' /Applications
+  else
+    printf '%s\n' "$HOME/Applications"
+  fi
+}
+
+menu_app_assert_replaceable() {
+  local app="$1"
+
+  [[ -e "$app" || -L "$app" ]] || return 0
+  [[ -d "$app" && ! -L "$app" ]] || die "Refusing to replace $app: it is not an app bundle."
+  [[ "$(desktop_plist_value "$app" CFBundleIdentifier || true)" == "$MENU_APP_BUNDLE_ID" ]] ||
+    die "Refusing to replace $app: it is not Codex Profiles."
+}
+
+menu_app_require_macos() {
+  local version major
+
+  [[ "$(uname -s)" == "Darwin" ]] ||
+    die "$PROGRAM menu install is only available on macOS (it builds the macOS menu-bar app)."
+  # The app targets macOS 13; an older Mac would compile for minutes and fail.
+  version="$(sw_vers -productVersion 2> /dev/null || true)"
+  major="${version%%.*}"
+  if [[ "$major" =~ ^[0-9]+$ ]] && ((major < 13)); then
+    die "The menu-bar app needs macOS 13 or newer; this Mac runs macOS $version."
+  fi
+}
+
+menu_app_require_build_tools() {
+  # Without the Command Line Tools, /usr/bin/swiftc and git are stubs that
+  # open an install dialog, so ask xcode-select before running either.
+  if ! xcode-select -p > /dev/null 2>&1 || ! xcrun --find swiftc > /dev/null 2>&1; then
+    die "Building the menu-bar app needs Apple's Command Line Tools. Install them with 'xcode-select --install', then run '$PROGRAM menu install' again."
+  fi
+  command -v git > /dev/null 2>&1 || die "git is required to fetch the menu-bar app source."
+}
+
+# Copies in the standard folders other than app. Each keeps its own Spotlight
+# entry, and Open at Login stays with whichever copy turned it on.
+menu_app_other_copies() {
+  local app="$1"
+  local root
+
+  for root in /Applications "$HOME/Applications"; do
+    if [[ "$root/$MENU_APP_NAME" != "$app" && -d "$root/$MENU_APP_NAME" ]]; then
+      printf '%s\n' "$root/$MENU_APP_NAME"
+    fi
+  done
+}
+
+# A running copy would keep its old binary but call the replaced bundle's CLI.
+menu_app_assert_not_running() {
+  local app="$1"
+  local pid process
+
+  while read -r pid process; do
+    if [[ "$process" == *"$app/Contents/MacOS/"* ]]; then
+      die "Codex Profiles is running from $app (process $pid). Quit it from its gear menu, then run '$PROGRAM menu install' again."
+    fi
+  done < <(ps -A -o pid= -o command= 2> /dev/null || true)
+}
+
+# A shallow clone of the release tag into the build folder: menu install
+# fetches only that release and never reads or changes the upgrade cache.
+# A git hook or wrapper can export these for its own repository, which would
+# redirect the clone and its checks away from the temporary one.
+menu_app_git() (
+  unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+    GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
+  git "$@"
+)
+
+menu_app_fetch_source() {
+  local repo="$1"
+  local tag="$2"
+  local source_dir="$3"
+  local log="$4"
+
+  if ! menu_app_git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$tag" -- "$repo" "$source_dir" > "$log" 2>&1; then
+    cat "$log" >&2
+    die "Cannot fetch $tag from $repo."
+  fi
+  [[ "$(menu_app_git -C "$source_dir" rev-parse --verify --quiet "refs/tags/$tag^{commit}" || true)" == \
+    "$(menu_app_git -C "$source_dir" rev-parse HEAD)" ]] || die "The fetched source is not the $tag tag."
+}
+
+command_menu_install() {
+  local dry_run=no
+  local dir=""
+  local tag="v$VERSION"
+  local repo="$CODEX_PROFILE_UPGRADE_REPO"
+  local usage_line="Usage: $PROGRAM menu install [--dry-run] [--dir <path>]"
+  local app body build_dir probe staging source_dir built bundled_version other
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --dry-run | -n)
+        dry_run=yes
+        ;;
+      --dir)
+        [[ -n "${2:-}" ]] || die "$usage_line"
+        dir="$2"
+        shift
+        ;;
+      *)
+        die "$usage_line"
+        ;;
+    esac
+    shift
+  done
+
+  menu_app_require_macos
+  [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+    die "menu install builds the release matching this CLI, but codex-profile $VERSION is not a release version."
+  [[ -n "$repo" ]] || die "Upgrade repository cannot be empty."
+  [[ "$repo" != -* ]] || die "Upgrade repository must not start with '-'."
+  # The official release vouches only for the official repository.
+  if [[ "$repo" != "$DEFAULT_UPGRADE_REPO" && "$CODEX_PROFILE_MENU_RELEASE_URL" == "$DEFAULT_MENU_RELEASE_URL" ]]; then
+    die "CODEX_PROFILE_UPGRADE_REPO points menu install at $repo, but the release it checks is the official one. Set CODEX_PROFILE_MENU_RELEASE_URL to that repository's release metadata for $tag, or unset CODEX_PROFILE_UPGRADE_REPO."
+  fi
+  [[ -n "$dir" ]] || dir="$(menu_app_install_root)"
+  [[ "$dir" == /* ]] || dir="$PWD/$dir"
+  app="$dir/$MENU_APP_NAME"
+
+  note "Menu-bar app install plan"
+  note "Version: codex-profile $VERSION"
+  note "Repository: $repo"
+  note "Ref: $tag, cloned into a temporary build folder"
+  note "Install: $app"
+  note "Release policy: immutable final GitHub Release"
+  while IFS= read -r other; do
+    [[ -z "$other" ]] || warn "Another copy stays at $other. Remove it so Spotlight and Open at Login use $app."
+  done < <(menu_app_other_copies "$app")
+  [[ "$dry_run" == "no" ]] || return 0
+
+  menu_app_require_build_tools
+  menu_app_assert_replaceable "$app"
+  menu_app_assert_not_running "$app"
+
+  body="$(upgrade_fetch_release_metadata "$CODEX_PROFILE_MENU_RELEASE_URL")" \
+    || die "Cannot fetch release metadata for $tag: $CODEX_PROFILE_MENU_RELEASE_URL. menu install builds only published releases; from a source checkout, run 'make menu-app' instead."
+  [[ "$(release_metadata_tag "$body")" == "$tag" ]] \
+    || die "Release metadata does not describe $tag: $CODEX_PROFILE_MENU_RELEASE_URL"
+  release_metadata_is_final "$body" || die "GitHub Release $tag is not immutable and final."
+
+  # Check the folder is writable before a build that takes minutes; staging
+  # waits for the build, so an interrupted build leaves nothing in it.
+  mkdir -p "$dir" || die "Cannot create install folder: $dir"
+  probe="$(mktemp -d "$dir/.codex-profile-menu.XXXXXX")" ||
+    die "Cannot write to $dir; choose another folder with --dir."
+  rmdir "$probe" || die "Cannot write to $dir; choose another folder with --dir."
+  build_dir="$(mktemp -d "${TMPDIR:-/tmp}/codex-profile-menu.XXXXXX")" ||
+    die "Cannot create a temporary build folder."
+  # Bash 3.2 unwinds local variables before an EXIT trap, so capture it now.
+  # shellcheck disable=SC2064
+  trap "rm -rf $(printf '%q' "$build_dir")" EXIT
+  trap 'exit 1' HUP INT TERM
+
+  source_dir="$build_dir/source"
+  menu_app_fetch_source "$repo" "$tag" "$source_dir" "$build_dir/fetch.log"
+  [[ "$(script_declared_version_output "$source_dir/bin/codex-profile" || true)" == "codex-profile $VERSION" ]] \
+    || die "Refusing release $tag because its bin/codex-profile does not declare $VERSION."
+  [[ -x "$source_dir/scripts/macos/build-menu-app.sh" ]] \
+    || die "Release $tag does not include the menu-bar app build script."
+
+  # The build runs the release's own script, so the app matches its tag.
+  note "Building $MENU_APP_NAME from $tag; this takes a few minutes."
+  if ! MENU_APP_BUILD_DIR="$build_dir/out" "$source_dir/scripts/macos/build-menu-app.sh" > "$build_dir/build.log" 2>&1; then
+    cat "$build_dir/build.log" >&2
+    die "The menu-bar app build failed; $app was not changed."
+  fi
+  built="$build_dir/out/$MENU_APP_NAME"
+  [[ "$(desktop_plist_value "$built" CFBundleIdentifier || true)" == "$MENU_APP_BUNDLE_ID" ]] \
+    || die "The build did not produce Codex Profiles: $built"
+  [[ "$(desktop_plist_value "$built" CFBundleShortVersionString || true)" == "$VERSION" ]] \
+    || die "The built app does not declare version $VERSION."
+  cmp -s "$source_dir/bin/codex-profile" "$built/Contents/Resources/bin/codex-profile" \
+    || die "The built app does not bundle the $tag codex-profile."
+
+  staging="$(mktemp -d "$dir/.codex-profile-menu.XXXXXX")" ||
+    die "Cannot write to $dir; choose another folder with --dir."
+  # shellcheck disable=SC2064
+  trap "rm -rf $(printf '%q' "$build_dir") $(printf '%q' "$staging")" EXIT
+  ditto "$built" "$staging/$MENU_APP_NAME" || die "Cannot copy the app into $dir."
+  menu_app_assert_replaceable "$app"
+  # The app may have been opened during the build.
+  menu_app_assert_not_running "$app"
+  # An interrupt between the two renames would delete the previous copy with
+  # the staging folder, so let the swap finish.
+  trap '' HUP INT TERM
+  if [[ -e "$app" ]]; then
+    mv "$app" "$staging/previous.app" || die "Cannot move the existing $app aside."
+  fi
+  if ! mv "$staging/$MENU_APP_NAME" "$app"; then
+    if [[ -e "$staging/previous.app" ]] && ! mv "$staging/previous.app" "$app"; then
+      trap - EXIT
+      die "Cannot install $app; the previous copy is kept at $staging/previous.app."
+    fi
+    die "Cannot install $app."
+  fi
+  # The app is installed, so a cleanup failure only warns.
+  rm -rf "$build_dir" "$staging" || warn "Could not remove temporary folders: $build_dir $staging"
+  trap - EXIT HUP INT TERM
+
+  bundled_version="$("$app/Contents/Resources/bin/codex-profile" version 2> /dev/null || true)"
+  note "Installed Codex Profiles $VERSION to $app"
+  note "Bundled CLI: ${bundled_version:-unknown}"
+  note "Open it from Applications or Spotlight."
+}
+
+command_menu() {
+  local subcommand="${1:-}"
+
+  [[ -n "$subcommand" ]] || die "Usage: $PROGRAM menu install [--dry-run] [--dir <path>]"
+  shift || true
+  case "$subcommand" in
+    install) command_menu_install "$@" ;;
+    *) die "Unknown menu command '$subcommand'. Use install." ;;
+  esac
+}
+
 command_completions() {
   local shell="${1:-}"
   [[ -n "$shell" ]] || die "Usage: $PROGRAM completions <bash|zsh|fish>"
@@ -4763,7 +5032,7 @@ _codex_profile_candidates() {
   candidate_words=''
   complete_dirs=no
   if [[ "$#" -eq 0 ]]; then
-    candidate_words='app app-instance cli login init setup detach remove appearance launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help'
+    candidate_words='app app-instance cli login init setup detach remove appearance launcher menu workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help'
     return 0
   fi
   shift
@@ -4857,6 +5126,15 @@ _codex_profile_candidates() {
         esac
       fi
       ;;
+    menu)
+      if [[ "$#" -eq 0 ]]; then candidate_words='install'
+      elif [[ "$1" == install ]]; then
+        case "$prev" in
+          --dir) complete_dirs=yes ;;
+          *) candidate_words='--dry-run --dir -n' ;;
+        esac
+      fi
+      ;;
     workspace)
       if [[ "$#" -eq 0 ]]; then candidate_words='bind unbind list status guard'
       else
@@ -4886,11 +5164,12 @@ _codex_profile_candidates() {
     list) [[ "$#" -ne 0 ]] || candidate_words='--details' ;;
     help)
       if [[ "$#" -eq 0 ]]; then
-        candidate_words='app app-instance cli login init setup detach remove appearance launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help'
+        candidate_words='app app-instance cli login init setup detach remove appearance launcher menu workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help'
       elif [[ "$#" -eq 1 ]]; then
         case "$1" in
           workspace) candidate_words='bind unbind list status guard' ;;
           launcher) candidate_words='create list path remove' ;;
+          menu) candidate_words='install' ;;
         esac
       fi
       ;;
@@ -4909,7 +5188,7 @@ _codex_profile_candidates() {
       ;;
   esac
   if [[ "$cur" == -* ]] && { [[ "$#" -eq 0 ]] || \
-       { [[ "$#" -eq 1 ]] && [[ "$command" == workspace || "$command" == launcher ]]; }; }; then
+       { [[ "$#" -eq 1 ]] && [[ "$command" == workspace || "$command" == launcher || "$command" == menu ]]; }; }; then
     candidate_words="$candidate_words --help -h"
     complete_dirs=no
   fi
@@ -4976,7 +5255,7 @@ function __codex_profile_complete
     set -l profiles no
     set -l directories no
     if test (count $args) -eq 0
-        printf '%s\n' app app-instance cli login init setup detach remove appearance launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help
+        printf '%s\n' app app-instance cli login init setup detach remove appearance launcher menu workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help
         return
     end
     set -l cmd $args[1]
@@ -5093,6 +5372,17 @@ function __codex_profile_complete
                         set candidates --json -j
                 end
             end
+        case menu
+            if test $count -eq 0
+                set candidates install
+            else if test $args[1] = install
+                switch "$prev"
+                    case --dir
+                        set directories yes
+                    case '*'
+                        set candidates --dry-run --dir -n
+                end
+            end
         case workspace
             if test $count -eq 0
                 set candidates bind unbind list status guard
@@ -5131,13 +5421,15 @@ function __codex_profile_complete
             string match -q -- '-*' "$cur"; or set profiles yes
         case help
             if test $count -eq 0
-                set candidates app app-instance cli login init setup detach remove appearance launcher workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help
+                set candidates app app-instance cli login init setup detach remove appearance launcher menu workspace run status usage path env use logs clone-config list doctor completions shell-init upgrade version help
             else if test $count -eq 1
                 switch $args[1]
                     case workspace
                         set candidates bind unbind list status guard
                     case launcher
                         set candidates create list path remove
+                    case menu
+                        set candidates install
                 end
             end
         case doctor
@@ -5158,7 +5450,7 @@ function __codex_profile_complete
             end
     end
     if string match -q -- '-*' "$cur"
-        if test $count -eq 0; or begin; test $count -eq 1; and contains -- "$cmd" workspace launcher; end
+        if test $count -eq 0; or begin; test $count -eq 1; and contains -- "$cmd" workspace launcher menu; end
             set -a candidates --help -h
             set directories no
         end
@@ -5558,7 +5850,7 @@ main() {
     command_help "$command"
     return
   fi
-  if [[ "$command" == workspace || "$command" == launcher ]] && \
+  if [[ "$command" == workspace || "$command" == launcher || "$command" == menu ]] && \
      [[ "${2:-}" == --help || "${2:-}" == -h ]]; then
     [[ "$#" -eq 2 ]] || die "Usage: $PROGRAM help [command [subcommand]]"
     command_help "$command" "$1"
@@ -5656,6 +5948,9 @@ main() {
       ;;
     upgrade)
       command_upgrade "$@"
+      ;;
+    menu)
+      command_menu "$@"
       ;;
     version | --version)
       command_version
