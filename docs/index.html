@@ -229,7 +229,7 @@
           "name": "Is there a menu-bar app for macOS?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. On macOS 13 or newer, an optional native menu-bar app built from a source checkout with make menu-app opens profiles and bound projects in ChatGPT or Terminal and shows each profile's remaining Codex CLI quota. It includes codex-profile but still needs the official Codex CLI."
+            "text": "Yes. On macOS 13 or newer, codex-profile menu install builds an optional native menu-bar app on your Mac and installs it in Applications. It opens profiles and bound projects in ChatGPT or Terminal and shows each profile's remaining Codex CLI quota. It includes codex-profile but still needs the official Codex CLI."
           }
         },
         {
@@ -710,7 +710,7 @@
         <li data-k="2"><span class="cap cap-ink">02</span><div><h3>Codex quota</h3><p>Each profile shows its tightest Codex window as a figure and a ring that turns orange or red when it runs low. A low row names a healthier profile, and the lowest share can sit beside the menu bar icon. The app never switches profiles or accounts for you.</p><p class="tl"><code>codex-profile usage</code> prints every window with its reset time.</p></div></li>
         <li data-k="3"><span class="cap cap-ink">03</span><div><h3>Workspaces</h3><p>Bind project folders to a profile and pin the ones you use most. Search from the keyboard, press ⌘1–9 to open a visible row, or turn on <span class="nw">⌃⌥⌘P</span> to open the menu from any app.</p><p class="tl"><code>codex-profile workspace list</code> shows the same bindings.</p></div></li>
       </ol>
-      <p class="note">Build it from a source checkout on macOS 13 or newer with make menu-app. It includes codex-profile and uses the official Codex CLI for Terminal launches, sign-in and quota. There is no signed download yet. Follow the <a href="https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md">build and quota guide</a>.</p>
+      <p class="note">Install it on macOS 13 or newer with <code>codex-profile menu install</code>, which builds the app on your Mac with Apple's Command Line Tools; Xcode is not needed. It includes codex-profile and uses the official Codex CLI for Terminal launches, sign-in and quota. There is no signed download yet. Follow the <a href="https://github.com/Ducksss/codex-profiles/blob/main/macos/README.md#install-on-this-mac">install and quota guide</a>.</p>
     </section>
 
     <section class="sec launch" id="install" aria-labelledby="install-title">
@@ -740,7 +740,7 @@
           <div class="row" data-k="1"><span class="cap cap-ink">T−2</span><code>codex-profile setup work</code><p>Creates the profile, offers sign-in and binds a project</p></div>
           <div class="row" data-k="2"><span class="cap cap-ink">T−1</span><code>codex-profile workspace bind ~/Dev/client work</code><p>Bind any other folder once</p></div>
           <div class="row" data-k="3"><span class="cap cap-ink">T−0</span><code>codex-profile run</code><p>Starts Codex on the profile bound to this folder</p></div>
-          <p class="note">Menu bar app: <code>git clone https://github.com/Ducksss/codex-profiles.git &amp;&amp; cd codex-profiles &amp;&amp; make menu-app</code></p>
+          <p class="note">Menu bar app: <code>codex-profile menu install</code></p>
         </div>
       </div>
     </section>
@@ -801,7 +801,7 @@
               <div><dt>Project</dt><dd>codex-profiles, installed as codex-profile on npm</dd></div>
               <div><dt>Purpose</dt><dd>Select named Codex homes and named ChatGPT windows with separate local state without copying auth tokens</dd></div>
               <div><dt>Platforms</dt><dd>macOS and Linux for CLI-oriented commands; macOS for Desktop app launch workflows</dd></div>
-              <div><dt>Menu bar app</dt><dd>Optional native app for macOS 13 or newer, built from a source checkout; opens profiles in ChatGPT or Terminal and shows per-profile Codex CLI quota</dd></div>
+              <div><dt>Menu bar app</dt><dd>Optional native app for macOS 13 or newer, built on your Mac with codex-profile menu install; opens profiles in ChatGPT or Terminal and shows per-profile Codex CLI quota</dd></div>
               <div><dt>License</dt><dd><a href="https://github.com/Ducksss/codex-profiles/blob/main/LICENSE">MIT</a></dd></div>
               <div><dt>Official URLs</dt><dd><a href="https://github.com/Ducksss/codex-profiles">GitHub repository</a>; <a href="https://www.npmjs.com/package/codex-profile">npm package: codex-profile</a> (singular; the plural npm package is another project)</dd></div>
             </dl>
@@ -855,7 +855,7 @@
           </article>
           <article>
             <h3>Is there a menu-bar app for macOS?</h3>
-            <p>Yes. On macOS 13 or newer, an optional native menu-bar app built from a source checkout with make menu-app opens profiles and bound projects in ChatGPT or Terminal and shows each profile's remaining Codex CLI quota. It includes codex-profile but still needs the official Codex CLI.</p>
+            <p>Yes. On macOS 13 or newer, codex-profile menu install builds an optional native menu-bar app on your Mac and installs it in Applications. It opens profiles and bound projects in ChatGPT or Terminal and shows each profile's remaining Codex CLI quota. It includes codex-profile but still needs the official Codex CLI.</p>
           </article>
           <article>
             <h3>How do I check Codex usage limits for each profile?</h3>
