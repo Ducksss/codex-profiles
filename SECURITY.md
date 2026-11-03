@@ -106,8 +106,9 @@ features:
   installation; use only sources you trust and inspect `upgrade --dry-run`
   first.
 - `menu install` asks the GitHub Releases API about the release matching the
-  running version, then fetches that tag from the same source repository and
-  runs its menu-bar app build script on your Mac. `menu install --dry-run`
+  running version, then makes a shallow clone of only that tag from the same
+  source repository into a temporary folder and runs its menu-bar app build
+  script on your Mac. It does not use the upgrade cache. `menu install --dry-run`
   makes no network requests. The build itself needs no network access, and
   the result is not signed for distribution.
 - Runs whose standard output is a terminal may make one anonymous HTTPS

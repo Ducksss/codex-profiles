@@ -176,8 +176,10 @@ Use the versioned release and changelog when answering release-specific question
 - `menu install` builds the macOS menu-bar app on the user's Mac from the
   immutable final GitHub Release matching the running CLI and installs it in
   /Applications or ~/Applications. The app bundles that same codex-profile
-  version. A local build is not quarantined, so Gatekeeper does not block it,
-  but it is not notarised and is not a distributable download.
+  version. It fetches only that release's tag, into a temporary folder, and
+  refuses to replace a copy of the app that is running. A local build is not
+  quarantined, so Gatekeeper does not block it, but it is not notarised and is
+  not a distributable download.
 - Source upgrade refuses package-managed or unrecognized executables unless an
   install prefix is explicitly authorized; package-managed installations must
   use their package manager.

@@ -34,6 +34,15 @@ FAKE_XCODE_SELECT
 [ -z "${FAKE_CLT_MISSING:-}" ] || exit 1
 printf '/Library/Developer/CommandLineTools/usr/bin/swiftc\n'
 FAKE_XCRUN
+  write_command_shim "$fake_bin/sw_vers" <<'FAKE_SW_VERS'
+[ "${1:-}" = -productVersion ] || exit 1
+printf '%s\n' "${FAKE_SW_VERS:-14.6}"
+FAKE_SW_VERS
+  # git stays real; the log shows whether and how source was fetched.
+  write_command_shim "$fake_bin/git" <<FAKE_GIT
+printf '%s\n' "\$*" >> "\${FAKE_GIT_LOG:?}"
+exec $(printf '%q' "$(command -v git)") "\$@"
+FAKE_GIT
   # A local build needs no signing and no quarantine changes.
   for tool in codesign spctl xattr sudo; do
     write_command_shim "$fake_bin/$tool" <<'FAKE_FORBIDDEN_TOOL'
@@ -145,7 +154,7 @@ menu_cmd() {
   shift
 
   run_cmd env HOME="$tmp/home" PATH="$tmp/bin:$PATH" TMPDIR="$tmp/tmp" \
-    CODEX_PROFILE_NO_UPDATE_CHECK=1 FAKE_TOOL_LOG="$tmp/tools.log" \
+    CODEX_PROFILE_NO_UPDATE_CHECK=1 FAKE_TOOL_LOG="$tmp/tools.log" FAKE_GIT_LOG="$tmp/git.log" \
     CODEX_PROFILE_UPGRADE_REPO="$tmp/repo" CODEX_PROFILE_UPGRADE_CACHE="$tmp/cache" \
     CODEX_PROFILE_MENU_RELEASE_URL="$tmp/release.json" "$@"
 }
@@ -160,6 +169,14 @@ assert_no_menu_leftovers() {
       || fail "menu install left a staging folder in $apps"
   fi
   [[ ! -s "$tmp/tools.log" ]] || fail "menu install called a forbidden tool: $(cat "$tmp/tools.log")"
+  [[ ! -e "$tmp/cache" ]] || fail "menu install used the upgrade cache"
+}
+
+assert_no_source_fetched() {
+  local tmp="$1"
+  local reason="$2"
+
+  [[ ! -s "$tmp/git.log" ]] || fail "menu install fetched source $reason: $(cat "$tmp/git.log")"
 }
 
 test_menu_install_dry_run_reports_plan_without_side_effects() {
@@ -172,10 +189,10 @@ test_menu_install_dry_run_reports_plan_without_side_effects() {
   assert_contains "Menu-bar app install plan"
   assert_contains "Version: codex-profile $CLI_VERSION"
   assert_contains "Repository: $tmp/repo"
-  assert_contains "Ref: $TAG"
-  assert_contains "Cache: $tmp/cache"
+  assert_contains "Ref: $TAG, cloned into a temporary build folder"
   assert_contains "Install: $tmp/Apps/$APP_NAME"
   assert_contains "Release policy: immutable final GitHub Release"
+  assert_no_source_fetched "$tmp" "during --dry-run"
   [[ ! -e "$tmp/cache" ]] || fail "menu install --dry-run created the cache checkout"
   [[ ! -e "$tmp/Apps" ]] || fail "menu install --dry-run created the install folder"
 
@@ -224,9 +241,9 @@ test_menu_install_builds_the_matching_release() {
   run_cmd "$app/Contents/Resources/bin/codex-profile" version
   assert_status 0
   assert_equals "codex-profile $CLI_VERSION"
-  [[ "$(git -C "$tmp/cache" describe --tags --exact-match)" == "$TAG" ]] \
-    || fail "menu install did not build from the detached $TAG tag"
-  [[ -z "$(git -C "$tmp/cache" status --porcelain)" ]] || fail "menu install built inside the cache checkout"
+  grep -q -- "clone --quiet --depth 1 --branch $TAG -- $tmp/repo " "$tmp/git.log" \
+    || fail "menu install did not make a shallow clone of $TAG: $(cat "$tmp/git.log")"
+  ! grep -q -- 'fetch' "$tmp/git.log" || fail "menu install fetched more than the tag: $(cat "$tmp/git.log")"
   assert_no_menu_leftovers "$tmp" "$tmp/Apps"
 }
 
@@ -256,7 +273,7 @@ test_menu_install_refuses_to_replace_other_bundles() {
   assert_status 1
   assert_contains "Refusing to replace $app: it is not Codex Profiles."
   [[ "$(cat "$app/Contents/marker")" == old ]] || fail "menu install changed a foreign bundle"
-  [[ ! -e "$tmp/cache" ]] || fail "menu install fetched source before checking the destination"
+  assert_no_source_fetched "$tmp" "before checking the destination"
 
   rm -rf "$app"
   mkdir -p "$tmp/elsewhere"
@@ -275,11 +292,15 @@ test_menu_install_requires_macos_and_command_line_tools() {
   assert_status 1
   assert_contains "menu install is only available on macOS"
 
+  menu_cmd "$tmp" FAKE_SW_VERS=12.7.6 "$SCRIPT" menu install --dry-run --dir "$tmp/Apps"
+  assert_status 1
+  assert_contains "The menu-bar app needs macOS 13 or newer; this Mac runs macOS 12.7.6."
+
   menu_cmd "$tmp" FAKE_CLT_MISSING=1 "$SCRIPT" menu install --dir "$tmp/Apps"
   assert_status 1
   assert_contains "needs Apple's Command Line Tools"
   assert_contains "xcode-select --install"
-  [[ ! -e "$tmp/cache" ]] || fail "menu install fetched source without the Command Line Tools"
+  assert_no_source_fetched "$tmp" "without the Command Line Tools"
   [[ ! -e "$tmp/Apps" ]] || fail "menu install created the install folder without the Command Line Tools"
 }
 
@@ -300,7 +321,8 @@ test_menu_install_requires_the_immutable_matching_release() {
   menu_cmd "$tmp" CODEX_PROFILE_MENU_RELEASE_URL=--config=/tmp/unsafe "$SCRIPT" menu install --dir "$tmp/Apps"
   assert_status 1
   assert_contains "Cannot fetch release metadata for $TAG"
-  [[ ! -e "$tmp/cache" ]] || fail "menu install fetched source for an unverified release"
+  assert_contains "run 'make menu-app' instead"
+  assert_no_source_fetched "$tmp" "for an unverified release"
   [[ ! -e "$tmp/Apps/$APP_NAME" ]] || fail "menu install installed an unverified release"
 }
 
@@ -339,6 +361,59 @@ test_menu_install_keeps_the_existing_copy_when_the_build_fails() {
   assert_no_menu_leftovers "$tmp" "$tmp/Apps"
 }
 
+test_menu_install_refuses_a_running_copy() {
+  local tmp app pid
+  tmp="$(new_menu_case)"
+  app="$tmp/Apps/$APP_NAME"
+  write_installed_menu_app "$app" "$BUNDLE_ID"
+  mkdir -p "$app/Contents/MacOS"
+  printf '#!/usr/bin/env bash\nsleep 20\n' > "$app/Contents/MacOS/CodexProfilesMenu"
+  chmod 755 "$app/Contents/MacOS/CodexProfilesMenu"
+  "$app/Contents/MacOS/CodexProfilesMenu" &
+  pid=$!
+
+  menu_cmd "$tmp" "$SCRIPT" menu install --dir "$tmp/Apps"
+  kill "$pid" 2> /dev/null || true
+  wait "$pid" 2> /dev/null || true
+
+  assert_status 1
+  assert_contains "Codex Profiles is running from $app"
+  assert_contains "Quit it from its gear menu"
+  [[ "$(cat "$app/Contents/marker")" == old ]] || fail "menu install replaced a running copy"
+  assert_no_source_fetched "$tmp" "while the app was running"
+}
+
+test_menu_install_warns_about_another_copy() {
+  local tmp
+  tmp="$(new_menu_case)"
+  write_installed_menu_app "$tmp/home/Applications/$APP_NAME" "$BUNDLE_ID"
+
+  menu_cmd "$tmp" "$SCRIPT" menu install --dry-run --dir "$tmp/Apps"
+  assert_status 0
+  assert_contains "Warning: Another copy stays at $tmp/home/Applications/$APP_NAME. Remove it so Spotlight and Open at Login use $tmp/Apps/$APP_NAME."
+}
+
+test_menu_install_only_warns_when_cleanup_fails() {
+  local tmp app staging
+  tmp="$(new_menu_case)"
+  app="$tmp/Apps/$APP_NAME"
+  write_installed_menu_app "$app" "$BUNDLE_ID"
+  # The previous copy moves aside with one rename, but a locked folder inside
+  # it cannot be deleted afterwards.
+  mkdir -p "$app/Contents/locked"
+  printf 'kept\n' > "$app/Contents/locked/file"
+  chmod 555 "$app/Contents/locked"
+
+  menu_cmd "$tmp" "$SCRIPT" menu install --dir "$tmp/Apps"
+  staging="$(find "$tmp/Apps" -mindepth 1 -maxdepth 1 -name '.codex-profile-menu.*' -print -quit)"
+  [[ -z "$staging" ]] || chmod -R u+w "$staging"
+
+  assert_status 0
+  assert_contains "Warning: Could not remove temporary folders"
+  assert_contains "Installed Codex Profiles $CLI_VERSION to $app"
+  [[ "$(cat "$app/Contents/Resources/marker")" == new ]] || fail "menu install did not install the new build"
+}
+
 test_menu_rejects_unknown_arguments() {
   local tmp
   tmp="$(new_menu_case)"
@@ -366,6 +441,9 @@ test_menu_install_requires_macos_and_command_line_tools
 test_menu_install_requires_the_immutable_matching_release
 test_menu_install_refuses_a_tag_declaring_another_version
 test_menu_install_keeps_the_existing_copy_when_the_build_fails
+test_menu_install_refuses_a_running_copy
+test_menu_install_warns_about_another_copy
+test_menu_install_only_warns_when_cleanup_fails
 test_menu_rejects_unknown_arguments
 
 printf 'PASS: menu install\n'

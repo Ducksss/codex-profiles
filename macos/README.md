@@ -234,8 +234,9 @@ matches the CLI running it, using that release's own
 `scripts/macos/build-menu-app.sh`, so the app and its bundled `codex-profile`
 are the same version as your CLI. It installs into `/Applications`, or
 `~/Applications` when `/Applications` is not writable, and replaces an
-existing copy in either folder in place. `--dir` chooses another folder and
-`--dry-run` prints the plan. See the [command reference](../USAGE.md#use-the-macos-menu-bar-app)
+existing copy in either folder in place. Quit the app from its gear menu
+first: the command refuses to replace a copy that is running. `--dir` chooses
+another folder and `--dry-run` prints the plan. See the [command reference](../USAGE.md#use-the-macos-menu-bar-app)
 for every check it makes.
 
 - **Gatekeeper.** macOS assesses an app when it opens only if the app carries

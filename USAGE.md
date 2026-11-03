@@ -480,15 +480,18 @@ codex-profile menu install --dir ~/Applications
 
 `menu install` builds the release that matches this CLI, `v<version>`, so the
 app bundles the same `codex-profile` version. Like `upgrade`, it requires an
-immutable, final GitHub Release, fetches that exact tag into the upgrade cache
-and refuses a tag whose CLI declares another version. It runs the release's
-own `scripts/macos/build-menu-app.sh` in a temporary folder, which takes a few
-minutes, checks that the app bundles the tag's `codex-profile`, then moves it
-into place. Without `--dir`, it replaces an existing copy in `/Applications`
-or `~/Applications`; otherwise it installs in `/Applications` when that folder
-is writable and in `~/Applications` when it is not. It refuses to replace a
-bundle that is not Codex Profiles, and a failed build leaves the installed
-copy unchanged. After upgrading the CLI, run it again to rebuild the app.
+immutable, final GitHub Release. It makes a shallow clone of that exact tag
+into a temporary folder, without using or changing the upgrade cache, and
+refuses a tag whose CLI declares another version. It runs the release's own
+`scripts/macos/build-menu-app.sh` there, which takes a few minutes, checks
+that the app bundles the tag's `codex-profile`, then moves it into place.
+Without `--dir`, it replaces an existing copy in `/Applications` or
+`~/Applications`; otherwise it installs in `/Applications` when that folder is
+writable and in `~/Applications` when it is not. It warns when another copy
+stays in one of those folders. It refuses to replace a bundle that is not
+Codex Profiles or a copy that is running, so quit the app from its gear menu
+first, and a failed build leaves the installed copy unchanged. After upgrading
+the CLI, run it again to rebuild the app.
 
 An app built on your Mac is not quarantined, so Gatekeeper does not assess it
 when it opens. It is still unsigned, so do not copy it to another Mac. The
@@ -802,7 +805,7 @@ launch or log mode.
 | `CODEX_PROFILE_UPGRADE_REF` | Override the upgrade git ref; defaults to the latest immutable release. |
 | `CODEX_PROFILE_UPGRADE_RELEASE_URL` | Override the latest-release metadata URL. |
 | `CODEX_PROFILE_MENU_RELEASE_URL` | Override the release metadata URL `menu install` checks; defaults to the GitHub Release for this version. |
-| `CODEX_PROFILE_UPGRADE_CACHE` | Override the source checkout cache shared by upgrade and `menu install`. |
+| `CODEX_PROFILE_UPGRADE_CACHE` | Override the source-upgrade cache. |
 | `CODEX_PROFILE_UPGRADE_PREFIX` | Override the source-upgrade install prefix. |
 | `CODEX_PROFILE_NO_UPDATE_CHECK` | Disable update checks; `DO_NOT_TRACK` is also honored. |
 | `CODEX_PROFILE_UPDATE_INTERVAL` | Seconds between update checks. |

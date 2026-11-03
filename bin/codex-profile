@@ -291,7 +291,7 @@ $PROGRAM help menu install"
       ;;
     'menu install')
       syntax='menu install [--dry-run] [--dir <path>]'
-      description="Build Codex Profiles.app from the immutable GitHub Release matching this CLI (v$VERSION) and install it. The app bundles this same codex-profile version. Needs macOS 13 or newer and Apple's Command Line Tools (xcode-select --install), not Xcode; the build takes a few minutes. Built on this Mac, the app is not quarantined, so Gatekeeper does not block it. Run it again after upgrading codex-profile to rebuild the app."
+      description="Build Codex Profiles.app from the immutable GitHub Release matching this CLI (v$VERSION) and install it. The app bundles this same codex-profile version. Needs macOS 13 or newer and Apple's Command Line Tools (xcode-select --install), not Xcode; the build takes a few minutes. Built on this Mac, the app is not quarantined, so Gatekeeper does not block it. Quit the app first; a running copy is not replaced. Run it again after upgrading codex-profile to rebuild the app."
       options='--dir <path> | Install folder. Defaults to the folder of an existing copy, then /Applications when writable, then ~/Applications.
 --dry-run, -n | Print the plan without downloading or building.'
       examples="$PROGRAM menu install --dry-run
@@ -510,7 +510,7 @@ CODEX_PROFILE_UPGRADE_REPO | Upgrade and menu install repository
 CODEX_PROFILE_UPGRADE_REF | Git ref; default: latest immutable release
 CODEX_PROFILE_UPGRADE_RELEASE_URL | Latest-release metadata URL
 CODEX_PROFILE_MENU_RELEASE_URL | Menu install release metadata URL
-CODEX_PROFILE_UPGRADE_CACHE | Upgrade and menu install source cache
+CODEX_PROFILE_UPGRADE_CACHE | Upgrade cache checkout
 CODEX_PROFILE_UPGRADE_PREFIX | Upgrade install prefix
 CODEX_PROFILE_NO_UPDATE_CHECK | Disable daily checks (or DO_NOT_TRACK)
 CODEX_PROFILE_UPDATE_INTERVAL | Seconds between checks; default: 86400
@@ -4645,31 +4645,6 @@ upgrade_checkout_ref() {
   fi
 }
 
-# Clones the cache on first use; afterwards it must be a clean checkout of repo.
-upgrade_prepare_checkout() {
-  local repo="$1"
-  local cache="$2"
-  local ref="$3"
-  local origin dirty
-
-  if [[ -e "$cache" && ! -d "$cache/.git" ]]; then
-    die "Upgrade cache exists but is not a git checkout: $cache"
-  fi
-
-  if [[ ! -d "$cache/.git" ]]; then
-    mkdir -p "$(dirname "$cache")" || die "Cannot create upgrade cache parent: $(dirname "$cache")"
-    git clone "$repo" "$cache"
-  else
-    origin="$(git -C "$cache" remote get-url origin 2> /dev/null || true)"
-    [[ "$origin" == "$repo" ]] || die "Cached upgrade checkout origin differs from $repo: $origin"
-
-    dirty="$(git -C "$cache" status --porcelain)"
-    [[ -z "$dirty" ]] || die "Cached upgrade checkout has local changes: $cache"
-  fi
-
-  upgrade_checkout_ref "$cache" "$ref"
-}
-
 upgrade_assert_installation_owned() {
   local prefix="$1" prefix_explicit="$2"
   local program_path bin_dir canonical plural
@@ -4764,7 +4739,24 @@ command_upgrade() {
   command -v git > /dev/null 2>&1 || die "git is required to upgrade codex-profile."
   command -v make > /dev/null 2>&1 || die "make is required to upgrade codex-profile."
 
-  upgrade_prepare_checkout "$repo" "$cache" "$ref"
+  if [[ -e "$cache" && ! -d "$cache/.git" ]]; then
+    die "Upgrade cache exists but is not a git checkout: $cache"
+  fi
+
+  if [[ ! -d "$cache/.git" ]]; then
+    mkdir -p "$(dirname "$cache")" || die "Cannot create upgrade cache parent: $(dirname "$cache")"
+    git clone "$repo" "$cache"
+    upgrade_checkout_ref "$cache" "$ref"
+  else
+    local origin dirty
+    origin="$(git -C "$cache" remote get-url origin 2> /dev/null || true)"
+    [[ "$origin" == "$repo" ]] || die "Cached upgrade checkout origin differs from $repo: $origin"
+
+    dirty="$(git -C "$cache" status --porcelain)"
+    [[ -z "$dirty" ]] || die "Cached upgrade checkout has local changes: $cache"
+
+    upgrade_checkout_ref "$cache" "$ref"
+  fi
 
   [[ -f "$cache/Makefile" ]] || die "Upgrade checkout is missing Makefile: $cache"
   [[ -f "$cache/bin/codex-profile" ]] || die "Upgrade checkout is missing bin/codex-profile: $cache"
@@ -4815,6 +4807,19 @@ menu_app_assert_replaceable() {
     die "Refusing to replace $app: it is not Codex Profiles."
 }
 
+menu_app_require_macos() {
+  local version major
+
+  [[ "$(uname -s)" == "Darwin" ]] ||
+    die "$PROGRAM menu install is only available on macOS (it builds the macOS menu-bar app)."
+  # The app targets macOS 13; an older Mac would compile for minutes and fail.
+  version="$(sw_vers -productVersion 2> /dev/null || true)"
+  major="${version%%.*}"
+  if [[ "$major" =~ ^[0-9]+$ ]] && ((major < 13)); then
+    die "The menu-bar app needs macOS 13 or newer; this Mac runs macOS $version."
+  fi
+}
+
 menu_app_require_build_tools() {
   # Without the Command Line Tools, /usr/bin/swiftc and git are stubs that
   # open an install dialog, so ask xcode-select before running either.
@@ -4824,13 +4829,54 @@ menu_app_require_build_tools() {
   command -v git > /dev/null 2>&1 || die "git is required to fetch the menu-bar app source."
 }
 
+# Copies in the standard folders other than app. Each keeps its own Spotlight
+# entry, and Open at Login stays with whichever copy turned it on.
+menu_app_other_copies() {
+  local app="$1"
+  local root
+
+  for root in /Applications "$HOME/Applications"; do
+    if [[ "$root/$MENU_APP_NAME" != "$app" && -d "$root/$MENU_APP_NAME" ]]; then
+      printf '%s\n' "$root/$MENU_APP_NAME"
+    fi
+  done
+}
+
+# A running copy would keep its old binary but call the replaced bundle's CLI.
+menu_app_assert_not_running() {
+  local app="$1"
+  local pid process
+
+  while read -r pid process; do
+    if [[ "$process" == *"$app/Contents/MacOS/"* ]]; then
+      die "Codex Profiles is running from $app (process $pid). Quit it from its gear menu, then run '$PROGRAM menu install' again."
+    fi
+  done < <(ps -A -o pid= -o command= 2> /dev/null || true)
+}
+
+# A shallow clone of the release tag into the build folder: menu install
+# fetches only that release and never reads or changes the upgrade cache.
+menu_app_fetch_source() {
+  local repo="$1"
+  local tag="$2"
+  local source_dir="$3"
+  local log="$4"
+
+  if ! git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$tag" -- "$repo" "$source_dir" > "$log" 2>&1; then
+    cat "$log" >&2
+    die "Cannot fetch $tag from $repo."
+  fi
+  [[ "$(git -C "$source_dir" rev-parse --verify --quiet "refs/tags/$tag^{commit}" || true)" == \
+    "$(git -C "$source_dir" rev-parse HEAD)" ]] || die "The fetched source is not the $tag tag."
+}
+
 command_menu_install() {
   local dry_run=no
   local dir=""
   local tag="v$VERSION"
   local repo="$CODEX_PROFILE_UPGRADE_REPO"
   local usage_line="Usage: $PROGRAM menu install [--dry-run] [--dir <path>]"
-  local cache app body build_dir staging built bundled_version
+  local app body build_dir probe staging source_dir built bundled_version other
 
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
@@ -4849,14 +4895,11 @@ command_menu_install() {
     shift
   done
 
-  [[ "$(uname -s)" == "Darwin" ]] ||
-    die "$PROGRAM menu install is only available on macOS (it builds the macOS menu-bar app)."
+  menu_app_require_macos
   [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
     die "menu install builds the release matching this CLI, but codex-profile $VERSION is not a release version."
   [[ -n "$repo" ]] || die "Upgrade repository cannot be empty."
   [[ "$repo" != -* ]] || die "Upgrade repository must not start with '-'."
-  cache="$(upgrade_cache_dir)"
-  [[ -n "$cache" ]] || die "Upgrade cache cannot be empty."
   [[ -n "$dir" ]] || dir="$(menu_app_install_root)"
   [[ "$dir" == /* ]] || dir="$PWD/$dir"
   app="$dir/$MENU_APP_NAME"
@@ -4864,55 +4907,66 @@ command_menu_install() {
   note "Menu-bar app install plan"
   note "Version: codex-profile $VERSION"
   note "Repository: $repo"
-  note "Ref: $tag"
-  note "Cache: $cache"
+  note "Ref: $tag, cloned into a temporary build folder"
   note "Install: $app"
   note "Release policy: immutable final GitHub Release"
+  while IFS= read -r other; do
+    [[ -z "$other" ]] || warn "Another copy stays at $other. Remove it so Spotlight and Open at Login use $app."
+  done < <(menu_app_other_copies "$app")
   [[ "$dry_run" == "no" ]] || return 0
 
   menu_app_require_build_tools
   menu_app_assert_replaceable "$app"
+  menu_app_assert_not_running "$app"
 
   body="$(upgrade_fetch_release_metadata "$CODEX_PROFILE_MENU_RELEASE_URL")" \
-    || die "Cannot fetch release metadata for $tag: $CODEX_PROFILE_MENU_RELEASE_URL"
+    || die "Cannot fetch release metadata for $tag: $CODEX_PROFILE_MENU_RELEASE_URL. menu install builds only published releases; from a source checkout, run 'make menu-app' instead."
   [[ "$(release_metadata_tag "$body")" == "$tag" ]] \
     || die "Release metadata does not describe $tag: $CODEX_PROFILE_MENU_RELEASE_URL"
   release_metadata_is_final "$body" || die "GitHub Release $tag is not immutable and final."
 
-  upgrade_prepare_checkout "$repo" "$cache" "$tag"
-  [[ "$(script_declared_version_output "$cache/bin/codex-profile" || true)" == "codex-profile $VERSION" ]] \
-    || die "Refusing release $tag because its bin/codex-profile does not declare $VERSION."
-  [[ -x "$cache/scripts/macos/build-menu-app.sh" ]] \
-    || die "Release $tag does not include the menu-bar app build script."
-
+  # Check the folder is writable before a build that takes minutes; staging
+  # waits for the build, so an interrupted build leaves nothing in it.
   mkdir -p "$dir" || die "Cannot create install folder: $dir"
+  probe="$(mktemp -d "$dir/.codex-profile-menu.XXXXXX")" ||
+    die "Cannot write to $dir; choose another folder with --dir."
+  rmdir "$probe" || die "Cannot write to $dir; choose another folder with --dir."
   build_dir="$(mktemp -d "${TMPDIR:-/tmp}/codex-profile-menu.XXXXXX")" ||
     die "Cannot create a temporary build folder."
-  staging="$(mktemp -d "$dir/.codex-profile-menu.XXXXXX")" || {
-    rm -rf "$build_dir"
-    die "Cannot write to $dir; choose another folder with --dir."
-  }
-  # Bash 3.2 unwinds local variables before an EXIT trap, so capture both now.
+  # Bash 3.2 unwinds local variables before an EXIT trap, so capture it now.
   # shellcheck disable=SC2064
-  trap "rm -rf $(printf '%q' "$build_dir") $(printf '%q' "$staging")" EXIT
+  trap "rm -rf $(printf '%q' "$build_dir")" EXIT
   trap 'exit 1' HUP INT TERM
+
+  source_dir="$build_dir/source"
+  menu_app_fetch_source "$repo" "$tag" "$source_dir" "$build_dir/fetch.log"
+  [[ "$(script_declared_version_output "$source_dir/bin/codex-profile" || true)" == "codex-profile $VERSION" ]] \
+    || die "Refusing release $tag because its bin/codex-profile does not declare $VERSION."
+  [[ -x "$source_dir/scripts/macos/build-menu-app.sh" ]] \
+    || die "Release $tag does not include the menu-bar app build script."
 
   # The build runs the release's own script, so the app matches its tag.
   note "Building $MENU_APP_NAME from $tag; this takes a few minutes."
-  if ! MENU_APP_BUILD_DIR="$build_dir" "$cache/scripts/macos/build-menu-app.sh" > "$build_dir/build.log" 2>&1; then
+  if ! MENU_APP_BUILD_DIR="$build_dir/out" "$source_dir/scripts/macos/build-menu-app.sh" > "$build_dir/build.log" 2>&1; then
     cat "$build_dir/build.log" >&2
     die "The menu-bar app build failed; $app was not changed."
   fi
-  built="$build_dir/$MENU_APP_NAME"
+  built="$build_dir/out/$MENU_APP_NAME"
   [[ "$(desktop_plist_value "$built" CFBundleIdentifier || true)" == "$MENU_APP_BUNDLE_ID" ]] \
     || die "The build did not produce Codex Profiles: $built"
   [[ "$(desktop_plist_value "$built" CFBundleShortVersionString || true)" == "$VERSION" ]] \
     || die "The built app does not declare version $VERSION."
-  cmp -s "$cache/bin/codex-profile" "$built/Contents/Resources/bin/codex-profile" \
+  cmp -s "$source_dir/bin/codex-profile" "$built/Contents/Resources/bin/codex-profile" \
     || die "The built app does not bundle the $tag codex-profile."
 
+  staging="$(mktemp -d "$dir/.codex-profile-menu.XXXXXX")" ||
+    die "Cannot write to $dir; choose another folder with --dir."
+  # shellcheck disable=SC2064
+  trap "rm -rf $(printf '%q' "$build_dir") $(printf '%q' "$staging")" EXIT
   ditto "$built" "$staging/$MENU_APP_NAME" || die "Cannot copy the app into $dir."
   menu_app_assert_replaceable "$app"
+  # The app may have been opened during the build.
+  menu_app_assert_not_running "$app"
   # An interrupt between the two renames would delete the previous copy with
   # the staging folder, so let the swap finish.
   trap '' HUP INT TERM
@@ -4926,13 +4980,14 @@ command_menu_install() {
     fi
     die "Cannot install $app."
   fi
-  rm -rf "$build_dir" "$staging"
+  # The app is installed, so a cleanup failure only warns.
+  rm -rf "$build_dir" "$staging" || warn "Could not remove temporary folders: $build_dir $staging"
   trap - EXIT HUP INT TERM
 
   bundled_version="$("$app/Contents/Resources/bin/codex-profile" version 2> /dev/null || true)"
   note "Installed Codex Profiles $VERSION to $app"
   note "Bundled CLI: ${bundled_version:-unknown}"
-  note "Open it from Applications or Spotlight. If an older copy is running, quit it from its gear menu first."
+  note "Open it from Applications or Spotlight."
 }
 
 command_menu() {
