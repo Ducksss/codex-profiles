@@ -4856,18 +4856,26 @@ menu_app_assert_not_running() {
 
 # A shallow clone of the release tag into the build folder: menu install
 # fetches only that release and never reads or changes the upgrade cache.
+# A git hook or wrapper can export these for its own repository, which would
+# redirect the clone and its checks away from the temporary one.
+menu_app_git() (
+  unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+    GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
+  git "$@"
+)
+
 menu_app_fetch_source() {
   local repo="$1"
   local tag="$2"
   local source_dir="$3"
   local log="$4"
 
-  if ! git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$tag" -- "$repo" "$source_dir" > "$log" 2>&1; then
+  if ! menu_app_git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$tag" -- "$repo" "$source_dir" > "$log" 2>&1; then
     cat "$log" >&2
     die "Cannot fetch $tag from $repo."
   fi
-  [[ "$(git -C "$source_dir" rev-parse --verify --quiet "refs/tags/$tag^{commit}" || true)" == \
-    "$(git -C "$source_dir" rev-parse HEAD)" ]] || die "The fetched source is not the $tag tag."
+  [[ "$(menu_app_git -C "$source_dir" rev-parse --verify --quiet "refs/tags/$tag^{commit}" || true)" == \
+    "$(menu_app_git -C "$source_dir" rev-parse HEAD)" ]] || die "The fetched source is not the $tag tag."
 }
 
 command_menu_install() {

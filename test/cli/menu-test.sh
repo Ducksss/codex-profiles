@@ -247,6 +247,30 @@ test_menu_install_builds_the_matching_release() {
   assert_no_menu_leftovers "$tmp" "$tmp/Apps"
 }
 
+test_menu_install_ignores_inherited_git_locations() {
+  local tmp decoy refs objects
+  tmp="$(new_menu_case)"
+  decoy="$tmp/decoy"
+  mkdir -p "$decoy"
+  init_git_main_branch "$decoy"
+  printf 'decoy\n' > "$decoy/file"
+  git -C "$decoy" add file
+  git -C "$decoy" -c user.name=test -c user.email=test@example.com commit -m decoy > /dev/null
+  refs="$(git -C "$decoy" show-ref)"
+  objects="$(find "$decoy/.git/objects" -type f | LC_ALL=C sort)"
+
+  # A git hook or wrapper can export these for the repository it runs in.
+  menu_cmd "$tmp" GIT_DIR="$decoy/.git" GIT_WORK_TREE="$decoy" GIT_INDEX_FILE="$decoy/.git/index" \
+    GIT_OBJECT_DIRECTORY="$decoy/.git/objects" "$SCRIPT" menu install --dir "$tmp/Apps"
+
+  assert_status 0
+  assert_contains "Installed Codex Profiles $CLI_VERSION to $tmp/Apps/$APP_NAME"
+  [[ "$(git -C "$decoy" show-ref)" == "$refs" ]] || fail "menu install changed the refs of the inherited GIT_DIR"
+  [[ "$(find "$decoy/.git/objects" -type f | LC_ALL=C sort)" == "$objects" ]] \
+    || fail "menu install wrote objects into the inherited GIT_OBJECT_DIRECTORY"
+  assert_no_menu_leftovers "$tmp" "$tmp/Apps"
+}
+
 test_menu_install_replaces_an_existing_copy_in_place() {
   local tmp app
   tmp="$(new_menu_case)"
@@ -435,6 +459,7 @@ test_menu_rejects_unknown_arguments() {
 test_menu_install_dry_run_reports_plan_without_side_effects
 test_menu_install_defaults_to_the_existing_copy
 test_menu_install_builds_the_matching_release
+test_menu_install_ignores_inherited_git_locations
 test_menu_install_replaces_an_existing_copy_in_place
 test_menu_install_refuses_to_replace_other_bundles
 test_menu_install_requires_macos_and_command_line_tools
