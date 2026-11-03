@@ -65,6 +65,9 @@ codex-profile cli work exec "run tests and summarize failures"
 In a terminal, `codex-profile cli` or `codex-profile app` with no arguments
 shows a picker of initialized profiles. Use Up/Down to select and Enter to
 launch. Type part of a name to filter the list; Backspace removes characters.
+Ctrl-X or Delete removes the selected profile: the picker hands it to
+`codex-profile remove`, which asks you to type the name, then shows the
+updated list. `default` (`~/.codex`) is never offered there.
 Escape or Ctrl-C cancels; Ctrl-C returns exit status 130. The nearest
 workspace-bound profile and current shell profile are marked separately.
 The initial selection prefers the bound profile, then a valid initialized

@@ -66,8 +66,10 @@ Use the versioned release and changelog when answering release-specific question
   missing name instead of materializing it.
 - With no arguments, `cli` and `app` show a terminal-only picker of initialized
   profiles. Up/Down changes the selection, Enter launches it, typing filters by
-  a name substring, and Backspace edits the filter. Escape and Ctrl-C cancel;
-  Ctrl-C preserves exit status 130 through interactive launch commands.
+  a name substring, and Backspace edits the filter. Ctrl-X or Delete removes
+  the selected profile through `remove`'s typed-name prompt, then returns to
+  the picker; `default` (`~/.codex`) is never offered. Escape and Ctrl-C
+  cancel; Ctrl-C preserves exit status 130 through interactive launch commands.
   The nearest workspace-bound profile and current shell profile are marked
   separately. The initial selection prefers the binding, falling back to a
   valid initialized shell profile when unbound. Exact names or menu numbers

@@ -2325,12 +2325,13 @@ cancel_interaction() {
 
 # This subshell owns terminal settings; selection, cancellation and signals all
 # restore them before the caller launches anything or asks its next question.
+# Status 3 prints a profile the person asked to remove.
 pick_profile_menu() (
   local preferred="$1" bound="$2" shell_profile="$3"
   shift 3
   local -a profiles=("$@") matches=()
   local terminal_state size rows width height=10 rendered=0 selected=0 start index slot
-  local query='' key sequence target=-1 label marker accent='' reset='' refilter=no
+  local query='' key sequence target=-1 label marker accent='' reset='' refilter=no notice=''
   size="$(stty size 2>/dev/null)" || return 2
   read -r rows width <<< "$size"
   width="${COLUMNS:-$width}"
@@ -2353,6 +2354,18 @@ pick_profile_menu() (
   picker_row() {
     printf '\r\033[K%s%.*s%s\n' "${2:-}" "$((width - 1))" "$1" "$reset" >&2
     rendered=$((rendered + 1))
+  }
+
+  # The caller confirms outside this menu, with the terminal restored.
+  # default is the stock ~/.codex, so it is never offered.
+  request_removal() {
+    [[ "${#matches[@]}" -gt 0 ]] || return 0
+    if [[ "${profiles[${matches[selected]}]}" == default ]]; then
+      notice="default (~/.codex) can't be removed here"
+      return 0
+    fi
+    printf '%s\n' "${profiles[${matches[selected]}]}"
+    exit 3
   }
 
   while true; do
@@ -2386,8 +2399,10 @@ pick_profile_menu() (
     rendered=0
     picker_row 'Choose a profile:'
     picker_row 'Up/Down: select  Enter: launch'
-    picker_row 'Type: filter  Esc: cancel'
+    picker_row 'Type: filter  Ctrl-X: remove  Esc: cancel'
     picker_row "Filter: $query"
+    [[ -z "$notice" ]] || picker_row "$notice"
+    notice=''
     if [[ "${#matches[@]}" -eq 0 ]]; then
       picker_row '  No matching profiles'
     else
@@ -2428,9 +2443,11 @@ pick_profile_menu() (
           case "$sequence" in
             '[A' | OA) selected=$(((selected + ${#matches[@]} - 1) % ${#matches[@]})) ;;
             '[B' | OB) selected=$(((selected + 1) % ${#matches[@]})) ;;
+            '[3~') request_removal ;;
           esac
         fi
         ;;
+      $'\030') request_removal ;;
       $'\003') cancel_interaction 'Selection cancelled.' 130 ;;
       $'\004') cancel_interaction 'Selection cancelled.' ;;
       $'\177' | $'\b') query="${query%?}"; selected=0; refilter=yes ;;
@@ -2447,30 +2464,37 @@ pick_profile() {
 
   require_interactive_terminal
   shell_profile="$(current_shell_profile)" || shell_profile=""
-  if workspace_resolve "${1:-$PWD}"; then
-    :
-  else
-    resolve_status=$?
-    [[ "$resolve_status" -eq 1 ]] || return "$resolve_status"
-  fi
-  while IFS= read -r profile; do
-    profile_is_initialized "$profile" || continue
-    profiles+=("$profile")
-    index=$((index + 1))
-    if [[ "$profile" == "$WORKSPACE_RESOLVED_PROFILE" ]]; then
-      default_choice="$index"
-      default_profile="$profile"
+  # A removal from the menu changes the profiles and bindings, so each pass
+  # reads them again.
+  while true; do
+    profiles=()
+    index=0
+    default_choice=""
+    default_profile=""
+    if workspace_resolve "${1:-$PWD}"; then
+      :
+    else
+      resolve_status=$?
+      [[ "$resolve_status" -eq 1 ]] || return "$resolve_status"
     fi
-    if [[ "$profile" == "$shell_profile" ]]; then
-      if [[ -z "$default_choice" && -z "$WORKSPACE_RESOLVED_PROFILE" ]]; then
+    while IFS= read -r profile; do
+      profile_is_initialized "$profile" || continue
+      profiles+=("$profile")
+      index=$((index + 1))
+      if [[ "$profile" == "$WORKSPACE_RESOLVED_PROFILE" ]]; then
         default_choice="$index"
         default_profile="$profile"
       fi
-    fi
-  done < <(discover_profiles yes)
-  [[ "$index" -gt 0 ]] || die "No initialized profiles; run '$PROGRAM setup <profile>' first."
+      if [[ "$profile" == "$shell_profile" ]]; then
+        if [[ -z "$default_choice" && -z "$WORKSPACE_RESOLVED_PROFILE" ]]; then
+          default_choice="$index"
+          default_profile="$profile"
+        fi
+      fi
+    done < <(discover_profiles yes)
+    [[ "$index" -gt 0 ]] || die "No initialized profiles; run '$PROGRAM setup <profile>' first."
 
-  if [[ -t 2 && "${TERM:-dumb}" != dumb ]]; then
+    [[ -t 2 && "${TERM:-dumb}" != dumb ]] || break
     # Catch SIGINT in the caller so Bash waits for the menu's EXIT trap to
     # restore the terminal before returning control to the user's shell.
     previous_int_trap="$(trap -p INT)"
@@ -2481,8 +2505,17 @@ pick_profile() {
       resolve_status=$?
     fi
     if [[ -n "$previous_int_trap" ]]; then eval "$previous_int_trap"; else trap - INT; fi
+    if [[ "$resolve_status" -eq 3 ]]; then
+      # remove asks for the typed name; a refusal or mismatch only ends the
+      # subshell, and its lock is released before the menu returns. Its
+      # messages join the menu on standard error.
+      (command_remove "$PICKED_PROFILE") >&2 || true
+      PICKED_PROFILE=""
+      continue
+    fi
     [[ "$resolve_status" -eq 2 ]] || return "$resolve_status"
-  fi
+    break
+  done
   printf 'Choose a profile:\n' >&2
   for ((index = 0; index < ${#profiles[@]}; index++)); do
     profile="${profiles[index]}"
