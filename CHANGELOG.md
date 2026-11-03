@@ -9,6 +9,11 @@ and this project follows semantic versioning for tagged releases.
 
 ### Added
 
+- Added **Remove profile…** to each named profile's actions in the macOS menu.
+  It asks you to type the profile's name, then runs `codex-profile remove`,
+  which deletes the profile's Codex home, including its ChatGPT window data,
+  and its workspace bindings. `default`, the stock `~/.codex`, is left to the
+  CLI.
 - The terminal profile picker that `cli` and `app` show without a profile now
   removes the selected profile with Ctrl-X or Delete. It hands the profile to
   `codex-profile remove`, which asks for the name to be typed, then returns to
