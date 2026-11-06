@@ -7,6 +7,8 @@ and this project follows semantic versioning for tagged releases.
 
 ## Unreleased
 
+## 1.5.0 - 2026-11-04
+
 ### Added
 
 - Added `codex-profile menu install`, which builds the macOS menu-bar app on
